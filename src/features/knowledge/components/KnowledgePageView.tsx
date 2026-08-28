@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 
+import { MarkdownView } from "@/components/molecules/MarkdownView";
 import { Button } from "@/components/ui/button";
 import { DeleteKnowledgePageButton } from "@/features/knowledge/components/DeleteKnowledgePageButton";
 import type { KnowledgePageDetail } from "@/features/knowledge/server/knowledge-page-service";
@@ -9,9 +10,8 @@ import { formatDate } from "@/lib/format/date";
 /**
  * Wiki 문서 상세.
  *
- * 🔴 **Markdown 을 HTML 로 렌더하지 않는다.** 지금은 원문을 그대로 보여 준다 —
- * 렌더러를 넣으려면 Library 를 하나 더 들이고 **사용자가 쓴 문자열을 HTML 로 바꾸는**
- * 경로가 생긴다(XSS). 실제로 필요해지면 그때 sanitize 까지 함께 검토한다(CLAUDE.md 18·19).
+ * 본문은 `MarkdownView` 가 그린다. 🔴 **raw HTML 을 렌더하지 않는다** — 위험한 노드를
+ * 만든 뒤 지우는 것이 아니라 처음부터 만들지 않는다(`components/molecules/MarkdownView.tsx`).
  *
  * 🔴 **Row 마다 Button 을 늘어놓지 않는다**(CLAUDE.md 16). 머리글에 수정·삭제 둘뿐이다.
  */
@@ -55,13 +55,7 @@ export function KnowledgePageView({
         </div>
       </header>
 
-      {page.content === "" ? (
-        <p className="text-xs text-muted-foreground">본문이 비어 있습니다.</p>
-      ) : (
-        <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed">
-          {page.content}
-        </pre>
-      )}
+      <MarkdownView content={page.content} />
 
       <Link
         href={basePath}
