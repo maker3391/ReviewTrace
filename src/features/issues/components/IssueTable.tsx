@@ -1,0 +1,126 @@
+import { CodeLocation } from "@/components/atoms/CodeLocation";
+import { SeverityBadge } from "@/components/atoms/SeverityBadge";
+import { StatusBadge } from "@/components/atoms/StatusBadge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { findIssues } from "@/features/issues/server/issue-query";
+import type { IssueFilter } from "@/features/issues/schemas/issue-filter";
+import { findCurrentWorkspace } from "@/lib/auth/workspace-context";
+
+/**
+ * Issue 목록의 데이터 영역.
+ *
+ * Server Component 다 — 조회는 서버에서 하고 서버가 그린다(CLAUDE.md 8).
+ * 이 Component 만 Suspense 아래에 두어, Filter 를 바꿔도 상단 Toolbar 는 남고 이 자리만 바뀐다.
+ */
+export async function IssueTable({ filter }: { filter: IssueFilter }) {
+  // 🔴 Workspace 는 서버가 정한다. Client 가 보낸 값을 쓰지 않는다(CLAUDE.md 11).
+  const workspace = await findCurrentWorkspace();
+
+  if (workspace === null) {
+    return (
+      <EmptyState
+        title="Workspace 를 결정할 수 없습니다."
+        description="인증이 아직 구현되지 않았습니다. 로그인 또는 API Key 로 Workspace 가 정해진 뒤에 Issue 를 조회합니다."
+      />
+    );
+  }
+
+  const page = await findIssues(workspace.workspaceId, filter);
+
+  if (page.items.length === 0) {
+    return (
+      <EmptyState
+        title="조건에 맞는 Issue 가 없습니다."
+        description="Filter 를 넓히거나, Agent 가 Review 결과를 아직 보내지 않았는지 확인하세요."
+      />
+    );
+  }
+
+  return (
+    <div className="flex flex-col">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-24">Severity</TableHead>
+            <TableHead>Title</TableHead>
+            <TableHead className="w-44">Category</TableHead>
+            <TableHead className="w-56">Location</TableHead>
+            <TableHead className="w-28">Status</TableHead>
+            <TableHead className="w-32 text-right">Detected</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {page.items.map((issue) => (
+            <TableRow key={issue.id}>
+              <TableCell>
+                <SeverityBadge severity={issue.severity} />
+              </TableCell>
+              <TableCell>
+                <span className="font-medium">{issue.title}</span>
+                {issue.patternKey !== null && (
+                  <span className="ml-2 font-mono text-xs text-muted-foreground">
+                    {issue.patternKey}
+                  </span>
+                )}
+              </TableCell>
+              <TableCell className="font-mono text-xs text-muted-foreground">
+                {issue.category}
+              </TableCell>
+              <TableCell>
+                <span className="block text-xs text-muted-foreground">
+                  {issue.repositoryFullName}
+                </span>
+                <CodeLocation
+                  filePath={issue.filePath}
+                  lineStart={issue.lineStart}
+                  lineEnd={issue.lineEnd}
+                />
+              </TableCell>
+              <TableCell>
+                <StatusBadge status={issue.status} />
+              </TableCell>
+              <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
+                {formatDate(issue.detectedAt)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <p className="px-4 py-3 text-xs text-muted-foreground">
+        전체 {page.total}건 중 {(page.page - 1) * page.pageSize + 1}–
+        {(page.page - 1) * page.pageSize + page.items.length}
+      </p>
+    </div>
+  );
+}
+
+function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="px-4 py-16 text-center">
+      <p className="text-sm font-medium">{title}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+// 서버·클라이언트의 Locale 차이로 문자열이 갈리지 않게 형식을 직접 고정한다.
+function formatDate(value: Date): string {
+  const year = value.getUTCFullYear();
+  const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(value.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
