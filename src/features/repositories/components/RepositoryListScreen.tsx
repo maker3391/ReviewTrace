@@ -6,7 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { findProjectRepositories } from "@/features/dashboard/server/project-dashboard-query";
+import { listRepositoryStatuses } from "@/features/repositories/server/repository-query";
 import type { ProjectContext } from "@/features/projects/types/project";
 import { formatDate } from "@/lib/format/date";
 
@@ -27,7 +27,7 @@ export async function RepositoryListScreen({
   workspaceId: string;
   project: ProjectContext;
 }) {
-  const repositories = await findProjectRepositories({
+  const repositories = await listRepositoryStatuses({
     workspaceId,
     projectId: project.projectId,
   });

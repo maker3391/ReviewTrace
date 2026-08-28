@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
 import {
@@ -10,6 +10,10 @@ import {
   reviewIssues,
   reviewSessions,
 } from "@/db/schema";
+import {
+  findFrequentPatterns,
+  type PatternCount,
+} from "@/features/issues/server/pattern-query";
 import { listProjectSummaries } from "@/features/projects/server/project-service";
 import type { ProjectSummary } from "@/features/projects/types/project";
 import {
@@ -64,15 +68,6 @@ export interface AttentionIssue {
   projectName: string;
   repositoryFullName: string;
   firstDetectedAt: Date;
-}
-
-/** 🔴 Tag 개수가 아니다. 반복되는 문제의 **정규화된 개념**이다(CLAUDE.md 3). */
-export interface PatternCount {
-  patternKey: string;
-  category: IssueCategory;
-  occurrences: number;
-  resolvedCount: number;
-  lastDetectedAt: Date;
 }
 
 /**
@@ -150,28 +145,7 @@ export async function findWorkspaceDashboard(
         .orderBy(asc(reviewIssues.severity), asc(reviewIssues.firstDetectedAt))
         .limit(SECTION_LIMIT),
 
-      executor
-        .select({
-          patternKey: sql<string>`${reviewIssues.patternKey}`,
-          category: reviewIssues.category,
-          // count(*) 는 bigint 라 Driver 가 문자열로 준다. 세는 값은 숫자로 받는다.
-          occurrences: sql<number>`count(*)::int`,
-          resolvedCount: sql<number>`count(*) filter (where ${reviewIssues.status} = 'RESOLVED')::int`,
-          lastDetectedAt: sql<Date>`max(${reviewIssues.firstDetectedAt})`,
-        })
-        .from(reviewIssues)
-        .where(
-          and(
-            eq(reviewIssues.workspaceId, workspaceId),
-            isNotNull(reviewIssues.patternKey),
-          ),
-        )
-        .groupBy(reviewIssues.patternKey, reviewIssues.category)
-        .orderBy(
-          desc(sql`count(*)`),
-          desc(sql`max(${reviewIssues.firstDetectedAt})`),
-        )
-        .limit(SECTION_LIMIT),
+      findFrequentPatterns({ scope: { workspaceId }, limit: SECTION_LIMIT }, executor),
 
       findRecentActivity(workspaceId, executor),
     ]);

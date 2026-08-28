@@ -6,7 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { findProjectReviews } from "@/features/dashboard/server/project-dashboard-query";
+import { listProjectReviews } from "@/features/reviews/server/review-query";
 import type { ProjectContext } from "@/features/projects/types/project";
 import { formatDate } from "@/lib/format/date";
 
@@ -25,7 +25,7 @@ export async function ReviewListScreen({
   workspaceId: string;
   project: ProjectContext;
 }) {
-  const reviews = await findProjectReviews({
+  const reviews = await listProjectReviews({
     workspaceId,
     projectId: project.projectId,
   });
