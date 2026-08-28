@@ -17,6 +17,15 @@ export const LOGIN_PATH = "/login";
 /** Workspace 화면의 뿌리. `/w/{slug}/{section}` 이다. */
 export const WORKSPACE_PATH_PREFIX = "/w";
 
+/**
+ * Workspace 안의 Project 화면. `/w/{workspaceSlug}/p/{projectSlug}/{section}` 이다.
+ *
+ * 🔴 **Workspace 아래에 둔다.** Project 를 최상위(`/p/{slug}`)로 올리면 주소만으로는
+ * 어느 Tenant 의 것인지 알 수 없고, slug 가 전역 unique 여야 한다 — 서로 다른 회사가
+ * 각각 `erp` 를 갖지 못하게 된다(`src/db/schema/project.ts`).
+ */
+export const PROJECT_PATH_SEGMENT = "p";
+
 /** 초대 수락. 아직 로그인하지 않은 사람도 링크를 열 수 있어야 한다. */
 export const INVITE_PATH_PREFIX = "/invite";
 
@@ -70,6 +79,29 @@ export function workspacePath(slug: string, section: string): string {
   return `${WORKSPACE_PATH_PREFIX}/${slug}/${section}`;
 }
 
+/** `/w/{workspaceSlug}/p/{projectSlug}` — Project Dashboard 의 주소. */
+export function projectBasePath(
+  workspaceSlug: string,
+  projectSlug: string,
+): string {
+  return `${WORKSPACE_PATH_PREFIX}/${workspaceSlug}/${PROJECT_PATH_SEGMENT}/${projectSlug}`;
+}
+
+/**
+ * `/w/{workspaceSlug}/p/{projectSlug}/{section}`.
+ *
+ * `section` 이 빈 문자열이면 Project Dashboard 자신이다 — 끝에 `/` 가 붙은 주소를
+ * 만들지 않는다. 그 주소는 같은 화면이지만 활성 메뉴 판정이 갈린다.
+ */
+export function projectPath(
+  workspaceSlug: string,
+  projectSlug: string,
+  section: string,
+): string {
+  const base = projectBasePath(workspaceSlug, projectSlug);
+  return section === "" ? base : `${base}/${section}`;
+}
+
 /**
  * 경로에서 Workspace slug 를 읽는다. Proxy 가 「마지막으로 본 Workspace」를 기억할 때 쓴다.
  *
@@ -83,5 +115,22 @@ export function readWorkspaceSlugFromPath(pathname: string): string | null {
   }
 
   const slug = segments[2];
+  return slug === undefined || slug === "" ? null : slug;
+}
+
+/**
+ * 경로에서 Project slug 를 읽는다. 사이드바가 「지금 어느 Project 를 보고 있는가」를 정할 때 쓴다.
+ *
+ * 🔴 여기서 나온 값도 **권한 근거가 아니다.** 서버는 이 slug 로 Project 를 찾을 때
+ * 소속이 확인된 `workspaceId` 를 함께 건다(`src/lib/auth/require-project.ts`).
+ */
+export function readProjectSlugFromPath(pathname: string): string | null {
+  const segments = normalizePath(pathname).split("/");
+  // ["", "w", "{workspaceSlug}", "p", "{projectSlug}", ...]
+  if (segments[1] !== "w" || segments[3] !== PROJECT_PATH_SEGMENT) {
+    return null;
+  }
+
+  const slug = segments[4];
   return slug === undefined || slug === "" ? null : slug;
 }
