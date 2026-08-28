@@ -725,15 +725,116 @@ GitHub API 호출 코드는 **Integration Boundary 로 분리**한다.
 
 ---
 
-## 16. UI 원칙 【현재 규칙】
+## 16. UI 원칙 · Visual Identity 【현재 규칙】
 
 이 제품은 **Developer Tool** 이다. Marketing SaaS 처럼 디자인하지 않는다.
 
-**방향**: Dense · Flat · Data First · Desktop First · Clear Hierarchy · Low Decoration
+**방향**: Enterprise · Data-first · Dense · Flat · Structured · Professional · Desktop First
 
-| 피한다 | 우선한다 |
+> **shadcn/ui = Component Primitive**
+> **Code Intelligence = Visual Design System**
+
+shadcn/ui 는 **접근성·상호작용·기본 구조**를 위한 Primitive 로 쓴다.
+🔴 **shadcn 의 기본 시각 스타일을 그대로 조합해 화면을 완성하지 않는다.**
+목표는 **전형적인 shadcn / Next.js SaaS Template 처럼 보이지 않는 것**이다.
+
+**화면의 주인공은 UI Component 가 아니라 데이터다.** 장식보다 다음을 우선한다 —
+정보 계층 · 데이터 비교 · 빠른 Scan · 상태 식별 · 검색/필터 · Table 가독성 · Context 파악.
+
+### 🔴 습관적으로 쓰지 않는 것
+
+| 쓰지 않는다 | 대신 |
 |---|---|
-| 거대한 Hero · 과도한 Gradient · 모든 것을 Card 로 감싸기 · 불필요한 Animation · 빈 공간 과다 · 장식용 KPI | Table · Search · Filter · Code Location · Severity · Status · Pattern · Resolution · History |
+| 모든 Section 을 Card 로 감싸기 · Card 중첩 | spacing · divider · typography · background level · table boundary |
+| 큰 radius · `rounded-xl`/`rounded-2xl` 남용 | 작고 절제된 radius. 모든 Container 를 둥글게 만들지 않는다 |
+| 모든 요소에 border | **정보 구조를 가를 필요가 있을 때만** |
+| 의미 없는 shadow | **실제 elevation 이 있는 것만** — Dropdown · Popover · Dialog · Floating Menu |
+| Badge 남발 · muted text 남발 | Typography 계층 |
+| 「아이콘 + 제목 + 설명」 반복 Card · Hero · Gradient 강조 | — |
+| 동일한 KPI Card 여러 개 나열 | 숫자 · Label · Divider · Alignment |
+| 필요 없는 Description 문구 | **없어도 이해되면 쓰지 않는다** |
+
+전형적인 `Card > CardHeader > CardTitle + CardDescription > CardContent` 를 기본값으로 삼지 않는다.
+**기능적으로 Card 가 필요할 때만** 쓴다.
+
+### Layout
+
+```text
+Page Header  ->  Toolbar / Filter  ->  Primary Content  ->  Secondary Information
+```
+
+불필요한 Container 중첩을 피한다.
+**페이지에 독립적인 Card 가 떠 있는 느낌이 아니라, 하나의 업무 화면으로 연결된 느낌**을 만든다.
+
+### Dashboard 는 Card Gallery 가 아니다
+
+```text
+Overview
+────────────────────────────────────
+Reviews      Issues      Open      Resolved
+184          427         38        389
+
+Needs Attention
+────────────────────────────────────
+HIGH   SMIL    Transaction Boundary
+HIGH   ERP     Race Condition
+
+Frequent Patterns
+────────────────────────────────────
+MISSING_VALIDATION            31
+N_PLUS_ONE                    18
+```
+
+**KPI 를 반드시 Card 로 만들 필요가 없다.** 숫자·Label·Divider·Alignment 로 충분하면 Card 를 더하지 않는다.
+
+### Table 중심
+
+Review · Issue · Repository · Project 목록은 **Table 을 우선**한다. 장식용 Container 로 여러 번 감싸지 않는다.
+중요한 정보는 **Column Alignment 와 Typography** 로 가른다.
+
+- **Row 마다 Button 을 여러 개 노출하지 않는다.** Primary 는 Row click 또는 핵심 Action 하나
+- Secondary Action 은 필요하면 Dropdown Menu 로 옮긴다
+
+### Badge · Typography · Icon · Color
+
+- **Badge 는 실제 상태·분류에만** — `CRITICAL` `HIGH` `OPEN` `RESOLVED` `SECURITY`.
+  🔴 Repository 이름 · Project 이름 · 작성자 · 날짜 같은 일반 Metadata 를 Badge 로 만들지 않는다
+- **구분은 Box 보다 Typography 로 먼저** 한다. 계층이 명확해야 한다 —
+  Page Title · Section Heading · Entity Heading · Primary Data · Secondary Metadata · Helper Text.
+  🔴 **모든 Text 를 muted 처리하지 않는다.** 중요 정보와 보조 정보의 대비가 살아 있어야 한다
+- **Icon 은 의미 전달에 도움이 될 때만.** 모든 Heading 앞에 붙이지 않는다
+- **Color 는 의미에만** — 상태 · Severity · Selection · Primary Action · 중요한 Feedback.
+  Primary Color 를 넓은 면적에 반복하지 않고, 일반 Container 를 색으로 가르지 않는다. **Neutral 이 기본**
+
+### Search / Filter · Empty · Loading
+
+- 검색·필터는 **업무 도구처럼** 만든다. 검색창을 이유 없이 페이지 전체 폭으로 넓히지 않고,
+  필터마다 별도 Card 를 만들지 않는다. **한 Toolbar 안에 밀도 있게** 두고 조회 결과와의 관계가 즉시 보이게 한다
+- **Empty State 에 거대한 Illustration 이나 Marketing 문구를 넣지 않는다.**
+  「열린 Issue 가 없습니다」 정도면 된다. Primary Action 은 필요할 때만
+- **전체 화면 Loading 대신 데이터 영역 단위 Skeleton.** Skeleton 은 실제 Layout 과 비슷한 크기를 유지하고,
+  과도한 Animation 을 넣지 않는다 (→ [8. SSR 우선](#8-ssr-우선--loading-ux))
+
+### 🔴 화면을 만들기 전에 확인한다
+
+```text
+이 Container 에 Card 가 정말 필요한가?
+Border 없이 정보 계층으로 가를 수 없는가?
+Badge 가 실제 상태·분류를 뜻하는가?
+Description 이 없으면 정말 이해할 수 없는가?
+이 Icon 이 실제 정보를 전달하는가?
+데이터보다 Component 가 더 눈에 띄지 않는가?
+전형적인 shadcn Dashboard Template 처럼 보이지 않는가?
+```
+
+**하나라도 불필요하면 «빼는» 쪽을 먼저 고른다.**
+
+| | |
+|---|---|
+| ❌ | shadcn Component 를 조립한 화면 |
+| ✅ | **Code Intelligence 디자인을 구현하는 데 shadcn Primitive 를 쓴 화면** |
+
+기능과 접근성은 shadcn 에 맡기되, **제품의 Visual Identity 를 shadcn 기본 스타일에 맡기지 않는다.**
 
 ### UI Architecture — Atomic Design + shadcn/ui 【현재 규칙】
 
