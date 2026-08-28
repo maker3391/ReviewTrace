@@ -72,7 +72,13 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  /*
+   * 🔴 shadcn 기본값(0.625rem)이 아니다.
+   *
+   * 이 제품은 Enterprise 운영 화면이다 — 둥근 모서리가 크면 데이터보다 Container 가
+   * 먼저 눈에 들어온다(CLAUDE.md 16). Radius 는 「눌리는 것」을 알아볼 정도만 남긴다.
+   */
+  --radius: 0.25rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
