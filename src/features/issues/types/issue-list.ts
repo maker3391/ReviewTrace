@@ -14,10 +14,10 @@ export interface IssueListItem {
   status: IssueStatus;
   patternKey: string | null;
   filePath: string | null;
-  lineStart: number | null;
-  lineEnd: number | null;
+  startLine: number | null;
+  endLine: number | null;
   repositoryFullName: string;
-  detectedAt: Date;
+  firstDetectedAt: Date;
 }
 
 export interface IssueListPage {

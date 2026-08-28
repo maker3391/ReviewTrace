@@ -79,15 +79,15 @@ export async function IssueTable({ filter }: { filter: IssueFilter }) {
                 </span>
                 <CodeLocation
                   filePath={issue.filePath}
-                  lineStart={issue.lineStart}
-                  lineEnd={issue.lineEnd}
+                  lineStart={issue.startLine}
+                  lineEnd={issue.endLine}
                 />
               </TableCell>
               <TableCell>
                 <StatusBadge status={issue.status} />
               </TableCell>
               <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
-                {formatDate(issue.detectedAt)}
+                {formatDate(issue.firstDetectedAt)}
               </TableCell>
             </TableRow>
           ))}

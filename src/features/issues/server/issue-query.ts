@@ -61,16 +61,16 @@ export async function findIssues(
         status: reviewIssues.status,
         patternKey: reviewIssues.patternKey,
         filePath: reviewIssues.filePath,
-        lineStart: reviewIssues.lineStart,
-        lineEnd: reviewIssues.lineEnd,
+        startLine: reviewIssues.startLine,
+        endLine: reviewIssues.endLine,
         repositoryFullName: repositories.fullName,
-        detectedAt: reviewIssues.detectedAt,
+        firstDetectedAt: reviewIssues.firstDetectedAt,
       })
       .from(reviewIssues)
       .innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
       .where(where)
       // 같은 시각의 행이 페이지마다 뒤바뀌지 않게 id 로 한 번 더 고정한다.
-      .orderBy(desc(reviewIssues.detectedAt), desc(reviewIssues.id))
+      .orderBy(desc(reviewIssues.firstDetectedAt), desc(reviewIssues.id))
       .limit(ISSUE_PAGE_SIZE)
       .offset(offset);
 
