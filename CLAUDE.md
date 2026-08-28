@@ -417,10 +417,10 @@ Agent Request  API Key -> Key Lookup -> Workspace -> Authorized Workspace
 
 ---
 
-## 12. API Key 【향후 — 구조만 준비】
+## 12. API Key 【현재 규칙】
 
 ```text
-Authorization: Bearer rk_xxxxxxxxx
+Authorization: Bearer ci_xxxxxxxxx
 ```
 
 🔴 **API Key 원문을 Database 에 저장하지 않는다.**
@@ -431,43 +431,139 @@ ApiKey: id · workspaceId · name · keyPrefix · keyHash · lastUsedAt · expir
 발급  Secure Random Token -> 사용자에게 원문 1회 표시 -> Hash 생성 -> Hash 만 DB 저장
 ```
 
-API Key 는 충분한 Entropy 를 가진 Random Secret 이므로 Hash 기반 Lookup 을 쓴다.
-**Token 을 Log 에 출력하지 않는다.**
+토큰은 `ci_` + **난수 32 바이트(256 bit)** 를 base64url 로 적은 것이다(`src/lib/api/api-key-token.ts`).
+그 Entropy 가 **Hash 방식의 근거**다 — 사용자가 고른 비밀번호가 아니라 생성기가 만든 난수라
+사전 공격 대상이 아니고, 요청마다 도는 Lookup 이므로 SHA-256 한 번이 맞다.
+bcrypt·argon2 를 들이려고 의존성을 늘리지 않는다(CLAUDE.md 18).
+
+- **원문은 발급 응답에만 존재한다.** 목록(`listApiKeys`)은 `plainToken` 도 `keyHash` 도
+  돌려주지 않는다 — `keyPrefix` 만으로 어느 키인지 알아본다
+- **형식이 아닌 값은 Database 를 보지 않고 거절한다.** 아무 문자열이나 Hash 해서 조회하면
+  요청마다 인덱스를 한 번씩 태우게 된다
+- 🔴 **거절 사유를 구분해 알려주지 않는다.** 형식 오류·없는 키·폐기·만료가 전부 같은
+  `UNAUTHORIZED` 다 — 구분해 주면 그것만으로 「이 키는 존재한다」가 새어 나간다
+- **폐기는 행을 지우지 않는다**(`revokedAt`). 지우면 그 키가 무엇을 했는지가 함께 사라지고,
+  같은 Hash 가 다시 발급될 여지가 생긴다
+- `lastUsedAt` 은 1분에 한 번만 다시 찍는다. 요청마다 UPDATE 하면 바쁜 Key 하나에 쓰기가 몰려
+  같은 행을 두고 잠금이 줄을 선다
+- **Token 을 Log·응답·오류 메시지에 담지 않는다.** 받은 값을 되돌려 담지도 않는다
 
 ---
 
-## 13. Public Agent API 【향후 — 경계만 준비】
+## 13. Public Agent API 【현재 규칙】
 
-Namespace 는 `/api/v1/**` 로 통일하고 Versioning 한다.
+Namespace 는 `/api/v1/**` 로 통일하고 Versioning 한다. **네 Endpoint 가 모두 구현돼 있다.**
 
 ```text
-POST   /api/v1/reviews
-PATCH  /api/v1/issues/{id}
-POST   /api/v1/issues/{id}/activities
-GET    /api/v1/knowledge/context
+POST   /api/v1/reviews                     Review 수집
+POST   /api/v1/issues/{issueId}/activities Issue History 한 줄 추가
+PATCH  /api/v1/issues/{issueId}            Issue 상태 전이
+GET    /api/v1/knowledge/context           과거 Knowledge 조회
 ```
 
 **API 는 Claude/Codex 에 종속되지 않는다.** Claude · Codex · Gemini · Custom Agent · 사람이 쓰는 도구 — 어떤 Client 라도 같은 계약을 쓸 수 있어야 한다.
+
+```text
+Route Handler -> API Key Authentication -> Zod -> Application Service -> Repository -> PostgreSQL
+```
+
+🔴 **Route Handler 는 Transport 다.** HTTP 를 다루는 일(인증·Parsing·오류 변환)까지만 하고,
+업무 판단은 `features/{domain}/server` 의 Application Service 가 한다. 그렇다고 의미 없는
+`BaseService`·`Interface + Impl` 를 두지 않는다(CLAUDE.md 18).
+
+### Tenant — Key 가 곧 Workspace 다
+
+🔴 **Agent API 에서는 Browser 처럼 `workspaceSlug` 를 권한 근거로 쓰지 않는다.**
+Payload 에도 Query 에도 Workspace 자리가 없다. Client 가 보낸 `workspaceId` 는 Zod 가 버린다.
+
+Issue 하나를 다룰 때도 `WHERE issue.id = ?` 로 끝내지 않는다 — **그 Issue 가 그 Key 의
+Workspace 것인지** 조건에 함께 건다. `repositoryId` 는 Filter 일 뿐 권한 근거가 아니다.
+
+🔴 **남의 Workspace 의 Issue 는 `FORBIDDEN` 이 아니라 `NOT_FOUND`** 다. 둘을 구분해 주면
+그것만으로 그 ID 가 존재한다는 사실이 새어 나가고, ID 를 훑어 다른 Tenant 를 셀 수 있게 된다.
 
 ### Review Ingestion
 
 ```json
 {
-  "repository": { "provider": "GITHUB", "fullName": "owner/repository" },
+  "repository": { "provider": "GITHUB", "externalRepositoryId": "123456789",
+                  "owner": "owner", "name": "repository", "fullName": "owner/repository" },
   "target":     { "type": "COMMIT", "branch": "develop", "commitSha": "a81f3c2" },
   "reviewer":   { "type": "AGENT", "name": "codex" },
+  "summary":    "Review summary",
   "issues":     []
 }
 ```
 
 ```text
-API Key -> Workspace 결정 -> Zod Validation -> Repository 확인
-  -> Transaction -> ReviewSession -> ReviewIssues -> Tags/Activities -> Commit
+API Key -> Workspace 결정 -> Zod Validation -> Repository Upsert
+  -> Transaction -> ReviewSession -> ReviewIssues -> Tags/IssueTags -> Activities -> Commit
 ```
 
 🔴 **Client 가 Workspace 를 임의 지정하도록 만들지 않는다.**
+🔴 **하나의 Transaction 이다.** 중간에 실패하면 ReviewSession 도 남지 않는다.
+🔴 **Issue 개수만큼 Round Trip 을 만들지 않는다.** Issue 가 1개든 500개든 문장 수는 같다.
 
----
+`externalRepositoryId` 는 **필수**다. Repository 의 Unique 근거이고(스키마 참고), `owner/name`
+은 GitHub 에서 바뀐다 — 이름으로 식별하면 Rename 한 순간 같은 Repository 가 둘로 갈라져
+Knowledge 가 끊긴다. 문제를 하나도 못 찾은 Review 도 받는다 — 「이 Commit 은 깨끗했다」도 Knowledge 다.
+
+### Idempotency — 왜 `Idempotency-Key` 인가
+
+**둘 다 쓰되 맡는 일이 다르다.**
+
+| | 무엇의 동일성인가 | 무엇을 막는가 |
+|---|---|---|
+| `Idempotency-Key` 헤더 | **요청** 하나 | 재전송이 ReviewSession 을 늘리는 것 |
+| `source` + `externalId` | **Issue** 하나 | 같은 문제가 매 Review 마다 새 행이 되는 것 |
+
+「동일 Request 가 ReviewSession 을 무한 생성」은 **요청의 동일성**이고, `source + externalId`
+로는 답할 수 없다 — 그것은 Issue 의 신원이라 Issue 를 하나도 담지 않은 Review 나 `summary`
+같은 Session 값에는 아무 말도 못 한다. 반대로 「같은 문제가 매번 새 행이 되는 것」은
+Session 열쇠로 막을 수 없다. 그래서 나눴다.
+
+- 열쇠는 `review_sessions.idempotency_key` **Column 하나**이고 Unique 는 Repository 안에서다.
+  **별도의 Idempotency 표·응답 Cache·TTL 을 만들지 않는다**(CLAUDE.md 18)
+- 헤더를 보내지 않으면 Dedup 하지 않는다. 「같은 Commit 을 두 번 Review 했다」는 정상이고,
+  우리가 마음대로 접으면 두 번째 결과가 사라진다
+- 재전송이면 **`200`**, 새로 저장했으면 **`201`** 이다
+- 이미 아는 Issue 를 다시 보고받으면 행을 새로 만들지 않고 **`REVIEWED_AGAIN`** Activity 를 남긴다.
+  「이번 Review 도 이 문제를 봤다」가 History 에 있어야 반복 여부를 셀 수 있다
+
+### 상태 전이 — 상태와 History 를 함께 움직인다
+
+`PATCH /api/v1/issues/{issueId}` 는 Column 하나를 바꾸지 않는다. 한 Transaction 안에서
+`status` · `resolvedAt` · `resolutionSummary` · `IssueActivity` 넷이 함께 움직인다.
+
+| 전이 | resolvedAt | resolutionSummary | Activity |
+|---|---|---|---|
+| `RESOLVED` | 지금 | 저장 (**필수**) | `RESOLVED` |
+| `REOPENED` · 그 밖 | `NULL` | `NULL` | 상태별 대응 |
+
+🔴 **`RESOLVED` 는 `resolutionSummary` 없이 통과하지 못한다** — `resolved = true` 만 저장하지
+않는다(CLAUDE.md 2). 🔴 **RESOLVED 가 아닌 상태에 해결 요약을 남겨 두지 않는다.** 지난 요약은
+`RESOLVED` Activity 의 `description` 에 남아 History 로 읽을 수 있다.
+
+### Knowledge Context
+
+`frequentPatterns` · `recentHighSeverityIssues` · `unresolvedIssues` · `pastResolutions` 넷을
+돌려준다. Filter 는 `repositoryId` · `category` · `pattern` · `severity` · `limit` 이다.
+
+🔴 **LLM 도 Vector Search 도 쓰지 않는다.** `COUNT` · `GROUP BY` · `FILTER` · `ORDER BY` ·
+`LIMIT` 만으로 만든다. 🔴 **통계를 JavaScript 에서 세지 않는다** — 전체 Issue 를 가져와
+`reduce` 로 세면 요청 하나가 표를 통째로 읽는다. 필요한 Column 만 조회한다.
+
+### Error Contract
+
+```json
+{ "error": { "code": "VALIDATION_ERROR", "message": "Invalid review payload" } }
+```
+
+`UNAUTHORIZED`(401) · `FORBIDDEN`(403) · `VALIDATION_ERROR`(400) · `NOT_FOUND`(404) ·
+`CONFLICT`(409) · `INTERNAL_ERROR`(500). **Code ↔ Status 대응은 한 곳**(`src/lib/api/error-response.ts`)
+이고 Route 마다 숫자를 적지 않는다. 🔴 Stack Trace · SQL · Secret · 내부 경로를 내보내지 않는다 —
+알 수 없는 오류는 원인을 **서버 Log 에만** 남기고 밖으로는 `INTERNAL_ERROR` 한 줄만 나간다.
+
 
 ## 14. Knowledge 는 양방향이다
 
