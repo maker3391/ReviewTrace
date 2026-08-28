@@ -18,6 +18,7 @@ import type {
   ProjectContext,
   ProjectSummary,
 } from "@/features/projects/types/project";
+import { asCount, asNullableDate } from "@/db/raw-value";
 import { AppError } from "@/lib/errors";
 import { normalizeSlug } from "@/lib/workspace/slug";
 
@@ -160,7 +161,17 @@ export async function listProjectSummaries(
     .where(eq(projects.workspaceId, workspaceId))
     .orderBy(asc(projects.name));
 
-  return rows;
+  /**
+   * 🔴 원시 SQL 조각의 타입 단언을 여기서 실제 값으로 맞춘다(`db/raw-value.ts`).
+   * 이 줄이 없으면 `lastActivityAt` 이 문자열인 채 화면까지 가서 `formatDate` 가 터진다.
+   */
+  return rows.map((row) => ({
+    ...row,
+    repositoryCount: asCount(row.repositoryCount),
+    reviewCount: asCount(row.reviewCount),
+    openIssueCount: asCount(row.openIssueCount),
+    lastActivityAt: asNullableDate(row.lastActivityAt),
+  }));
 }
 
 export interface CreateProjectCommand {

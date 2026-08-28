@@ -9,6 +9,7 @@ import {
   reviewIssues,
   reviewSessions,
 } from "@/db/schema";
+import { asCount, asNullableDate } from "@/db/raw-value";
 import { AppError } from "@/lib/errors";
 import { OPEN_ISSUE_STATUSES, type ScmProvider } from "@/types/review";
 import type { ProjectScope } from "@/types/tenant";
@@ -55,7 +56,7 @@ export async function listRepositoryStatuses(
 ): Promise<RepositoryStatus[]> {
   const stats = repositoryStats(scope, executor);
 
-  return executor
+  const rows = await executor
     .select({
       id: repositories.id,
       fullName: repositories.fullName,
@@ -74,6 +75,18 @@ export async function listRepositoryStatuses(
       ),
     )
     .orderBy(asc(repositories.name));
+
+  // 🔴 원시 SQL 조각의 타입 단언을 실제 값으로 맞춘다(`db/raw-value.ts`).
+  return rows.map(normalizeRepositoryStatus);
+}
+
+function normalizeRepositoryStatus<T extends RepositoryStatus>(row: T): T {
+  return {
+    ...row,
+    reviewCount: asCount(row.reviewCount),
+    openIssueCount: asCount(row.openIssueCount),
+    lastReviewAt: asNullableDate(row.lastReviewAt),
+  };
 }
 
 /** 상세 화면. 🔴 범위 밖이면 `null` 이다 — 「없는 것」과 「남의 것」을 구분하지 않는다. */
@@ -111,7 +124,8 @@ export async function findRepositoryDetail(
     )
     .limit(1);
 
-  return rows[0] ?? null;
+  const row = rows[0];
+  return row === undefined ? null : normalizeRepositoryStatus(row);
 }
 
 /**

@@ -3,6 +3,7 @@ import "server-only";
 import { and, desc, eq, isNotNull, sql, type SQL } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
+import { asCount, asDate } from "@/db/raw-value";
 import { repositories, reviewIssues } from "@/db/schema";
 import type { ProjectScope, WorkspaceScope } from "@/types/tenant";
 import type { IssueCategory } from "@/types/review";
@@ -56,7 +57,7 @@ export async function findFrequentPatterns(
    * 조건이 있을 때만 붙이면 조건과 Join 이 갈라져 빠뜨리기 쉽다. FK 가 `NOT NULL` 이라
    * Join 을 더해도 행 수는 변하지 않는다.
    */
-  return executor
+  const rows = await executor
     .select({
       patternKey: sql<string>`${reviewIssues.patternKey}`,
       category: reviewIssues.category,
@@ -74,4 +75,12 @@ export async function findFrequentPatterns(
       desc(sql`max(${reviewIssues.firstDetectedAt})`),
     )
     .limit(input.limit);
+
+  // 🔴 원시 SQL 조각의 타입 단언을 실제 값으로 맞춘다(`db/raw-value.ts`).
+  return rows.map((row) => ({
+    ...row,
+    occurrences: asCount(row.occurrences),
+    resolvedCount: asCount(row.resolvedCount),
+    lastDetectedAt: asDate(row.lastDetectedAt),
+  }));
 }
