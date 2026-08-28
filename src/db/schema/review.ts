@@ -20,14 +20,15 @@ import {
   reviewerTypeEnum,
   scmProviderEnum,
 } from "@/db/schema/enums";
+import { projects } from "@/db/schema/project";
 import { workspaces } from "@/db/schema/workspace";
 
 /**
  * Review Knowledge 의 정본.
  *
  * ```
- * Workspace -> Repository -> ReviewSession -> ReviewIssue -> IssueActivity
- *                                                         \- IssueTag -- Tag
+ * Workspace -> Project -> Repository -> ReviewSession -> ReviewIssue -> IssueActivity
+ *                                                                    \- IssueTag -- Tag
  * ```
  *
  * 🔴 검색·Filter·Statistics 에 쓰이는 값은 JSONB 에 몰아넣지 않고 Column 으로 둔다(CLAUDE.md 10).
@@ -47,6 +48,16 @@ export const repositories = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
+    /**
+     * 이 Repository 가 속한 업무 단위(스펙 1).
+     *
+     * 🔴 **소유는 Project 가 하고, Tenant 판정은 여전히 `workspaceId` 가 한다.**
+     * Project 는 반드시 한 Workspace 안에 있으므로 둘은 어긋날 수 없다 — 어긋나지 않게
+     * 지키는 자리는 Application Layer 다(`project-service.ts` 의 `resolveIngestProject`).
+     */
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
     provider: scmProviderEnum("provider").notNull(),
     /** Provider 쪽 식별자. GitHub 에서 Repository 이름이 바뀌어도 같은 대상임을 잃지 않는다. */
     externalRepositoryId: text("external_repository_id").notNull(),
@@ -81,6 +92,8 @@ export const repositories = pgTable(
     ),
     // Workspace 의 Repository 목록.
     index("repositories_workspace_idx").on(table.workspaceId),
+    // Project 화면의 Repository 목록이자 Project 단위 집계가 타는 Join 축.
+    index("repositories_project_idx").on(table.projectId, table.name),
   ],
 );
 
