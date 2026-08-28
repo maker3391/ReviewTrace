@@ -149,4 +149,39 @@ describe("reviewIngestSchema", () => {
     expect(result.startedAt?.toISOString()).toBe("2026-08-28T01:02:03.000Z");
     expect(result.completedAt?.toISOString()).toBe("2026-08-28T01:05:00.000Z");
   });
+
+  /**
+   * 🔴 `htmlUrl` 은 화면이 `<a href>` 로 그리는 유일한 «Agent 가 준» 주소다.
+   *
+   * 되돌림 확인(2026-08-28): `z.httpUrl()` 을 `z.url()` 로 되돌리면 아래 세 건이 전부
+   * 통과해 버린다 — Zod 의 `url()` 은 Scheme 을 보지 않는다. 직접 돌려 봤다.
+   */
+  describe("htmlUrl 의 Scheme", () => {
+    const withUrl = (htmlUrl: string) => ({
+      ...validPayload,
+      repository: { ...validPayload.repository, htmlUrl },
+    });
+
+    it("http·https 만 받는다", () => {
+      expect(
+        reviewIngestSchema.safeParse(withUrl("https://github.com/a/b")).success,
+      ).toBe(true);
+      expect(
+        reviewIngestSchema.safeParse(withUrl("http://git.internal/a/b")).success,
+      ).toBe(true);
+    });
+
+    it("스크립트가 되는 Scheme 을 거절한다", () => {
+      expect(
+        reviewIngestSchema.safeParse(withUrl("javascript:alert(1)")).success,
+      ).toBe(false);
+      expect(
+        reviewIngestSchema.safeParse(withUrl("data:text/html,<script>x</script>"))
+          .success,
+      ).toBe(false);
+      expect(
+        reviewIngestSchema.safeParse(withUrl("vbscript:msgbox(1)")).success,
+      ).toBe(false);
+    });
+  });
 });

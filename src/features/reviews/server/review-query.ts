@@ -63,10 +63,18 @@ export interface ReviewDetail extends ReviewListItem {
  *
  * 목록에서 Issue 를 Join 해 세면 Review 마다 행이 곱해진다. 상관 Subquery 로 센다 —
  * `review_issues_session_idx` 가 그것을 받는다.
+ *
+ * 🔴 **바깥이 Workspace 로 좁혀졌다고 안쪽까지 좁혀지지는 않는다.** 안쪽 조건은
+ * `review_session_id` 하나뿐이고, 그것이 Workspace 를 넘지 않는다는 보증은 Database 에
+ * 없다 — `review_issues.review_session_id` 는 단일 Column FK 라 두 표의 `workspace_id` 가
+ * 같다는 것을 강제하지 못한다. 지금은 저장 코드가 늘 같은 값을 넣어 맞지만, 그것은
+ * **애플리케이션 규약**이지 제약이 아니다. 안쪽에도 함께 걸어 두면 규약이 깨져도
+ * 숫자가 남의 것을 세지 않는다(CLAUDE.md 10 — 겹쳐서 건다).
  */
 const issueCount = sql<number>`(
   select count(*)::int from ${reviewIssues}
   where ${reviewIssues.reviewSessionId} = ${reviewSessions.id}
+    and ${reviewIssues.workspaceId} = ${reviewSessions.workspaceId}
 )`;
 
 /**

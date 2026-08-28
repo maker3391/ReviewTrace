@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isStorableText } from "@/lib/validation/db-text";
 import { normalizeSlug } from "@/lib/workspace/slug";
 
 /**
@@ -40,9 +41,21 @@ export const knowledgePageSchema = z.object({
     .trim()
     .max(SLUG_MAX, `slug 는 ${SLUG_MAX}자를 넘을 수 없습니다.`)
     .default(""),
+  /**
+   * Markdown 원문.
+   *
+   * 🔴 **붙여넣기로 들어오는 유일하게 긴 자유 입력이다.** 다른 곳에서 복사한 본문에는
+   * `\u0000` 이나 깨진 Surrogate 가 섞여 들어올 수 있는데, PostgreSQL `text` 는 그것을
+   * 받지 못한다 — Zod 가 통과시키면 Server Action 이 예외로 끝나고 화면은 이유를 말하지
+   * 못한다(CLAUDE.md 8). Schema 에서 거절해야 폼이 「무엇이 잘못됐는지」를 보여 준다.
+   *
+   * Agent API 쪽 같은 문제는 `readJsonBody` 가 본문 하나로 훑는다(`lib/api/agent-route.ts`).
+   * 여기는 Route 를 거치지 않는 경로라 그 그물에 걸리지 않는다.
+   */
   content: z
     .string()
     .max(CONTENT_MAX, "본문이 너무 깁니다.")
+    .refine(isStorableText, "본문에 저장할 수 없는 문자가 들어 있습니다.")
     .default(""),
 });
 

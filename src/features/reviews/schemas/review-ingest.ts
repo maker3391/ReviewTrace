@@ -90,8 +90,20 @@ export const reviewRepositorySchema = z.object({
   name: nonEmpty(IDENTIFIER_MAX),
   fullName: nonEmpty(IDENTIFIER_MAX * 2 + 1),
   defaultBranch: nonEmpty(IDENTIFIER_MAX).default("main"),
+  /**
+   * Repository 를 사람이 열어 보는 주소. 화면이 `<a href>` 로 그린다.
+   *
+   * 🔴 **`z.url()` 이 아니라 `z.httpUrl()` 이다.** Zod 의 `url()` 은 「URL 로 파싱되는가」만
+   * 보고 Scheme 을 보지 않아 `javascript:alert(1)` · `data:text/html,...` 가 그대로 통과한다.
+   * 그 값은 Agent 가 보낸 것이고 우리는 그것을 저장했다가 나중에 링크로 그린다 —
+   * 즉 이 한 칸이 저장형 XSS 의 재료가 될 수 있는 유일한 자리다.
+   *
+   * React 19 가 `javascript:` href 를 렌더 단계에서 막아 주긴 하지만, 그것은 **Renderer 의
+   * 구현 세부**이지 우리 계약이 아니다. 링크를 복사하거나 다른 곳에서 열면 그 보호가 없다.
+   * 저장 전에 거르는 쪽이 정본이다.
+   */
   htmlUrl: z
-    .url()
+    .httpUrl()
     .max(2048)
     .nullish()
     .transform((value) => value ?? null),

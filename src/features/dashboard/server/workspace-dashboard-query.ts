@@ -222,9 +222,16 @@ async function findRecentActivity(
         projectName: projects.name,
         repositoryFullName: repositories.fullName,
         reviewerName: reviewSessions.reviewerName,
+        /*
+          🔴 안쪽 Subquery 에도 Workspace 를 건다. 바깥 `where` 가 Session 을 좁혀도
+          안쪽은 `review_session_id` 하나로만 세고 있어, 두 표의 `workspace_id` 가 갈리는
+          순간 남의 Issue 를 세게 된다 — Database 는 그것을 막지 못한다(단일 Column FK).
+          같은 이유로 `features/reviews/server/review-query.ts` 도 함께 건다.
+        */
         issueCount: sql<number>`(
           select count(*)::int from ${reviewIssues}
           where ${reviewIssues.reviewSessionId} = ${reviewSessions.id}
+            and ${reviewIssues.workspaceId} = ${reviewSessions.workspaceId}
         )`,
       })
       .from(reviewSessions)

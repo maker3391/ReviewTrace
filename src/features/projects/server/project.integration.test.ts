@@ -31,7 +31,10 @@ import {
   findRepositoryDetail,
   moveRepositoryToProject,
 } from "@/features/repositories/server/repository-query";
-import { findReviewDetail } from "@/features/reviews/server/review-query";
+import {
+  findReviewDetail,
+  listProjectReviews,
+} from "@/features/reviews/server/review-query";
 import { findIssueDetail } from "@/features/issues/server/issue-detail-query";
 import {
   changeMemberRole,
@@ -992,6 +995,63 @@ describe.skipIf(!enabled)("상세 조회의 Tenant 격리", () => {
       expect(
         await findRepositoryDetail(theirs, seeded.repositoryId, tx),
       ).toBeNull();
+    });
+  });
+
+  /**
+   * 🔴 **Database 는 「Issue 와 그 Session 의 Workspace 가 같다」를 강제하지 않는다.**
+   *
+   * `review_issues.review_session_id` 는 단일 Column FK 라, 두 표의 `workspace_id` 가
+   * 어긋난 행을 만들어도 제약이 걸리지 않는다. 지금은 저장 코드가 늘 같은 값을 넣어 맞지만
+   * 그것은 **애플리케이션 규약**이지 제약이 아니다.
+   *
+   * 그래서 Review 목록의 Issue 개수를 세는 상관 Subquery 는 바깥이 Workspace 로 좁혀졌다는
+   * 사실에 기대지 않고 **안쪽에도 조건을 건다**(CLAUDE.md 10 — 겹쳐서 건다).
+   * 이 시험은 규약이 깨진 행을 일부러 만들어 그 조건이 실제로 도는지 본다.
+   *
+   * 되돌림 확인(2026-08-28): `review-query.ts` 의 `issueCount` 에서
+   * `and ... workspaceId = ...` 를 빼면 기대값 1 자리에 2 가 와서 실패한다. 직접 돌려 봤다.
+   */
+  it("🔴 Issue 개수는 «Session 과 Workspace 가 어긋난» 행을 세지 않는다", async () => {
+    await inRollback(async (tx) => {
+      const alpha = await makeWorkspace(tx, "Alpha");
+      const beta = await makeWorkspace(tx, "Beta");
+
+      const project = await createProject(
+        {
+          workspaceId: alpha.workspaceId,
+          createdBy: alpha.userId,
+          input: { name: "SMIL", slug: "smil", description: "" },
+        },
+        tx,
+      );
+      const seeded = await seedReview(tx, {
+        workspaceId: alpha.workspaceId,
+        projectId: project.projectId,
+        title: "정상 Issue",
+      });
+
+      /*
+        규약이 깨진 행 하나. Session 은 Alpha 것인데 Issue 는 Beta 소속이라고 적혀 있다 —
+        저장 코드가 이런 행을 만들지는 않지만 Database 가 막지도 않는다.
+      */
+      await tx.insert(reviewIssues).values({
+        workspaceId: beta.workspaceId,
+        repositoryId: seeded.repositoryId,
+        reviewSessionId: seeded.reviewSessionId,
+        title: "남의 Workspace 로 적힌 Issue",
+        severity: "LOW",
+        category: "CLEAN_CODE",
+      });
+
+      const reviews = await listProjectReviews(
+        { workspaceId: alpha.workspaceId, projectId: project.projectId },
+        tx,
+      );
+
+      expect(reviews).toHaveLength(1);
+      // 2 가 아니라 1 이다 — 안쪽 조건이 어긋난 행을 걸러 낸다.
+      expect(reviews[0]?.issueCount).toBe(1);
     });
   });
 });

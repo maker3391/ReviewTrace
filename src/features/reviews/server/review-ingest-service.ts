@@ -170,6 +170,7 @@ export async function ingestReview(
     if (idempotencyKey !== null) {
       const replay = await findSessionByIdempotencyKey(
         tx,
+        workspaceId,
         repositoryId,
         idempotencyKey,
       );
@@ -216,7 +217,12 @@ export async function ingestReview(
       const replay =
         idempotencyKey === null
           ? null
-          : await findSessionByIdempotencyKey(tx, repositoryId, idempotencyKey);
+          : await findSessionByIdempotencyKey(
+              tx,
+              workspaceId,
+              repositoryId,
+              idempotencyKey,
+            );
 
       if (replay === null) {
         throw new AppError("INTERNAL_ERROR");
@@ -273,7 +279,12 @@ export async function ingestReview(
 
     // 5. 이미 있던 Issue 의 실제 행을 찾는다. Dedup 을 통과하지 못한 것은
     //    `source`·`externalId` 가 둘 다 있는 것뿐이라 한 번의 조회로 끝난다.
-    const knownByKey = await findExistingIssues(tx, repositoryId, alreadyKnown);
+    const knownByKey = await findExistingIssues(
+      tx,
+      workspaceId,
+      repositoryId,
+      alreadyKnown,
+    );
 
     const resolved: {
       issue: PreparedIssue;
@@ -394,6 +405,7 @@ interface ExistingIssueRow {
 
 async function findExistingIssues(
   tx: DbExecutor,
+  workspaceId: string,
   repositoryId: string,
   candidates: readonly PreparedIssue[],
 ): Promise<Map<string, ExistingIssueRow>> {
@@ -419,7 +431,19 @@ async function findExistingIssues(
     .from(reviewIssues)
     .where(
       and(
-        // 🔴 Repository 로 좁힌다. `externalId` 만으로 조회하면 다른 Tenant 의 행이 섞인다.
+        /*
+          🔴 Workspace 와 Repository 를 «겹쳐서» 건다(CLAUDE.md 10).
+
+          `repositoryId` 만으로도 지금은 맞는다 — 그 값은 바로 위 Upsert 가
+          `(workspaceId, provider, externalRepositoryId)` 로 얻은 것이라 이 Key 의 Workspace
+          안에 있다. 하지만 그것은 **다른 함수의 동작에 기대는 안전**이라 그 함수를 고치면
+          여기서는 아무 신호도 나지 않는다. `review_issues.review_session_id` 는 단일 Column
+          FK 라 Database 도 「Issue 와 Repository 의 Workspace 가 같다」를 강제하지 않는다.
+
+          겹쳐 두면 어느 한쪽을 틀려도 결과가 비어서 돌아온다. 이 조회는 **Issue 제목·상태를
+          그대로 돌려주므로** 틀렸을 때 새는 것이 숫자가 아니라 내용이다.
+        */
+        eq(reviewIssues.workspaceId, workspaceId),
         eq(reviewIssues.repositoryId, repositoryId),
         inArray(reviewIssues.externalId, externalIds),
       ),
@@ -501,6 +525,7 @@ async function linkTags(
 
 async function findSessionByIdempotencyKey(
   tx: DbExecutor,
+  workspaceId: string,
   repositoryId: string,
   idempotencyKey: string,
 ): Promise<IngestedReview | null> {
@@ -509,6 +534,8 @@ async function findSessionByIdempotencyKey(
     .from(reviewSessions)
     .where(
       and(
+        // 🔴 Workspace 를 겹쳐 건다 — 아래 Issue 조회가 이 `session.id` 를 그대로 쓴다.
+        eq(reviewSessions.workspaceId, workspaceId),
         eq(reviewSessions.repositoryId, repositoryId),
         eq(reviewSessions.idempotencyKey, idempotencyKey),
       ),
@@ -529,7 +556,18 @@ async function findSessionByIdempotencyKey(
       status: reviewIssues.status,
     })
     .from(reviewIssues)
-    .where(eq(reviewIssues.reviewSessionId, session.id));
+    .where(
+      and(
+        /*
+          🔴 재전송 응답은 **Issue 제목·심각도·상태를 그대로 되돌려 준다.**
+          `reviewSessionId` 하나로 좁히면 「그 Session 이 이 Key 의 것이다」에만 기대는
+          셈인데, 그 보증은 위 조회가 갖고 있고 이 문장은 갖고 있지 않다.
+          두 문장에 나뉜 조건은 한쪽만 고쳐질 수 있다 — 그래서 여기에도 함께 건다.
+        */
+        eq(reviewIssues.workspaceId, workspaceId),
+        eq(reviewIssues.reviewSessionId, session.id),
+      ),
+    );
 
   return {
     repositoryId,

@@ -25,6 +25,27 @@ import type { ProjectScope } from "@/types/tenant";
 const SECTION_LIMIT = 10;
 
 /**
+ * 밖으로 나가는 링크로 그려도 되는 주소인가.
+ *
+ * 🔴 **Schema 가 이미 막는데도 여기서 한 번 더 보는 이유는 «이미 저장된 행» 때문이다.**
+ * `htmlUrl` 의 Scheme 검사(`review-ingest.ts`)는 앞으로 들어올 값에만 걸린다 —
+ * 그 전에 들어온 행은 Database 에 그대로 남아 있고, 화면은 그것을 읽어 그린다.
+ * 입력을 고쳤다고 저장된 값이 안전해지지 않는다.
+ *
+ * 판정을 Renderer 에 맡기지 않는다. React 19 는 `javascript:` 를 막지만 `data:` 는 막지
+ * 않고, 그것은 우리가 정한 계약이 아니라 그 Library 버전의 동작이다.
+ */
+function isSafeExternalUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "https:" || protocol === "http:";
+  } catch {
+    // 파싱되지 않는 값은 링크로 만들지 않는다.
+    return false;
+  }
+}
+
+/**
  * Repository 상세.
  *
  * 🔴 **Source Code 를 담지 않는다**(CLAUDE.md 15). 저장 대상은 Review Knowledge 다 —
@@ -66,19 +87,20 @@ export async function RepositoryDetailScreen({
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             {repository.provider} · {repository.defaultBranch}
             {!repository.isActive && " · 연결 해제됨"}
-            {repository.htmlUrl !== null && (
-              <>
-                {" · "}
-                <a
-                  href={repository.htmlUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="underline-offset-2 hover:text-foreground hover:underline"
-                >
-                  GitHub
-                </a>
-              </>
-            )}
+            {repository.htmlUrl !== null &&
+              isSafeExternalUrl(repository.htmlUrl) && (
+                <>
+                  {" · "}
+                  <a
+                    href={repository.htmlUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="underline-offset-2 hover:text-foreground hover:underline"
+                  >
+                    GitHub
+                  </a>
+                </>
+              )}
           </p>
         </div>
         <MoveRepositoryDialog

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { apiError, apiErrorFromUnknown } from "@/lib/api/error-response";
 import { AppError, isAppError } from "@/lib/errors";
+import { hasUnstorableText } from "@/lib/validation/db-text";
 
 /**
  * Agent API Route Handler 의 공통 처리.
@@ -52,14 +53,36 @@ export async function runAgentRoute(
  *
  * 깨진 JSON 은 **우리 잘못이 아니라 요청 잘못**이다 — 500 이 아니라 `VALIDATION_ERROR` 다.
  *
+ * 🔴 **「JSON 으로 파싱된다」와 「저장할 수 있다」는 다른 말이다.** `JSON.parse` 는
+ * `\u0000` 과 짝 없는 Surrogate 를 순순히 문자열로 만들어 주지만 PostgreSQL `text` 는
+ * 그 둘을 받지 못한다. 그대로 흘려 보내면 Zod 를 통과한 뒤 Driver 가 던져 `500` 이 되고,
+ * **5xx 를 재시도하도록 만들어진 Agent 가 성공할 수 없는 요청을 영원히 다시 보낸다.**
+ * 여기서 거절하면 `400` 이라 Agent 가 자기 입력을 고칠 수 있다(`lib/validation/db-text.ts`).
+ *
+ * 🔴 **Schema 마다 필드별로 붙이지 않고 본문 하나를 훑는다.** 필드에 붙이면 새 필드를
+ * 더할 때마다 잊을 수 있고, 잊은 자리는 조용히 500 으로 돌아온다. 경계에서 한 번 보면
+ * 네 Route 가 같은 보증을 공짜로 받는다 — 이 파일이 존재하는 이유 그대로다.
+ *
  * @throws AppError `VALIDATION_ERROR`
  */
 export async function readJsonBody(request: Request): Promise<unknown> {
+  let body: unknown;
+
   try {
-    return await request.json();
+    body = await request.json();
   } catch {
     throw new AppError("VALIDATION_ERROR", "요청 본문이 올바른 JSON 이 아니다.");
   }
+
+  if (hasUnstorableText(body)) {
+    // 🔴 어느 값이 문제였는지 되돌려 담지 않는다 — 받은 값을 응답에 싣지 않는다.
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "요청 본문에 저장할 수 없는 문자가 들어 있다 (NUL · 짝 없는 Surrogate).",
+    );
+  }
+
+  return body;
 }
 
 /**
