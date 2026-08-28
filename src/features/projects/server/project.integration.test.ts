@@ -1,7 +1,13 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { db, type DbExecutor } from "@/db";
-import { repositories, reviewIssues, reviewSessions, users } from "@/db/schema";
+import {
+  repositories,
+  reviewIssues,
+  reviewSessions,
+  users,
+  workspaceMembers,
+} from "@/db/schema";
 import { findProjectDashboard } from "@/features/dashboard/server/project-dashboard-query";
 import { findWorkspaceDashboard } from "@/features/dashboard/server/workspace-dashboard-query";
 import { findIssues } from "@/features/issues/server/issue-query";
@@ -14,10 +20,25 @@ import {
 } from "@/features/knowledge/server/knowledge-page-service";
 import {
   createProject,
+  deleteProject,
   findProjectBySlug,
+  findProjectDeletionImpact,
   listProjectSummaries,
   resolveIngestProject,
+  updateProject,
 } from "@/features/projects/server/project-service";
+import {
+  findRepositoryDetail,
+  moveRepositoryToProject,
+} from "@/features/repositories/server/repository-query";
+import { findReviewDetail } from "@/features/reviews/server/review-query";
+import { findIssueDetail } from "@/features/issues/server/issue-detail-query";
+import {
+  changeMemberRole,
+  createWorkspace,
+  listMembers,
+} from "@/features/workspaces/server/workspace-service";
+import { listMemberWorkspaces } from "@/lib/auth/workspace-context";
 import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
 
 /**
@@ -94,7 +115,11 @@ async function makeWorkspace(
 async function seedReview(
   tx: DbExecutor,
   input: { workspaceId: string; projectId: string; title: string },
-): Promise<{ repositoryId: string; issueId: string }> {
+): Promise<{
+  repositoryId: string;
+  reviewSessionId: string;
+  issueId: string;
+}> {
   const repositoryRows = await tx
     .insert(repositories)
     .values({
@@ -147,7 +172,7 @@ async function seedReview(
     throw new Error("시험용 ReviewIssue 를 만들지 못했다");
   }
 
-  return { repositoryId, issueId };
+  return { repositoryId, reviewSessionId, issueId };
 }
 
 const ALL_FILTER = parseIssueFilter({});
@@ -701,6 +726,365 @@ describe.skipIf(!enabled)("Knowledge Scope", () => {
       );
 
       expect(excerpts).toHaveLength(0);
+    });
+  });
+});
+
+describe.skipIf(!enabled)("Project 수정·삭제", () => {
+  it("🔴 다른 Workspace 는 Project 를 고치지 못한다", async () => {
+    await inRollback(async (tx) => {
+      const alpha = await makeWorkspace(tx, "Alpha");
+      const beta = await makeWorkspace(tx, "Beta");
+
+      const project = await createProject(
+        {
+          workspaceId: alpha.workspaceId,
+          createdBy: alpha.userId,
+          input: { name: "SMIL", slug: "smil", description: "" },
+        },
+        tx,
+      );
+
+      await expect(
+        updateProject(
+          {
+            workspaceId: beta.workspaceId,
+            projectId: project.projectId,
+            input: { name: "탈취", slug: "hijacked", description: "" },
+          },
+          tx,
+        ),
+      ).rejects.toThrow();
+
+      // 짝: 주인은 고칠 수 있다 — 「항상 실패」로 통과하지 않게 둔다.
+      const updated = await updateProject(
+        {
+          workspaceId: alpha.workspaceId,
+          projectId: project.projectId,
+          input: { name: "SMIL v2", slug: "smil-v2", description: "" },
+        },
+        tx,
+      );
+      expect(updated.slug).toBe("smil-v2");
+    });
+  });
+
+  it("🔴 이미 쓰는 slug 로는 바꾸지 못한다", async () => {
+    await inRollback(async (tx) => {
+      const alpha = await makeWorkspace(tx, "Alpha");
+
+      await createProject(
+        {
+          workspaceId: alpha.workspaceId,
+          createdBy: alpha.userId,
+          input: { name: "SMIL", slug: "smil", description: "" },
+        },
+        tx,
+      );
+      const other = await createProject(
+        {
+          workspaceId: alpha.workspaceId,
+          createdBy: alpha.userId,
+          input: { name: "ERP", slug: "erp", description: "" },
+        },
+        tx,
+      );
+
+      await expect(
+        updateProject(
+          {
+            workspaceId: alpha.workspaceId,
+            projectId: other.projectId,
+            input: { name: "ERP", slug: "smil", description: "" },
+          },
+          tx,
+        ),
+      ).rejects.toThrow();
+    });
+  });
+
+  it("삭제 전에 무엇을 잃는지 세고, 삭제하면 아래가 함께 사라진다", async () => {
+    await inRollback(async (tx) => {
+      const alpha = await makeWorkspace(tx, "Alpha");
+      const project = await createProject(
+        {
+          workspaceId: alpha.workspaceId,
+          createdBy: alpha.userId,
+          input: { name: "SMIL", slug: "smil", description: "" },
+        },
+        tx,
+      );
+
+      await seedReview(tx, {
+        workspaceId: alpha.workspaceId,
+        projectId: project.projectId,
+        title: "문제",
+      });
+
+      const impact = await findProjectDeletionImpact(
+        { workspaceId: alpha.workspaceId, projectId: project.projectId },
+        tx,
+      );
+      expect(impact.repositories).toBe(1);
+      expect(impact.reviewSessions).toBe(1);
+      expect(impact.reviewIssues).toBe(1);
+
+      await deleteProject(
+        { workspaceId: alpha.workspaceId, projectId: project.projectId },
+        tx,
+      );
+
+      // 🔴 Cascade 로 Repository·Review·Issue 까지 함께 사라졌다.
+      expect(await listProjectSummaries(alpha.workspaceId, tx)).toHaveLength(0);
+    });
+  });
+});
+
+describe.skipIf(!enabled)("Repository 이동", () => {
+  it("옮기면 Review·Issue 가 함께 따라간다", async () => {
+    await inRollback(async (tx) => {
+      const alpha = await makeWorkspace(tx, "Alpha");
+      const from = await createProject(
+        {
+          workspaceId: alpha.workspaceId,
+          createdBy: alpha.userId,
+          input: { name: "SMIL", slug: "smil", description: "" },
+        },
+        tx,
+      );
+      const to = await createProject(
+        {
+          workspaceId: alpha.workspaceId,
+          createdBy: alpha.userId,
+          input: { name: "ERP", slug: "erp", description: "" },
+        },
+        tx,
+      );
+
+      const seeded = await seedReview(tx, {
+        workspaceId: alpha.workspaceId,
+        projectId: from.projectId,
+        title: "따라와야 하는 문제",
+      });
+
+      await moveRepositoryToProject(
+        {
+          workspaceId: alpha.workspaceId,
+          repositoryId: seeded.repositoryId,
+          targetProjectId: to.projectId,
+        },
+        tx,
+      );
+
+      const before = await findProjectDashboard(
+        { workspaceId: alpha.workspaceId, projectId: from.projectId },
+        tx,
+      );
+      const after = await findProjectDashboard(
+        { workspaceId: alpha.workspaceId, projectId: to.projectId },
+        tx,
+      );
+
+      /**
+       * 🔴 `review_issues` 를 하나도 건드리지 않았는데 Issue 가 함께 옮겨졌다 —
+       * Project 로 좁히는 조회가 Repository 를 Join 하기 때문이다.
+       * 이것이 하위 표에 `project_id` 를 복사하지 않은 값이다.
+       */
+      expect(before.openIssues).toHaveLength(0);
+      expect(before.repositories).toHaveLength(0);
+      expect(after.openIssues).toHaveLength(1);
+      expect(after.repositories).toHaveLength(1);
+    });
+  });
+
+  it("🔴 다른 Workspace 의 Project 로는 옮기지 못한다", async () => {
+    await inRollback(async (tx) => {
+      const alpha = await makeWorkspace(tx, "Alpha");
+      const beta = await makeWorkspace(tx, "Beta");
+
+      const mine = await createProject(
+        {
+          workspaceId: alpha.workspaceId,
+          createdBy: alpha.userId,
+          input: { name: "SMIL", slug: "smil", description: "" },
+        },
+        tx,
+      );
+      const theirs = await createProject(
+        {
+          workspaceId: beta.workspaceId,
+          createdBy: beta.userId,
+          input: { name: "Theirs", slug: "theirs", description: "" },
+        },
+        tx,
+      );
+
+      const seeded = await seedReview(tx, {
+        workspaceId: alpha.workspaceId,
+        projectId: mine.projectId,
+        title: "문제",
+      });
+
+      await expect(
+        moveRepositoryToProject(
+          {
+            workspaceId: alpha.workspaceId,
+            repositoryId: seeded.repositoryId,
+            targetProjectId: theirs.projectId,
+          },
+          tx,
+        ),
+      ).rejects.toThrow();
+
+      // 제자리에 남아 있다.
+      expect(
+        await findRepositoryDetail(
+          { workspaceId: alpha.workspaceId, projectId: mine.projectId },
+          seeded.repositoryId,
+          tx,
+        ),
+      ).not.toBeNull();
+    });
+  });
+});
+
+describe.skipIf(!enabled)("상세 조회의 Tenant 격리", () => {
+  it("🔴 Issue·Review·Repository 상세를 다른 Workspace 로는 열 수 없다", async () => {
+    await inRollback(async (tx) => {
+      const alpha = await makeWorkspace(tx, "Alpha");
+      const beta = await makeWorkspace(tx, "Beta");
+
+      const project = await createProject(
+        {
+          workspaceId: alpha.workspaceId,
+          createdBy: alpha.userId,
+          input: { name: "SMIL", slug: "smil", description: "" },
+        },
+        tx,
+      );
+      const seeded = await seedReview(tx, {
+        workspaceId: alpha.workspaceId,
+        projectId: project.projectId,
+        title: "비밀",
+      });
+
+      const mine = {
+        workspaceId: alpha.workspaceId,
+        projectId: project.projectId,
+      };
+      // 🔴 Workspace 만 바꿔 끼운다. projectId 는 그대로다.
+      const theirs = {
+        workspaceId: beta.workspaceId,
+        projectId: project.projectId,
+      };
+
+      // 주인에게는 열린다 — 「항상 null」로 통과하지 않게 짝을 둔다.
+      expect(await findIssueDetail(mine, seeded.issueId, tx)).not.toBeNull();
+      expect(
+        await findReviewDetail(mine, seeded.reviewSessionId, tx),
+      ).not.toBeNull();
+      expect(
+        await findRepositoryDetail(mine, seeded.repositoryId, tx),
+      ).not.toBeNull();
+
+      expect(await findIssueDetail(theirs, seeded.issueId, tx)).toBeNull();
+      expect(await findReviewDetail(theirs, seeded.reviewSessionId, tx)).toBeNull();
+      expect(
+        await findRepositoryDetail(theirs, seeded.repositoryId, tx),
+      ).toBeNull();
+    });
+  });
+});
+
+describe.skipIf(!enabled)("Workspace 만들기와 멤버 역할", () => {
+  it("만든 사람이 OWNER 가 되고 기존 소속은 그대로다", async () => {
+    await inRollback(async (tx) => {
+      const alpha = await makeWorkspace(tx, "Alpha");
+
+      const created = await createWorkspace(
+        { name: unique("team-"), createdBy: alpha.userId },
+        tx,
+      );
+
+      const members = await listMembers(created.workspaceId, tx);
+      expect(members).toHaveLength(1);
+      expect(members[0]?.role).toBe("OWNER");
+      // 🔴 Personal Workspace 가 아니다 — 그 자리를 뺏지 않는다.
+      expect(members[0]?.isPersonalOwner).toBe(false);
+
+      // 기존 Personal 소속은 그대로 남아 둘이 된다.
+      expect(await listMemberWorkspaces(alpha.userId, tx)).toHaveLength(2);
+    });
+  });
+
+  it("🔴 마지막 OWNER 는 강등되지 않는다 — Workspace 가 잠기지 않게", async () => {
+    await inRollback(async (tx) => {
+      const alpha = await makeWorkspace(tx, "Alpha");
+      const created = await createWorkspace(
+        { name: unique("team-"), createdBy: alpha.userId },
+        tx,
+      );
+
+      await expect(
+        changeMemberRole(
+          {
+            workspaceId: created.workspaceId,
+            userId: alpha.userId,
+            role: "MEMBER",
+          },
+          tx,
+        ),
+      ).rejects.toThrow();
+
+      const members = await listMembers(created.workspaceId, tx);
+      expect(members[0]?.role).toBe("OWNER");
+    });
+  });
+
+  it("OWNER 가 둘이면 한 명은 강등할 수 있다", async () => {
+    await inRollback(async (tx) => {
+      const alpha = await makeWorkspace(tx, "Alpha");
+      const guest = await makeWorkspace(tx, "Guest");
+      const created = await createWorkspace(
+        { name: unique("team-"), createdBy: alpha.userId },
+        tx,
+      );
+
+      await tx.insert(workspaceMembers).values({
+        workspaceId: created.workspaceId,
+        userId: guest.userId,
+        role: "OWNER",
+      });
+
+      await changeMemberRole(
+        {
+          workspaceId: created.workspaceId,
+          userId: guest.userId,
+          role: "MEMBER",
+        },
+        tx,
+      );
+
+      const members = await listMembers(created.workspaceId, tx);
+      expect(members.find((m) => m.userId === guest.userId)?.role).toBe("MEMBER");
+      expect(members.find((m) => m.userId === alpha.userId)?.role).toBe("OWNER");
+    });
+  });
+
+  it("🔴 Personal Workspace 의 주인은 역할을 바꿀 수 없다", async () => {
+    await inRollback(async (tx) => {
+      const alpha = await makeWorkspace(tx, "Alpha");
+
+      await expect(
+        changeMemberRole(
+          {
+            workspaceId: alpha.workspaceId,
+            userId: alpha.userId,
+            role: "MEMBER",
+          },
+          tx,
+        ),
+      ).rejects.toThrow();
     });
   });
 });
