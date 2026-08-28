@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 
 import { APP_CONFIG } from "@/config/app";
 import { SignInWithGithubButton } from "@/features/auth/components/SignInWithGithubButton";
-import { currentUser } from "@/lib/auth/workspace-context";
+import { currentUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: "로그인",

@@ -7,7 +7,7 @@ import GitHub from "next-auth/providers/github";
 import { db } from "@/db";
 import { accounts, sessions, users, verificationTokens } from "@/db/schema";
 import { LOGIN_PATH } from "@/config/routes";
-import { serverEnv } from "@/lib/env";
+import { authEnv } from "@/lib/env";
 import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
 
 /**
@@ -46,7 +46,7 @@ function readGithubLogin(profile: unknown): string | null {
 }
 
 export function buildAuthConfig(): NextAuthConfig {
-  const env = serverEnv();
+  const env = authEnv();
 
   return {
     // 🔴 Adapter 가 users·accounts·sessions 를 쓴다. 표의 정본은 `src/db/schema` 다.

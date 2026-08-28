@@ -1,11 +1,9 @@
 import "server-only";
 
-import { cache } from "react";
 import { and, eq } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
 import { workspaceMembers, workspaces } from "@/db/schema";
-import { auth } from "@/lib/auth";
 import type { WorkspaceRole } from "@/types/review";
 
 /**
@@ -45,27 +43,6 @@ export interface SessionUser {
   name: string | null;
   image: string | null;
 }
-
-/**
- * 세션의 사용자. 없으면 `null`.
- *
- * `cache` 는 React 렌더 한 번의 범위다 — Layout·화면·조회가 각각 불러도 세션 조회는 한 번만
- * 돈다. 요청 사이에 값이 넘어가지 않는다.
- */
-export const currentUser = cache(async (): Promise<SessionUser | null> => {
-  const session = await auth();
-  const id = session?.user?.id;
-
-  if (typeof id !== "string" || id === "") {
-    return null;
-  }
-
-  return {
-    id,
-    name: session?.user?.name ?? null,
-    image: session?.user?.image ?? null,
-  };
-});
 
 /**
  * slug 로 지목된 Workspace 에 이 사용자가 실제로 속해 있는지 확인한다.

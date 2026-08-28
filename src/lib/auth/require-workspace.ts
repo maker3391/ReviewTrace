@@ -3,8 +3,8 @@ import "server-only";
 import { notFound, redirect } from "next/navigation";
 
 import { LOGIN_PATH } from "@/config/routes";
+import { currentUser } from "@/lib/auth/session";
 import {
-  currentUser,
   findMembership,
   type SessionUser,
   type WorkspaceContext,

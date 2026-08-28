@@ -6,7 +6,11 @@ import { z } from "zod";
  * 환경 변수도 「외부 입력」이다(CLAUDE.md 9). 값이 없거나 형식이 틀리면
  * 화면이 반쯤 도는 상태가 아니라 **읽는 순간 실패**해야 한다.
  *
- * 이 파일은 순수 Schema 만 둔다 — `process.env` 를 읽지 않으므로 테스트에서 그대로 쓸 수 있다.
+ * 🔴 **Schema 를 용도별로 나눈다.** 하나로 묶으면 Database 만 쓰는 코드가 GitHub OAuth Secret
+ * 까지 요구한다 — Tenant 격리 시험이나 Migration 도구처럼 인증과 무관한 자리가 그것 때문에
+ * 멈춘다. 나눠도 「없으면 실패」는 그대로다. 각자가 자기 값을 처음 쓸 때 실패할 뿐이다.
+ *
+ * 이 파일은 순수 Schema 만 둔다 — `process.env` 를 읽지 않으므로 시험에서 그대로 쓸 수 있다.
  * 실제 로딩은 `src/lib/env.ts`(server-only)가 한다.
  */
 export const serverEnvSchema = z.object({
@@ -24,9 +28,19 @@ export const serverEnvSchema = z.object({
   APP_URL: z.url("APP_URL 은 절대 URL 이어야 한다").default("http://localhost:3000"),
 
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+});
 
+export type ServerEnv = z.infer<typeof serverEnvSchema>;
+
+/**
+ * 인증에만 쓰는 값.
+ *
+ * 🔴 **기본값을 두지 않는다.** 없으면 로그인이 조용히 꺼지는 것이 아니라 실패해야 한다 —
+ * 조용히 꺼지면 배포 시점에 알아채지 못한다.
+ */
+export const authEnvSchema = z.object({
   /**
-   * 세션 쿠키 서명·암호화 키. 🔴 기본값을 두지 않는다.
+   * 세션 쿠키 서명·암호화 키.
    *
    * 이 값이 약하면 세션을 위조할 수 있으므로 「있기만 하면」으로 통과시키지 않는다.
    * `openssl rand -base64 32` 또는 `npx auth secret` 이 만드는 길이를 바닥으로 잡는다.
@@ -42,4 +56,4 @@ export const serverEnvSchema = z.object({
   GITHUB_CLIENT_SECRET: z.string().min(1, "GITHUB_CLIENT_SECRET 이 비어 있다"),
 });
 
-export type ServerEnv = z.infer<typeof serverEnvSchema>;
+export type AuthEnv = z.infer<typeof authEnvSchema>;

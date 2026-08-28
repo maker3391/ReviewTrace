@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AcceptInvitationForm } from "@/features/invitations/components/AcceptInvitationForm";
 import { invitationTokenSchema } from "@/features/invitations/schemas/invitation";
 import { findInvitationPreview } from "@/features/invitations/server/invitation-service";
-import { currentUser } from "@/lib/auth/workspace-context";
+import { currentUser } from "@/lib/auth/session";
 import { SignInWithGithubButton } from "@/features/auth/components/SignInWithGithubButton";
 
 export const metadata: Metadata = {
