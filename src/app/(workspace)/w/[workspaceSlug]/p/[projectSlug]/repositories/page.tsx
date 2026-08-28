@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { Route } from "next";
 
 import { RepositoryListScreen } from "@/features/repositories/components/RepositoryListScreen";
 import { requireProject } from "@/lib/auth/require-project";
@@ -19,6 +20,7 @@ export default async function ProjectRepositoriesPage({
     <RepositoryListScreen
       workspaceId={workspace.workspaceId}
       project={project}
+      basePath={`/w/${workspace.slug}/p/${project.slug}/repositories` as Route}
     />
   );
 }

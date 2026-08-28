@@ -1,3 +1,6 @@
+import Link from "next/link";
+import type { Route } from "next";
+
 import {
   Table,
   TableBody,
@@ -22,10 +25,13 @@ import { formatDate } from "@/lib/format/date";
 export async function RepositoryListScreen({
   workspaceId,
   project,
+  basePath,
 }: {
   /** 🔴 소속 확인을 통과한 값. */
   workspaceId: string;
   project: ProjectContext;
+  /** 상세로 들어가는 주소의 뿌리. */
+  basePath: Route;
 }) {
   const repositories = await listRepositoryStatuses({
     workspaceId,
@@ -61,8 +67,13 @@ export async function RepositoryListScreen({
             <TableBody>
               {repositories.map((repository) => (
                 <TableRow key={repository.id}>
-                  <TableCell className="font-mono text-xs">
-                    {repository.fullName}
+                  <TableCell>
+                    <Link
+                      href={`${basePath}/${repository.id}` as Route}
+                      className="font-mono text-xs underline-offset-2 hover:underline"
+                    >
+                      {repository.fullName}
+                    </Link>
                   </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {repository.defaultBranch}

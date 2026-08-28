@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { Route } from "next";
 
 import { ReviewListScreen } from "@/features/reviews/components/ReviewListScreen";
 import { requireProject } from "@/lib/auth/require-project";
@@ -19,6 +20,7 @@ export default async function ProjectReviewsPage({
     <ReviewListScreen
       workspaceId={workspace.workspaceId}
       project={project}
+      basePath={`/w/${workspace.slug}/p/${project.slug}/reviews` as Route}
     />
   );
 }

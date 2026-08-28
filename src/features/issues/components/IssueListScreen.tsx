@@ -60,7 +60,7 @@ export async function IssueListScreen({
         key={issueFilterToQueryString(filter)}
         fallback={<IssueTableSkeleton />}
       >
-        <IssueTable scope={scope} filter={filter} />
+        <IssueTable scope={scope} filter={filter} basePath={basePath} />
       </Suspense>
     </div>
   );

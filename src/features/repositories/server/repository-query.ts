@@ -3,7 +3,13 @@ import "server-only";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
-import { repositories, reviewIssues, reviewSessions } from "@/db/schema";
+import {
+  projects,
+  repositories,
+  reviewIssues,
+  reviewSessions,
+} from "@/db/schema";
+import { AppError } from "@/lib/errors";
 import { OPEN_ISSUE_STATUSES, type ScmProvider } from "@/types/review";
 import type { ProjectScope } from "@/types/tenant";
 
@@ -164,4 +170,58 @@ export async function listWorkspaceRepositories(
     .from(repositories)
     .where(eq(repositories.workspaceId, workspaceId))
     .orderBy(asc(repositories.fullName));
+}
+
+/**
+ * Repository 를 같은 Workspace 안의 다른 Project 로 옮긴다.
+ *
+ * 🔴 **Workspace 를 넘지 못한다.** 조건에 `workspace_id` 가 두 번 든다 — 옮길 Repository 를
+ * 찾을 때 한 번, 옮겨 갈 Project 가 같은 Workspace 인지 볼 때 한 번. 하나라도 어긋나면
+ * 아무 행도 잡히지 않는다(CLAUDE.md 11).
+ *
+ * 🔴 **Review Knowledge 는 따라간다.** `review_sessions`·`review_issues` 는 Repository 를
+ * 가리키므로 행을 옮길 필요가 없다 — Project 로 좁히는 조회가 Repository 를 Join 하기 때문에
+ * 이 한 번의 UPDATE 로 아래가 전부 함께 이동한다. 이것이 `project_id` 를 하위 표에 복사하지
+ * 않은 이유이기도 하다.
+ *
+ * @throws {AppError} 대상이나 목적지가 범위 밖이면 `NOT_FOUND`.
+ */
+export async function moveRepositoryToProject(
+  input: {
+    /** 🔴 소속 확인을 통과한 값. */
+    workspaceId: string;
+    repositoryId: string;
+    targetProjectId: string;
+  },
+  executor: DbExecutor = db(),
+): Promise<void> {
+  const target = await executor
+    .select({ id: projects.id })
+    .from(projects)
+    .where(
+      and(
+        eq(projects.id, input.targetProjectId),
+        eq(projects.workspaceId, input.workspaceId),
+      ),
+    )
+    .limit(1);
+
+  if (target[0] === undefined) {
+    throw new AppError("NOT_FOUND", "옮길 Project 를 찾을 수 없습니다.");
+  }
+
+  const moved = await executor
+    .update(repositories)
+    .set({ projectId: input.targetProjectId, updatedAt: new Date() })
+    .where(
+      and(
+        eq(repositories.id, input.repositoryId),
+        eq(repositories.workspaceId, input.workspaceId),
+      ),
+    )
+    .returning({ id: repositories.id });
+
+  if (moved.length === 0) {
+    throw new AppError("NOT_FOUND", "Repository 를 찾을 수 없습니다.");
+  }
 }

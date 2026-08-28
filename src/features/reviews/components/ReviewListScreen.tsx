@@ -1,3 +1,6 @@
+import Link from "next/link";
+import type { Route } from "next";
+
 import {
   Table,
   TableBody,
@@ -20,10 +23,13 @@ import { formatDate } from "@/lib/format/date";
 export async function ReviewListScreen({
   workspaceId,
   project,
+  basePath,
 }: {
   /** 🔴 소속 확인을 통과한 값. */
   workspaceId: string;
   project: ProjectContext;
+  /** 상세로 들어가는 주소의 뿌리. */
+  basePath: Route;
 }) {
   const reviews = await listProjectReviews({
     workspaceId,
@@ -60,8 +66,13 @@ export async function ReviewListScreen({
             <TableBody>
               {reviews.map((review) => (
                 <TableRow key={review.id}>
-                  <TableCell className="font-medium">
-                    {review.reviewerName}
+                  <TableCell>
+                    <Link
+                      href={`${basePath}/${review.id}` as Route}
+                      className="font-medium underline-offset-2 hover:underline"
+                    >
+                      {review.reviewerName}
+                    </Link>
                   </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {review.repositoryFullName}

@@ -1,3 +1,6 @@
+import Link from "next/link";
+import type { Route } from "next";
+
 import { CodeLocation } from "@/components/atoms/CodeLocation";
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
 import { StatusBadge } from "@/components/atoms/StatusBadge";
@@ -24,10 +27,13 @@ import type { IssueFilter } from "@/features/issues/schemas/issue-filter";
 export async function IssueTable({
   scope,
   filter,
+  basePath,
 }: {
   /** 🔴 소속 확인을 통과한 값. Client 가 보낸 식별자를 쓰지 않는다(CLAUDE.md 11). */
   scope: IssueQueryScope;
   filter: IssueFilter;
+  /** 상세로 들어가는 주소의 뿌리. 조회 조건이 아니다. */
+  basePath: Route;
 }) {
   const page = await findIssues(scope, filter);
 
@@ -60,7 +66,12 @@ export async function IssueTable({
                 <SeverityBadge severity={issue.severity} />
               </TableCell>
               <TableCell>
-                <span className="font-medium">{issue.title}</span>
+                <Link
+                  href={`${basePath}/${issue.id}` as Route}
+                  className="font-medium underline-offset-2 hover:underline"
+                >
+                  {issue.title}
+                </Link>
                 {issue.patternKey !== null && (
                   <span className="ml-2 font-mono text-xs text-muted-foreground">
                     {issue.patternKey}
