@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
 import { Section } from "@/components/molecules/Section";
+import { ApiKeyPanel } from "@/features/api-keys/components/ApiKeyPanel";
+import { listApiKeys } from "@/features/api-keys/server/api-key-service";
 import { StatRow } from "@/components/molecules/StatRow";
 import { listProjectOptions } from "@/features/projects/server/project-service";
 import { listWorkspaceMembers } from "@/features/invitations/server/invitation-service";
@@ -16,9 +18,11 @@ export const metadata: Metadata = {
  * 멤버·초대는 Members 화면으로 옮겼다(스펙 3) — 이 화면은 **Workspace 자신에 대한 것**만
  * 다룬다.
  *
- * 🔴 **아직 없는 것을 있는 것처럼 그리지 않는다.** Workspace 이름·slug 변경, API Key 발급
- * 화면은 만들지 않았다 — 눌러서 아무 일도 일어나지 않는 버튼을 두지 않는다.
- * API Key 는 지금도 Application Service(`api-key-service.ts`)로만 만들 수 있다.
+ * 🔴 **API Key 는 OWNER 에게만 보인다.** 그 Workspace 의 Agent API 를 통째로 여는
+ * 자격이라 초대와 같은 급이다 — 화면에서 감추는 것은 편의일 뿐이고, 실제 판정은
+ * Server Action 안의 `requireOwner` 가 한다(CLAUDE.md 11).
+ *
+ * 🔴 **아직 없는 것을 있는 것처럼 그리지 않는다.** Workspace 이름·slug 변경은 만들지 않았다.
  */
 export default async function WorkspaceSettingsPage({
   params,
@@ -28,9 +32,13 @@ export default async function WorkspaceSettingsPage({
   const { workspaceSlug } = await params;
   const { workspace } = await requireWorkspace(workspaceSlug);
 
-  const [members, projects] = await Promise.all([
+  const isOwner = workspace.role === "OWNER";
+
+  const [members, projects, apiKeys] = await Promise.all([
     listWorkspaceMembers(workspace.workspaceId),
     listProjectOptions(workspace.workspaceId),
+    // 🔴 OWNER 가 아니면 조회하지도 않는다. 화면에서 감추는 것으로 대신하지 않는다.
+    isOwner ? listApiKeys(workspace.workspaceId) : Promise.resolve([]),
   ]);
 
   return (
@@ -65,6 +73,15 @@ export default async function WorkspaceSettingsPage({
           />
         </div>
       </Section>
+
+      {isOwner && (
+        <Section
+          title="API Keys"
+          description="Agent 가 이 Workspace 에 Review 를 보낼 때 쓰는 자격"
+        >
+          <ApiKeyPanel workspaceSlug={workspace.slug} apiKeys={apiKeys} />
+        </Section>
+      )}
     </div>
   );
 }
