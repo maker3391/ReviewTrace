@@ -1,0 +1,5 @@
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+  # vitest / drizzle-kit 이 쓰는 esbuild 는 postinstall 로 플랫폼 바이너리를 확인한다.
+  esbuild: true
