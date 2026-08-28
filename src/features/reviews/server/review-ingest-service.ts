@@ -16,6 +16,7 @@ import type {
   ReviewIngestInput,
   ReviewIssueInput,
 } from "@/features/reviews/schemas/review-ingest";
+import { resolveIngestProject } from "@/features/projects/server/project-service";
 import {
   normalizeTagList,
   type NormalizedTag,
@@ -109,6 +110,17 @@ export async function ingestReview(
   const { workspaceId, idempotencyKey, payload } = input;
 
   return executor.transaction(async (tx) => {
+    /**
+     * 0. Project 확인 / 생성.
+     *
+     * 🔴 Repository 보다 «먼저» 한다 — Repository 가 Project 에 속하기 때문이다(스펙 1).
+     * Transaction 안에서 돌므로, 뒤가 실패하면 여기서 만든 Project 도 남지 않는다.
+     */
+    const projectId = await resolveIngestProject(
+      { workspaceId, project: payload.project },
+      tx,
+    );
+
     // 1. Repository 확인 / Upsert.
     //    이름은 GitHub 에서 바뀐다 — 매 Review 마다 최신 표기로 맞춘다.
     //    같은 대상임을 잃지 않는 근거는 `externalRepositoryId` 다(스펙 21).
@@ -116,6 +128,7 @@ export async function ingestReview(
       .insert(repositories)
       .values({
         workspaceId,
+        projectId,
         provider: payload.repository.provider,
         externalRepositoryId: payload.repository.externalRepositoryId,
         owner: payload.repository.owner,
@@ -131,6 +144,13 @@ export async function ingestReview(
           repositories.externalRepositoryId,
         ],
         set: {
+          /**
+           * 🔴 `projectId` 를 여기서 덮어쓰지 않는다.
+           *
+           * Repository 를 어느 Project 에 둘지는 **사람이 정하는 일**이다. Agent 가 매
+           * Review 마다 보내는 값으로 옮겨 버리면, 화면에서 옮겨 둔 것이 다음 Review 에
+           * 되돌아간다. 옮기는 것은 화면의 몫으로 남긴다.
+           */
           owner: payload.repository.owner,
           name: payload.repository.name,
           fullName: payload.repository.fullName,
