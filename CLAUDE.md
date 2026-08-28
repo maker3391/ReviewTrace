@@ -36,7 +36,10 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | Test(`pnpm test`, vitest) · `typecheck` script | 있다 |
 | **PostgreSQL · Migration 적용** | **있다.** Docker(`code-intelligence-postgres`)로 띄워 `db:migrate` 적용·확인 완료 |
 | 인증 · 세션 · Workspace 결정 | **없다.** `findCurrentWorkspace()` 가 `null` 을 돌려준다 |
-| GitHub OAuth · API Key 발급 · Review API · ReviewIssue CRUD | **없다. 다음 단계** |
+| **Agent API 4종** (`POST /api/v1/reviews` · `POST /api/v1/issues/{id}/activities` · `PATCH /api/v1/issues/{id}` · `GET /api/v1/knowledge/context`) | **있다.** 실제 서버·실제 PostgreSQL 로 E2E 확인 (아래) |
+| **API Key** 발급·폐기·Bearer 검증 (`ci_` + 256bit 난수 · SHA-256 Hash 만 저장) | **있다** — Application Service 까지. 🔴 **발급 «화면»·Server Action 은 없다** |
+| Agent API Error Contract (`error.code`·`message`, Code↔Status 대응 한 곳) | 있다 |
+| GitHub OAuth · ReviewIssue 화면 CRUD | 이 줄은 Agent API 담당이 손대지 않는다 |
 | Dashboard 통계 | **없다. 의도적이다** — 데이터를 쌓는 경로가 없어 숫자를 그리면 전부 거짓이다 |
 
 ### 검증된 것 (2026-08-28 실행)
@@ -57,12 +60,56 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
   전체 24개 = 설계한 6개 + PK·unique 제약이 만든 것
 - FK 는 전부 `ON DELETE CASCADE`
 
+### Agent API 검증 (2026-08-28 실행 · Agent API 담당)
+
+**실제 dev 서버(:3930)와 실제 PostgreSQL 로 `curl` 왕복 26건을 돌렸고 전부 통과했다.**
+저장된 행은 `docker exec … psql` 로 직접 조회해 확인했다. 확인 뒤 **서버를 종료하고 시험 데이터도 지웠다.**
+
+- **인증** — 헤더 없음 · 형식 아님 · 없는 키 · 폐기된 키 · 만료된 키 **다섯 모두 `401 UNAUTHORIZED`**.
+  사유를 구분해 알려주지 않는다
+- **API Key 원문 미저장** — `api_keys` 전수 조회: `key_hash` 는 전부 64자 hex(SHA-256)이고
+  `ci_` 로 시작하는 행이 하나도 없다. `key_prefix` 는 11자뿐이라 그것으로 토큰을 복원할 수 없다
+- **Review 저장** — Repository Upsert → ReviewSession → ReviewIssue 3건 → Tag → IssueTag →
+  `DETECTED` Activity 까지 한 Transaction. 반쪽 Session 없음
+- **Idempotency** — 같은 `Idempotency-Key` 재전송이 **`200` + 같은 `reviewSessionId`**.
+  `review_sessions` 에 행이 늘지 않았다. 다른 Key 로 보내면 `201`
+- **같은 문제 재보고** — `source + externalId` 가 같으면 행을 새로 만들지 않고 `REVIEWED_AGAIN` 을
+  남긴다. 🔴 **`source`·`externalId` 를 보내지 않은 Issue 는 매번 새 행이 된다** — 식별자가 없으면
+  같은 문제인지 알 방법이 없다. Dedup 이 필요한 Agent 는 둘을 보내야 한다
+- **Tenant 격리** — Workspace B 의 키로 A 의 Issue 에 Activity 추가 · 상태 변경을 시도하면 **`404`**
+  (`403` 이 아니다). Knowledge 조회에 **남의 `repositoryId` 를 Filter 로 넣어도 결과가 비어 있다**.
+  같은 GitHub Repository 라도 Workspace 마다 **다른 `repositories` 행**이다
+- **상태 ↔ History 정합** — 「`RESOLVED` 인데 `resolved_at`·`resolution_summary` 가 없다」 또는
+  「`RESOLVED` 가 아닌데 둘 중 하나가 남아 있다」를 찾는 질의가 **0행**이다.
+  `REOPENED` 하면 둘 다 비워지고, 지난 요약은 `RESOLVED` Activity 의 `description` 에 남는다
+- **실제 Ping-Pong History 가 한 줄기로 쌓였다**:
+  `DETECTED/codex → FIX_ATTEMPTED/claude → RESOLVED/codex → REVIEWED_AGAIN/codex → RESOLVED → REOPENED`
+- **Knowledge 집계** — `frequentPatterns` 가 `occurrences`·`resolvedCount` 를 **DB 에서** 세어 돌려준다.
+  LLM·Vector 없음
+- **Payload 로 Workspace 를 지정할 수 없다** — `workspaceId` 를 넣어 보내면 Zod 가 버린다.
+  `raw_payload` 최상위 key 전수 조회로 확인했다
+- **UTF-8 왕복** — 한글 요약·행위자 이름이 요청 → DB → 응답까지 온전하다
+
+
 ### 🔴 검증되지 않은 것
 
 - **Drizzle Query 가 실제로 도는 것을 본 적이 없다.** Schema 는 실제 Database 에 만들어졌지만,
   인증이 없어 `findIssues()` 까지 실행이 닿지 않는다. 타입과 빌드만 통과했을 뿐이다
 - **행을 넣고 읽어 본 적이 없다.** 위 확인은 전부 **Schema 조회**이고 INSERT/SELECT 는 돌리지 않았다 —
   「테이블이 있다」와 「쿼리가 돈다」는 다른 말이다
+- **Agent API 담당이 확인하지 못한 것** (2026-08-28):
+  - 🔴 **`/api/v1/**` 이 지금 브라우저 Proxy 에 막힌다.** `src/proxy.ts` 는 공개 경로가 아니면
+    세션 쿠키 없는 요청을 `/login` 으로 **`307` 리다이렉트**한다. Agent 는 세션이 없으므로
+    REST Client 가 `401` JSON 대신 로그인 화면으로 끌려간다. 위 E2E 는 더미 세션 쿠키로
+    Proxy 를 지나 보낸 것이다 — **`src/config/routes.ts` 의 공개 경로 표에 `/api/v1` 을 넣어야
+    실제 Agent 가 쓸 수 있다.** (Route Handler 자신은 쿠키를 전혀 보지 않는다)
+  - **`pnpm build` 를 끝까지 돌리지 못했다.** Agent API 파일에는 오류가 없지만
+    (`app/api/v1/**`·`lib/api/**`·`features/{reviews,knowledge,api-keys}/**`·
+    `features/issues/{schemas,server/issue-*}` 전부 통과), 다른 화면 코드의 타입 오류에서
+    멈춘다. **「내 부분은 통과했다」를 「빌드가 통과했다」로 읽지 마라**
+  - **부하·동시성을 재지 않았다.** 같은 `Idempotency-Key` 두 요청을 **동시에** 던져 보지 않았고,
+    Issue 500건 상한 근처를 실제로 넣어 보지 않았다. Round Trip 수도 설계로만 보장한다
+  - **`.env` 에 `AUTH_SECRET` 이 없다.** E2E 는 프로세스 환경 변수로 넣어 띄웠다
 - 위를 「될 것이다」로 적지 마라. 확인한 사람이 이 표를 고쳐라
 
 🔴 **없는 것을 있는 것처럼 쓰지 마라.** 실행하지 않은 검증을 통과했다고 적지 않는다. 확인하지 않은 동작을 정상이라고 추측하지 않는다.
