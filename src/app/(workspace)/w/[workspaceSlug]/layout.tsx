@@ -5,6 +5,10 @@ import { AppSidebar } from "@/components/organisms/AppSidebar";
 import { listProjectOptions } from "@/features/projects/server/project-service";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
 import { listMemberWorkspaces } from "@/lib/auth/workspace-context";
+import { headers } from "next/headers";
+
+import { readProjectSlugFromPath } from "@/config/routes";
+import { CURRENT_PATH_HEADER } from "@/proxy";
 
 /**
  * Workspace Shell.
@@ -43,9 +47,27 @@ export default async function WorkspaceLayout({
     listProjectOptions(workspace.workspaceId),
   ]);
 
+  /**
+   * 상단 바가 「지금 어느 Project 인가」를 그리려면 주소를 알아야 한다.
+   *
+   * 🔴 Layout 은 하위 Route 의 `params` 를 받지 못한다. Next.js 가 넣어 주는 헤더에서
+   * 경로를 읽고, **서버가 소속을 확인해 넘긴 목록**에 맞대어 본다 — 없는 slug 면 그리지
+   * 않는다. 이름을 지어내지 않는 것이 요점이다(CLAUDE.md 11).
+   */
+  const pathname = (await headers()).get(CURRENT_PATH_HEADER) ?? "";
+  const projectSlug = readProjectSlugFromPath(pathname);
+  const currentProject =
+    projectSlug === null
+      ? null
+      : (projects.find((item) => item.slug === projectSlug) ?? null);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <AppHeader user={{ name: user.name, image: user.image }} />
+      <AppHeader
+        user={{ name: user.name, image: user.image }}
+        workspaceName={workspace.name}
+        projectName={currentProject?.name ?? null}
+      />
       <div className="flex min-h-0 flex-1">
         <AppSidebar
           currentSlug={workspace.slug}

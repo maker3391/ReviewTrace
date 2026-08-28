@@ -52,15 +52,26 @@ export function WorkspaceSwitcher({
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          size="sm"
-          className="w-full justify-between font-medium"
+          size="lg"
+          className="h-11 w-full justify-between gap-2 border-sidebar-border bg-card px-2.5 font-medium hover:bg-card"
         >
-          <span className="truncate">{current?.name ?? currentSlug}</span>
-          <ChevronsUpDown aria-hidden className="size-3.5 opacity-60" />
+          <span className="flex min-w-0 items-center gap-2">
+            {/*
+              Workspace 이니셜. 🔴 Badge 가 아니라 «신원 표시»다 — Tenant 를 바꾸는 자리라
+              이름만 있는 것보다 눈에 먼저 잡힌다.
+            */}
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">
+              {(current?.name ?? currentSlug).trim().charAt(0).toUpperCase()}
+            </span>
+            <span className="truncate text-[13px]">
+              {current?.name ?? currentSlug}
+            </span>
+          </span>
+          <ChevronsUpDown aria-hidden className="size-3.5 shrink-0 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" className="w-52">
+      <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuLabel className="text-xs text-muted-foreground">
           Workspace
         </DropdownMenuLabel>

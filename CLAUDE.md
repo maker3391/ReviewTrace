@@ -975,7 +975,14 @@ GitHub API 호출 코드는 **Integration Boundary 로 분리**한다.
 
 이 제품은 **Developer Tool** 이다. Marketing SaaS 처럼 디자인하지 않는다.
 
-**방향**: Enterprise · Data-first · Dense · Flat · Structured · Professional · Desktop First
+**방향**: **Enterprise developer SaaS + polished modern web app**
+
+Enterprise · Data-first · Dense · Structured · Professional · Desktop First —
+그러면서 **처음 봤을 때 「잘 만든 제품」이라는 인상**을 준다.
+
+🔴 **「개발자용이니까 무조건 dense · flat · gray」로 판단하지 마라.** ReviewTrace 는
+사람이 매일 보는 화면이다. 기능성과 데이터 밀도는 지키되, 흰 바탕에 회색 선만 이어지는
+내부 관리도구처럼 만들지 않는다.
 
 > **shadcn/ui = Component Primitive**
 > **ReviewTrace = Visual Design System**
@@ -987,21 +994,32 @@ shadcn/ui 는 **접근성·상호작용·기본 구조**를 위한 Primitive 로
 **화면의 주인공은 UI Component 가 아니라 데이터다.** 장식보다 다음을 우선한다 —
 정보 계층 · 데이터 비교 · 빠른 Scan · 상태 식별 · 검색/필터 · Table 가독성 · Context 파악.
 
-### 🔴 습관적으로 쓰지 않는 것
+### 🔴 균형 — 무엇을 쓰고 무엇을 쓰지 않는가
 
 | 쓰지 않는다 | 대신 |
 |---|---|
-| 모든 Section 을 Card 로 감싸기 · Card 중첩 | spacing · divider · typography · background level · table boundary |
-| 큰 radius · `rounded-xl`/`rounded-2xl` 남용 | 작고 절제된 radius. 모든 Container 를 둥글게 만들지 않는다 |
-| 모든 요소에 border | **정보 구조를 가를 필요가 있을 때만** |
-| 의미 없는 shadow | **실제 elevation 이 있는 것만** — Dropdown · Popover · Dialog · Floating Menu |
-| Badge 남발 · muted text 남발 | Typography 계층 |
-| 「아이콘 + 제목 + 설명」 반복 Card · Hero · Gradient 강조 | — |
-| 동일한 KPI Card 여러 개 나열 | 숫자 · Label · Divider · Alignment |
+| **모든** Section 을 Card 로 감싸기 · Card 중첩 | 덩어리로 읽혀야 하는 것만 올린다. 나머지는 spacing · divider · typography |
+| 똑같은 KPI Card 를 넷 늘어놓기 | **한 표면 안에서 세로선으로 나눈다** — 비교할 숫자가 한 덩어리로 묶인다 |
+| 모든 요소에 border | **배경 톤 차이**로 층을 만들고, 선은 구조를 가를 때만 |
+| 장식용 shadow | Card 에는 **아주 약한** depth. 진짜 elevation(Dropdown·Dialog)은 더 뚜렷하게 |
+| Badge 남발 · muted text 남발 | Badge 는 **상태·분류에만**. 나머지는 Typography 계층 |
+| Hero · Gradient 강조 · 거대한 Illustration | — |
 | 필요 없는 Description 문구 | **없어도 이해되면 쓰지 않는다** |
+| 모든 Heading 앞 Icon | Icon 은 의미가 있을 때만 |
 
-전형적인 `Card > CardHeader > CardTitle + CardDescription > CardContent` 를 기본값으로 삼지 않는다.
-**기능적으로 Card 가 필요할 때만** 쓴다.
+**쓴다:**
+
+- 🔴 **Card 를 «무조건 제거»하지 않는다.** 중요한 정보·요약·목록처럼 **덩어리로 읽혀야 하는
+  것**은 올라온 표면에 둔다. 약한 shadow + border + 배경 대비로 depth 를 준다
+- 🔴 **Radius 를 한 값으로 고정하지 않는다.** `--radius: 0.625rem` 에서 나오는 단계를
+  화면 성격에 맞게 쓴다 — 버튼 `rounded-md` · 카드 `rounded-xl`
+- 🔴 **Primary/Accent 를 «제한적으로» 써서 브랜드 인상을 만든다.** 넓은 면적에 반복하지 않고
+  **Primary Action · 선택 상태 · Focus · 의미 있는 강조**에만. 나머지는 Neutral 이 기본
+- **버튼·Input 을 작고 딱딱하게 만들지 않는다.** 기본 높이는 `h-9` 다 —
+  `h-7`·`h-8` 로 촘촘히 깔면 내부 관리도구가 된다
+- **hover · selected · active 에 미묘한 transition** 을 준다
+
+표면은 세 단계다 — 페이지(`--background`) < 옅은 면(`--surface-muted`) < 올라온 면(`--card`).
 
 ### Layout
 
@@ -1012,7 +1030,7 @@ Page Header  ->  Toolbar / Filter  ->  Primary Content  ->  Secondary Informatio
 불필요한 Container 중첩을 피한다.
 **페이지에 독립적인 Card 가 떠 있는 느낌이 아니라, 하나의 업무 화면으로 연결된 느낌**을 만든다.
 
-### Dashboard 는 Card Gallery 가 아니다
+### Dashboard — Card Gallery 도, 맨 표도 아니다
 
 ```text
 Overview
@@ -1031,12 +1049,24 @@ MISSING_VALIDATION            31
 N_PLUS_ONE                    18
 ```
 
-**KPI 를 반드시 Card 로 만들 필요가 없다.** 숫자·Label·Divider·Alignment 로 충분하면 Card 를 더하지 않는다.
+KPI 는 **한 장의 표면 안에서 세로선으로 나눈다.** 카드 넷을 띄우면 비교해야 할 숫자끼리
+멀어지고, 아무 표면도 없으면 페이지가 밋밋해진다.
+
+계층은 셋이다 — **Label(작고 흐림) · 값(크고 진함) · Hint(가장 흐림).**
+🔴 **값이 없는 것과 0 은 다르다.** 없으면 `—` 다.
+
+🔴 **빈 공간을 너무 많이 만들지 않는다.** 데이터가 없을 때도 Empty State 가 화면 절반을
+차지하게 두지 않는다.
 
 ### Table 중심
 
 Review · Issue · Repository · Project 목록은 **Table 을 우선**한다. 장식용 Container 로 여러 번 감싸지 않는다.
 중요한 정보는 **Column Alignment 와 Typography** 로 가른다.
+
+- **한 셀 안에서 계층을 만들 수 있다** — 이름(주) 아래 보조 metadata. 열을 하나 더
+  만들면 표가 옆으로 길어지고 이름이 묻힌다
+- **Row hover** 를 살려 「고를 수 있는 목록」으로 읽히게 한다. 스프레드시트가 아니다
+- 머리 행은 옅은 표면 + 작은 대문자로 데이터 행과 갈라 둔다
 
 - **Row 마다 Button 을 여러 개 노출하지 않는다.** Primary 는 Row click 또는 핵심 Action 하나
 - Secondary Action 은 필요하면 Dropdown Menu 로 옮긴다
@@ -1051,6 +1081,26 @@ Review · Issue · Repository · Project 목록은 **Table 을 우선**한다. �
 - **Icon 은 의미 전달에 도움이 될 때만.** 모든 Heading 앞에 붙이지 않는다
 - **Color 는 의미에만** — 상태 · Severity · Selection · Primary Action · 중요한 Feedback.
   Primary Color 를 넓은 면적에 반복하지 않고, 일반 Container 를 색으로 가르지 않는다. **Neutral 이 기본**
+
+### 상세 화면은 두 단이다
+
+🔴 **데이터를 Card 여러 개로 무작정 쪼개지 않는다.** 한 단으로 늘어놓으면 「제목 +
+구분선」이 끝없이 이어져 무엇이 본문이고 무엇이 도구인지 구분되지 않는다.
+
+```text
+┌ 본문(넓게) ──────────────┐ ┌ 곁 정보(좁게) ┐
+│ 핵심 내용 · 이력          │ │ 상태 변경      │
+│                          │ │ metadata      │
+└──────────────────────────┘ └───────────────┘
+```
+
+**상단에는 entity identity 가 분명해야 한다** — 제목 · 상태 표시 · 그것에 딸린 사실 한 줄.
+
+### Form
+
+- 🔴 **모든 Field 를 같은 크기의 박스로 나열하지 않는다.** 관련된 것끼리 묶는다
+- **Label · 설명 · 오류**의 계층이 분명해야 한다
+- **Dialog 안에도 숨 쉴 여백**을 둔다
 
 ### Sidebar 는 Navigation 도구다
 
@@ -1085,29 +1135,35 @@ Settings
 
 - 검색·필터는 **업무 도구처럼** 만든다. 검색창을 이유 없이 페이지 전체 폭으로 넓히지 않고,
   필터마다 별도 Card 를 만들지 않는다. **한 Toolbar 안에 밀도 있게** 두고 조회 결과와의 관계가 즉시 보이게 한다
-- **Empty State 에 거대한 Illustration 이나 Marketing 문구를 넣지 않는다.**
-  「열린 Issue 가 없습니다」 정도면 된다. Primary Action 은 필요할 때만
+- **Empty State**: Icon 하나 · 짧은 제목 · 필요할 때만 한 줄 설명 · 필요할 때만 CTA.
+  🔴 거대한 Illustration·Marketing 문구 금지. 다만 **왜 비어 있는지**는 말한다 —
+  「고장난 화면」과 구분되어야 한다
 - **전체 화면 Loading 대신 데이터 영역 단위 Skeleton.** Skeleton 은 실제 Layout 과 비슷한 크기를 유지하고,
   과도한 Animation 을 넣지 않는다 (→ [8. SSR 우선](#8-ssr-우선--loading-ux))
 
 ### 🔴 화면을 만들기 전에 확인한다
 
 ```text
-이 Container 에 Card 가 정말 필요한가?
-Border 없이 정보 계층으로 가를 수 없는가?
+이것이 «덩어리»로 읽혀야 하는가? (그렇다면 Card 가 맞다)
+Border 없이 배경 톤과 여백으로 가를 수 없는가?
 Badge 가 실제 상태·분류를 뜻하는가?
 Description 이 없으면 정말 이해할 수 없는가?
 이 Icon 이 실제 정보를 전달하는가?
 데이터보다 Component 가 더 눈에 띄지 않는가?
-전형적인 shadcn Dashboard Template 처럼 보이지 않는가?
+전형적인 shadcn Dashboard Template · 내부 관리도구처럼 보이지 않는가?
+화면 전체가 흰색 + 회색 선의 연속으로 보이지 않는가?
 ```
 
 **하나라도 불필요하면 «빼는» 쪽을 먼저 고른다.**
 
 | | |
 |---|---|
-| ❌ | shadcn Component 를 조립한 화면 |
+| ❌ | shadcn Component 를 조립한 화면 · 내부 관리도구 · shadcn demo |
 | ✅ | **ReviewTrace 디자인을 구현하는 데 shadcn Primitive 를 쓴 화면** |
+
+감각의 참고 — Linear 의 정돈된 정보 구조 · Vercel 의 typography 와 spacing ·
+Stripe Dashboard 의 polished SaaS 느낌 · GitHub 의 데이터 밀도.
+🔴 **어느 하나를 그대로 복제하지 않는다.**
 
 기능과 접근성은 shadcn 에 맡기되, **제품의 Visual Identity 를 shadcn 기본 스타일에 맡기지 않는다.**
 

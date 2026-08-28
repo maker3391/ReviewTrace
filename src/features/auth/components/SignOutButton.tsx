@@ -9,8 +9,13 @@ import { signOutAction } from "@/features/auth/actions/sign-out";
  */
 export function SignOutButton() {
   return (
-    <form action={signOutAction}>
-      <Button type="submit" size="sm" variant="ghost">
+    <form action={signOutAction} className="w-full">
+      <Button
+        type="submit"
+        size="sm"
+        variant="ghost"
+        className="h-8 w-full justify-start font-normal"
+      >
         로그아웃
       </Button>
     </form>

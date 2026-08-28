@@ -17,6 +17,7 @@ import {
  *
  * 1. 세션 쿠키가 **아예 없는** 요청을 보호된 경로에서 돌려보낸다
  * 2. 지금 보고 있는 Workspace slug 를 쿠키에 적어 둔다 (로그인 뒤 어디로 갈지의 힌트)
+ * 3. 현재 경로를 요청 헤더에 실어 준다 (Layout 이 「지금 어느 Project 인가」를 알기 위해)
  *
  * 🔴 **이것은 경계가 아니다.** 쿠키가 「있다」만 볼 뿐 그것이 살아 있는 세션인지, 그 사람이
  * 그 Workspace 의 멤버인지는 보지 않는다. 진짜 판정은 Database 를 보는 서버 화면
@@ -34,6 +35,9 @@ import {
  *
  * 🔴 **값을 해석하지 않는다.** 존재만 본다 — Proxy 는 판정하는 자리가 아니다.
  */
+/** 현재 경로를 Layout 에 알리는 헤더. 읽는 쪽은 `app/(workspace)/.../layout.tsx` 다. */
+export const CURRENT_PATH_HEADER = "x-current-path";
+
 const SESSION_COOKIE_NAMES = [
   "authjs.session-token",
   "__Secure-authjs.session-token",
@@ -50,7 +54,20 @@ export function proxy(request: NextRequest): NextResponse {
     return NextResponse.redirect(new URL(LOGIN_PATH, request.nextUrl.origin));
   }
 
-  const response = NextResponse.next();
+  /**
+   * 현재 경로를 헤더로 실어 준다.
+   *
+   * 🔴 Layout 은 하위 Route 의 `params` 를 받지 못한다 — 상단 바가 Project 이름을 그리려면
+   * 경로를 알아야 하는데, Next.js 는 그것을 Layout 에 넘겨 주지 않는다. 여기서 한 번 적어
+   * 두면 `headers()` 로 읽을 수 있다.
+   *
+   * 🔴 **이 값은 표시용이다. 권한 근거가 아니다** — 경로에서 읽은 slug 는 서버가 소속을
+   * 확인한 목록에 맞대어 본 뒤에야 쓰인다(CLAUDE.md 11).
+   */
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(CURRENT_PATH_HEADER, pathname);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
 
   /**
    * 「마지막으로 본 Workspace」를 남긴다.
