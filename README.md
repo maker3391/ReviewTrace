@@ -17,18 +17,23 @@ Code Change -> External Agent Review -> ReviewSession -> ReviewIssue
 
 ---
 
-## 1. 지금 이 저장소는 Boilerplate 다
+## 1. 지금 있는 것
 
-Business Feature 는 아직 없다. 있는 것은 **그것을 올릴 바닥**이다.
+인증 · Multi-Workspace · Tenant 격리까지 서 있다.
+**무엇이 실제로 도는지는 [`CLAUDE.md`](./CLAUDE.md) 0절이 정본이다** — 아래는 요약이다.
 
 | 있다 | 없다 (다음 단계) |
 |---|---|
-| Next.js 16 App Router · React 19 · TypeScript strict | GitHub OAuth · 세션 |
-| Tailwind 4 · shadcn/ui(11개) · Atomic Design 계층 | Agent Review Ingestion API (`POST /api/v1/reviews`) |
-| PostgreSQL + Drizzle Schema · Migration 환경 | API Key 발급·검증 |
-| Zod · React Hook Form | ReviewIssue CRUD · Resolution 기록 |
-| SSR + Suspense + Skeleton 조회 골격 (`/issues`) | Repositories · Knowledge 화면 |
-| Error Handling · `ActionResult` 계약 | Dashboard 통계 |
+| Next.js 16 App Router · React 19 · TypeScript strict | Workspace 새로 만들기 (Personal 외) |
+| Tailwind 4 · shadcn/ui · Atomic Design 계층 | 멤버 내보내기 · 역할 변경 |
+| PostgreSQL + Drizzle Schema · Migration 환경 | API Key 발급 **화면** |
+| Zod · React Hook Form | Repositories · Reviews · Knowledge 화면 |
+| **GitHub OAuth 로그인 · 서버 측 세션** | Dashboard 통계 |
+| **Personal Workspace 자동 생성 · N:M 소속** | 초대 메일 발송 (지금은 링크를 직접 전달) |
+| **`/w/[slug]` Workspace 라우팅 · Switcher** | |
+| **Workspace 초대 발행·수락** | |
+| SSR + Suspense + Skeleton 조회 골격 | |
+| Error Handling · `ActionResult` 계약 | |
 | Lint · Typecheck · Test · Build | |
 
 🔴 **Dashboard 에 통계 숫자가 없는 것은 미완성이 아니라 의도다.** 데이터를 쌓는 경로가 아직
@@ -51,10 +56,42 @@ pnpm install
 cp .env.example .env   # 값을 채운다
 ```
 
-`.env` 에 반드시 있어야 하는 값은 `DATABASE_URL` 하나다.
+`.env` 에 반드시 있어야 하는 값은 넷이다 — `DATABASE_URL` · `AUTH_SECRET` ·
+`GITHUB_CLIENT_ID` · `GITHUB_CLIENT_SECRET`.
 **없으면 기동 대신 실패한다** — 기본값을 두지 않았다(`src/lib/env.schema.ts`).
 
-### 2.3 PostgreSQL
+Schema 는 둘로 나뉘어 있다: Database 만 쓰는 코드(Migration·조회 시험)가 OAuth Secret 까지
+요구하지 않게 하기 위한 것이고, **「없으면 실패」는 양쪽 모두 그대로다.**
+
+### 2.3 GitHub OAuth App
+
+로그인 방식은 **GitHub OAuth 하나**다. 비밀번호 로그인은 없고, 처음 로그인하면 그것이 가입이다.
+
+1. GitHub → **Settings → Developer settings → OAuth Apps → New OAuth App**
+2. 값을 채운다.
+
+   | 칸 | 값 |
+   |---|---|
+   | Application name | 아무 이름 (예: `Code Intelligence (local)`) |
+   | Homepage URL | `http://localhost:3000` |
+   | **Authorization callback URL** | **`http://localhost:3000/api/auth/callback/github`** |
+
+3. **Generate a new client secret** 을 눌러 값을 받는다
+4. `.env` 에 채운다.
+
+   ```bash
+   AUTH_SECRET=          # openssl rand -base64 32
+   GITHUB_CLIENT_ID=
+   GITHUB_CLIENT_SECRET=
+   ```
+
+🔴 **Callback URL 의 경로(`/api/auth/callback/github`)는 Auth.js 가 정한다.** 바꾸면 로그인이
+`redirect_uri_mismatch` 로 막힌다. 포트를 바꿔 띄운다면(예: `3910`) OAuth App 쪽 주소도
+그 포트로 맞추거나, 그 포트를 위한 App 을 따로 만든다.
+
+🔴 **Secret 을 커밋하지 않는다.** `.env` 는 Git 제외이고 `.env.example` 에는 자리만 있다.
+
+### 2.4 PostgreSQL
 
 이 저장소는 **띄우는 방법만 제공한다. 실행은 사장님이 직접 한다.**
 
@@ -68,7 +105,7 @@ docker compose down -v  # 정지 + 데이터 삭제
 컨테이너 이름은 `code-intelligence-postgres`, 볼륨은 `code-intelligence-postgres-data` 다.
 **다른 프로젝트의 컨테이너와 섞이지 않는다.**
 
-### 2.4 Migration
+### 2.5 Migration
 
 ```bash
 pnpm db:generate   # Schema 변경 -> SQL 파일 생성 (Database 없이 돈다)
@@ -78,7 +115,7 @@ pnpm db:migrate    # 생성된 SQL 을 Database 에 적용 (Database 필요)
 - 정본은 `src/db/schema/**` 이고, 산출물은 `src/db/migrations/**` 다. **둘 다 커밋한다**
 - `drizzle-kit push` 는 쓰지 않는다 — 생성된 SQL 을 사람이 읽고 리뷰한 뒤에 적용한다
 
-### 2.5 개발 서버
+### 2.6 개발 서버
 
 ```bash
 pnpm dev     # http://localhost:3000
@@ -106,28 +143,37 @@ pnpm build
 
 ```text
 src/
+  proxy.ts                 렌더 전에 도는 관문 (Next.js 16 의 Middleware)
   app/                     Routing / Layout / Composition — 얇게 유지한다
-    (dashboard)/           Dashboard Shell (Header + Sidebar)
+    page.tsx               로그인 뒤 어느 Workspace 로 갈지 정하는 랜딩
+    (auth)/                로그인 · 초대 수락 — Shell 없는 공개 화면
+    (workspace)/w/[workspaceSlug]/
+                           Workspace Shell (Header + Sidebar + Switcher)
+    api/auth/              Auth.js Endpoint
+    api/v1/                Agent Public API (API Key 인증)
     error.tsx              화면 단위 Error Boundary
     global-error.tsx       Root Layout 이 깨졌을 때
   features/                Domain Feature
+    auth/                  로그인·로그아웃 Server Action 과 버튼
+    invitations/           초대 발행·수락 (actions/ components/ schemas/ server/)
     issues/                components/ schemas/ server/ types/
   components/
     ui/                    shadcn/ui Primitive (정본)
     atoms/                 SeverityBadge · StatusBadge · CodeLocation
     molecules/             SearchField · FilterSelectField
-    organisms/             AppHeader · AppSidebar
+    organisms/             AppHeader · AppSidebar · WorkspaceSwitcher
   db/
     schema/                Drizzle Schema (정본)
     migrations/            생성된 SQL
     index.ts               Lazy Drizzle Client
   lib/
     action/                Server Action 반환 계약 (ActionResult)
-    auth/                  Workspace Context — 인증이 붙을 자리
+    auth/                  Auth.js 설정 · 세션 읽기 · 소속 판정
+    workspace/             Personal Workspace · slug · 마지막 Workspace 기억
     env.schema.ts          환경 변수 Zod Schema (순수)
     env.ts                 검증된 환경 변수 로더 (server-only)
     errors.ts              AppError · PublicError
-  config/                  navigation(메뉴 ↔ 라우트 대응표) · app
+  config/                  navigation(메뉴 ↔ 라우트 대응표) · routes(공개 경로) · app
   types/                   Domain 값 집합 (Database Enum 과 같은 배열을 본다)
 ```
 
@@ -136,11 +182,11 @@ src/
 
 ---
 
-## 5. 이 Boilerplate 가 못 박은 것
+## 5. 이 저장소가 못 박은 것
 
 ### 조회는 SSR
 
-`/issues` 가 그 본보기다.
+`/w/{slug}/issues` 가 그 본보기다.
 
 ```text
 Search/Filter -> URL Search Params 변경 -> Server Component 재실행
@@ -164,7 +210,7 @@ Search/Filter -> URL Search Params 변경 -> Server Component 재실행
 - 🔴 **실패는 예외로 던지지 않고 `ActionResult` 로 돌려준다.** 프로덕션 빌드에서 Server Action 의
   예외는 **메시지가 지워진 채** 도착해 화면이 이유를 보여 줄 수 없다.
   계약과 헬퍼는 `src/lib/action/action-result.ts` 에 있다
-- 아직 **Mutation 이 하나도 없어 실제 Server Action 파일은 없다.** 계약만 준비돼 있다
+- 실제로 쓰는 자리: 로그인·로그아웃(`features/auth/actions`), 초대 발행·수락(`features/invitations/actions`)
 
 ### 외부 입력은 Zod
 
@@ -175,15 +221,22 @@ Search/Filter -> URL Search Params 변경 -> Server Component 재실행
 ### Multi-Tenant 는 Workspace
 
 ```text
-Web Request    Session -> User -> Workspace Membership -> Authorized Workspace
-Agent Request  API Key -> Key Lookup -> Workspace       -> Authorized Workspace
+Web Request    Session -> User + URL slug -> WorkspaceMember -> Authorized Workspace
+Agent Request  API Key -> Key Lookup      -> Workspace       -> Authorized Workspace
 ```
 
-🔴 **Client 가 보낸 `userId`·`workspaceId` 로 접근 권한을 정하지 않는다.**
-판정은 `src/lib/auth/workspace-context.ts` 한 곳에서 한다 — 인증이 붙을 때 고칠 자리가 하나다.
+- **누구나 GitHub OAuth 로 가입한다.** 처음 로그인하면 그 사람의 Personal Workspace 가 생기고
+  그가 OWNER 가 된다. 다른 Workspace 에는 **초대**로 들어간다
+- **User : Workspace 는 N:M 이다.** 한 사람이 Personal 의 OWNER 이면서 회사 Workspace 의
+  MEMBER 일 수 있고, 소속의 정본은 `workspace_members` 하나뿐이다
+- 화면 주소가 Tenant Context 를 담는다 — `/w/{workspaceSlug}/{section}`.
+  세션 안의 「현재 Workspace」에 숨기지 않아 **탭마다 다른 Workspace 를 볼 수 있다**
 
-지금은 인증이 없어 이 함수가 `null` 을 돌려주고, `/issues` 는
-「Workspace 를 결정할 수 없습니다」를 그린다. **없는 것을 있는 것처럼 흉내내지 않았다.**
+🔴 **URL 의 `workspaceSlug` 는 Context 표시일 뿐 권한 증명이 아니다.** 주소를 남의 Workspace 로
+바꿔도 소속 조회가 비면 아무것도 열리지 않고, **없는 Workspace 와 남의 Workspace 는 밖에서
+구분되지 않는다**(둘 다 404). 판정은 `src/lib/auth/require-workspace.ts` 한 곳이 한다.
+
+🔴 **Client 가 보낸 `userId`·`workspaceId` 로 접근 권한을 정하지 않는다.**
 
 ### 오류는 code 와 message 만 나간다
 
@@ -219,11 +272,12 @@ User -> WorkspaceMember -> Workspace
 
 순서대로다.
 
-1. **인증 · Workspace 결정** — `findCurrentWorkspace()` 를 실제로 구현한다. 이것이 없으면 나머지가 전부 못 돈다
-2. **Agent Review Ingestion API** (`POST /api/v1/reviews`) — API Key 인증 + Zod + 한 Transaction 안 Batch Insert
-3. **API Key 발급·검증** — 원문 1회 표시, Hash 만 저장
-4. **Issue 상세 · IssueActivity · Resolution 기록**
-5. **Knowledge 조회** (`GET /api/v1/knowledge/context`)
+1. **API Key 발급 화면** — Application Service 는 있고 화면·Server Action 이 없다.
+   그것이 없으면 Agent 를 붙이려고 코드를 직접 불러야 한다
+2. **Issue 상세 화면** — IssueActivity History 와 Resolution 을 사람이 읽는 자리
+3. **Repositories 화면** — 연결·해제(`is_active`)와 Repository 별 통계
+4. **Workspace 만들기 · 멤버 관리** — Personal 외 Workspace 생성, 내보내기, 역할 변경
+5. **Dashboard 통계** — 데이터가 실제로 쌓인 뒤에 그린다
 
 ---
 

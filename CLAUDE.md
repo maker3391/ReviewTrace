@@ -16,7 +16,7 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 
 ## 0. 지금 있는 것
 
-**Boilerplate 는 갖춰졌다. Business Feature 는 아직 하나도 없다.**
+**인증 · Multi-Workspace · Tenant 격리 · Agent API 까지 서 있다.**
 **이 절이 「무엇이 실제로 존재하는가」의 정본이다.** 무언가를 만들면 여기부터 고쳐라.
 
 | | 상태 |
@@ -25,40 +25,91 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | Tailwind CSS 4 · ESLint · pnpm | 있다 |
 | shadcn/ui Primitive **11개** (`components/ui`) | 있다 — Button · Input · Textarea · Select · Badge · Table · Dialog · Dropdown Menu · Skeleton · Card · Tooltip |
 | Atomic Design 계층 (`atoms` · `molecules` · `organisms`) | 있다 |
-| Drizzle Schema (10 table · 8 enum) · Migration 환경(`db:generate`·`db:migrate`) | 있다 |
+| Drizzle Schema (**14 table · 8 enum**) · Migration 환경(`db:generate`·`db:migrate`) | 있다 |
 | Zod · React Hook Form(`zodResolver`) | 있다 |
-| Feature 디렉터리 (`features/issues`) | 있다 |
-| Dashboard Shell (`app/(dashboard)` + AppHeader · AppSidebar) | 있다 |
-| SSR + Suspense + Skeleton 조회 골격 (`/issues`) | 있다 |
+| Feature 디렉터리 (`features/auth` · `features/invitations` · `features/issues`) | 있다 |
+| Workspace Shell (`app/(workspace)/w/[workspaceSlug]` + AppHeader · AppSidebar · WorkspaceSwitcher) | 있다 |
+| SSR + Suspense + Skeleton 조회 골격 (`/w/{slug}/issues`) | 있다 |
 | Error Handling (`AppError` · `PublicError` · `error.tsx` · `global-error.tsx` · `not-found.tsx`) | 있다 |
-| Server Action 반환 계약 (`ActionResult`) | **계약만** 있다 — Mutation 이 없어 실제 `'use server'` 파일은 없다 |
+| Server Action 반환 계약 (`ActionResult`) | 있다 — 로그인·로그아웃·초대 발행·초대 수락이 쓴다 |
 | 환경 변수 구조 (`.env.example` · Zod 검증) · `docker-compose.yml` | 있다 |
 | Test(`pnpm test`, vitest) · `typecheck` script | 있다 |
 | **PostgreSQL · Migration 적용** | **있다.** Docker(`code-intelligence-postgres`)로 띄워 `db:migrate` 적용·확인 완료 |
-| 인증 · 세션 · Workspace 결정 | **없다.** `findCurrentWorkspace()` 가 `null` 을 돌려준다 |
+| **GitHub OAuth 로그인 · 서버 측 세션**(Auth.js + Drizzle Adapter, `session.strategy = "database"`) | **있다** |
+| **가입 = 첫 로그인.** 누구나 가입하고 Personal Workspace 의 OWNER 가 된다 | **있다** |
+| **User : Workspace = N:M** (`workspace_members` 가 정본) · Workspace Switcher | **있다** |
+| **Workspace 초대** 발행·수락 (Token 원문 미저장 · SHA-256 Hash 만) | **있다** — 링크를 직접 전달한다. 메일 발송은 없다 |
+| **화면 접근 통제** — `proxy.ts`(렌더 전 관문) + `requireWorkspace`(소속 판정) | **있다** |
 | **Agent API 4종** (`POST /api/v1/reviews` · `POST /api/v1/issues/{id}/activities` · `PATCH /api/v1/issues/{id}` · `GET /api/v1/knowledge/context`) | **있다.** 실제 서버·실제 PostgreSQL 로 E2E 확인 (아래) |
 | **API Key** 발급·폐기·Bearer 검증 (`ci_` + 256bit 난수 · SHA-256 Hash 만 저장) | **있다** — Application Service 까지. 🔴 **발급 «화면»·Server Action 은 없다** |
 | Agent API Error Contract (`error.code`·`message`, Code↔Status 대응 한 곳) | 있다 |
-| GitHub OAuth · ReviewIssue 화면 CRUD | 이 줄은 Agent API 담당이 손대지 않는다 |
+| ReviewIssue 화면 CRUD · Repositories · Reviews · Knowledge 화면 | **없다. 다음 단계** |
+| Workspace 새로 만들기(Personal 외) · 멤버 내보내기 · 역할 변경 | **없다. 다음 단계** |
 | Dashboard 통계 | **없다. 의도적이다** — 데이터를 쌓는 경로가 없어 숫자를 그리면 전부 거짓이다 |
 
 ### 검증된 것 (2026-08-28 실행)
 
-`pnpm lint` · `pnpm typecheck` · `pnpm test`(16개) · `pnpm build` **네 개 모두 통과했다.**
-`pnpm db:generate` 로 `src/db/migrations/0000_*.sql` 이 생성됐다 — 이것은 Database 없이 도는 명령이다.
-`next start` 로 띄워 `/` 200 · `/issues` 렌더 · `/nope` 404 를 확인했고 **확인 뒤 종료했다.**
+`pnpm lint` · `pnpm typecheck` · `pnpm test` · `pnpm build` **네 개 모두 통과했다.**
 
-**`pnpm db:migrate` 가 실제 PostgreSQL 에서 돌았다 (2026-08-28).** `docker compose up -d` 로
-`postgres:17-alpine` 을 띄우고 적용했다. 생성 결과를 직접 조회해 확인한 것:
+**`pnpm db:migrate` 가 실제 PostgreSQL 에서 돌았다.** `docker compose up -d` 로
+`postgres:17-alpine` 을 띄우고 `0000`~`0003` 을 적용했다. 결과를 직접 조회해 확인한 것:
 
-- **10 table · 8 enum** 전부 생성 — `users` `workspaces` `workspace_members` `api_keys` `repositories`
+- **14 table · 8 enum** — `users` `accounts` `sessions` `verification_tokens`
+  `workspaces` `workspace_members` `workspace_invitations` `api_keys` `repositories`
   `review_sessions` `review_issues` `issue_activities` `tags` `issue_tags`
 - `review_issues.severity`·`category`·`status` 가 **진짜 enum 컬럼**이다(`issue_severity` 등).
   JSON 속에 묻히지 않아 인덱스가 걸린다
-- **JSONB 는 `review_sessions.raw_payload` 한 자리뿐**이다 (`information_schema` 전수 조회)
-- 목록 화면용 복합 인덱스 `(workspace_id, status, severity, detected_at DESC)` 생성 확인.
-  전체 24개 = 설계한 6개 + PK·unique 제약이 만든 것
-- FK 는 전부 `ON DELETE CASCADE`
+- **JSONB 는 `review_sessions.raw_payload` 한 자리뿐**이다
+- `issue_status` 에 `FALSE_POSITIVE`·`REOPENED`, `reviewer_type` 에 `SYSTEM` 이 들어갔고
+  `workspace_role` 은 `OWNER`·`MEMBER` 둘뿐이다
+
+🔴 **`db:generate` 는 Column 이름을 바꿀 때 «이름 변경인가 새 Column 인가»를 되묻는다.**
+그 프롬프트는 TTY 가 없으면 실패하므로, 이름을 바꿀 때는 **더하는 Migration 과 지우는 Migration 을
+나눠 만든다**(`0002` → `0003` 이 그렇게 나왔다). 🔴 **생성된 SQL 을 그대로 믿지 마라** —
+`0002` 는 `issue_tags` 의 PK 를 그 Column 이 만들어지기 **전에** 걸어 실제로 실패했다.
+손으로 순서를 고쳤고, 적용 전에 `BEGIN; … ROLLBACK;` 으로 한 번 돌려 봐야 이런 것이 잡힌다.
+
+### 가입·Workspace·초대 검증 (2026-08-28 실행)
+
+**실제 PostgreSQL 을 쓰는 시험 10건이 통과했다** — `DB_INTEGRATION=true pnpm test`.
+전부 **되돌려지는 Transaction 안**에서 돌고 끝난 뒤 행이 남지 않는다(조회로 확인: 전 표 0행).
+기본 `pnpm test` 에서는 건너뛴다.
+
+- 신규 가입 → Personal Workspace + `OWNER` 소속이 함께 생긴다
+- **재로그인해도 Personal Workspace 가 늘지 않는다** (`workspaces.personal_owner_id` unique)
+- **slug 가 겹치면 다음 후보로 넘어간다** — 같은 GitHub 아이디 계열이어도 가입이 실패하지 않는다
+- **소속이 없으면 slug 를 알아도 Workspace 를 얻지 못한다.** 없는 slug 와 남의 slug 를 구분해
+  알려 주지 않는다 (둘 다 `null` → 화면은 404)
+- 기존 회원이 초대를 수락하면 **기존 Personal OWNER 소속은 그대로**이고 MEMBER 하나가 는다
+- **같은 초대를 두 번 수락해도 소속이 둘로 늘지 않는다** (`accepted_at IS NULL` UPDATE + 소속 PK)
+- 초대 Token **원문이 저장되지 않는다** — 저장된 값은 SHA-256 Hash 다
+- 이미 멤버인 이메일은 초대되지 않고, 없는 Token 으로는 수락되지 않는다
+
+🔴 **되돌림 확인**: `findMembership` 에서 `userId` 조건을 빼면 「소속이 없으면 얻지 못한다」가
+실제로 실패하고, `isPublicPath` 가 `/w/` 를 공개로 치면 경로 판정 시험 두 건이 실패한다 —
+직접 돌려 봤고 되돌렸다.
+
+### 화면 접근·GitHub 로그인 E2E (2026-08-28 실행 · dev 서버 :3910)
+
+**실제 GitHub OAuth 로그인이 끝까지 갔다.** 확인 뒤 서버는 종료했다.
+로그인으로 생긴 행은 사장님의 실제 계정이라 **지우지 않았다.**
+
+- **가입 흐름이 실제로 돌았다** — `accounts`(provider=`github`) 1행 · `sessions` 1행 ·
+  Personal Workspace `maker3391` 이 자동 생성되고 그 사람이 `OWNER` 다(`personal_owner_id` 설정됨).
+  slug 는 GitHub 아이디에서 나왔다
+- 🔴 **GitHub Access Token 은 `accounts` 표에만 있다.** 세션 콜백이 프로필 세 칸만 돌려주므로
+  세션 객체에 담기지 않는다
+- **미로그인 상태에서 `/` · `/w/{any}/issues` · `/w/{any}/dashboard` · `/w/{any}/settings` 가
+  전부 `307 → /login`** 이고 **본문이 6바이트**다 — 보호된 화면의 뼈대가 나가지 않았다
+- 🔴 **세션 쿠키를 위조해 Proxy 를 통과시켜도 막힌다.** `authjs.session-token=forged` 로 보내면
+  Proxy 는 통과하지만 서버가 소속을 확인해 `307 → /login` 이다 — Proxy 는 경계가 아니라는 것이
+  실제로 확인됐다
+- 공개 경로는 열린다 — `/login` 200 · `/invite/{token}` 200 · `/api/v1/*` 는 세션 없이 동작
+- **로그인 시작이 GitHub 으로 올바르게 나간다** — `client_id` 설정됨,
+  `redirect_uri=http://localhost:3910/api/auth/callback/github`, `scope=read:user user:email`, PKCE 포함
+- **위조된 콜백은 거절된다** — `/api/auth/callback/github?code=fake` 는 `/login?error=...` 로 돌아오고
+  화면에는 「로그인하지 못했습니다」만 뜬다. Auth.js 의 원본 사유가 그려지지 않는다
+- 잘못된·형식이 틀린 초대 Token 은 둘 다 「사용할 수 없는 초대」다 — 구분해 알려 주지 않는다
 
 ### Agent API 검증 (2026-08-28 실행 · Agent API 담당)
 
@@ -98,10 +149,14 @@ Idempotency 열쇠를 저장하지 않게 하면 「Session 이 늘지 않았다
 
 ### 🔴 검증되지 않은 것
 
-- **Drizzle Query 가 실제로 도는 것을 본 적이 없다.** Schema 는 실제 Database 에 만들어졌지만,
-  인증이 없어 `findIssues()` 까지 실행이 닿지 않는다. 타입과 빌드만 통과했을 뿐이다
-- **행을 넣고 읽어 본 적이 없다.** 위 확인은 전부 **Schema 조회**이고 INSERT/SELECT 는 돌리지 않았다 —
-  「테이블이 있다」와 「쿼리가 돈다」는 다른 말이다
+- 🔴 **`.env` 에 `AUTH_SECRET` 이 없다.** 위 E2E 는 프로세스 환경 변수로 넣어 띄웠다.
+  **`.env` 에 넣지 않으면 다음에 띄울 때 인증 경로가 기동 단계에서 실패한다**
+- **Workspace Switcher·초대 폼·Settings 화면을 사람 눈으로 보지 않았다.** 로그인까지는 실제로
+  갔지만 그 뒤 화면들은 타입·빌드·서버 응답까지만 확인했고 **눌러 보지 않았다**
+- **초대를 브라우저에서 발행·수락해 보지 않았다.** 그 흐름은 Database 시험으로만 확인했다
+- **동시 가입 경쟁을 실제로 부딪혀 보지 않았다.** 「두 사람이 같은 순간 첫 로그인」은
+  `workspaces.personal_owner_id` unique 와 slug 재시도로 설계했고 시험은 **순차로** 돌렸다
+- **초대 메일을 보내지 않는다.** 발행된 링크를 사람이 직접 전달해야 한다 — 의도한 범위다
 - **Agent API 담당이 확인하지 못한 것** (2026-08-28):
   - **부하·동시성을 재지 않았다.** 같은 `Idempotency-Key` 두 요청을 **동시에** 던져 보지 않았다.
     경쟁은 `(repository_id, idempotency_key)` unique 와 `onConflictDoNothing` 으로 설계했을 뿐
@@ -278,7 +333,7 @@ Feature 내부 예: `src/features/issues/` -> `components/ server/ schemas/ type
 `src/app` 에 Business Logic 을 넣지 않는다. `page.tsx` 는 Feature Screen 을 조합하거나 Server Component 를 호출하는 역할만 한다.
 
 ```text
-src/app/(dashboard)/issues/page.tsx -> src/features/issues/components/IssueListScreen.tsx
+src/app/(workspace)/w/[workspaceSlug]/issues/page.tsx -> src/features/issues/components/IssueListScreen.tsx
 ```
 
 Route Handler 도 HTTP 처리만 한다: `Request -> Authentication -> Parsing/Validation -> Application Service -> Response`
@@ -424,11 +479,37 @@ Tenant Boundary 는 **Workspace** 다. 사용자가 많아져도 같은 PostgreS
 🔴 **Client 가 전달한 `userId`·`workspaceId` 를 신뢰해 접근 권한을 결정하지 않는다.**
 
 ```text
-Web Request    Session -> User -> Workspace Membership -> Authorized Workspace
-Agent Request  API Key -> Key Lookup -> Workspace -> Authorized Workspace
+Web Request    Session -> User + URL slug -> WorkspaceMember -> Authorized Workspace
+Agent Request  API Key -> Key Lookup      -> Workspace       -> Authorized Workspace
 ```
 
-### 화면 접근은 서버가 먼저 막는다 【향후 — 인증 도입 시】
+### User 와 Workspace 는 N:M 이다
+
+🔴 **User : Workspace 를 1:1 로 가정하지 않는다.** 한 사람이 자기 Personal Workspace 의 `OWNER`
+이면서 회사 Workspace 의 `MEMBER` 일 수 있다. **소속의 정본은 `workspace_members` 하나뿐이다.**
+
+- **가입은 누구나 할 수 있다.** GitHub OAuth 첫 로그인이 가입이고, 그때 그 사람의
+  Personal Workspace 가 만들어진다. 허용 목록도 초대 전용도 아니다
+- **초대받은 사람도 Personal Workspace 를 갖는다.** 예외를 두면 그가 초대 Workspace 에서
+  빠지는 순간 갈 곳이 없어진다
+- **재로그인이 Personal Workspace 를 다시 만들지 않는다.** 「있는지 보고 없으면 만든다」로는
+  동시 로그인의 틈이 막히지 않아, `workspaces.personal_owner_id` 의 unique 가 최종 방어선이다
+
+### Workspace Context 는 주소에 있다
+
+화면 주소가 Tenant Context 를 담는다 — `/w/{workspaceSlug}/{section}`.
+
+- 🔴 **세션이나 `users` 행의 `currentWorkspaceId` 를 Authorization 의 정본으로 쓰지 않는다.**
+  한 사람이 탭마다 다른 Workspace 를 볼 수 있고, 그 구조는 탭끼리 서로의 값을 덮어쓴다
+- 🔴 **URL 의 `workspaceSlug` 는 Context 표시일 뿐 권한 증명이 아니다.** 요청마다
+  `Session -> User + slug -> WorkspaceMember` 를 확인한다
+- **Workspace 전환은 Route 변경이지 재로그인이 아니다.** 세션을 새로 만들지 않고
+  보고 있던 Section 을 유지한 채 주소만 바꾼다
+- 「마지막으로 본 Workspace」를 기억하는 것은 **로그인 뒤 어디로 갈지의 편의**일 뿐이다.
+  읽은 뒤 반드시 소속을 다시 확인한다
+- **Agent 요청은 slug 를 쓰지 않는다.** API Key 가 Workspace 를 정한다
+
+### 화면 접근은 서버가 먼저 막는다
 
 **자격이 없으면 렌더 전에 돌려보낸다.** 경로별 접근 표는 **한 곳**에 둔다.
 
@@ -437,9 +518,18 @@ Agent Request  API Key -> Key Lookup -> Workspace -> Authorized Workspace
 - **「로그인했다」와 「그 권한이다」는 다른 판정이다.** 권한이 필요한 화면은 권한까지 서버에서 확인하고, 읽지 못하면 열지 않는다
 - 세부 권한(메뉴·기능 단위)은 서버가 요청마다 차단하는 것이 정본이다. 화면 판정은 그 앞의 편의일 뿐이다
 
-### 세션 【향후 — 인증 도입 시】
+### 세션
 
-- **Token 은 브라우저에 존재하지 않는다.** 서버 측 세션에만 두고, 세션 응답에는 **사용자 프로필만** 담는다 — Token 을 세션 콜백에 담으면 세션 조회로 브라우저에 새어 나간다
+- **세션 전략은 Database 다**(`session.strategy = "database"`). 🔴 **고른 이유를 「JWT 를 쓰면 Token 이
+  브라우저에 노출되기 때문」이라고 적지 마라 — 틀린 설명이다.** GitHub Access Token 이 새는 것은
+  **세션 콜백에 그것을 담을 때**이지 세션 전략 때문이 아니다. 실제 이유는 둘이다:
+  이미 Adapter 로 `users`·`accounts` 를 Database 에 두고 있어 `sessions` 한 표가 더 붙는 비용이
+  거의 없다는 것, 그리고 **행을 지우면 그 즉시 세션이 끊긴다**는 것
+- 🔴 **세션 응답에는 사용자 프로필만 담는다.** Auth.js 의 기본 동작은 `sessions` 행을 통째로 펼쳐
+  돌려주므로 **브라우저 쿠키 값 그대로인 `sessionToken` 이 세션 객체에 들어온다.** 세션 콜백에서
+  화면이 쓰는 칸만 남긴다 — 그러지 않으면 HttpOnly 쿠키를 쓰는 의미가 사라진다
+- 🔴 **`session.accessToken` 같은 칸을 만들지 않는다.** GitHub Credential 은 `accounts` 표에만 두고
+  Server-only 로 다룬다. 한 줄 더하는 순간 브라우저까지 나간다
 - 프런트에서 Token 을 **해석(디코드)하거나 만료를 직접 계산하지 않는다**
 - **갱신 주체는 서버 한 곳뿐이다.** 클라이언트가 갱신 Endpoint 를 직접 부르지 않는다 — 서버가 소비한 것과 저장된 것이 갈라져 세션이 통째로 끊긴다
 - **401 과 5xx 를 구분한다.** 401·403 은 세션 종료, 5xx·네트워크 장애는 유예 후 재시도 — 서버가 잠깐 죽었다고 전체 사용자를 로그아웃시키지 않는다
@@ -455,7 +545,7 @@ Agent Request  API Key -> Key Lookup -> Workspace -> Authorized Workspace
 - 에러는 사용자용 `message` 만 노출한다. 원본 응답·스택(`details`)을 화면에 그리지 않는다
 - **URL Query String 에 개인정보를 넣지 않는다** — 브라우저 이력·리퍼러·서버 로그에 남는다
 
-### 입력 정규화·권한 미러링 【향후 — 인증 도입 시】
+### 입력 정규화·권한 미러링
 
 - 이메일 등 식별 값은 보내기 직전에 **공통 정규화 함수 한 곳**에서 앞뒤 공백 제거·소문자화 한다. 형식 거부는 Schema 가 먼저 하고 **최종 판단은 서버가** 한다
 - 화면의 권한 미러링(버튼 비활성 등)은 **편의일 뿐 경계가 아니다.** 서버가 같은 판정을 반드시 다시 한다
@@ -855,12 +945,48 @@ git add / commit / push · gh pr create / merge · git tag
 | `feat` | 기능 |
 | `fix` | 버그 |
 | `refactor` | 리팩터 |
+| `test` | 테스트 |
+| `perf` | 성능 |
+| `security` | 보안 |
+| `migration` | 스키마 이관 |
 | `docs` | 문서 |
 | `style` | 스타일 |
 | `chore` | 설정·빌드·패키지 |
 
-- subject 는 **한글·명령형**, 마침표·이모지 없음. scope 는 선택 (`feat(issues): ...`)
-- **한 커밋 = 한 도메인/작업.** `git add .` 로 전부 뭉치지 않는다
+- subject 는 **한글·명사형**, 마침표·이모지 없음. scope 는 선택 (`feat(issues): ...`)
+- 🔴 **`~한다` 류 서술형 종결을 쓰지 않는다**
+
+| | |
+|---|---|
+| ❌ | `feat: Workspace invitation을 추가한다` · `fix: 소수점 표기 문제를 수정한다` |
+| ✅ | `feat: Workspace invitation 추가` · `fix: 소수점 표기 오류 수정` |
+
+- **한 커밋 = 독립적으로 설명 가능한 하나의 제품 변경.** `git add .` 로 전부 뭉치지 않는다
+
+### 🔴 Git 은 «에이전트 행동 로그»가 아니다 — 이 저장소가 그 문제를 푼다
+
+> **Git = 제품의 의미 있는 변경 이력**
+> **Code Intelligence = Review · Finding · Fix Attempt · Verification · Resolution 이력**
+
+이 규칙은 다른 저장소에도 적용되지만(전역 `~/.claude/CLAUDE.md` 3.2),
+**여기서는 특별하다 — 이 저장소가 바로 「Git 에 넣지 말라」는 그 정보를 받는 곳이다.**
+
+```text
+에이전트 수  ≠  브랜치 수  ≠  커밋 수  ≠  PR 수
+```
+
+🔴 **리뷰 진행 기록만을 위한 커밋을 만들지 않는다** (`docs: Codex R17 리뷰 결과 기록` 따위).
+그 정보는 **`ReviewSession`·`ReviewIssue`·`IssueActivity`·`Resolution`** 에 남는다 —
+그것이 이 제품의 존재 이유다.
+
+**`docs:` 자체는 금지가 아니다.** 나중에도 참고할 **지속적인 문서**는 정상이다.
+갈리는 자리는 **「제품 문서인가, 리뷰 과정 보존인가」**다.
+
+**리뷰 회차가 늘어도 새 PR 을 만들지 않는다.** R1 에서 R20 까지 가더라도 **같은 변경 목적이면 같은 PR** 이다.
+새 PR 은 **기존 작업과 독립적일 때만** 연다.
+
+자세한 기준(커밋 전 판단·머지 전 이력 정리·좋은 이력의 예)은 전역 `~/.claude/CLAUDE.md` 3.2 에 있다.
+**여기서 다시 적어 갈라지게 하지 마라.**
 
 ### 이슈
 
@@ -869,9 +995,11 @@ git add / commit / push · gh pr create / merge · git tag
 ### PR
 
 - 제목: `[#{번호}] {Type} : {작업 내용}` — 예: `[#12] Feature : Review Ingestion API 구현`
+  - 작업 내용은 **커밋과 같은 문체**다 — 명사형
 - base=`develop`, head=현재 브랜치
 - 본문: 작업 내용 / 관련 이슈(`Close #n`) / 변경 사항 / 테스트 / 리뷰 포인트
 - 🔴 이슈·PR 본문은 **`--body-file`** 로 넣는다 (`--body @-` 는 본문이 깨진다)
+- 🔴 **에이전트의 사고 과정이나 리뷰 회차 전체를 PR 본문에 옮겨 붙이지 않는다**
 
 ```bash
 gh pr create --base develop --head $(git branch --show-current)
