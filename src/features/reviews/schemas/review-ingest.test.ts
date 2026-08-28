@@ -64,8 +64,8 @@ describe("reviewIngestSchema", () => {
   });
 
   it("Provider 식별자 없이 거절한다", () => {
-    const { externalRepositoryId: _omitted, ...repository } =
-      validPayload.repository;
+    const repository: Record<string, unknown> = { ...validPayload.repository };
+    delete repository.externalRepositoryId;
 
     const result = reviewIngestSchema.safeParse({ ...validPayload, repository });
 
