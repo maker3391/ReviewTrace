@@ -1,0 +1,44 @@
+import {
+  issueIdSchema,
+  readJsonBody,
+  runAgentRoute,
+  validationErrorResponse,
+} from "@/lib/api/agent-route";
+import { authenticateAgent } from "@/lib/api/api-key-auth";
+import { apiError } from "@/lib/api/error-response";
+import { issueActivitySchema } from "@/features/issues/schemas/issue-activity";
+import { addIssueActivity } from "@/features/issues/server/issue-activity-service";
+
+/**
+ * `POST /api/v1/issues/{issueId}/activities` — Issue History 한 줄 추가(스펙 32).
+ *
+ * 🔴 **API Key 의 Workspace 와 대상 Issue 의 Workspace 가 반드시 일치해야 한다.**
+ * 판정은 Application Service 가 한다 — `WHERE issue.id = ?` 만으로 끝내지 않는다(스펙 15).
+ */
+export async function POST(
+  request: Request,
+  context: RouteContext<"/api/v1/issues/[issueId]/activities">,
+): Promise<Response> {
+  return runAgentRoute(async () => {
+    const agent = await authenticateAgent(request);
+
+    const { issueId } = await context.params;
+    const parsedId = issueIdSchema.safeParse(issueId);
+    if (!parsedId.success) {
+      return apiError("VALIDATION_ERROR", "issueId 형식이 올바르지 않다.");
+    }
+
+    const parsed = issueActivitySchema.safeParse(await readJsonBody(request));
+    if (!parsed.success) {
+      return validationErrorResponse(parsed.error);
+    }
+
+    const activity = await addIssueActivity({
+      workspaceId: agent.workspaceId,
+      issueId: parsedId.data,
+      activity: parsed.data,
+    });
+
+    return Response.json({ activity }, { status: 201 });
+  });
+}
