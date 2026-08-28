@@ -16,7 +16,7 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 
 ## 0. 지금 있는 것
 
-**인증 · Multi-Workspace · Tenant 격리 · Agent API 까지 서 있다.**
+**인증 · Multi-Workspace · Tenant 격리 · Agent API · Project 계층 · Dashboard · Wiki 까지 서 있다.**
 **이 절이 「무엇이 실제로 존재하는가」의 정본이다.** 무언가를 만들면 여기부터 고쳐라.
 
 | | 상태 |
@@ -25,13 +25,13 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | Tailwind CSS 4 · ESLint · pnpm | 있다 |
 | shadcn/ui Primitive **11개** (`components/ui`) | 있다 — Button · Input · Textarea · Select · Badge · Table · Dialog · Dropdown Menu · Skeleton · Card · Tooltip |
 | Atomic Design 계층 (`atoms` · `molecules` · `organisms`) | 있다 |
-| Drizzle Schema (**14 table · 8 enum**) · Migration 환경(`db:generate`·`db:migrate`) | 있다 |
+| Drizzle Schema (**16 table · 8 enum**) · Migration 환경(`db:generate`·`db:migrate`) | 있다 |
 | Zod · React Hook Form(`zodResolver`) | 있다 |
-| Feature 디렉터리 (`features/auth` · `features/invitations` · `features/issues`) | 있다 |
+| Feature 디렉터리 (`auth` · `invitations` · `issues` · `projects` · `dashboard` · `knowledge` · `reviews` · `repositories` · `api-keys`) | 있다 |
 | Workspace Shell (`app/(workspace)/w/[workspaceSlug]` + AppHeader · AppSidebar · WorkspaceSwitcher) | 있다 |
-| SSR + Suspense + Skeleton 조회 골격 (`/w/{slug}/issues`) | 있다 |
+| SSR + Suspense + Skeleton 조회 골격 (`/w/{ws}/p/{project}/issues`) | 있다 |
 | Error Handling (`AppError` · `PublicError` · `error.tsx` · `global-error.tsx` · `not-found.tsx`) | 있다 |
-| Server Action 반환 계약 (`ActionResult`) | 있다 — 로그인·로그아웃·초대 발행·초대 수락이 쓴다 |
+| Server Action 반환 계약 (`ActionResult`) | 있다 — 로그인·로그아웃·초대 발행/수락·Project 생성·Wiki 등록/수정/삭제가 쓴다 |
 | 환경 변수 구조 (`.env.example` · Zod 검증) · `docker-compose.yml` | 있다 |
 | Test(`pnpm test`, vitest) · `typecheck` script | 있다 |
 | **PostgreSQL · Migration 적용** | **있다.** Docker(`code-intelligence-postgres`)로 띄워 `db:migrate` 적용·확인 완료 |
@@ -43,9 +43,18 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | **Agent API 4종** (`POST /api/v1/reviews` · `POST /api/v1/issues/{id}/activities` · `PATCH /api/v1/issues/{id}` · `GET /api/v1/knowledge/context`) | **있다.** 실제 서버·실제 PostgreSQL 로 E2E 확인 (아래) |
 | **API Key** 발급·폐기·Bearer 검증 (`ci_` + 256bit 난수 · SHA-256 Hash 만 저장) | **있다** — Application Service 까지. 🔴 **발급 «화면»·Server Action 은 없다** |
 | Agent API Error Contract (`error.code`·`message`, Code↔Status 대응 한 곳) | 있다 |
-| ReviewIssue 화면 CRUD · Repositories · Reviews · Knowledge 화면 | **없다. 다음 단계** |
-| Workspace 새로 만들기(Personal 외) · 멤버 내보내기 · 역할 변경 | **없다. 다음 단계** |
-| Dashboard 통계 | **없다. 의도적이다** — 데이터를 쌓는 경로가 없어 숫자를 그리면 전부 거짓이다 |
+| **Project 계층** (`Workspace -> Project -> Repository -> ReviewSession -> ReviewIssue`) | **있다** — `projects` 표 · `UNIQUE(workspace_id, slug)` · `repositories.project_id` |
+| **Project 생성 화면** (`/w/{ws}/projects`) · Project Navigation | **있다** |
+| **Workspace Dashboard** (KPI · Projects · Needs Attention · Frequent Patterns · Recent Activity) | **있다** — 전부 SQL Aggregate. JS 집계 없음 |
+| **Project Dashboard** (KPI · Open Issues · Patterns · Recent Reviews · Repositories · Knowledge · Resolutions) | **있다** |
+| **Wiki**(`knowledge_pages`) 목록·상세·생성·수정·삭제 · Workspace/Project Scope 분리 | **있다** — Markdown 원문 저장 |
+| Reviews · Repositories 목록 화면 (Project 아래) | **있다** — 조회만 |
+| `GET /api/v1/knowledge/context` 의 **Project Scope + Wiki** | **있다** — `?projectSlug=` · 응답에 `scope`·`wiki` |
+| **Review Ingest 의 Project 지정** (`payload.project.slug`, 없으면 `default`) | **있다** |
+| ReviewIssue 화면 CRUD · Review/Issue/Repository **상세** 화면 | **없다. 다음 단계** |
+| Wiki 의 Markdown **렌더링** | **없다. 의도적이다** — 원문을 그대로 보여 준다. 렌더러는 XSS 검토와 함께 |
+| Workspace 새로 만들기(Personal 외) · 멤버 내보내기 · 역할 변경 · Project 수정/삭제 | **없다. 다음 단계** |
+| **API Key 발급 «화면»** | **없다. 다음 단계** — Application Service 는 있다 |
 
 ### 검증된 것 (2026-08-28 실행)
 
@@ -147,6 +156,36 @@ Idempotency 열쇠를 저장하지 않게 하면 「Session 이 늘지 않았다
 - **UTF-8 왕복** — 한글 요약·행위자 이름이 요청 → DB → 응답까지 온전하다
 
 
+### Project 계층·Dashboard·Wiki 검증 (2026-08-28 실행)
+
+`pnpm lint` · `typecheck` · `test`(**147개**, `DB_INTEGRATION=true` 포함) · `build` **네 개 모두 통과했다.**
+`pnpm db:generate` 로 `0004_futuristic_stick.sql` 을 만들고 **실제 PostgreSQL 에 적용**했다.
+
+- **Migration 이 실제로 돌았다** — `projects` · `knowledge_pages` 두 표가 생기고
+  `repositories.project_id` 가 `NOT NULL` 로 잠겼다. **16 table** 이 됐다
+- 🔴 **기존 데이터를 하나도 건드리지 않았다.** 적용 전 `repositories` 가 **0행**임을 직접 조회해
+  확인했고, 그래서 Migration 의 Default Project 생성 구문이 **한 번도 걸리지 않았다**(`projects` 0행).
+  Workspace 2개 · User 1명 · API Key 1개는 그대로다
+- **부분 unique index 두 개**가 실제로 만들어졌다 —
+  `knowledge_pages_workspace_slug_unique WHERE project_id IS NULL` ·
+  `knowledge_pages_project_slug_unique WHERE project_id IS NOT NULL`
+- **Tenant 격리 통합 시험 18건이 실제 PostgreSQL 에서 돌았다**(전부 되돌리는 Transaction 안).
+  Workspace 별 Project slug uniqueness · 남의 Project 접근 차단 · Dashboard 두 개의 격리 ·
+  Issue 목록의 Project Scope · Wiki Scope 분리 · Agent Ingest 의 Project 확보
+- 🔴 **되돌림 확인** — `findProjectDashboard` 에서 `workspaceId` 조건을 빼자
+  「다른 Workspace 의 projectId 를 받아도 비어서 돌아온다」가 **실제로 실패했다**
+  (`expected [ {…} ] to have a length of +0 but got 1`). 조건을 되돌리자 다시 통과했다
+- **Agent API E2E 가 53건으로 늘었고 전부 통과했다**(`bash scripts/agent-api-e2e.sh`).
+  기존 39건은 **하나도 고치지 않고** 그대로 통과했고, Project 계층 14건을 새로 더했다 —
+  `project` 미지정 시 `default` 생성 · 지정 시 그 Project 로 적재 ·
+  🔴 **B 키로 A 의 project slug 를 지목해도 A 의 Project 에 닿지 못한다** ·
+  `Workspace 를 넘나드는 Repository↔Project 조합 0행` · `?projectSlug=` Scope · 없는 slug 의 빈 결과
+- **미로그인 상태에서 새 화면이 전부 막힌다** — `/w/{ws}/projects` · `/knowledge` · `/members` ·
+  `/w/{ws}/p/{project}` · `/p/{project}/issues` · `/p/{project}/knowledge/{slug}` 가 모두
+  **`307 → /login` 이고 본문 6바이트**다. 보호된 화면의 뼈대가 나가지 않았다
+- 확인 뒤 **dev 서버를 종료했고 시험 데이터도 남기지 않았다** — `projects` 0행 · `repositories` 0행 ·
+  Workspace 는 `dev`·`maker3391` 둘 그대로
+
 ### 🔴 검증되지 않은 것
 
 - 🔴 **`.env` 에 `AUTH_SECRET` 이 없다.** 위 E2E 는 프로세스 환경 변수로 넣어 띄웠다.
@@ -164,6 +203,18 @@ Idempotency 열쇠를 저장하지 않게 하면 「Session 이 늘지 않았다
   - **API Key 발급 «화면»이 없다.** Application Service(`issueApiKey`)까지만 있고 Server Action·UI 가 없어,
     지금 키를 만들려면 위 E2E 스크립트처럼 코드를 직접 부르거나 행을 넣어야 한다
   - **`.env` 에 `AUTH_SECRET` 이 없다.** E2E 는 프로세스 환경 변수로 넣어 띄웠다
+- **Project 계층 담당이 확인하지 못한 것** (2026-08-28):
+  - 🔴 **새 화면을 사람 눈으로 본 적이 없다.** Workspace Dashboard · Project Dashboard ·
+    Projects · Wiki(목록·상세·작성·수정·삭제) · 바뀐 Sidebar 를 **브라우저로 열어 보지 않았다.**
+    타입·빌드·SSR 응답 코드·Database 시험까지만 확인했다 — 브라우저 확장이 연결되지 않았고,
+    세션을 손으로 만들어 우회하는 것은 하지 않았다
+  - **화면에서 Project 를 만들어 보지 않았다.** `createProject` 는 통합 시험으로 확인했지만
+    `CreateProjectDialog` → Server Action → `revalidatePath` 왕복은 눌러 보지 않았다
+  - **Wiki 를 화면에서 쓰고 고치고 지워 보지 않았다.** Service 계층만 시험했다
+  - **UI 규칙(16장) 적용을 눈으로 대조하지 않았다.** Card 를 걷어내고 divider·Typography 로
+    바꾼 결과가 실제로 「전형적인 shadcn Dashboard 처럼 보이지 않는지」는 확인되지 않았다
+  - **Dashboard 질의의 실행 계획을 보지 않았다.** 데이터가 0행이라 `EXPLAIN ANALYZE` 가 뜻이 없다.
+    Index 는 조회 패턴에 맞춰 넣었을 뿐 실제로 타는지는 데이터가 쌓인 뒤 확인해야 한다
 - 위를 「될 것이다」로 적지 마라. 확인한 사람이 이 표를 고쳐라
 
 🔴 **없는 것을 있는 것처럼 쓰지 마라.** 실행하지 않은 검증을 통과했다고 적지 않는다. 확인하지 않은 동작을 정상이라고 추측하지 않는다.
@@ -328,12 +379,41 @@ Feature 내부 예: `src/features/issues/` -> `components/ server/ schemas/ type
 
 🔴 **모든 Feature 에 같은 폴더를 미리 만들지 마라. 실제 파일이 생길 때 필요한 폴더만 만든다.**
 
+### Route 구조 【현재 규칙】
+
+```text
+Workspace   /w/{workspaceSlug}/dashboard          Workspace 전체 상태
+            /w/{workspaceSlug}/projects           Project 목록·생성
+            /w/{workspaceSlug}/knowledge          Workspace Wiki  (+ /new · /{slug} · /{slug}/edit)
+            /w/{workspaceSlug}/members            멤버·초대
+            /w/{workspaceSlug}/settings           Workspace 자신
+
+Project     /w/{workspaceSlug}/p/{projectSlug}                Project Dashboard
+            /w/{workspaceSlug}/p/{projectSlug}/reviews
+            /w/{workspaceSlug}/p/{projectSlug}/issues
+            /w/{workspaceSlug}/p/{projectSlug}/repositories
+            /w/{workspaceSlug}/p/{projectSlug}/knowledge      Project Wiki (+ /new · /{slug} · /{slug}/edit)
+```
+
+🔴 **Project 를 최상위(`/p/{slug}`)로 올리지 않는다.** 주소만으로 Tenant 를 알 수 없게 되고,
+slug 가 전역 unique 여야 해 먼저 만든 Workspace 가 이름을 선점한다.
+
+🔴 **URL 의 `workspaceSlug`·`projectSlug` 는 Context 표시일 뿐 권한의 근거가 아니다.**
+모든 Server Query 가 이 순서를 지킨다 —
+**Session → Workspace 소속 확인 → 그 Workspace 안의 Project → Resource**
+(`requireWorkspace` → `requireProject`). 없으면 **404 다. 403 이 아니다** —
+403 은 그 slug 가 존재한다는 사실을 알려 준다.
+
+🔴 **Issue 는 Project 안에서 본다.** Workspace 를 가로지르는 Issue 목록 화면은 두지 않는다 —
+그 자리는 Workspace Dashboard 의 「Needs Attention」이 맡는다.
+
 ### app 은 얇게 유지한다
 
 `src/app` 에 Business Logic 을 넣지 않는다. `page.tsx` 는 Feature Screen 을 조합하거나 Server Component 를 호출하는 역할만 한다.
 
 ```text
-src/app/(workspace)/w/[workspaceSlug]/issues/page.tsx -> src/features/issues/components/IssueListScreen.tsx
+app/(workspace)/w/[workspaceSlug]/p/[projectSlug]/issues/page.tsx
+  -> features/issues/components/IssueListScreen.tsx
 ```
 
 Route Handler 도 HTTP 처리만 한다: `Request -> Authentication -> Parsing/Validation -> Application Service -> Response`
@@ -433,12 +513,39 @@ PostgreSQL + Drizzle ORM. **Database 가 Knowledge 의 정본이다.**
 ```text
 User -> WorkspaceMember -> Workspace
                              |-- ApiKey
-                             +-- Repository -> ReviewSession -> ReviewIssue
-                                                                  |-- IssueActivity
-                                                                  +-- IssueTag -- Tag
+                             |-- WorkspaceInvitation
+                             |-- KnowledgePage            (project_id IS NULL = 공통 규칙)
+                             +-- Project
+                                   |-- KnowledgePage      (project_id 있음 = 그 Project 문서)
+                                   +-- Repository -> ReviewSession -> ReviewIssue
+                                                                        |-- IssueActivity
+                                                                        +-- IssueTag -- Tag
 ```
 
 개인용으로 시작하더라도 **Workspace 를 Tenant Boundary 로 쓴다.**
+
+### Project 는 업무 단위이지 Tenant 가 아니다 【현재 규칙】
+
+```text
+Workspace   Tenant · Member · 권한 · API Key · 공통 Knowledge 의 경계
+Project     하나의 제품 또는 업무 단위
+Repository  실제 Git 코드베이스
+```
+
+🔴 **Workspace 를 Project 처럼 쓰지 않는다.** 한 Workspace(`CodeApex`)가 여러 Project
+(`SMIL` · `Code Intelligence` · `ERP`)를 갖고, 한 Project 가 여러 Repository
+(`smil-fe` · `smil-be` · `smil-agent`)를 갖는다. **Project 와 Repository 를 1:1 로 묶지 않는다.**
+
+- `projects` 의 slug 는 **`UNIQUE(workspace_id, slug)`** 다 — 전역 unique 가 아니다.
+  서로 다른 회사가 각각 `erp` 를 갖는 것은 정상이다
+- 🔴 **접근 판정의 정본은 여전히 `workspace_members` 다.** Project 별 세부 권한은 실제 요구가
+  생기기 전에 만들지 않는다
+- 🔴 **`workspace_id` 를 하위 표에 «무조건» 복사하지 않는다.** 지금 갖고 있는 표
+  (`repositories` · `review_sessions` · `review_issues` · `issue_activities` · `knowledge_pages`)는
+  **Tenant 격리를 값싸고 잊기 어렵게** 만들려는 의도적 denormalization 이다.
+  `review_issues` 에 `project_id` 는 **넣지 않았다** — Project 로 좁힐 때는 Repository 를 Join 한다
+- 🔴 **조회에 `workspaceId` 와 `projectId` 를 «겹쳐서» 건다.** 한쪽만 걸면 그 값을 잘못 얻은
+  경로 하나가 곧바로 다른 Tenant 를 읽는다. 겹쳐 두면 어느 한쪽을 틀려도 결과가 비어서 돌아온다
 
 ### JSON 남용 금지
 
@@ -622,6 +729,7 @@ Workspace 것인지** 조건에 함께 건다. `repositoryId` 는 Filter 일 뿐
 
 ```json
 {
+  "project":    { "slug": "smil" },
   "repository": { "provider": "GITHUB", "externalRepositoryId": "123456789",
                   "owner": "owner", "name": "repository", "fullName": "owner/repository" },
   "target":     { "type": "COMMIT", "branch": "develop", "commitSha": "a81f3c2" },
@@ -637,6 +745,17 @@ API Key -> Workspace 결정 -> Zod Validation -> Repository Upsert
 ```
 
 🔴 **Client 가 Workspace 를 임의 지정하도록 만들지 않는다.**
+
+**`project` 는 선택이다.** 보내지 않으면 그 Workspace 의 `default` Project 로 들어간다 —
+Agent 는 화면이 없어 Project 를 미리 만들 수 없고, 첫 Review 를 통째로 거절하면 무엇을 먼저
+만들어야 하는지 알 방법이 없다.
+
+🔴 **`project.slug` 도 Workspace 를 넘지 못한다.** 남의 Workspace 의 Project slug 를 적으면
+그쪽 Project 에 닿는 것이 아니라 **자기 Workspace 안에** 그 이름의 Project 가 하나 생길 뿐이다.
+
+🔴 **Repository 의 `project_id` 는 Ingest 가 «덮어쓰지» 않는다.** Repository 를 어느 Project 에
+둘지는 사람이 정하는 일이다 — Agent 가 매 Review 마다 보내는 값으로 옮기면, 화면에서 옮겨 둔
+것이 다음 Review 에 되돌아간다.
 🔴 **하나의 Transaction 이다.** 중간에 실패하면 ReviewSession 도 남지 않는다.
 🔴 **Issue 개수만큼 Round Trip 을 만들지 않는다.** Issue 가 1개든 500개든 문장 수는 같다.
 
@@ -682,8 +801,26 @@ Session 열쇠로 막을 수 없다. 그래서 나눴다.
 
 ### Knowledge Context
 
-`frequentPatterns` · `recentHighSeverityIssues` · `unresolvedIssues` · `pastResolutions` 넷을
-돌려준다. Filter 는 `repositoryId` · `category` · `pattern` · `severity` · `limit` 이다.
+`scope` · `wiki` · `frequentPatterns` · `recentHighSeverityIssues` · `unresolvedIssues` ·
+`pastResolutions` 를 돌려준다. Filter 는 **`projectSlug`** · `repositoryId` · `category` ·
+`pattern` · `severity` · `limit` 이다.
+
+```text
+Workspace Rules(wiki, project_id IS NULL)
+  + Project Wiki(wiki, 그 Project)
+  + Repository Patterns(frequentPatterns)
+  + Past Review Issues(recentHighSeverityIssues · unresolvedIssues)
+  + Past Resolutions(pastResolutions)          -> Claude / Codex
+```
+
+🔴 **Wiki 와 Review Knowledge 를 한 배열로 합치지 않는다**(→ [14. Knowledge](#14-knowledge-는-양방향이다)).
+`wiki` 는 사람이 적은 것(Explicit)이고 나머지는 Review 가 남긴 것(Observed)이다 — 출처가 다르다.
+**본문 전문을 주지 않는다.** 무엇을 다루는 문서인지 알아볼 만큼만 발췌한다.
+
+🔴 **`projectSlug` 를 보냈는데 그 Workspace 에 없으면 «빈 결과 + `scope.projectResolved=false`»** 다.
+Workspace 전체로 넓혀 답하면 Agent 가 그것을 그 Project 의 Knowledge 로 읽는다 —
+묻지 않은 것에 답하는 쪽이 아무것도 못 찾는 쪽보다 나쁘다.
+Project 를 지정해도 **Workspace 공통 규칙은 함께** 준다. 그것을 빼면 Agent 가 모르는 채로 작업한다.
 
 🔴 **LLM 도 Vector Search 도 쓰지 않는다.** `COUNT` · `GROUP BY` · `FILTER` · `ORDER BY` ·
 `LIMIT` 만으로 만든다. 🔴 **통계를 JavaScript 에서 세지 않는다** — 전체 Issue 를 가져와
@@ -708,9 +845,30 @@ Session 열쇠로 막을 수 없다. 그래서 나눴다.
 2) Code Intelligence -> Past Knowledge -> Agent
 ```
 
-**2번이 장기적으로 중요하다.** Agent 가 작업·Review 를 시작하기 전에 **Repository 의 반복 문제 · 과거 HIGH/CRITICAL Issue · 미해결 Issue · 과거 Resolution · 자주 발생하는 Pattern** 을 조회할 수 있어야 한다.
+**2번이 장기적으로 중요하다.** Agent 가 작업·Review 를 시작하기 전에 **Repository 의 반복 문제 ·
+과거 HIGH/CRITICAL Issue · 미해결 Issue · 과거 Resolution · 자주 발생하는 Pattern** 을 조회할 수
+있어야 한다. `GET /api/v1/knowledge/context` 가 그 자리다(→ [13. Public Agent API](#13-public-agent-api-현재-규칙)).
 
-【향후】 `GET /api/v1/knowledge/context` 또는 MCP Tool 로 제공할 수 있다.
+### 출처가 둘이다 — 합치지 마라 【현재 규칙】
+
+| | 무엇 | 어디서 온다 | 어디 있다 |
+|---|---|---|---|
+| **Wiki** | Explicit Knowledge — **정해서 적은 것** | 사람이 쓴다 | `knowledge_pages` |
+| **Pattern · Resolution** | Observed Knowledge — **겪어서 쌓인 것** | Review 가 남긴다 | `review_issues` · `issue_activities` |
+
+🔴 **둘을 같은 데이터로 억지로 합치지 않는다.** 서로 «연결»될 수는 있지만 출처가 다르다 —
+우리가 정한 규칙을 `review_issues` 에 끼워 넣으면 「관측된 사실」과 섞여 통계가 거짓이 된다.
+
+```text
+Workspace Knowledge   개발 공통 규칙 · Git/PR 규칙 · Security 정책 · Agent 운영 규칙 · Architecture 원칙
+Project Knowledge     업무 규칙 · Architecture Decision · 외부 연동 규칙 · 장애/해결 기록 · 특이사항
+Review Knowledge      Pattern · ReviewIssue · IssueActivity · Resolution · Verification
+```
+
+Wiki 는 **Markdown 원문**으로 시작한다. 🔴 Notion 수준 Editor · Block DB · 실시간 협업 편집 ·
+LLM 자동 생성·요약은 **만들지 않는다**(→ [18. Overengineering 금지](#18-overengineering-금지)).
+
+【향후】 MCP Tool 로도 같은 Context 를 낼 수 있다.
 
 ---
 
@@ -805,6 +963,35 @@ Review · Issue · Repository · Project 목록은 **Table 을 우선**한다. �
 - **Icon 은 의미 전달에 도움이 될 때만.** 모든 Heading 앞에 붙이지 않는다
 - **Color 는 의미에만** — 상태 · Severity · Selection · Primary Action · 중요한 Feedback.
   Primary Color 를 넓은 면적에 반복하지 않고, 일반 Container 를 색으로 가르지 않는다. **Neutral 이 기본**
+
+### Sidebar 는 Navigation 도구다
+
+장식 영역이 아니다. **Workspace · Project · Navigation 세 계층이 눈으로 갈려야** 한다.
+
+```text
+[ CodeApex ▼ ]        <- Workspace Switcher (Tenant)
+
+Dashboard
+Projects
+Knowledge
+────────────
+SMIL                  <- 현재 Project (Context)
+
+Overview
+Reviews
+Issues
+Knowledge
+Repositories
+────────────
+Members               <- 가끔 여는 것은 아래로
+Settings
+```
+
+- 🔴 **모든 메뉴를 같은 시각적 강도로 두지 않는다.** 현재 Workspace · 현재 Project ·
+  현재 Page 가 각각 구분되어야 한다
+- 🔴 **Sidebar 안에서 Badge · Card · Box 를 남발하지 않는다.** 계층은 그룹과 divider 로 드러낸다
+- **Workspace 전환 = Tenant 변경**, **Project 전환 = Context 변경**. 둘의 역할을 섞지 않는다
+  (→ [11. Multi-Tenant](#11-multi-tenant-현재-규칙))
 
 ### Search / Filter · Empty · Loading
 
