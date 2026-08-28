@@ -190,5 +190,49 @@ AGAIN=$(psql1 "select count(*) from issue_activities where review_issue_id='$ISS
 if [ "$AGAIN" != "0" ]; then ok "다시 만난 Issue 에 REVIEWED_AGAIN 이 남았다"; else bad "재보고가 History 에 남지 않았다"; fi
 
 echo
+echo "===== 10. Project 계층 ====="
+# Project 를 안 보낸 Review 는 Workspace 의 default Project 로 들어간다.
+DEFAULT_PRJ=$(psql1 "select p.slug from projects p join workspaces w on w.id=p.workspace_id where w.slug='e2e-alpha'")
+if [ "$DEFAULT_PRJ" = "default" ]; then ok "project 를 안 보내면 default Project 가 생긴다"; else bad "Project slug 가 '$DEFAULT_PRJ' 다"; fi
+OWNED=$(psql1 "select count(*) from repositories r join projects p on p.id=r.project_id join workspaces w on w.id=p.workspace_id where w.slug='e2e-alpha' and r.workspace_id=p.workspace_id")
+if [ "$OWNED" = "1" ]; then ok "🔴 Repository 가 같은 Workspace 의 Project 아래에 달렸다"; else bad "Repository-Project-Workspace 가 어긋났다"; fi
+
+# project.slug 를 보내면 그 Project 로 들어간다.
+node -e "
+const fs=require('fs');
+const r=JSON.parse(fs.readFileSync(process.argv[1]+'/review.json','utf8'));
+r.project={slug:'smil'};
+r.repository.externalRepositoryId='111222333';
+r.repository.name='smil-fe'; r.repository.fullName='SMIL-26/smil-fe';
+r.issues=[{severity:'MEDIUM',category:'VALIDATION',patternKey:'MISSING_VALIDATION',title:'Missing request validation',source:'codex',externalId:'CDX-9'}];
+fs.writeFileSync(process.argv[1]+'/review-smil.json', JSON.stringify(r),'utf8');
+" "$WORK"
+expect "project 를 지정한 저장"       201 -X POST "$BASE/reviews" -H "authorization: Bearer $A" -H "$JSON" -H 'Idempotency-Key: e2e-smil-1' --data-binary @"$WORK/review-smil.json"
+SMIL_REPO=$(pick repositoryId)
+SMIL_PRJ=$(psql1 "select p.slug from repositories r join projects p on p.id=r.project_id where r.id='$SMIL_REPO'")
+if [ "$SMIL_PRJ" = "smil" ]; then ok "지정한 Project 로 들어갔다"; else bad "Project 가 '$SMIL_PRJ' 다"; fi
+
+# 🔴 B 키로 A 의 Project slug 를 지목해도 A 의 Project 에 닿지 못한다.
+expect "🔴 B 키가 A 의 project slug 를 지목" 201 -X POST "$BASE/reviews" -H "authorization: Bearer $B" -H "$JSON" -H 'Idempotency-Key: e2e-smil-b' --data-binary @"$WORK/review-smil.json"
+B_REPO=$(pick repositoryId)
+CROSS=$(psql1 "select count(*) from repositories ra join repositories rb on ra.project_id=rb.project_id where ra.id='$SMIL_REPO' and rb.id='$B_REPO'")
+if [ "$CROSS" = "0" ]; then ok "🔴 같은 slug 라도 Workspace 마다 다른 Project 다"; else bad "Project 가 Tenant 를 넘어 공유됐다"; fi
+MIX=$(psql1 "select count(*) from repositories r join projects p on p.id=r.project_id where r.workspace_id <> p.workspace_id")
+if [ "$MIX" = "0" ]; then ok "🔴 Workspace 를 넘나드는 Repository-Project 조합이 하나도 없다"; else bad "어긋난 조합이 $MIX 개다"; fi
+
+echo "----- Knowledge Context 의 Project Scope -----"
+expect "projectSlug 로 좁힌 조회"      200 "$BASE/knowledge/context?projectSlug=smil&limit=10" -H "authorization: Bearer $A"
+if [ "$(pick 'frequentPatterns.map(p=>p.patternKey).join(",")')" = "MISSING_VALIDATION" ]; then ok "그 Project 의 Pattern 만 나온다"; else bad "Project Scope 가 걸리지 않았다"; fi
+if [ "$(pick 'scope.projectResolved')" = "true" ]; then ok "scope 가 Project 를 찾았음을 알린다"; else bad "scope 가 비었다"; fi
+expect "🔴 없는 projectSlug"           200 "$BASE/knowledge/context?projectSlug=no-such&limit=10" -H "authorization: Bearer $A"
+if [ "$(pick 'scope.projectResolved')" = "false" ] && [ "$(pick 'frequentPatterns.length + d.unresolvedIssues.length')" = "0" ]; then ok "🔴 못 찾았음을 알리고 빈 결과를 준다 — Workspace 전체로 넓히지 않는다"; else bad "없는 Project 인데 다른 데이터가 나왔다"; fi
+expect "🔴 B 키로 A 의 project slug 조회" 200 "$BASE/knowledge/context?projectSlug=smil&limit=10" -H "authorization: Bearer $B"
+# B 도 자기 'smil' Project 를 갖는다(위에서 만들어졌다). 같은 slug 로 조회하면
+# **자기 것만** 나와야 한다 — A 의 Pattern 도, A 의 Resolution 도 보이지 않는다.
+PB=$(pick 'frequentPatterns.map(p=>p.patternKey).join(",")')
+RB=$(pick 'pastResolutions.length')
+if [ "$PB" = "MISSING_VALIDATION" ] && [ "$RB" = "0" ]; then ok "🔴 B 는 자기 smil Project 만 본다 — A 의 Knowledge 가 새지 않는다"; else bad "B 에게 patterns=$PB resolutions=$RB 가 나왔다"; fi
+
+echo
 echo "===== 결과: PASS=$PASS FAIL=$FAIL ====="
 [ "$FAIL" = "0" ]
