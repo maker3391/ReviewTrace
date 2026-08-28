@@ -24,6 +24,7 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | Next.js 16 App Router · React 19 · TypeScript strict | 있다 |
 | Tailwind CSS 4 · ESLint · pnpm | 있다 |
 | shadcn/ui Primitive **11개** (`components/ui`) | 있다 — Button · Input · Textarea · Select · Badge · Table · Dialog · Dropdown Menu · Skeleton · Card · Tooltip |
+| `react-markdown` · `remark-gfm` | 있다 — **Wiki 본문 렌더링 전용.** 아는 자리는 `components/molecules/MarkdownView.tsx` 하나뿐이다 |
 | Atomic Design 계층 (`atoms` · `molecules` · `organisms`) | 있다 |
 | Drizzle Schema (**16 table · 8 enum**) · Migration 환경(`db:generate`·`db:migrate`) | 있다 |
 | Zod · React Hook Form(`zodResolver`) | 있다 |
@@ -51,10 +52,14 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | Reviews · Repositories 목록 화면 (Project 아래) | **있다** — 조회만 |
 | `GET /api/v1/knowledge/context` 의 **Project Scope + Wiki** | **있다** — `?projectSlug=` · 응답에 `scope`·`wiki` |
 | **Review Ingest 의 Project 지정** (`payload.project.slug`, 없으면 `default`) | **있다** |
-| ReviewIssue 화면 CRUD · Review/Issue/Repository **상세** 화면 | **없다. 다음 단계** |
-| Wiki 의 Markdown **렌더링** | **없다. 의도적이다** — 원문을 그대로 보여 준다. 렌더러는 XSS 검토와 함께 |
-| Workspace 새로 만들기(Personal 외) · 멤버 내보내기 · 역할 변경 · Project 수정/삭제 | **없다. 다음 단계** |
-| **API Key 발급 «화면»** | **없다. 다음 단계** — Application Service 는 있다 |
+| **Issue 상세**(History 타임라인 · Resolution · Tag) · **Review 상세** · **Repository 상세** | **있다** |
+| **API Key 발급·폐기 화면**(`/w/{ws}/settings`, OWNER 전용 · 원문 1회 표시) | **있다** |
+| **Workspace 만들기**(Switcher) · **멤버 역할 변경**(마지막 OWNER 강등 차단) | **있다** |
+| **Project 수정·삭제**(`/w/{ws}/p/{p}/settings` · 삭제 영향 건수 표시 후 이름 확인) | **있다** |
+| **Repository 를 Project 사이에서 이동** | **있다** — Review·Issue 가 함께 따라간다 |
+| ReviewIssue 의 **화면 CRUD**(상태 변경·Activity 추가) | **없다. 다음 단계** — Agent API 로만 가능 |
+| Wiki 의 Markdown **렌더링** | **있다** — `MarkdownView` 한 곳. 🔴 raw HTML 을 렌더하지 않아 sanitize 가 따로 필요 없다 |
+| 멤버 **내보내기** · Workspace 이름·slug 변경 | **없다. 다음 단계** |
 
 ### 검증된 것 (2026-08-28 실행)
 
@@ -186,6 +191,44 @@ Idempotency 열쇠를 저장하지 않게 하면 「Session 이 늘지 않았다
 - 확인 뒤 **dev 서버를 종료했고 시험 데이터도 남기지 않았다** — `projects` 0행 · `repositories` 0행 ·
   Workspace 는 `dev`·`maker3391` 둘 그대로
 
+### 상세 화면·관리 기능·실행 계획 검증 (2026-08-28 실행)
+
+`pnpm lint` · `typecheck` · `test`(**157개**) · `build`(**28 route**) **네 개 모두 통과했다.**
+Agent API E2E **53건**도 그대로 통과했다.
+
+- **Tenant 격리 통합 시험이 28건으로 늘었다** — Project 수정·삭제 · Repository 이동 ·
+  Issue/Review/Repository **상세 조회** · Workspace 만들기 · 멤버 역할 변경까지 실제
+  PostgreSQL 에서 돌았다(전부 되돌리는 Transaction 안)
+- 🔴 **시험이 실제 버그를 잡았다.** `changeMemberRole` 의 「마지막 OWNER 잠금」이
+  `count(*) … FOR UPDATE` 였는데 PostgreSQL 이 `FOR UPDATE is not allowed with aggregate
+  functions` 로 거절했다 — 행을 그대로 읽어 잠그도록 고쳤다
+- **Repository 이동이 Review Knowledge 를 함께 옮긴다는 것을 확인했다** —
+  `review_issues` 를 한 행도 건드리지 않았는데 옮겨 간 Project 의 Dashboard 에 Issue 가
+  나타나고 원래 Project 에서는 사라졌다. 하위 표에 `project_id` 를 복사하지 않은 값이다
+
+#### Dashboard 실행 계획 (`bash scripts/dashboard-explain.sh`)
+
+🔴 **Workspace 20개 · ReviewIssue 112,500행**을 만들어 `EXPLAIN (ANALYZE, BUFFERS)` 를 돌렸다.
+**전부 한 Transaction 안에서 만들고 ROLLBACK 했다** — 적용 뒤 `projects` 0행 · `review_issues`
+0행 · `explain-tmp-%` Workspace 0개를 직접 조회해 확인했다.
+
+🔴 **Workspace 를 «여럿» 만든 것이 요점이다.** 하나만 만들면 표의 100% 가 그 Workspace
+것이라 `workspace_id` 가 아무것도 걸러 내지 못해 Planner 가 늘 Seq Scan 을 고른다 —
+처음에 그렇게 돌렸다가 「Index 가 안 쓰인다」가 아니라 **시험이 잘못된 것**임을 알았다.
+대상 Workspace 가 전체의 **5%** 가 되게 고쳐서 다시 쟀다.
+
+| 질의 | 결과 |
+|---|---|
+| Workspace Needs Attention | Bitmap Index Scan(`review_issues_workspace_category_idx`) · **2.5ms** |
+| Workspace KPI (`FILTER` 한 문장) | Bitmap Heap Scan · **3.1ms** — Issue 를 네 번 세지 않는다 |
+| Project 목록 집계 | 🔴 **문장 하나.** Project 20개인데 질의가 늘지 않았다(N+1 없음) |
+| Project Open Issues | `repositories_project_idx` → Nested Loop → BitmapAnd · **0.77ms** |
+| Issue 목록(Project Scope) | 같은 모양 · **0.94ms** |
+
+**`repositories_project_idx` 가 실제로 쓰인다** — Project 로 좁히는 경로가 이 Index 를 타고
+Repository 3행으로 먼저 줄인 뒤 Issue 로 내려간다. Project 계층을 넣으며 더한 Index 가
+제 몫을 한다는 뜻이다.
+
 ### 🔴 검증되지 않은 것
 
 - 🔴 **`.env` 에 `AUTH_SECRET` 이 없다.** 위 E2E 는 프로세스 환경 변수로 넣어 띄웠다.
@@ -204,17 +247,27 @@ Idempotency 열쇠를 저장하지 않게 하면 「Session 이 늘지 않았다
     지금 키를 만들려면 위 E2E 스크립트처럼 코드를 직접 부르거나 행을 넣어야 한다
   - **`.env` 에 `AUTH_SECRET` 이 없다.** E2E 는 프로세스 환경 변수로 넣어 띄웠다
 - **Project 계층 담당이 확인하지 못한 것** (2026-08-28):
-  - 🔴 **새 화면을 사람 눈으로 본 적이 없다.** Workspace Dashboard · Project Dashboard ·
-    Projects · Wiki(목록·상세·작성·수정·삭제) · 바뀐 Sidebar 를 **브라우저로 열어 보지 않았다.**
-    타입·빌드·SSR 응답 코드·Database 시험까지만 확인했다 — 브라우저 확장이 연결되지 않았고,
-    세션을 손으로 만들어 우회하는 것은 하지 않았다
-  - **화면에서 Project 를 만들어 보지 않았다.** `createProject` 는 통합 시험으로 확인했지만
-    `CreateProjectDialog` → Server Action → `revalidatePath` 왕복은 눌러 보지 않았다
-  - **Wiki 를 화면에서 쓰고 고치고 지워 보지 않았다.** Service 계층만 시험했다
+  - 🔴 **새 화면을 사람 눈으로 «한 번도» 본 적이 없다.** Workspace/Project Dashboard ·
+    Projects · Wiki · Issue/Review/Repository 상세 · API Key · 멤버 역할 · Project 설정 ·
+    바뀐 Sidebar 를 **브라우저로 열어 보지 않았다.** 타입·빌드·SSR 응답 코드·Database
+    시험까지만 확인했다 — **Claude 의 브라우저 확장이 연결되지 않았고**, 세션 행을 손으로
+    만들어 우회하는 것은 하지 않았다(그 시도는 차단됐고 우회하지 않았다)
+  - **Server Action 왕복을 눌러 보지 않았다.** Project 생성·수정·삭제, Wiki 등록·수정·삭제,
+    API Key 발급·폐기, 멤버 역할 변경, Repository 이동 — 전부 Application Service 계층까지만
+    시험했다. `revalidatePath` 뒤 화면이 실제로 다시 그려지는지는 확인되지 않았다
   - **UI 규칙(16장) 적용을 눈으로 대조하지 않았다.** Card 를 걷어내고 divider·Typography 로
     바꾼 결과가 실제로 「전형적인 shadcn Dashboard 처럼 보이지 않는지」는 확인되지 않았다
-  - **Dashboard 질의의 실행 계획을 보지 않았다.** 데이터가 0행이라 `EXPLAIN ANALYZE` 가 뜻이 없다.
-    Index 는 조회 패턴에 맞춰 넣었을 뿐 실제로 타는지는 데이터가 쌓인 뒤 확인해야 한다
+  - **Markdown 렌더링을 화면에서 보지 않았다.** raw HTML 이 렌더되지 않는다는 것은
+    `react-markdown` 의 기본 동작이지 우리가 시험으로 증명한 것이 아니다 —
+    🔴 **`rehype-raw` 를 넣는 순간 그 보증이 사라진다**
+  - **Index 사용량 표의 「0회」를 「필요 없다」로 읽지 마라.** `review_issues_pattern_idx` ·
+    `review_sessions_repository_created_at_idx` 는 실행 계획 시험이 그 조회 패턴을 돌리지
+    않았을 뿐이다. Knowledge Context 의 `repositoryId` Filter 경로는 재 보지 않았다
+  - **Needs Attention 의 정렬이 Index 와 어긋난다.** `review_issues_workspace_list_idx` 는
+    `(workspace_id, status, severity, first_detected_at DESC)` 인데 질의는
+    `severity ASC, first_detected_at ASC` 로 정렬해 매번 top-N heapsort 가 붙는다.
+    112,500행에서 2.5ms 라 지금은 문제가 아니다 — **근거 없이 Index 를 더하지 않았다.**
+    실제로 느려지면 그때 검토한다(CLAUDE.md 10)
 - 위를 「될 것이다」로 적지 마라. 확인한 사람이 이 표를 고쳐라
 
 🔴 **없는 것을 있는 것처럼 쓰지 마라.** 실행하지 않은 검증을 통과했다고 적지 않는다. 확인하지 않은 동작을 정상이라고 추측하지 않는다.
@@ -393,6 +446,11 @@ Project     /w/{workspaceSlug}/p/{projectSlug}                Project Dashboard
             /w/{workspaceSlug}/p/{projectSlug}/issues
             /w/{workspaceSlug}/p/{projectSlug}/repositories
             /w/{workspaceSlug}/p/{projectSlug}/knowledge      Project Wiki (+ /new · /{slug} · /{slug}/edit)
+            /w/{workspaceSlug}/p/{projectSlug}/settings       이름·slug·설명·삭제
+
+상세        …/issues/{issueId}        Issue — History 타임라인이 주인공이다
+            …/reviews/{reviewId}      한 번의 Review 실행이 남긴 것
+            …/repositories/{repoId}   저장소 상태 · Project 이동
 ```
 
 🔴 **Project 를 최상위(`/p/{slug}`)로 올리지 않는다.** 주소만으로 Tenant 를 알 수 없게 되고,
@@ -406,6 +464,32 @@ slug 가 전역 unique 여야 해 먼저 만든 Workspace 가 이름을 선점�
 
 🔴 **Issue 는 Project 안에서 본다.** Workspace 를 가로지르는 Issue 목록 화면은 두지 않는다 —
 그 자리는 Workspace Dashboard 의 「Needs Attention」이 맡는다.
+
+### Feature 는 «자기 표»의 주인이다 【현재 규칙】
+
+```text
+features/repositories/server   repositories 를 읽고 쓴다
+features/reviews/server        review_sessions
+features/issues/server         review_issues · issue_activities · pattern
+features/knowledge/server      knowledge_pages
+features/projects/server       projects
+features/dashboard/server      🔴 위의 것들을 «불러» 한 화면으로 조립만 한다
+```
+
+🔴 **Feature 끼리 서로의 조회를 가져다 쓰지 않는다.** 의존은 한 방향뿐이다 —
+**Dashboard -> Feature.** Feature 는 Dashboard 를 알지 못하므로, Dashboard 를 통째로
+지워도 나머지가 그대로 선다.
+
+🔴 **같은 질의를 두 곳에 적지 않는다.** 한쪽만 고치면 **두 화면이 같은 데이터를 다른
+숫자로 그린다.** Pattern 집계가 Dashboard 두 곳에 복사돼 있던 것을
+`features/issues/server/pattern-query.ts` 한 곳으로 모은 이유다.
+
+🔴 **함수를 공유하는 대신 «타입»을 공유한다.** 조회 범위(`WorkspaceScope`·`ProjectScope`)는
+`src/types/tenant.ts` 의 순수 타입이라 import 해도 아무것도 끌고 오지 않는다.
+
+**외부 Library 를 아는 자리를 한 곳으로 모은다.** Markdown 렌더러는
+`components/molecules/MarkdownView.tsx` 만 안다 — 바꾸거나 걷어내는 일이 **파일 하나**로
+끝난다. Feature 마다 직접 부르면 그때 고칠 자리가 흩어진다.
 
 ### app 은 얇게 유지한다
 
