@@ -82,3 +82,18 @@ export type ScmProvider = (typeof SCM_PROVIDERS)[number];
  */
 export const WORKSPACE_ROLES = ["OWNER", "MEMBER"] as const;
 export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
+
+/**
+ * 아직 손이 필요한 Issue 상태.
+ *
+ * `IGNORED`·`FALSE_POSITIVE` 는 「더 보지 않기로 한 것」이라 뺀다 — 열린 것에 섞으면
+ * Dashboard 의 「지금 봐야 할 수」가 영원히 줄지 않는다.
+ *
+ * 🔴 Dashboard·Knowledge Context·Project 집계가 **같은 배열 하나**를 본다. 화면마다 따로
+ * 적으면 같은 Workspace 를 두 화면이 다른 숫자로 그린다.
+ */
+export const OPEN_ISSUE_STATUSES: readonly IssueStatus[] = [
+  "OPEN",
+  "IN_PROGRESS",
+  "REOPENED",
+];

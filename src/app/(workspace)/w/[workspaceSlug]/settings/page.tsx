@@ -1,25 +1,9 @@
 import type { Metadata } from "next";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { InviteMemberForm } from "@/features/invitations/components/InviteMemberForm";
-import {
-  listPendingInvitations,
-  listWorkspaceMembers,
-} from "@/features/invitations/server/invitation-service";
+import { Section } from "@/components/molecules/Section";
+import { StatRow } from "@/components/molecules/StatRow";
+import { listProjectOptions } from "@/features/projects/server/project-service";
+import { listWorkspaceMembers } from "@/features/invitations/server/invitation-service";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
 
 export const metadata: Metadata = {
@@ -27,10 +11,14 @@ export const metadata: Metadata = {
 };
 
 /**
- * Workspace 설정 — 멤버와 초대.
+ * Workspace 설정.
  *
- * 🔴 **초대 폼은 OWNER 에게만 보인다. 그러나 그것은 편의일 뿐이다** —
- * 실제 판정은 Server Action 안의 `requireOwner` 가 한다(CLAUDE.md 11).
+ * 멤버·초대는 Members 화면으로 옮겼다(스펙 3) — 이 화면은 **Workspace 자신에 대한 것**만
+ * 다룬다.
+ *
+ * 🔴 **아직 없는 것을 있는 것처럼 그리지 않는다.** Workspace 이름·slug 변경, API Key 발급
+ * 화면은 만들지 않았다 — 눌러서 아무 일도 일어나지 않는 버튼을 두지 않는다.
+ * API Key 는 지금도 Application Service(`api-key-service.ts`)로만 만들 수 있다.
  */
 export default async function WorkspaceSettingsPage({
   params,
@@ -40,85 +28,43 @@ export default async function WorkspaceSettingsPage({
   const { workspaceSlug } = await params;
   const { workspace } = await requireWorkspace(workspaceSlug);
 
-  const isOwner = workspace.role === "OWNER";
-  const members = await listWorkspaceMembers(workspace.workspaceId);
-  const pending = isOwner
-    ? await listPendingInvitations(workspace.workspaceId)
-    : [];
+  const [members, projects] = await Promise.all([
+    listWorkspaceMembers(workspace.workspaceId),
+    listProjectOptions(workspace.workspaceId),
+  ]);
 
   return (
-    <div className="flex flex-col gap-6 p-4">
-      <div>
-        <h1 className="text-base font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {workspace.name} 의 멤버와 초대
-        </p>
-      </div>
+    <div className="flex flex-col gap-8 p-6">
+      <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">멤버</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>이름</TableHead>
-                <TableHead className="w-32">역할</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {members.map((member, index) => (
-                <TableRow key={`${member.name ?? "unknown"}-${index}`}>
-                  <TableCell>{member.name ?? "이름 없음"}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {member.role}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <Section title="Workspace">
+        <dl className="grid grid-cols-[8rem_1fr] gap-x-6 gap-y-2 pt-3 text-sm">
+          <dt className="text-xs text-muted-foreground">이름</dt>
+          <dd className="font-medium">{workspace.name}</dd>
 
-      {isOwner && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">초대</CardTitle>
-            <CardDescription>
-              초대받은 사람은 GitHub 로그인 뒤 이 Workspace 의 MEMBER 가 됩니다.
-              자기 Personal Workspace 는 그대로 유지됩니다.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <InviteMemberForm workspaceSlug={workspace.slug} />
+          <dt className="text-xs text-muted-foreground">slug</dt>
+          <dd className="font-mono text-xs">{workspace.slug}</dd>
 
-            {pending.length > 0 && (
-              <div>
-                <p className="mb-2 text-xs font-medium">수락 대기</p>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>이메일</TableHead>
-                      <TableHead className="w-32">만료</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pending.map((invitation) => (
-                      <TableRow key={invitation.id}>
-                        <TableCell>{invitation.email}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground tabular-nums">
-                          {invitation.expiresAt.toISOString().slice(0, 10)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+          <dt className="text-xs text-muted-foreground">종류</dt>
+          <dd className="text-xs">
+            {workspace.isPersonal ? "Personal Workspace" : "Workspace"}
+          </dd>
+
+          <dt className="text-xs text-muted-foreground">내 역할</dt>
+          <dd className="font-mono text-xs">{workspace.role}</dd>
+        </dl>
+      </Section>
+
+      <Section title="규모">
+        <div className="pt-4">
+          <StatRow
+            stats={[
+              { label: "Projects", value: projects.length },
+              { label: "Members", value: members.length },
+            ]}
+          />
+        </div>
+      </Section>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
+import type { Route } from "next";
 
-import { sectionHref } from "@/config/navigation";
 import { IssueFilterBar } from "@/features/issues/components/IssueFilterBar";
 import { IssueTable } from "@/features/issues/components/IssueTable";
 import { IssueTableSkeleton } from "@/features/issues/components/IssueTableSkeleton";
@@ -9,6 +9,7 @@ import {
   parseIssueFilter,
   type RawSearchParams,
 } from "@/features/issues/schemas/issue-filter";
+import type { IssueQueryScope } from "@/features/issues/server/issue-query";
 
 /**
  * Issue 목록 화면.
@@ -20,16 +21,21 @@ import {
  * Search/Filter -> URL Search Params 변경 -> 이 Server Component 재실행
  *   -> Suspense Boundary -> Table Skeleton -> 새 Result
  * ```
+ *
+ * 🔴 **Issue 는 Project 안에서 본다**(스펙 3). Workspace 전체를 가로지르는 목록은 두지
+ * 않는다 — 그 자리는 Workspace Dashboard 의 「Needs Attention」이 맡는다.
  */
 export async function IssueListScreen({
-  workspaceId,
-  workspaceSlug,
+  scope,
+  basePath,
+  projectName,
   searchParams,
 }: {
   /** 🔴 소속 확인을 통과한 값만 들어온다. URL 의 slug 를 그대로 넣지 않는다(CLAUDE.md 11). */
-  workspaceId: string;
+  scope: IssueQueryScope;
   /** 주소를 다시 만들기 위한 값. 조회 조건이 아니다. */
-  workspaceSlug: string;
+  basePath: Route;
+  projectName: string;
   searchParams: Promise<RawSearchParams>;
 }) {
   const filter = parseIssueFilter(await searchParams);
@@ -39,11 +45,11 @@ export async function IssueListScreen({
       <div className="flex items-baseline justify-between px-4 pt-4">
         <h1 className="text-base font-semibold tracking-tight">Issues</h1>
         <p className="text-xs text-muted-foreground">
-          Agent 와 사람이 남긴 Code Issue
+          {projectName} 에서 Agent 와 사람이 남긴 Code Issue
         </p>
       </div>
 
-      <IssueFilterBar basePath={sectionHref(workspaceSlug, "issues")} filter={filter} />
+      <IssueFilterBar basePath={basePath} filter={filter} />
 
       {/*
         🔴 key 가 Filter 마다 바뀌어야 새 Suspense Boundary 가 열려 Skeleton 이 보인다.
@@ -54,7 +60,7 @@ export async function IssueListScreen({
         key={issueFilterToQueryString(filter)}
         fallback={<IssueTableSkeleton />}
       >
-        <IssueTable workspaceId={workspaceId} filter={filter} />
+        <IssueTable scope={scope} filter={filter} />
       </Suspense>
     </div>
   );

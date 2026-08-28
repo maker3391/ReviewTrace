@@ -9,7 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { findIssues } from "@/features/issues/server/issue-query";
+import {
+  findIssues,
+  type IssueQueryScope,
+} from "@/features/issues/server/issue-query";
 import type { IssueFilter } from "@/features/issues/schemas/issue-filter";
 
 /**
@@ -19,14 +22,14 @@ import type { IssueFilter } from "@/features/issues/schemas/issue-filter";
  * 이 Component 만 Suspense 아래에 두어, Filter 를 바꿔도 상단 Toolbar 는 남고 이 자리만 바뀐다.
  */
 export async function IssueTable({
-  workspaceId,
+  scope,
   filter,
 }: {
-  /** 🔴 소속 확인을 통과한 값. Client 가 보낸 `workspaceId` 를 쓰지 않는다(CLAUDE.md 11). */
-  workspaceId: string;
+  /** 🔴 소속 확인을 통과한 값. Client 가 보낸 식별자를 쓰지 않는다(CLAUDE.md 11). */
+  scope: IssueQueryScope;
   filter: IssueFilter;
 }) {
-  const page = await findIssues(workspaceId, filter);
+  const page = await findIssues(scope, filter);
 
   if (page.items.length === 0) {
     return (
