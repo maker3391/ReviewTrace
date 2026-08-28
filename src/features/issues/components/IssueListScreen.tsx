@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { sectionHref } from "@/config/navigation";
 import { IssueFilterBar } from "@/features/issues/components/IssueFilterBar";
 import { IssueTable } from "@/features/issues/components/IssueTable";
 import { IssueTableSkeleton } from "@/features/issues/components/IssueTableSkeleton";
@@ -21,8 +22,14 @@ import {
  * ```
  */
 export async function IssueListScreen({
+  workspaceId,
+  workspaceSlug,
   searchParams,
 }: {
+  /** 🔴 소속 확인을 통과한 값만 들어온다. URL 의 slug 를 그대로 넣지 않는다(CLAUDE.md 11). */
+  workspaceId: string;
+  /** 주소를 다시 만들기 위한 값. 조회 조건이 아니다. */
+  workspaceSlug: string;
   searchParams: Promise<RawSearchParams>;
 }) {
   const filter = parseIssueFilter(await searchParams);
@@ -36,7 +43,7 @@ export async function IssueListScreen({
         </p>
       </div>
 
-      <IssueFilterBar filter={filter} />
+      <IssueFilterBar basePath={sectionHref(workspaceSlug, "issues")} filter={filter} />
 
       {/*
         🔴 key 가 Filter 마다 바뀌어야 새 Suspense Boundary 가 열려 Skeleton 이 보인다.
@@ -47,7 +54,7 @@ export async function IssueListScreen({
         key={issueFilterToQueryString(filter)}
         fallback={<IssueTableSkeleton />}
       >
-        <IssueTable filter={filter} />
+        <IssueTable workspaceId={workspaceId} filter={filter} />
       </Suspense>
     </div>
   );

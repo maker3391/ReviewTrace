@@ -1,58 +1,117 @@
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
-import { Bug, FolderGit2, LayoutDashboard, Lightbulb } from "lucide-react";
+import {
+  Bug,
+  FolderGit2,
+  LayoutDashboard,
+  Lightbulb,
+  ListChecks,
+  Settings,
+} from "lucide-react";
+
+import { workspacePath } from "@/config/routes";
 
 /**
  * 메뉴 키 ↔ 사이드바 항목 ↔ 라우트 대응표.
  *
  * 🔴 **한 파일에 둔다.** 여러 곳에 흩으면 「사이드바에는 있는데 라우트가 없는」 항목이 생긴다(CLAUDE.md 11).
  *
- * 【향후】 인증이 붙으면 항목마다 필요한 권한을 여기에 함께 적고,
- * 서버가 요청마다 그 표로 차단한다. 화면의 비활성 처리는 편의일 뿐 경계가 아니다.
+ * 모든 항목은 **Workspace 안의 Section** 이다 — 주소는 `/w/{slug}/{section}` 이라 항목 자체는
+ * slug 를 모른다. 그래서 `href` 를 상수로 두지 않고 `sectionHref(slug, item)` 로 만든다.
+ * 그래야 Workspace 를 전환할 때 **보고 있던 Section 이 유지된다**.
  */
-export type MenuKey = "DASHBOARD" | "ISSUES" | "REPOSITORIES" | "KNOWLEDGE";
+export type MenuKey =
+  | "DASHBOARD"
+  | "REVIEWS"
+  | "ISSUES"
+  | "REPOSITORIES"
+  | "KNOWLEDGE"
+  | "SETTINGS";
 
-interface NavigationItemBase {
+export interface NavigationItem {
   key: MenuKey;
   label: string;
+  /** 주소의 마지막 조각. `/w/{slug}/{section}` */
+  section: string;
   icon: LucideIcon;
+  /**
+   * 화면이 실제로 있는가.
+   *
+   * `false` 인 항목은 링크로 만들지 않는다 — 눌러서 404 를 만나게 두지 않는다.
+   */
+  ready: boolean;
 }
-
-/**
- * 화면이 있는 항목만 `href` 를 갖는다.
- *
- * `ready: false` 에 주소를 적어 두면 눌러서 404 를 만나게 된다.
- * 타입으로 그 자리를 아예 없앤다 — typedRoutes 가 존재하는 Route 만 통과시킨다.
- */
-export type NavigationItem =
-  | (NavigationItemBase & { ready: true; href: Route })
-  | (NavigationItemBase & { ready: false });
 
 export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   {
     key: "DASHBOARD",
     label: "Dashboard",
-    href: "/",
+    section: "dashboard",
     icon: LayoutDashboard,
     ready: true,
   },
   {
     key: "ISSUES",
     label: "Issues",
-    href: "/issues",
+    section: "issues",
     icon: Bug,
     ready: true,
   },
   {
+    key: "REVIEWS",
+    label: "Reviews",
+    section: "reviews",
+    icon: ListChecks,
+    ready: false,
+  },
+  {
     key: "REPOSITORIES",
     label: "Repositories",
+    section: "repositories",
     icon: FolderGit2,
     ready: false,
   },
   {
     key: "KNOWLEDGE",
     label: "Knowledge",
+    section: "knowledge",
     icon: Lightbulb,
     ready: false,
   },
+  {
+    key: "SETTINGS",
+    label: "Settings",
+    section: "settings",
+    icon: Settings,
+    ready: true,
+  },
 ] as const;
+
+/** Workspace 를 바꿔도 보고 있던 Section 을 유지하기 위한 기본 Section. */
+export const DEFAULT_SECTION = "dashboard";
+
+/**
+ * `/w/{slug}/{section}` 주소를 만든다.
+ *
+ * `typedRoutes` 는 존재하는 Route 만 통과시키지만 slug 는 **실행 시점에야 정해지는 값**이라
+ * 타입으로 증명할 수 없다. 대신 Section 은 위 표에 있는 것만 쓰이고, 그 표의 `ready` 가
+ * 실제 화면이 있음을 보증한다. 단언은 **이 한 곳에만** 둔다.
+ */
+export function sectionHref(slug: string, section: string): Route {
+  return workspacePath(slug, section) as Route;
+}
+
+/**
+ * 현재 경로가 어느 Section 인가.
+ *
+ * Workspace Switcher 가 「같은 자리로 이동」하기 위해 쓴다. 화면이 없는 Section 이면
+ * 안전한 기본값(`dashboard`)으로 떨어뜨린다 — 전환했더니 404 가 되는 것을 막는다.
+ */
+export function currentSection(pathname: string): string {
+  // ["", "w", "{slug}", "{section}", ...]
+  const section = pathname.split("/")[3] ?? "";
+  const known = NAVIGATION_ITEMS.find(
+    (item) => item.section === section && item.ready,
+  );
+  return known?.section ?? DEFAULT_SECTION;
+}

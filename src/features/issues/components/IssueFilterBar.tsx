@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -42,7 +43,14 @@ const STATUS_OPTIONS = toOptions(ISSUE_STATUSES, "모든 Status");
  * 결과는 Client State 에 담지 않고 **URL Search Params 로만** 나간다 —
  * 서버가 그 값으로 다시 조회하고 다시 그린다. 목록을 브라우저에서 다시 불러오지 않는다.
  */
-export function IssueFilterBar({ filter }: { filter: IssueFilter }) {
+export function IssueFilterBar({
+  basePath,
+  filter,
+}: {
+  /** 이 목록이 사는 Workspace 경로(`/w/{slug}/issues`). Filter 는 주소만 바꾸고 Workspace 를 넘지 않는다. */
+  basePath: Route;
+  filter: IssueFilter;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -66,9 +74,10 @@ export function IssueFilterBar({ filter }: { filter: IssueFilter }) {
     // Filter 가 바뀌면 1페이지부터 본다 — 3페이지에서 조건을 바꾸면 빈 화면이 나온다.
     const queryString = issueFilterToQueryString({ ...next, page: 1 });
     startTransition(() => {
-      router.replace(queryString === "" ? "/issues" : `/issues?${queryString}`, {
-        scroll: false,
-      });
+      router.replace(
+        queryString === "" ? basePath : (`${basePath}?${queryString}` as Route),
+        { scroll: false },
+      );
     });
   }
 
@@ -149,7 +158,7 @@ export function IssueFilterBar({ filter }: { filter: IssueFilter }) {
             status: FILTER_ALL,
           });
           startTransition(() => {
-            router.replace("/issues", { scroll: false });
+            router.replace(basePath, { scroll: false });
           });
         }}
       >

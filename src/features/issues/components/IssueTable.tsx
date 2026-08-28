@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/table";
 import { findIssues } from "@/features/issues/server/issue-query";
 import type { IssueFilter } from "@/features/issues/schemas/issue-filter";
-import { findCurrentWorkspace } from "@/lib/auth/workspace-context";
 
 /**
  * Issue 목록의 데이터 영역.
@@ -19,20 +18,15 @@ import { findCurrentWorkspace } from "@/lib/auth/workspace-context";
  * Server Component 다 — 조회는 서버에서 하고 서버가 그린다(CLAUDE.md 8).
  * 이 Component 만 Suspense 아래에 두어, Filter 를 바꿔도 상단 Toolbar 는 남고 이 자리만 바뀐다.
  */
-export async function IssueTable({ filter }: { filter: IssueFilter }) {
-  // 🔴 Workspace 는 서버가 정한다. Client 가 보낸 값을 쓰지 않는다(CLAUDE.md 11).
-  const workspace = await findCurrentWorkspace();
-
-  if (workspace === null) {
-    return (
-      <EmptyState
-        title="Workspace 를 결정할 수 없습니다."
-        description="인증이 아직 구현되지 않았습니다. 로그인 또는 API Key 로 Workspace 가 정해진 뒤에 Issue 를 조회합니다."
-      />
-    );
-  }
-
-  const page = await findIssues(workspace.workspaceId, filter);
+export async function IssueTable({
+  workspaceId,
+  filter,
+}: {
+  /** 🔴 소속 확인을 통과한 값. Client 가 보낸 `workspaceId` 를 쓰지 않는다(CLAUDE.md 11). */
+  workspaceId: string;
+  filter: IssueFilter;
+}) {
+  const page = await findIssues(workspaceId, filter);
 
   if (page.items.length === 0) {
     return (

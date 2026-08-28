@@ -3,12 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { NAVIGATION_ITEMS } from "@/config/navigation";
+import {
+  WorkspaceSwitcher,
+  type SwitcherWorkspace,
+} from "@/components/organisms/WorkspaceSwitcher";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { NAVIGATION_ITEMS, sectionHref } from "@/config/navigation";
 import { cn } from "@/lib/utils";
 
 /**
@@ -16,8 +20,16 @@ import { cn } from "@/lib/utils";
  *
  * Client Component 인 이유는 하나다 — 현재 경로에 따라 활성 항목이 달라진다.
  * 항목 목록 자체는 `config/navigation.ts` 한 곳에서 온다(CLAUDE.md 11).
+ *
+ * 모든 링크는 현재 Workspace 안의 Section 이다(`/w/{slug}/{section}`).
  */
-export function AppSidebar() {
+export function AppSidebar({
+  currentSlug,
+  workspaces,
+}: {
+  currentSlug: string;
+  workspaces: readonly SwitcherWorkspace[];
+}) {
   const pathname = usePathname();
 
   return (
@@ -25,6 +37,10 @@ export function AppSidebar() {
       aria-label="주요 메뉴"
       className="flex w-52 shrink-0 flex-col gap-0.5 border-r border-border bg-sidebar p-2"
     >
+      <div className="mb-2">
+        <WorkspaceSwitcher currentSlug={currentSlug} workspaces={workspaces} />
+      </div>
+
       {NAVIGATION_ITEMS.map((item) => {
         const Icon = item.icon;
 
@@ -46,13 +62,13 @@ export function AppSidebar() {
           );
         }
 
-        const active =
-          item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+        const href = sectionHref(currentSlug, item.section);
+        const active = pathname === href || pathname.startsWith(`${href}/`);
 
         return (
           <Link
             key={item.key}
-            href={item.href}
+            href={href}
             aria-current={active ? "page" : undefined}
             className={cn(
               "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
