@@ -29,11 +29,6 @@ PGUSER_="${E2E_PG_USER:-code_intelligence}"
 PGDB="${E2E_PG_DB:-code_intelligence}"
 WORK="$(mktemp -d)"
 
-# 🔴 임시 우회다. `src/proxy.ts` 는 공개 경로가 아니면 세션 쿠키 없는 요청을 /login 으로
-#    307 리다이렉트한다 — Agent 는 세션이 없다. Route Handler 자신은 쿠키를 전혀 보지 않으므로
-#    더미 값으로 Proxy 만 지나간다.
-#    `src/config/routes.ts` 의 공개 경로 표에 `/api/v1` 이 들어가면 이 줄을 지워라.
-COOKIE="${E2E_COOKIE:-authjs.session-token=e2e-bypass}"
 
 psql_() { docker exec -i "$CONTAINER" psql -U "$PGUSER_" -d "$PGDB" "$@"; }
 psql1() { psql_ -t -A -c "$1"; }
@@ -48,7 +43,7 @@ bad()  { FAIL=$((FAIL+1)); printf 'FAIL %s\n' "$1"; }
 expect() {
   local name="$1" want="$2"; shift 2
   local code
-  code=$(curl -s -o "$WORK/body" -w "%{http_code}" -H "cookie: $COOKIE" "$@")
+  code=$(curl -s -o "$WORK/body" -w "%{http_code}" "$@")
   if [ "$code" = "$want" ]; then ok "$name ($code)"
   else bad "$name — got=$code want=$want"; head -c 300 "$WORK/body"; echo; fi
 }

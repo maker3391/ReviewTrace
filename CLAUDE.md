@@ -62,10 +62,11 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 
 ### Agent API 검증 (2026-08-28 실행 · Agent API 담당)
 
-**실제 dev 서버(:3930)와 실제 PostgreSQL 로 `curl` 왕복 26건을 돌렸고 전부 통과했다.**
+**실제 dev 서버(:3930)와 실제 PostgreSQL 로 `curl` 왕복·DB 대조 39건을 돌렸고 전부 통과했다.**
 저장된 행은 `docker exec … psql` 로 직접 조회해 확인했다. 확인 뒤 **서버를 종료하고 시험 데이터도 지웠다.**
 
 **다시 돌릴 수 있다 — `bash scripts/agent-api-e2e.sh`** (컨테이너와 `pnpm dev -- -p 3930` 이 떠 있어야 한다).
+**세션 쿠키 없이** 순수 Agent 로 돈다 — `/api/v1` 은 Proxy 의 공개 경로다.
 검사 39건이 전부 통과했다. 🔴 **되돌림 확인**: Tenant 조건을 빼면 「B 키로 A 의 Issue」 두 건이,
 Idempotency 열쇠를 저장하지 않게 하면 「Session 이 늘지 않았다」 세 건이 실제로 실패한다 — 직접 돌려 봤다.
 
@@ -102,17 +103,11 @@ Idempotency 열쇠를 저장하지 않게 하면 「Session 이 늘지 않았다
 - **행을 넣고 읽어 본 적이 없다.** 위 확인은 전부 **Schema 조회**이고 INSERT/SELECT 는 돌리지 않았다 —
   「테이블이 있다」와 「쿼리가 돈다」는 다른 말이다
 - **Agent API 담당이 확인하지 못한 것** (2026-08-28):
-  - 🔴 **`/api/v1/**` 이 지금 브라우저 Proxy 에 막힌다.** `src/proxy.ts` 는 공개 경로가 아니면
-    세션 쿠키 없는 요청을 `/login` 으로 **`307` 리다이렉트**한다. Agent 는 세션이 없으므로
-    REST Client 가 `401` JSON 대신 로그인 화면으로 끌려간다. 위 E2E 는 더미 세션 쿠키로
-    Proxy 를 지나 보낸 것이다 — **`src/config/routes.ts` 의 공개 경로 표에 `/api/v1` 을 넣어야
-    실제 Agent 가 쓸 수 있다.** (Route Handler 자신은 쿠키를 전혀 보지 않는다)
-  - **`pnpm build` 를 끝까지 돌리지 못했다.** Agent API 파일에는 오류가 없지만
-    (`app/api/v1/**`·`lib/api/**`·`features/{reviews,knowledge,api-keys}/**`·
-    `features/issues/{schemas,server/issue-*}` 전부 통과), 다른 화면 코드의 타입 오류에서
-    멈춘다. **「내 부분은 통과했다」를 「빌드가 통과했다」로 읽지 마라**
-  - **부하·동시성을 재지 않았다.** 같은 `Idempotency-Key` 두 요청을 **동시에** 던져 보지 않았고,
-    Issue 500건 상한 근처를 실제로 넣어 보지 않았다. Round Trip 수도 설계로만 보장한다
+  - **부하·동시성을 재지 않았다.** 같은 `Idempotency-Key` 두 요청을 **동시에** 던져 보지 않았다.
+    경쟁은 `(repository_id, idempotency_key)` unique 와 `onConflictDoNothing` 으로 설계했을 뿐
+    실제로 부딪혀 보지는 않았다. Issue 500건 상한 근처도 넣어 보지 않았고, Round Trip 수도 설계로만 보장한다
+  - **API Key 발급 «화면»이 없다.** Application Service(`issueApiKey`)까지만 있고 Server Action·UI 가 없어,
+    지금 키를 만들려면 위 E2E 스크립트처럼 코드를 직접 부르거나 행을 넣어야 한다
   - **`.env` 에 `AUTH_SECRET` 이 없다.** E2E 는 프로세스 환경 변수로 넣어 띄웠다
 - 위를 「될 것이다」로 적지 마라. 확인한 사람이 이 표를 고쳐라
 
