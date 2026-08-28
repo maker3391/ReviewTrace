@@ -8,6 +8,27 @@
       "when": 1787885630683,
       "tag": "0000_nostalgic_cloak",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787895840873,
+      "tag": "0001_strong_hitman",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787897097492,
+      "tag": "0002_skinny_ultimo",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787897191838,
+      "tag": "0003_clean_martin_li",
+      "breakpoints": true
     }
   ]
 }

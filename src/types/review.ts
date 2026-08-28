@@ -39,6 +39,10 @@ export const ISSUE_STATUSES = [
   "IN_PROGRESS",
   "RESOLVED",
   "IGNORED",
+  /** Agent 가 잘못 짚은 것. 「해결됨」과 섞으면 Pattern 통계가 거짓이 된다. */
+  "FALSE_POSITIVE",
+  /** 해결됐다가 다시 발견된 것. `resolvedAt` 은 다시 비워진다. */
+  "REOPENED",
 ] as const;
 export type IssueStatus = (typeof ISSUE_STATUSES)[number];
 
@@ -63,11 +67,18 @@ export const REVIEW_TARGET_TYPES = [
 ] as const;
 export type ReviewTargetType = (typeof REVIEW_TARGET_TYPES)[number];
 
-export const REVIEWER_TYPES = ["AGENT", "HUMAN"] as const;
+/** Review·Activity 를 남긴 주체. `SYSTEM` 은 우리 코드가 자동으로 남긴 것이다. */
+export const REVIEWER_TYPES = ["AGENT", "HUMAN", "SYSTEM"] as const;
 export type ReviewerType = (typeof REVIEWER_TYPES)[number];
 
 export const SCM_PROVIDERS = ["GITHUB"] as const;
 export type ScmProvider = (typeof SCM_PROVIDERS)[number];
 
-export const WORKSPACE_ROLES = ["OWNER", "ADMIN", "MEMBER"] as const;
+/**
+ * Workspace 안에서의 역할.
+ *
+ * 둘뿐이다 — 만든 사람(`OWNER`)과 초대받은 사람(`MEMBER`).
+ * 세분화가 실제로 필요해지기 전에 등급을 늘리지 않는다.
+ */
+export const WORKSPACE_ROLES = ["OWNER", "MEMBER"] as const;
 export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
