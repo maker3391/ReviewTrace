@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Check, ChevronsUpDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { CreateWorkspaceDialog } from "@/features/workspaces/components/CreateWorkspaceDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,12 +88,22 @@ export function WorkspaceSwitcher({
 
         <DropdownMenuSeparator />
         {/*
-          Workspace 새로 만들기는 아직 없다. 눌러서 404 를 만나게 두지 않는다 —
-          있는 것처럼 보이는 버튼이 없는 기능보다 나쁘다.
+          🔴 Dialog 를 DropdownMenuItem 안에 두지 않는다 — 메뉴가 닫히면서 Dialog 도 함께
+          사라진다. 메뉴 밖의 항목으로 두고 Trigger 만 메뉴 폭에 맞춘다.
         */}
-        <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
-          Workspace 만들기는 아직 없습니다
-        </DropdownMenuLabel>
+        <div className="px-1 py-0.5">
+          <CreateWorkspaceDialog
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start font-normal"
+              >
+                Workspace 만들기
+              </Button>
+            }
+          />
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

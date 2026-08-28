@@ -33,7 +33,8 @@ export type ProjectMenuKey =
   | "REVIEWS"
   | "ISSUES"
   | "KNOWLEDGE"
-  | "REPOSITORIES";
+  | "REPOSITORIES"
+  | "SETTINGS";
 
 export interface NavigationItem<Key extends string> {
   key: Key;
@@ -67,6 +68,7 @@ export const PROJECT_ITEMS: readonly NavigationItem<ProjectMenuKey>[] = [
   { key: "ISSUES", label: "Issues", section: "issues" },
   { key: "KNOWLEDGE", label: "Knowledge", section: "knowledge" },
   { key: "REPOSITORIES", label: "Repositories", section: "repositories" },
+  { key: "SETTINGS", label: "Settings", section: "settings" },
 ] as const;
 
 /** Workspace 를 바꿔도 보고 있던 Section 을 유지하기 위한 기본 Section. */

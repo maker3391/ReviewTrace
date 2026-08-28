@@ -3,7 +3,13 @@ import "server-only";
 import { and, asc, eq, sql } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
-import { projects, repositories, reviewIssues, reviewSessions } from "@/db/schema";
+import {
+  knowledgePages,
+  projects,
+  repositories,
+  reviewIssues,
+  reviewSessions,
+} from "@/db/schema";
 import {
   resolveProjectInput,
   type CreateProjectInput,
@@ -290,4 +296,144 @@ export async function resolveIngestProject(
     throw new AppError("INTERNAL_ERROR");
   }
   return raced.projectId;
+}
+
+/**
+ * Project 이름·slug·설명을 고친다.
+ *
+ * 🔴 `workspaceId` 를 조건에 함께 건다. Project ID 를 안다는 것이 권한이 되지 않게 한다.
+ *
+ * @throws {AppError} 대상이 없으면 `NOT_FOUND`, slug 가 겹치면 `CONFLICT`.
+ */
+export async function updateProject(
+  command: {
+    workspaceId: string;
+    projectId: string;
+    input: CreateProjectInput;
+  },
+  executor: DbExecutor = db(),
+): Promise<ProjectContext> {
+  const resolved = resolveProjectInput(command.input);
+  if (!resolved.ok) {
+    throw new AppError("VALIDATION_ERROR", resolved.reason);
+  }
+
+  const updated = await executor
+    .update(projects)
+    .set({
+      name: resolved.value.name,
+      slug: resolved.value.slug,
+      description: resolved.value.description,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(projects.id, command.projectId),
+        eq(projects.workspaceId, command.workspaceId),
+      ),
+    )
+    .returning({
+      projectId: projects.id,
+      slug: projects.slug,
+      name: projects.name,
+      description: projects.description,
+    })
+    .catch((cause: unknown) => {
+      /**
+       * unique 위반은 **사용자 입력 문제**다 — 500 이 아니라 `CONFLICT` 다.
+       * 🔴 Driver 오류 message 에는 쿼리와 값이 실려 온다. 밖으로 흘리지 않는다(CLAUDE.md 19).
+       */
+      throw new AppError("CONFLICT", "같은 slug 의 Project 가 이미 있습니다.", {
+        cause,
+      });
+    });
+
+  const project = updated[0];
+  if (project === undefined) {
+    throw new AppError("NOT_FOUND", "Project 를 찾을 수 없습니다.");
+  }
+
+  return project;
+}
+
+/** 지우면 함께 사라지는 것. 🔴 사용자에게 «무엇을 잃는지» 먼저 보여 주기 위한 값이다. */
+export interface ProjectDeletionImpact {
+  repositories: number;
+  reviewSessions: number;
+  reviewIssues: number;
+  knowledgePages: number;
+}
+
+export async function findProjectDeletionImpact(
+  input: { workspaceId: string; projectId: string },
+  executor: DbExecutor = db(),
+): Promise<ProjectDeletionImpact> {
+  const scope = and(
+    eq(repositories.workspaceId, input.workspaceId),
+    eq(repositories.projectId, input.projectId),
+  );
+
+  const [repositoryRows, sessionRows, issueRows, pageRows] = await Promise.all([
+    executor
+      .select({ value: sql<number>`count(*)::int` })
+      .from(repositories)
+      .where(scope),
+    executor
+      .select({ value: sql<number>`count(*)::int` })
+      .from(reviewSessions)
+      .innerJoin(repositories, eq(repositories.id, reviewSessions.repositoryId))
+      .where(scope),
+    executor
+      .select({ value: sql<number>`count(*)::int` })
+      .from(reviewIssues)
+      .innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
+      .where(scope),
+    executor
+      .select({ value: sql<number>`count(*)::int` })
+      .from(knowledgePages)
+      .where(
+        and(
+          eq(knowledgePages.workspaceId, input.workspaceId),
+          eq(knowledgePages.projectId, input.projectId),
+        ),
+      ),
+  ]);
+
+  return {
+    repositories: repositoryRows[0]?.value ?? 0,
+    reviewSessions: sessionRows[0]?.value ?? 0,
+    reviewIssues: issueRows[0]?.value ?? 0,
+    knowledgePages: pageRows[0]?.value ?? 0,
+  };
+}
+
+/**
+ * Project 를 지운다.
+ *
+ * 🔴 **되돌릴 수 없다.** FK 가 전부 `ON DELETE CASCADE` 라 그 아래 Repository ·
+ * ReviewSession · ReviewIssue · IssueActivity · Project Knowledge 가 **함께 사라진다.**
+ * 부르는 쪽은 `findProjectDeletionImpact` 로 무엇을 잃는지 먼저 보여 준다.
+ *
+ * Repository 를 살리고 싶으면 지우기 전에 다른 Project 로 옮긴다
+ * (`moveRepositoryToProject`).
+ *
+ * @throws {AppError} 대상이 없으면 `NOT_FOUND`.
+ */
+export async function deleteProject(
+  input: { workspaceId: string; projectId: string },
+  executor: DbExecutor = db(),
+): Promise<void> {
+  const deleted = await executor
+    .delete(projects)
+    .where(
+      and(
+        eq(projects.id, input.projectId),
+        eq(projects.workspaceId, input.workspaceId),
+      ),
+    )
+    .returning({ id: projects.id });
+
+  if (deleted.length === 0) {
+    throw new AppError("NOT_FOUND", "Project 를 찾을 수 없습니다.");
+  }
 }

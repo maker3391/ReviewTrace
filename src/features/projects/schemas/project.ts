@@ -26,6 +26,7 @@ const RESERVED_SLUGS: readonly string[] = [
   "issues",
   "knowledge",
   "repositories",
+  "settings",
 ];
 
 export const createProjectSchema = z.object({

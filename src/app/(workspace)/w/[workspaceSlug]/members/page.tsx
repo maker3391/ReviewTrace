@@ -10,10 +10,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InviteMemberForm } from "@/features/invitations/components/InviteMemberForm";
-import {
-  listPendingInvitations,
-  listWorkspaceMembers,
-} from "@/features/invitations/server/invitation-service";
+import { listPendingInvitations } from "@/features/invitations/server/invitation-service";
+import { MemberRoleSelect } from "@/features/workspaces/components/MemberRoleSelect";
+import { listMembers } from "@/features/workspaces/server/workspace-service";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
 import { formatDate } from "@/lib/format/date";
 
@@ -39,7 +38,7 @@ export default async function WorkspaceMembersPage({
   const { workspace } = await requireWorkspace(workspaceSlug);
 
   const isOwner = workspace.role === "OWNER";
-  const members = await listWorkspaceMembers(workspace.workspaceId);
+  const members = await listMembers(workspace.workspaceId);
   const pending = isOwner
     ? await listPendingInvitations(workspace.workspaceId)
     : [];
@@ -57,13 +56,27 @@ export default async function WorkspaceMembersPage({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {members.map((member, index) => (
-              <TableRow key={`${member.name ?? "unknown"}-${index}`}>
+            {members.map((member) => (
+              <TableRow key={member.userId}>
                 <TableCell className="font-medium">
                   {member.name ?? "이름 없음"}
                 </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">
-                  {member.role}
+                <TableCell>
+                  {/*
+                    🔴 역할을 바꿀 수 있는 것은 OWNER 뿐이고, Personal Workspace 의 주인은
+                    누구도 바꿀 수 없다. 여기서 막는 것은 편의일 뿐 — 서버가 다시 판정한다.
+                  */}
+                  <MemberRoleSelect
+                    workspaceSlug={workspace.slug}
+                    userId={member.userId}
+                    role={member.role}
+                    disabled={!isOwner || member.isPersonalOwner}
+                    disabledReason={
+                      member.isPersonalOwner
+                        ? "Personal Workspace 의 주인입니다"
+                        : undefined
+                    }
+                  />
                 </TableCell>
               </TableRow>
             ))}
