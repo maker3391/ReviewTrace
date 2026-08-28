@@ -60,15 +60,16 @@ export async function ProjectListScreen({
             <TableBody>
               {projects.map((project) => (
                 <TableRow key={project.projectId}>
-                  <TableCell>
+                  <TableCell className="max-w-sm">
                     <Link
                       href={projectSectionHref(workspaceSlug, project.slug, "")}
-                      className="font-medium underline-offset-2 hover:underline"
+                      title={project.name}
+                      className="block truncate font-medium underline-offset-4 hover:underline"
                     >
                       {project.name}
                     </Link>
                     {project.description !== null && (
-                      <span className="ml-2 text-xs text-muted-foreground">
+                      <span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground">
                         {project.description}
                       </span>
                     )}

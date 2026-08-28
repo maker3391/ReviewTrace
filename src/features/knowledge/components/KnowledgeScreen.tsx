@@ -70,15 +70,16 @@ export async function KnowledgeScreen({
             <TableBody>
               {pages.map((page) => (
                 <TableRow key={page.slug}>
-                  <TableCell>
+                  <TableCell className="max-w-md">
                     <Link
                       href={`${basePath}/${page.slug}` as Route}
-                      className="font-medium underline-offset-2 hover:underline"
+                      title={page.title}
+                      className="block truncate font-medium underline-offset-4 hover:underline"
                     >
                       {page.title}
                     </Link>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
+                  <TableCell className="max-w-56 whitespace-normal break-all font-mono text-xs text-muted-foreground">
                     {page.slug}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">

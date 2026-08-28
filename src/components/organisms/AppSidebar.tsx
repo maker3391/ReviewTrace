@@ -149,6 +149,17 @@ export function AppSidebar({
         collapsed ? "w-14" : "w-64",
       )}
     >
+      {/*
+        🔴 접기 버튼은 **맨 위**에 둔다.
+
+        처음에는 사이드바 맨 아래에 뒀는데, dev 에서는 Next.js Dev Tools 의 떠 있는 배지가
+        왼쪽 아래를 덮어 버튼이 보이지 않았다. 위로 올리면 가려지지 않고, 사이드바를
+        조작하는 도구가 사이드바 머리에 있는 편이 찾기도 쉽다.
+      */}
+      <div className={cn("mb-1 flex", collapsed ? "justify-center" : "justify-end")}>
+        <CollapseToggle collapsed={collapsed} onToggle={toggle} />
+      </div>
+
       <div className="mb-2">
         <WorkspaceSwitcher
           currentSlug={currentSlug}
@@ -228,8 +239,6 @@ export function AppSidebar({
           />
         ))}
       </ul>
-
-      <CollapseToggle collapsed={collapsed} onToggle={toggle} />
     </nav>
   );
 }
@@ -257,18 +266,26 @@ function CollapseToggle({
   onToggle: () => void;
 }) {
   const Icon = collapsed ? PanelLeftOpen : PanelLeftClose;
+  const label = collapsed ? "사이드바 펼치기" : "사이드바 접기";
 
-  return (
+  const button = (
     <button
       type="button"
       onClick={onToggle}
-      aria-label={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
+      aria-label={label}
       aria-expanded={!collapsed}
-      className="mt-1 flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors duration-150 outline-none hover:bg-sidebar-accent/50 hover:text-sidebar-foreground focus-visible:ring-3 focus-visible:ring-sidebar-ring/50"
+      className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 outline-none hover:bg-sidebar-accent/60 hover:text-sidebar-foreground focus-visible:ring-3 focus-visible:ring-sidebar-ring/50"
     >
       <Icon aria-hidden className="size-4 shrink-0" />
-      <NavLabel collapsed={collapsed}>접기</NavLabel>
     </button>
+  );
+
+  // 아이콘만 남는 버튼이라 두 상태 모두 이름을 Tooltip 으로 알린다.
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
   );
 }
 

@@ -68,10 +68,10 @@ export async function RepositoryListScreen({
             <TableBody>
               {repositories.map((repository) => (
                 <TableRow key={repository.id}>
-                  <TableCell>
+                  <TableCell className="max-w-md whitespace-normal">
                     <Link
                       href={`${basePath}/${repository.id}` as Route}
-                      className="font-mono text-xs underline-offset-2 hover:underline"
+                      className="break-all font-mono text-xs underline-offset-4 hover:underline"
                     >
                       {repository.fullName}
                     </Link>

@@ -4,6 +4,7 @@ import type { Route } from "next";
 import { CodeLocation } from "@/components/atoms/CodeLocation";
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
 import { StatusBadge } from "@/components/atoms/StatusBadge";
+import { MetaDot, PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import {
   Table,
@@ -27,40 +28,52 @@ import { formatDate } from "@/lib/format/date";
  */
 export function ReviewDetailScreen({
   review,
+  reviewsPath,
   issuesPath,
   repositoriesPath,
 }: {
   review: ReviewDetail;
+  /** 목록으로 돌아가는 주소. 상세의 한 층 위다. */
+  reviewsPath: Route;
   issuesPath: Route;
   repositoriesPath: Route;
 }) {
   return (
-    <div className="flex flex-col gap-8 p-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold tracking-tight">
-          {review.reviewerName}
-          {review.reviewerVersion !== null && (
-            <span className="ml-2 font-mono text-xs font-normal text-muted-foreground">
-              {review.reviewerVersion}
-            </span>
-          )}
-        </h1>
-        <p className="text-[11px] text-muted-foreground">
-          <Link
-            href={`${repositoriesPath}/${review.repositoryId}` as Route}
-            className="font-mono underline-offset-2 hover:text-foreground hover:underline"
-          >
-            {review.repositoryFullName}
-          </Link>
-          {" · "}
-          {review.reviewerType}
-          {" · "}
-          {formatDate(review.createdAt)}
-        </p>
-      </header>
+    /*
+      🔴 상세 화면의 결을 Issue 상세와 맞춘다.
 
-      <Section title="대상">
-        <dl className="grid grid-cols-[7rem_1fr] gap-x-6 gap-y-1.5 pt-3 text-xs">
+      같은 「상세」인데 한쪽만 평면 divider 목록이면 의도된 구분처럼 읽히지 않고 갱신이
+      덜 된 화면처럼 보인다. 다만 Review 는 Issue 와 달리 «곁에서 조작할 것»이 없어
+      두 단으로 나누지 않고 한 단으로 둔다 — 구조는 정보의 성격을 따른다(CLAUDE.md 16).
+    */
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
+      <PageHeader
+        breadcrumb={{ label: "Reviews", href: reviewsPath }}
+        title={review.reviewerName}
+        meta={
+          <>
+            <Link
+              href={`${repositoriesPath}/${review.repositoryId}` as Route}
+              className="font-mono underline-offset-4 hover:text-foreground hover:underline"
+            >
+              {review.repositoryFullName}
+            </Link>
+            <MetaDot />
+            <span>{review.reviewerType}</span>
+            {review.reviewerVersion !== null && (
+              <>
+                <MetaDot />
+                <span className="font-mono">{review.reviewerVersion}</span>
+              </>
+            )}
+            <MetaDot />
+            <span>{formatDate(review.createdAt)}</span>
+          </>
+        }
+      />
+
+      <Section title="대상" variant="raised">
+        <dl className="grid grid-cols-[7rem_1fr] gap-x-6 gap-y-2 text-xs">
           <dt className="text-muted-foreground">Type</dt>
           <dd className="font-mono">{review.targetType}</dd>
 
@@ -88,8 +101,8 @@ export function ReviewDetailScreen({
       </Section>
 
       {review.summary !== null && (
-        <Section title="요약">
-          <p className="whitespace-pre-wrap pt-2 text-sm leading-relaxed">
+        <Section title="요약" variant="raised">
+          <p className="whitespace-pre-wrap text-sm leading-relaxed">
             {review.summary}
           </p>
         </Section>
@@ -98,10 +111,12 @@ export function ReviewDetailScreen({
       <Section
         title="발견한 Issue"
         description={`${review.issues.length}건 · 상태는 현재 값`}
+        variant="raised"
+        bleed
       >
         {review.issues.length === 0 ? (
-          <SectionEmpty>
-            이 Review 는 문제를 찾지 못했습니다 — 그것도 기록입니다.
+          <SectionEmpty title="문제를 찾지 못했습니다">
+            그것도 기록입니다 — 「이 Commit 은 깨끗했다」가 남습니다.
           </SectionEmpty>
         ) : (
           <Table>
@@ -119,10 +134,11 @@ export function ReviewDetailScreen({
                   <TableCell>
                     <SeverityBadge severity={issue.severity} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="max-w-md">
                     <Link
                       href={`${issuesPath}/${issue.id}` as Route}
-                      className="font-medium underline-offset-2 hover:underline"
+                      title={issue.title}
+                      className="block truncate font-medium underline-offset-4 hover:underline"
                     >
                       {issue.title}
                     </Link>

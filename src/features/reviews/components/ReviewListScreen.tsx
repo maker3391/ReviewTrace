@@ -75,13 +75,14 @@ export async function ReviewListScreen({
                       {review.reviewerName}
                     </Link>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
+                  {/* Repository 이름은 식별자다 — 잘라내지 않고 줄바꿈으로 다룬다. */}
+                  <TableCell className="max-w-64 whitespace-normal break-all font-mono text-xs text-muted-foreground">
                     {review.repositoryFullName}
                   </TableCell>
                   <TableCell className="font-mono text-[11px] text-muted-foreground">
                     {review.targetType}
                   </TableCell>
-                  <TableCell className="font-mono text-[11px] text-muted-foreground">
+                  <TableCell className="max-w-64 whitespace-normal break-all font-mono text-[11px] text-muted-foreground">
                     {review.branch ?? "—"}
                     {review.commitSha !== null &&
                       ` · ${review.commitSha.slice(0, 7)}`}

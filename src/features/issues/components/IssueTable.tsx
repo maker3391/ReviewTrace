@@ -65,10 +65,11 @@ export async function IssueTable({
               <TableCell>
                 <SeverityBadge severity={issue.severity} />
               </TableCell>
-              <TableCell>
+              <TableCell className="max-w-md">
                 <Link
                   href={`${basePath}/${issue.id}` as Route}
-                  className="font-medium underline-offset-2 hover:underline"
+                  title={issue.title}
+                  className="block truncate font-medium underline-offset-4 hover:underline"
                 >
                   {issue.title}
                 </Link>

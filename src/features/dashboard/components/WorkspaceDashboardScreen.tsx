@@ -186,6 +186,7 @@ export async function WorkspaceDashboardScreen({
                       href={
                         `${projectSectionHref(workspaceSlug, issue.projectSlug, "issues")}?q=${encodeURIComponent(issue.title)}` as Route
                       }
+                      title={issue.title}
                       className="block max-w-xl truncate font-medium text-foreground underline-offset-4 hover:underline"
                     >
                       {issue.title}

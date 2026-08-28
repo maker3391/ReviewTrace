@@ -48,9 +48,19 @@ export function StatRow({ stats }: { stats: readonly Stat[] }) {
               {Icon !== undefined && <Icon aria-hidden className="size-3.5" />}
               {stat.label}
             </dt>
+            {/*
+              🔴 **숫자와 «숫자가 아닌 값»을 같은 크기로 그리지 않는다.**
+
+              날짜("2026-08-28")를 지표 숫자와 같은 26px 로 키우면, 비교할 값이 아닌 것이
+              가장 크게 보여 KPI 줄의 균형이 깨진다. 실제 Repository 상세에서 그렇게 보였다.
+              숫자는 크게, 그 밖의 값은 한 단계 작게 — 계층은 «무엇인가»를 따른다.
+            */}
             <dd
               className={cn(
-                "text-[26px] font-semibold leading-none tracking-tight tabular-nums",
+                "font-semibold leading-none tracking-tight tabular-nums",
+                typeof stat.value === "number"
+                  ? "text-[26px]"
+                  : "text-lg break-words",
                 attention ? "text-destructive" : "text-foreground",
               )}
             >

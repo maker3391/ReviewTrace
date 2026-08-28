@@ -42,6 +42,7 @@ export default async function ProjectReviewDetailPage({
   return (
     <ReviewDetailScreen
       review={review}
+      reviewsPath={`${base}/reviews` as Route}
       issuesPath={`${base}/issues` as Route}
       repositoriesPath={`${base}/repositories` as Route}
     />
