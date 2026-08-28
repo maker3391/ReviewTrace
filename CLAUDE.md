@@ -34,7 +34,7 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | Server Action 반환 계약 (`ActionResult`) | **계약만** 있다 — Mutation 이 없어 실제 `'use server'` 파일은 없다 |
 | 환경 변수 구조 (`.env.example` · Zod 검증) · `docker-compose.yml` | 있다 |
 | Test(`pnpm test`, vitest) · `typecheck` script | 있다 |
-| **PostgreSQL 에 실제 연결해 본 적** | **없다.** 이 PC 에 PostgreSQL 이 없다 (→ 아래 「검증되지 않은 것」) |
+| **PostgreSQL · Migration 적용** | **있다.** Docker(`code-intelligence-postgres`)로 띄워 `db:migrate` 적용·확인 완료 |
 | 인증 · 세션 · Workspace 결정 | **없다.** `findCurrentWorkspace()` 가 `null` 을 돌려준다 |
 | GitHub OAuth · API Key 발급 · Review API · ReviewIssue CRUD | **없다. 다음 단계** |
 | Dashboard 통계 | **없다. 의도적이다** — 데이터를 쌓는 경로가 없어 숫자를 그리면 전부 거짓이다 |
@@ -45,13 +45,25 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 `pnpm db:generate` 로 `src/db/migrations/0000_*.sql` 이 생성됐다 — 이것은 Database 없이 도는 명령이다.
 `next start` 로 띄워 `/` 200 · `/issues` 렌더 · `/nope` 404 를 확인했고 **확인 뒤 종료했다.**
 
+**`pnpm db:migrate` 가 실제 PostgreSQL 에서 돌았다 (2026-08-28).** `docker compose up -d` 로
+`postgres:17-alpine` 을 띄우고 적용했다. 생성 결과를 직접 조회해 확인한 것:
+
+- **10 table · 8 enum** 전부 생성 — `users` `workspaces` `workspace_members` `api_keys` `repositories`
+  `review_sessions` `review_issues` `issue_activities` `tags` `issue_tags`
+- `review_issues.severity`·`category`·`status` 가 **진짜 enum 컬럼**이다(`issue_severity` 등).
+  JSON 속에 묻히지 않아 인덱스가 걸린다
+- **JSONB 는 `review_sessions.raw_payload` 한 자리뿐**이다 (`information_schema` 전수 조회)
+- 목록 화면용 복합 인덱스 `(workspace_id, status, severity, detected_at DESC)` 생성 확인.
+  전체 24개 = 설계한 6개 + PK·unique 제약이 만든 것
+- FK 는 전부 `ON DELETE CASCADE`
+
 ### 🔴 검증되지 않은 것
 
-- **`pnpm db:migrate` 를 실행한 적이 없다.** PostgreSQL 이 이 PC 에 없다. 생성된 SQL 이 실제 Database 에서
-  도는지, Schema 가 의도대로 만들어지는지는 **확인되지 않았다**
-- **Drizzle Query 가 실제로 도는 것을 본 적이 없다.** 인증이 없어 `findIssues()` 까지 실행이 닿지 않는다.
-  타입과 빌드만 통과했을 뿐이다
-- 위 둘을 「될 것이다」로 적지 마라. 확인한 사람이 이 표를 고쳐라
+- **Drizzle Query 가 실제로 도는 것을 본 적이 없다.** Schema 는 실제 Database 에 만들어졌지만,
+  인증이 없어 `findIssues()` 까지 실행이 닿지 않는다. 타입과 빌드만 통과했을 뿐이다
+- **행을 넣고 읽어 본 적이 없다.** 위 확인은 전부 **Schema 조회**이고 INSERT/SELECT 는 돌리지 않았다 —
+  「테이블이 있다」와 「쿼리가 돈다」는 다른 말이다
+- 위를 「될 것이다」로 적지 마라. 확인한 사람이 이 표를 고쳐라
 
 🔴 **없는 것을 있는 것처럼 쓰지 마라.** 실행하지 않은 검증을 통과했다고 적지 않는다. 확인하지 않은 동작을 정상이라고 추측하지 않는다.
 
