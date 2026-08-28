@@ -9,6 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { FolderGit2 } from "lucide-react";
+
+import { PageHeader } from "@/components/molecules/PageHeader";
+import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { listRepositoryStatuses } from "@/features/repositories/server/repository-query";
 import type { ProjectContext } from "@/features/projects/types/project";
 import { formatDate } from "@/lib/format/date";
@@ -39,20 +43,17 @@ export async function RepositoryListScreen({
   });
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-4 pt-4">
-        <h1 className="text-base font-semibold tracking-tight">Repositories</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {project.name} 의 코드베이스
-        </p>
-      </div>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
+      <PageHeader
+        title="Repositories"
+        description={`${project.name} 의 코드베이스`}
+      />
 
-      <div className="mt-4">
+      <Section variant="raised" bleed>
         {repositories.length === 0 ? (
-          <p className="px-4 py-16 text-center text-xs text-muted-foreground">
-            아직 Repository 가 없습니다. Agent 가 이 Project 로 Review 를 보내면
-            자동으로 등록됩니다.
-          </p>
+          <SectionEmpty icon={<FolderGit2 className="size-4" />} title="Repository 가 없습니다">
+            Agent 가 이 Project 로 Review 를 보내면 자동으로 등록됩니다.
+          </SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
@@ -94,7 +95,7 @@ export async function RepositoryListScreen({
             </TableBody>
           </Table>
         )}
-      </div>
+      </Section>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Boxes } from "lucide-react";
 
 import {
   Table,
@@ -8,6 +9,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PageHeader } from "@/components/molecules/PageHeader";
+import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { projectSectionHref } from "@/config/navigation";
 import { CreateProjectDialog } from "@/features/projects/components/CreateProjectDialog";
 import { listProjectSummaries } from "@/features/projects/server/project-service";
@@ -30,23 +33,18 @@ export async function ProjectListScreen({
   const projects = await listProjectSummaries(workspaceId);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-start justify-between gap-4 px-4 pt-4">
-        <div>
-          <h1 className="text-base font-semibold tracking-tight">Projects</h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            하나의 제품 또는 업무 단위. Repository 는 Project 아래에 붙습니다.
-          </p>
-        </div>
-        <CreateProjectDialog workspaceSlug={workspaceSlug} />
-      </div>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
+      <PageHeader
+        title="Projects"
+        description="하나의 제품 또는 업무 단위. Repository 는 Project 아래에 붙습니다."
+        actions={<CreateProjectDialog workspaceSlug={workspaceSlug} />}
+      />
 
-      <div className="mt-4">
+      <Section variant="raised" bleed>
         {projects.length === 0 ? (
-          <p className="px-4 py-16 text-center text-xs text-muted-foreground">
-            아직 Project 가 없습니다. 제품·업무 단위로 하나 만드세요 — 예: SMIL,
-            ReviewTrace, ERP.
-          </p>
+          <SectionEmpty icon={<Boxes className="size-4" />} title="Project 가 없습니다">
+            제품·업무 단위로 하나 만드세요 — 예: SMIL, ReviewTrace, ERP.
+          </SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
@@ -97,7 +95,7 @@ export async function ProjectListScreen({
             </TableBody>
           </Table>
         )}
-      </div>
+      </Section>
     </div>
   );
 }

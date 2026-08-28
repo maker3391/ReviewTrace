@@ -1,6 +1,10 @@
 import Link from "next/link";
 import type { Route } from "next";
 
+import { BookText } from "lucide-react";
+
+import { PageHeader } from "@/components/molecules/PageHeader";
+import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -37,22 +41,22 @@ export async function KnowledgeScreen({
   const pages = await listKnowledgePages(scope);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-start justify-between gap-4 px-4 pt-4">
-        <div>
-          <h1 className="text-base font-semibold tracking-tight">{heading}</h1>
-          <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-        </div>
-        <Button asChild size="sm">
-          <Link href={`${basePath}/new` as Route}>문서 작성</Link>
-        </Button>
-      </div>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
+      <PageHeader
+        title={heading}
+        description={description}
+        actions={
+          <Button asChild size="sm">
+            <Link href={`${basePath}/new` as Route}>문서 작성</Link>
+          </Button>
+        }
+      />
 
-      <div className="mt-4">
+      <Section variant="raised" bleed>
         {pages.length === 0 ? (
-          <p className="px-4 py-16 text-center text-xs text-muted-foreground">
-            아직 문서가 없습니다. 반복해서 설명하게 되는 규칙부터 적어 두세요.
-          </p>
+          <SectionEmpty icon={<BookText className="size-4" />} title="문서가 없습니다">
+            반복해서 설명하게 되는 규칙부터 적어 두세요.
+          </SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
@@ -88,7 +92,7 @@ export async function KnowledgeScreen({
             </TableBody>
           </Table>
         )}
-      </div>
+      </Section>
     </div>
   );
 }

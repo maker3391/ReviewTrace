@@ -5,9 +5,13 @@ import { AppSidebar } from "@/components/organisms/AppSidebar";
 import { listProjectOptions } from "@/features/projects/server/project-service";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
 import { listMemberWorkspaces } from "@/lib/auth/workspace-context";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 import { readProjectSlugFromPath } from "@/config/routes";
+import {
+  parseSidebarCollapsed,
+  SIDEBAR_COLLAPSED_COOKIE,
+} from "@/lib/ui/sidebar-state";
 import { CURRENT_PATH_HEADER } from "@/proxy";
 
 /**
@@ -54,7 +58,17 @@ export default async function WorkspaceLayout({
    * 경로를 읽고, **서버가 소속을 확인해 넘긴 목록**에 맞대어 본다 — 없는 slug 면 그리지
    * 않는다. 이름을 지어내지 않는 것이 요점이다(CLAUDE.md 11).
    */
-  const pathname = (await headers()).get(CURRENT_PATH_HEADER) ?? "";
+  const [headerList, cookieStore] = await Promise.all([headers(), cookies()]);
+
+  /**
+   * 🔴 접힘 상태를 «서버에서» 읽는다. 클라이언트에서만 읽으면 펼친 사이드바를 먼저 그려
+   * 보내고 JS 실행 뒤에 접혀, 새로고침마다 한 프레임이 깜빡인다(`lib/ui/sidebar-state.ts`).
+   */
+  const sidebarCollapsed = parseSidebarCollapsed(
+    cookieStore.get(SIDEBAR_COLLAPSED_COOKIE)?.value,
+  );
+
+  const pathname = headerList.get(CURRENT_PATH_HEADER) ?? "";
   const projectSlug = readProjectSlugFromPath(pathname);
   const currentProject =
     projectSlug === null
@@ -80,6 +94,7 @@ export default async function WorkspaceLayout({
             slug: item.slug,
             name: item.name,
           }))}
+          defaultCollapsed={sidebarCollapsed}
         />
         <main className="flex min-w-0 flex-1 flex-col overflow-auto">
           {children}

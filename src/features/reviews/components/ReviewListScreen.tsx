@@ -9,6 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ListChecks } from "lucide-react";
+
+import { PageHeader } from "@/components/molecules/PageHeader";
+import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { listProjectReviews } from "@/features/reviews/server/review-query";
 import type { ProjectContext } from "@/features/projects/types/project";
 import { formatDate } from "@/lib/format/date";
@@ -37,20 +41,17 @@ export async function ReviewListScreen({
   });
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-4 pt-4">
-        <h1 className="text-base font-semibold tracking-tight">Reviews</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {project.name} 에서 실행된 Code Review
-        </p>
-      </div>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
+      <PageHeader
+        title="Reviews"
+        description={`${project.name} 에서 실행된 Code Review`}
+      />
 
-      <div className="mt-4">
+      <Section variant="raised" bleed>
         {reviews.length === 0 ? (
-          <p className="px-4 py-16 text-center text-xs text-muted-foreground">
-            아직 Review 가 없습니다. Agent 가 POST /api/v1/reviews 로 결과를 보내면
-            여기에 쌓입니다.
-          </p>
+          <SectionEmpty icon={<ListChecks className="size-4" />} title="Review 가 없습니다">
+            Agent 가 POST /api/v1/reviews 로 결과를 보내면 여기에 쌓입니다.
+          </SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
@@ -96,7 +97,7 @@ export async function ReviewListScreen({
             </TableBody>
           </Table>
         )}
-      </div>
+      </Section>
     </div>
   );
 }

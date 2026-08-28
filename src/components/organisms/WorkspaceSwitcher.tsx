@@ -39,9 +39,12 @@ export interface SwitcherWorkspace {
 export function WorkspaceSwitcher({
   currentSlug,
   workspaces,
+  collapsed = false,
 }: {
   currentSlug: string;
   workspaces: readonly SwitcherWorkspace[];
+  /** 접힌 사이드바에서는 아바타만 남는다 — 이름을 좁은 폭에 욱여넣지 않는다. */
+  collapsed?: boolean;
 }) {
   const pathname = usePathname();
   const section = currentSection(pathname);
@@ -53,9 +56,19 @@ export function WorkspaceSwitcher({
         <Button
           variant="outline"
           size="lg"
-          className="h-11 w-full justify-between gap-2 border-sidebar-border bg-card px-2.5 font-medium hover:bg-card"
+          /*
+            🔴 접힐 때 **폭·정렬·padding 을 바꾸지 않는다.**
+
+            `px-0 justify-center` 로 바꾸면 남아 있는 gap 과 `size-3.5` 가 서로 밀어
+            아바타가 눌리고 잘린다. 대신 padding 을 고정하고 `overflow-hidden` 이
+            넘치는 것을 자르게 둔다 — 아바타는 `shrink-0` 이라 항상 24px 정사각이다.
+
+            접힌 폭 계산: nav px-2(8) + button px-2(8) + 아바타 24 = 40 = w-14 안쪽 폭.
+            메뉴 Icon 의 왼쪽 offset 과도 같아 접고 펼칠 때 좌우로 튀지 않는다.
+          */
+          className="h-11 w-full justify-start gap-2 overflow-hidden border-sidebar-border bg-card px-2 font-medium hover:bg-card"
         >
-          <span className="flex min-w-0 items-center gap-2">
+          <span className="flex min-w-0 flex-1 items-center gap-2">
             {/*
               Workspace 이니셜. 🔴 Badge 가 아니라 «신원 표시»다 — Tenant 를 바꾸는 자리라
               이름만 있는 것보다 눈에 먼저 잡힌다.
@@ -63,11 +76,28 @@ export function WorkspaceSwitcher({
             <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">
               {(current?.name ?? currentSlug).trim().charAt(0).toUpperCase()}
             </span>
-            <span className="truncate text-[13px]">
+            {/*
+              🔴 이름과 화살표는 «폭이 아니라 opacity» 로 사라진다. 폭을 줄이면 글자가
+              접혀 보인다 — 사이드바의 overflow 가 자르게 두고 먼저 흐려지게 한다.
+            */}
+            <span
+              className={cn(
+                "truncate whitespace-nowrap text-[13px] transition-opacity ease-out motion-reduce:transition-none",
+                collapsed
+                  ? "pointer-events-none opacity-0 duration-100"
+                  : "opacity-100 duration-150 delay-150",
+              )}
+            >
               {current?.name ?? currentSlug}
             </span>
           </span>
-          <ChevronsUpDown aria-hidden className="size-3.5 shrink-0 opacity-50" />
+          <ChevronsUpDown
+            aria-hidden
+            className={cn(
+              "size-3.5 shrink-0 opacity-50 transition-opacity ease-out motion-reduce:transition-none",
+              collapsed ? "opacity-0 duration-100" : "duration-150 delay-150",
+            )}
+          />
         </Button>
       </DropdownMenuTrigger>
 

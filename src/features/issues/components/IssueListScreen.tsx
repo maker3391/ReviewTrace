@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Route } from "next";
 
+import { PageHeader } from "@/components/molecules/PageHeader";
 import { IssueFilterBar } from "@/features/issues/components/IssueFilterBar";
 import { IssueTable } from "@/features/issues/components/IssueTable";
 import { IssueTableSkeleton } from "@/features/issues/components/IssueTableSkeleton";
@@ -41,13 +42,11 @@ export async function IssueListScreen({
   const filter = parseIssueFilter(await searchParams);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-baseline justify-between px-4 pt-4">
-        <h1 className="text-base font-semibold tracking-tight">Issues</h1>
-        <p className="text-xs text-muted-foreground">
-          {projectName} 에서 Agent 와 사람이 남긴 Code Issue
-        </p>
-      </div>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
+      <PageHeader
+        title="Issues"
+        description={`${projectName} 에서 Agent 와 사람이 남긴 Code Issue`}
+      />
 
       <IssueFilterBar basePath={basePath} filter={filter} />
 
