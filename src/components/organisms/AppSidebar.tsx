@@ -146,26 +146,27 @@ export function AppSidebar({
       className={cn(
         "flex shrink-0 flex-col gap-1 overflow-hidden border-r border-sidebar-border bg-sidebar px-2 py-3",
         "transition-[width] duration-200 ease-out motion-reduce:transition-none",
-        collapsed ? "w-14" : "w-64",
+        collapsed ? "w-[4.5rem]" : "w-64",
       )}
     >
       {/*
-        🔴 접기 버튼은 **맨 위**에 둔다.
+        🔴 접기 버튼은 **Workspace 선택 바 옆**, 두 상태 모두 «같은 줄»에 둔다.
 
-        처음에는 사이드바 맨 아래에 뒀는데, dev 에서는 Next.js Dev Tools 의 떠 있는 배지가
-        왼쪽 아래를 덮어 버튼이 보이지 않았다. 위로 올리면 가려지지 않고, 사이드바를
-        조작하는 도구가 사이드바 머리에 있는 편이 찾기도 쉽다.
+        접힐 때 아래로 내려가면 버튼이 위아래로 튀어 어디를 눌러야 하는지 매번 다시 찾게 된다.
+        그래서 접힘 폭을 아바타 하나(56px)가 아니라 **아바타 + 버튼이 나란히 들어가는 72px**
+        로 잡았다 — 아이콘만 남기는 것보다 4px 넓지만 버튼 위치가 고정된다.
+
+        계산: 좌우 padding 16 + 아바타 24 + gap 4 + 버튼 28 = 72
       */}
-      <div className={cn("mb-1 flex", collapsed ? "justify-center" : "justify-end")}>
+      <div className="mb-2 flex items-center gap-1">
+        <div className="min-w-0 flex-1">
+          <WorkspaceSwitcher
+            currentSlug={currentSlug}
+            workspaces={workspaces}
+            collapsed={collapsed}
+          />
+        </div>
         <CollapseToggle collapsed={collapsed} onToggle={toggle} />
-      </div>
-
-      <div className="mb-2">
-        <WorkspaceSwitcher
-          currentSlug={currentSlug}
-          workspaces={workspaces}
-          collapsed={collapsed}
-        />
       </div>
 
       <ul className="flex flex-col gap-0.5">
@@ -199,7 +200,7 @@ export function AppSidebar({
             <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
               Project
             </p>
-            <p className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
+            <p className="truncate text-[15px] font-semibold tracking-tight text-sidebar-foreground">
               {currentProject.name}
             </p>
           </div>
@@ -274,9 +275,9 @@ function CollapseToggle({
       onClick={onToggle}
       aria-label={label}
       aria-expanded={!collapsed}
-      className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 outline-none hover:bg-sidebar-accent/60 hover:text-sidebar-foreground focus-visible:ring-3 focus-visible:ring-sidebar-ring/50"
+      className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 outline-none hover:bg-sidebar-accent/60 hover:text-sidebar-foreground focus-visible:ring-3 focus-visible:ring-sidebar-ring/50"
     >
-      <Icon aria-hidden className="size-4 shrink-0" />
+      <Icon aria-hidden className="size-[18px] shrink-0" />
     </button>
   );
 
@@ -323,7 +324,8 @@ function NavLink({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors duration-150",
+        // 🔴 내부 관리도구처럼 촘촘하지 않게 — 아이콘 20px · 글자 15px · 넉넉한 행 높이.
+        "group flex items-center gap-3 rounded-lg px-2 py-2 text-[15px] transition-colors duration-150",
         active
           ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
           : muted
@@ -335,7 +337,7 @@ function NavLink({
         <Icon
           aria-hidden
           className={cn(
-            "size-4 shrink-0 transition-colors",
+            "size-5 shrink-0 transition-colors",
             active
               ? "text-sidebar-primary"
               : "text-muted-foreground/70 group-hover:text-muted-foreground",
