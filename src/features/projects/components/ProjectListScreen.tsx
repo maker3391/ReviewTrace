@@ -45,7 +45,7 @@ export async function ProjectListScreen({
         {projects.length === 0 ? (
           <p className="px-4 py-16 text-center text-xs text-muted-foreground">
             아직 Project 가 없습니다. 제품·업무 단위로 하나 만드세요 — 예: SMIL,
-            Code Intelligence, ERP.
+            ReviewTrace, ERP.
           </p>
         ) : (
           <Table>

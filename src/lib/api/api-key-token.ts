@@ -13,7 +13,12 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
  * 이 파일은 순수 함수만 둔다 — Database 를 모르므로 테스트가 그대로 쓴다.
  */
 
-/** 사람이 보고 「이건 Code Intelligence 키다」를 알 수 있게 하는 표시. */
+/**
+ * 사람이 보고 「이건 ReviewTrace 키다」를 알 수 있게 하는 표시.
+ *
+ * 🔴 **제품명이 바뀌어도 `ci_` 는 그대로 둔다.** 이미 발급된 Key 의 접두사이고,
+ * Agent 설정에 박혀 있는 값이라 바꾸면 밖에서 쓰던 것이 끊긴다.
+ */
 export const API_KEY_PREFIX = "ci_";
 
 /**

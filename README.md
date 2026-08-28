@@ -1,7 +1,10 @@
-# Code Intelligence
+# ReviewTrace
 
-Coding Agent(Claude Code · Codex CLI · 그 밖의 Agent · 사람)의 **Code Review 결과를 장기간
-축적하고 다시 활용**하기 위한 Developer Intelligence System.
+> **Review. Resolve. Remember.**
+
+External Coding Agent(Claude Code · Codex CLI · 그 밖의 Agent · 사람)의 **Code Review 결과를
+수집**하고 **Finding → Fix Attempt → Verification → Resolution 이력을 축적**해,
+**반복되는 문제와 과거의 해결 방법을 Knowledge 로 만드는** Developer Review Memory System.
 
 ```text
 Code Change -> External Agent Review -> ReviewSession -> ReviewIssue
@@ -72,7 +75,7 @@ Schema 는 둘로 나뉘어 있다: Database 만 쓰는 코드(Migration·조회
 
    | 칸 | 값 |
    |---|---|
-   | Application name | 아무 이름 (예: `Code Intelligence (local)`) |
+   | Application name | 아무 이름 (예: `ReviewTrace (local)`) |
    | Homepage URL | `http://localhost:3000` |
    | **Authorization callback URL** | **`http://localhost:3000/api/auth/callback/github`** |
 

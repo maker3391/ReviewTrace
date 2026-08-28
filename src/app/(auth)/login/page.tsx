@@ -29,7 +29,14 @@ export default async function LoginPage(props: PageProps<"/login">) {
         <h1 className="text-base font-semibold tracking-tight">
           {APP_CONFIG.name}
         </h1>
-        <p className="mt-1 text-xs text-muted-foreground">
+        {/*
+          Tagline 은 제품을 처음 만나는 이 자리에만 둔다 — 상단 바·사이드바에 또 적으면
+          장식이 된다(CLAUDE.md 16).
+        */}
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {APP_CONFIG.tagline}
+        </p>
+        <p className="mt-3 text-xs text-muted-foreground">
           GitHub 계정으로 시작합니다. 처음이면 자동으로 가입됩니다.
         </p>
       </div>

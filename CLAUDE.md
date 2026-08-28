@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# Code Intelligence 작업 규칙
+# ReviewTrace 작업 규칙
 
 이 문서는 **이 저장소의 제품 목적·핵심 Domain·Architecture·Rendering 전략·Database 원칙·API 경계·Security·작업 규칙의 정본**이다.
 Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
@@ -276,7 +276,11 @@ Repository 3행으로 먼저 줄인 뒤 Issue 로 내려간다. Project 계층�
 
 ## 1. 프로젝트 목적
 
-**Code Intelligence** 는 Coding Agent 의 Code Review 결과를 장기간 축적하고 다시 활용하기 위한 Developer Intelligence System 이다.
+**ReviewTrace** — *Review. Resolve. Remember.*
+
+External Coding Agent 의 Code Review 결과를 수집하고 **Finding → Fix Attempt → Verification
+→ Resolution 이력을 축적**해, 반복되는 문제와 과거의 해결 방법을 Knowledge 로 만드는
+**Developer Review Memory System** 이다.
 
 ```text
 Code Change -> External Agent Review -> ReviewSession -> ReviewIssue
@@ -294,7 +298,7 @@ Code Change -> External Agent Review -> ReviewSession -> ReviewIssue
 
 🔴 **이 프로젝트는 AI Code Reviewer 를 만드는 프로젝트가 아니다.** Review 수행 주체는 외부 Coding Agent(Claude Code · Codex CLI · 그 밖의 Agent · 사람)다.
 
-Code Intelligence 의 책임은 Review 자체가 아니라 **수집 -> 구조화 -> 저장 -> 추적 -> 검색 -> 분석 -> 재사용** 이다.
+ReviewTrace 의 책임은 Review 자체가 아니라 **수집 -> 구조화 -> 저장 -> 추적 -> 검색 -> 분석 -> 재사용** 이다.
 
 ---
 
@@ -519,7 +523,7 @@ Server 에서 조회할 수 있는 데이터를 Client State 로 다시 복제�
 
 ## 8. 조회는 SSR 우선 · Loading UX 【현재 규칙】
 
-Code Intelligence 는 **조회 중심 Developer Tool** 이다. Reviews · Issues · Knowledge · Repositories · Dashboard 는 SSR / Server Component 를 우선한다.
+ReviewTrace 는 **조회 중심 Developer Tool** 이다. Reviews · Issues · Knowledge · Repositories · Dashboard 는 SSR / Server Component 를 우선한다.
 
 Filter·Search·Pagination 상태는 가능하면 **URL Search Params** 에 둔다.
 
@@ -617,7 +621,7 @@ Repository  실제 Git 코드베이스
 ```
 
 🔴 **Workspace 를 Project 처럼 쓰지 않는다.** 한 Workspace(`CodeApex`)가 여러 Project
-(`SMIL` · `Code Intelligence` · `ERP`)를 갖고, 한 Project 가 여러 Repository
+(`SMIL` · `ReviewTrace` · `ERP`)를 갖고, 한 Project 가 여러 Repository
 (`smil-fe` · `smil-be` · `smil-agent`)를 갖는다. **Project 와 Repository 를 1:1 로 묶지 않는다.**
 
 - `projects` 의 slug 는 **`UNIQUE(workspace_id, slug)`** 다 — 전역 unique 가 아니다.
@@ -925,8 +929,8 @@ Project 를 지정해도 **Workspace 공통 규칙은 함께** 준다. 그것을
 ## 14. Knowledge 는 양방향이다
 
 ```text
-1) Agent -> Review -> Code Intelligence
-2) Code Intelligence -> Past Knowledge -> Agent
+1) Agent -> Review -> ReviewTrace
+2) ReviewTrace -> Past Knowledge -> Agent
 ```
 
 **2번이 장기적으로 중요하다.** Agent 가 작업·Review 를 시작하기 전에 **Repository 의 반복 문제 ·
@@ -974,7 +978,7 @@ GitHub API 호출 코드는 **Integration Boundary 로 분리**한다.
 **방향**: Enterprise · Data-first · Dense · Flat · Structured · Professional · Desktop First
 
 > **shadcn/ui = Component Primitive**
-> **Code Intelligence = Visual Design System**
+> **ReviewTrace = Visual Design System**
 
 shadcn/ui 는 **접근성·상호작용·기본 구조**를 위한 Primitive 로 쓴다.
 🔴 **shadcn 의 기본 시각 스타일을 그대로 조합해 화면을 완성하지 않는다.**
@@ -1103,7 +1107,7 @@ Description 이 없으면 정말 이해할 수 없는가?
 | | |
 |---|---|
 | ❌ | shadcn Component 를 조립한 화면 |
-| ✅ | **Code Intelligence 디자인을 구현하는 데 shadcn Primitive 를 쓴 화면** |
+| ✅ | **ReviewTrace 디자인을 구현하는 데 shadcn Primitive 를 쓴 화면** |
 
 기능과 접근성은 shadcn 에 맡기되, **제품의 Visual Identity 를 shadcn 기본 스타일에 맡기지 않는다.**
 
@@ -1338,7 +1342,7 @@ git add / commit / push · gh pr create / merge · git tag
 ### 🔴 Git 은 «에이전트 행동 로그»가 아니다 — 이 저장소가 그 문제를 푼다
 
 > **Git = 제품의 의미 있는 변경 이력**
-> **Code Intelligence = Review · Finding · Fix Attempt · Verification · Resolution 이력**
+> **ReviewTrace = Review · Finding · Fix Attempt · Verification · Resolution 이력**
 
 이 규칙은 다른 저장소에도 적용되지만(전역 `~/.claude/CLAUDE.md` 3.2),
 **여기서는 특별하다 — 이 저장소가 바로 「Git 에 넣지 말라」는 그 정보를 받는 곳이다.**

@@ -18,7 +18,7 @@ import { users, workspaces } from "@/db/schema/workspace";
  *
  * 🔴 **Workspace 를 Project 처럼 쓰지 않는다.** Workspace 는 Tenant·Member·권한·API Key·
  * 공통 Knowledge 의 경계이고, Project 는 **하나의 제품 또는 업무 단위**다. 한 Workspace
- * (`CodeApex`)가 여러 Project(`SMIL` · `Code Intelligence` · `ERP`)를 갖는다.
+ * (`CodeApex`)가 여러 Project(`SMIL` · `ReviewTrace` · `ERP`)를 갖는다.
  *
  * 🔴 **Project 는 Tenant 경계가 아니다.** 접근 판정의 정본은 여전히 `workspace_members` 다
  * (CLAUDE.md 11). Project 는 그 안에서 「무엇을 보고 있는가」를 가른다 —

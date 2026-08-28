@@ -32,18 +32,18 @@ describe("createProjectSchema", () => {
 describe("resolveProjectInput", () => {
   it("slug 를 비우면 이름에서 만든다", () => {
     const resolved = resolveProjectInput({
-      name: "Code Intelligence",
+      name: "Payment Gateway",
       slug: "",
       description: "",
     });
 
     expect(resolved.ok).toBe(true);
-    expect(resolved.ok && resolved.value.slug).toBe("code-intelligence");
+    expect(resolved.ok && resolved.value.slug).toBe("payment-gateway");
   });
 
   it("slug 를 적으면 그것을 정규화해서 쓴다", () => {
     const resolved = resolveProjectInput({
-      name: "Code Intelligence",
+      name: "Payment Gateway",
       slug: "  CI Core  ",
       description: "",
     });
