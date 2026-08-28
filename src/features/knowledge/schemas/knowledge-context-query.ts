@@ -24,6 +24,16 @@ const optionalTrimmed = (max: number) =>
     .transform((value) => (value === undefined || value === "" ? null : value));
 
 export const knowledgeContextQuerySchema = z.object({
+  /**
+   * Project Scope(스펙 10).
+   *
+   * 🔴 **Filter 일 뿐 권한 근거가 아니다.** 다른 Workspace 의 Project slug 를 넣어도
+   * 조회는 API Key 의 Workspace 안에서만 돌고, 그 안에 없는 slug 면 아무것도 나오지 않는다.
+   *
+   * 지정하면 그 Project 의 Review Knowledge 로 좁히고, Wiki 는 **Workspace 공통 규칙과
+   * 그 Project 문서를 함께** 준다 — Agent 는 둘 다 지켜야 한다.
+   */
+  projectSlug: optionalTrimmed(200),
   repositoryId: z
     .uuid()
     .nullish()
@@ -60,7 +70,16 @@ export function readKnowledgeContextQuery(
 ): Record<string, string> {
   const raw: Record<string, string> = {};
 
-  for (const key of ["repositoryId", "category", "pattern", "severity", "limit"]) {
+  const keys = [
+    "projectSlug",
+    "repositoryId",
+    "category",
+    "pattern",
+    "severity",
+    "limit",
+  ];
+
+  for (const key of keys) {
     const value = params.get(key);
     if (value !== null && value !== "") {
       raw[key] = value;

@@ -3,7 +3,12 @@ import "server-only";
 import { and, asc, desc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
-import { reviewIssues } from "@/db/schema";
+import { repositories, reviewIssues } from "@/db/schema";
+import {
+  listKnowledgeExcerpts,
+  type KnowledgeExcerpt,
+} from "@/features/knowledge/server/knowledge-page-service";
+import { findProjectBySlug } from "@/features/projects/server/project-service";
 import type { KnowledgeContextQuery } from "@/features/knowledge/schemas/knowledge-context-query";
 import type {
   IssueCategory,
@@ -71,6 +76,20 @@ export interface PastResolution {
 }
 
 export interface KnowledgeContext {
+  /**
+   * 이 응답이 어느 범위를 본 것인가.
+   *
+   * 🔴 **Agent 에게 «무엇을 못 봤는지»를 알린다.** 없는 Project slug 를 보냈을 때
+   * 빈 결과만 돌려주면 「이 Project 는 문제가 없다」로 읽힌다 — 실제로는 조회가
+   * 엉뚱한 곳을 본 것이다.
+   */
+  scope: {
+    projectSlug: string | null;
+    /** 요청한 slug 가 이 Workspace 에서 실제로 찾아졌는가. slug 를 안 보냈으면 `null`. */
+    projectResolved: boolean | null;
+  };
+  /** 사람이 적은 Wiki(스펙 10). Review 가 남긴 것과 **출처가 다르다**. */
+  wiki: KnowledgeExcerpt[];
   frequentPatterns: FrequentPattern[];
   recentHighSeverityIssues: KnowledgeIssueSummary[];
   unresolvedIssues: KnowledgeIssueSummary[];
@@ -98,6 +117,32 @@ export async function findKnowledgeContext(
   const { workspaceId, query } = input;
 
   /**
+   * 🔴 Project 도 **slug 가 아니라 소속으로** 찾는다. 조회는 언제나 API Key 가 정한
+   * Workspace 안에서 돌고, 그 안에 없는 slug 면 `null` 이다(스펙 3).
+   */
+  const project =
+    query.projectSlug === null
+      ? null
+      : await findProjectBySlug(workspaceId, query.projectSlug, executor);
+
+  /**
+   * 없는 Project 를 지목했으면 **빈 결과를 준다.**
+   *
+   * Workspace 전체로 넓혀 답하면 Agent 는 그것을 그 Project 의 Knowledge 로 읽는다 —
+   * 묻지 않은 것에 답하는 쪽이 아무것도 못 찾는 쪽보다 나쁘다. `scope` 가 이유를 알린다.
+   */
+  if (query.projectSlug !== null && project === null) {
+    return {
+      scope: { projectSlug: query.projectSlug, projectResolved: false },
+      wiki: [],
+      frequentPatterns: [],
+      recentHighSeverityIssues: [],
+      unresolvedIssues: [],
+      pastResolutions: [],
+    };
+  }
+
+  /**
    * 🔴 **모든 묶음의 첫 조건이 Workspace 다.**
    *
    * `repositoryId` 는 요청이 보낸 값이라 Filter 일 뿐이다 — 다른 Tenant 의 Repository ID 를
@@ -105,6 +150,9 @@ export async function findKnowledgeContext(
    */
   const filters: SQL[] = [eq(reviewIssues.workspaceId, workspaceId)];
 
+  if (project !== null) {
+    filters.push(eq(repositories.projectId, project.projectId));
+  }
   if (query.repositoryId !== null) {
     filters.push(eq(reviewIssues.repositoryId, query.repositoryId));
   }
@@ -121,8 +169,28 @@ export async function findKnowledgeContext(
   const scope = and(...filters);
   const limit = query.limit;
 
-  const [frequentPatterns, recentHighSeverityIssues, unresolvedIssues, pastResolutions] =
-    await Promise.all([
+  const [
+    wiki,
+    frequentPatterns,
+    recentHighSeverityIssues,
+    unresolvedIssues,
+    pastResolutions,
+  ] = await Promise.all([
+      /**
+       * 사람이 적은 Wiki(스펙 10).
+       *
+       * Project 를 지정하면 **Workspace 공통 규칙과 그 Project 문서를 함께** 준다 —
+       * 공통 규칙을 빼고 주면 Agent 가 그것을 모르는 채로 작업한다.
+       */
+      listKnowledgeExcerpts(
+        {
+          workspaceId,
+          projectId: project?.projectId ?? null,
+          limit,
+        },
+        executor,
+      ),
+
       executor
         .select({
           patternKey: sql<string>`${reviewIssues.patternKey}`,
@@ -133,6 +201,7 @@ export async function findKnowledgeContext(
           lastDetectedAt: sql<Date>`max(${reviewIssues.firstDetectedAt})`,
         })
         .from(reviewIssues)
+        .innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
         .where(and(scope, isNotNull(reviewIssues.patternKey)))
         .groupBy(reviewIssues.patternKey, reviewIssues.category)
         .orderBy(
@@ -144,6 +213,7 @@ export async function findKnowledgeContext(
       executor
         .select(issueSummaryColumns)
         .from(reviewIssues)
+        .innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
         .where(and(scope, inArray(reviewIssues.severity, HIGH_SEVERITIES)))
         .orderBy(desc(reviewIssues.firstDetectedAt))
         .limit(limit),
@@ -151,6 +221,7 @@ export async function findKnowledgeContext(
       executor
         .select(issueSummaryColumns)
         .from(reviewIssues)
+        .innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
         .where(and(scope, inArray(reviewIssues.status, UNRESOLVED_STATUSES)))
         /**
          * `severity` 는 PostgreSQL enum 이고, enum 의 정렬은 **선언 순서**를 따른다.
@@ -172,6 +243,7 @@ export async function findKnowledgeContext(
           resolvedAt: sql<Date>`${reviewIssues.resolvedAt}`,
         })
         .from(reviewIssues)
+        .innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
         .where(
           and(
             scope,
@@ -186,6 +258,11 @@ export async function findKnowledgeContext(
     ]);
 
   return {
+    scope: {
+      projectSlug: query.projectSlug,
+      projectResolved: query.projectSlug === null ? null : true,
+    },
+    wiki,
     frequentPatterns,
     recentHighSeverityIssues,
     unresolvedIssues,
