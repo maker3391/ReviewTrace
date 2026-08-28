@@ -1,0 +1,36 @@
+# 로컬 개발용 PostgreSQL.
+#
+# 🔴 이 파일은 「띄우는 방법」만 제공한다. 실행은 사장님이 직접 한다.
+#
+#   docker compose up -d      # 시작
+#   docker compose down       # 정지 (데이터는 볼륨에 남는다)
+#   docker compose down -v    # 정지 + 데이터 삭제
+#
+# POSTGRES_PASSWORD 는 .env 의 DATABASE_URL 과 같은 값이어야 한다.
+
+services:
+  postgres:
+    # 이름을 프로젝트로 못 박는다 — 다른 프로젝트의 컨테이너와 섞이지 않게.
+    container_name: code-intelligence-postgres
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-code_intelligence}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 정해라}
+      POSTGRES_DB: ${POSTGRES_DB:-code_intelligence}
+      # 한국어 데이터 정렬·비교를 위해 UTF-8 로 초기화한다.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - code-intelligence-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-code_intelligence} -d ${POSTGRES_DB:-code_intelligence}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  code-intelligence-postgres-data:
+    name: code-intelligence-postgres-data
