@@ -1,3 +1,6 @@
+import { after } from "next/server";
+
+import { verifyCodeEvidence } from "@/features/issues/server/code-evidence-service";
 import { authenticateAgent } from "@/lib/api/api-key-auth";
 import {
   readIdempotencyKey,
@@ -37,6 +40,16 @@ export async function POST(request: Request): Promise<Response> {
       payload: parsed.data,
     });
 
-    return Response.json(result, { status: result.idempotentReplay ? 200 : 201 });
+    const { evidenceIds, ...body } = result;
+/**
+ * 🔴 **GitHub 확인은 응답을 붙잡지 않는다.**
+ *
+ * `after()` 는 응답이 나간 **뒤** 도는 자리다. 확인 하나에 GitHub 왕복이 최대 4초 걸리는데
+ * 그것을 요청 안에 두면 Agent 가 근거를 붙일수록 느려진다 — 그러면 Agent 는 근거를
+ * 안 붙이는 쪽을 고른다. 확인은 부가 기능이고, 저장은 이미 끝났다.
+ */
+    after(() => verifyCodeEvidence(agent.workspaceId, evidenceIds));
+
+    return Response.json(body, { status: body.idempotentReplay ? 200 : 201 });
   });
 }

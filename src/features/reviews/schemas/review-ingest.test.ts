@@ -7,8 +7,8 @@ import {
 
 /**
  * 되돌림 확인(2026-08-28): `reviewIngestSchema` 에서 `issues` 의 `.max()` 를 떼면
- * 「상한을 넘는 Issue 를 거절한다」가 실패한다. `externalRepositoryId` 를 `.optional()` 로
- * 되돌리면 「Provider 식별자 없이 거절한다」가 실패한다. 둘 다 직접 확인했다.
+ * 「상한을 넘는 Issue 를 거절한다」가 실패한다. `fullName` 의 `min(1)` 을 떼면
+ * 「Repository 이름 없이 거절한다」가 실패한다. 둘 다 직접 확인했다.
  */
 
 const validPayload = {
@@ -63,9 +63,27 @@ describe("reviewIngestSchema", () => {
     expect(result.data).not.toHaveProperty("workspaceId");
   });
 
-  it("Provider 식별자 없이 거절한다", () => {
+  /**
+   * 🔴 2026-08-28 계약 변경. 숫자 id 는 **선택**이 됐다(스펙 7).
+   *
+   * Agent 가 아는 것은 git remote 뿐이고, GitHub 의 숫자 id 를 알려면 Agent 가 GitHub
+   * API 를 따로 불러야 한다 — 기록 하나 남기자고 Agent 에게 저장소 접근 권한을
+   * 요구하지 않는다. 신원은 서버가 잡는다(`repository-upsert.ts`).
+   */
+  it("Provider 식별자 없이도 받는다 — Agent 는 git remote 만 안다", () => {
     const repository: Record<string, unknown> = { ...validPayload.repository };
     delete repository.externalRepositoryId;
+
+    const result = reviewIngestSchema.safeParse({ ...validPayload, repository });
+
+    expect(result.success).toBe(true);
+    // 없는 값은 `null` 하나로 모인다 — `undefined` 와 갈라지면 저장 코드가 둘을 다 본다.
+    expect(result.data?.repository.externalRepositoryId).toBeNull();
+  });
+
+  it("🔴 Repository 이름 없이 거절한다 — 이름이 없으면 신원을 잡을 방법이 아예 없다", () => {
+    const repository: Record<string, unknown> = { ...validPayload.repository };
+    repository.fullName = "";
 
     const result = reviewIngestSchema.safeParse({ ...validPayload, repository });
 

@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import {
+  codeEvidenceListSchema,
+  optionalDecisionRecordSchema,
+} from "@/features/issues/schemas/decision-record";
 import { ISSUE_ACTIVITY_TYPES, REVIEWER_TYPES } from "@/types/review";
 
 /**
@@ -38,6 +42,15 @@ export const issueActivitySchema = z.object({
     .max(NAME_MAX)
     .nullish()
     .transform((value) => (value === undefined || value === "" ? null : value)),
+  /**
+   * 이 행위가 내린 판단(스펙 4).
+   *
+   * `FIX_ATTEMPTED` 가 대표적이다 — 무엇을 했고 왜 그것을 골랐는지가 여기 남아,
+   * 다음 시도가 앞선 시도를 덮어쓰지 않는다.
+   */
+  decision: optionalDecisionRecordSchema,
+  /** 이 행위가 만든 코드 근거. 고침이면 보통 `AFTER` 다. */
+  evidence: codeEvidenceListSchema,
 });
 
 export type IssueActivityInput = z.infer<typeof issueActivitySchema>;

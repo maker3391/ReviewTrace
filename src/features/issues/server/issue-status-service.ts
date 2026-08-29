@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
 import { issueActivities, reviewIssues } from "@/db/schema";
+import { insertCodeEvidence } from "@/features/issues/server/code-evidence-service";
 import {
   ACTIVITY_TYPE_BY_STATUS,
   type IssueStatusUpdateInput,
@@ -37,6 +38,8 @@ export interface UpdatedIssue {
   resolutionSummary: string | null;
   resolvedAt: Date | null;
   updatedAt: Date;
+  /** 🔴 확인은 Transaction 밖에서 한다 — 무엇을 확인할지만 밖으로 넘긴다. */
+  evidenceIds: string[];
 }
 
 export async function updateIssueStatus(
@@ -89,16 +92,34 @@ export async function updateIssueStatus(
     }
 
     // 같은 Transaction 이다 — 상태만 바뀌고 History 가 없는 순간을 만들지 않는다.
-    await tx.insert(issueActivities).values({
-      workspaceId,
-      reviewIssueId: updated.id,
-      type: ACTIVITY_TYPE_BY_STATUS[update.status],
-      actorType: update.actor?.type ?? "AGENT",
-      actorName: update.actor?.name ?? input.fallbackActorName,
-      description: update.resolutionSummary,
-      commitSha: null,
-    });
+    const activityRows = await tx
+      .insert(issueActivities)
+      .values({
+        workspaceId,
+        reviewIssueId: updated.id,
+        type: ACTIVITY_TYPE_BY_STATUS[update.status],
+        actorType: update.actor?.type ?? "AGENT",
+        actorName: update.actor?.name ?? input.fallbackActorName,
+        description: update.resolutionSummary,
+        commitSha: update.commitSha,
+        /**
+         * 🔴 `resolutionSummary` 와 겹치지 않는다. 저것은 Issue 에 남는 최종 한 줄이고
+         * 이것은 그 결론에 이른 이번 판단이라 여기 남는다 — REOPENED 되어도 지워지지 않는다.
+         */
+        ...(update.decision ?? {}),
+      })
+      .returning({ id: issueActivities.id });
 
-    return updated;
+    const evidenceIds = await insertCodeEvidence(
+      tx,
+      workspaceId,
+      update.evidence.map((evidence) => ({
+        reviewIssueId: updated.id,
+        issueActivityId: activityRows[0]?.id ?? null,
+        evidence,
+      })),
+    );
+
+    return { ...updated, evidenceIds };
   });
 }

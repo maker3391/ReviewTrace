@@ -2,6 +2,10 @@ import { z } from "zod";
 
 import { activityActorSchema } from "@/features/issues/schemas/issue-activity";
 import {
+  codeEvidenceListSchema,
+  optionalDecisionRecordSchema,
+} from "@/features/issues/schemas/decision-record";
+import {
   ISSUE_STATUSES,
   type IssueActivityType,
   type IssueStatus,
@@ -55,6 +59,22 @@ export const issueStatusUpdateSchema = z
      * Key 하나가 곧 한 Agent 라, 「누구의 요청인가」는 Key 가 이미 말한다.
      */
     actor: activityActorSchema.nullish().transform((value) => value ?? null),
+    /** 이 전이가 가리키는 Commit. 「고쳤다」를 코드와 잇는다. */
+    commitSha: z
+      .string()
+      .trim()
+      .max(200)
+      .nullish()
+      .transform((value) => (value === undefined || value === "" ? null : value)),
+    /**
+     * 이 전이가 내린 판단(스펙 4).
+     *
+     * 🔴 `resolutionSummary` 와 겹치지 않는다. 저것은 Issue 에 남는 **최종 한 줄 요약**
+     * 이고, 이것은 그 결론에 이른 **이번 판단**이라 Activity 에 남는다.
+     */
+    decision: optionalDecisionRecordSchema,
+    /** 이 전이가 만든 코드 근거. `RESOLVED` 면 보통 `AFTER` 다. */
+    evidence: codeEvidenceListSchema,
   })
   .refine(
     (input) => input.status !== "RESOLVED" || input.resolutionSummary !== null,

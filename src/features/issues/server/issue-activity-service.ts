@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
 import { issueActivities, reviewIssues } from "@/db/schema";
+import { insertCodeEvidence } from "@/features/issues/server/code-evidence-service";
 import type { IssueActivityInput } from "@/features/issues/schemas/issue-activity";
 import { AppError } from "@/lib/errors";
 import type { IssueActivityType, ReviewerType } from "@/types/review";
@@ -30,6 +31,8 @@ export interface CreatedIssueActivity {
   description: string | null;
   commitSha: string | null;
   createdAt: Date;
+  /** 🔴 확인은 Transaction 밖에서 한다 — 무엇을 확인할지만 밖으로 넘긴다. */
+  evidenceIds: string[];
 }
 
 export async function addIssueActivity(
@@ -40,41 +43,52 @@ export async function addIssueActivity(
   },
   executor: DbExecutor = db(),
 ): Promise<CreatedIssueActivity> {
-  const issue = await findIssueInWorkspace(
-    executor,
-    input.workspaceId,
-    input.issueId,
-  );
+  // 🔴 행위와 그 근거는 함께 남거나 함께 남지 않는다 — 반쪽 History 를 만들지 않는다.
+  return executor.transaction(async (tx) => {
+    const issue = await findIssueInWorkspace(tx, input.workspaceId, input.issueId);
 
-  const rows = await executor
-    .insert(issueActivities)
-    .values({
-      // 🔴 조회로 확인한 값을 쓴다. 요청이 보낸 것을 그대로 믿지 않는다.
-      workspaceId: issue.workspaceId,
-      reviewIssueId: issue.id,
-      type: input.activity.type,
-      actorType: input.activity.actor.type,
-      actorName: input.activity.actor.name,
-      description: input.activity.description,
-      commitSha: input.activity.commitSha,
-    })
-    .returning({
-      id: issueActivities.id,
-      reviewIssueId: issueActivities.reviewIssueId,
-      type: issueActivities.type,
-      actorType: issueActivities.actorType,
-      actorName: issueActivities.actorName,
-      description: issueActivities.description,
-      commitSha: issueActivities.commitSha,
-      createdAt: issueActivities.createdAt,
-    });
+    const rows = await tx
+      .insert(issueActivities)
+      .values({
+        // 🔴 조회로 확인한 값을 쓴다. 요청이 보낸 것을 그대로 믿지 않는다.
+        workspaceId: issue.workspaceId,
+        reviewIssueId: issue.id,
+        type: input.activity.type,
+        actorType: input.activity.actor.type,
+        actorName: input.activity.actor.name,
+        description: input.activity.description,
+        commitSha: input.activity.commitSha,
+        // 이 행위가 내린 판단. 다음 시도가 이것을 덮어쓰지 않는다(스펙 4).
+        ...(input.activity.decision ?? {}),
+      })
+      .returning({
+        id: issueActivities.id,
+        reviewIssueId: issueActivities.reviewIssueId,
+        type: issueActivities.type,
+        actorType: issueActivities.actorType,
+        actorName: issueActivities.actorName,
+        description: issueActivities.description,
+        commitSha: issueActivities.commitSha,
+        createdAt: issueActivities.createdAt,
+      });
 
-  const created = rows[0];
-  if (created === undefined) {
-    throw new AppError("INTERNAL_ERROR");
-  }
+    const created = rows[0];
+    if (created === undefined) {
+      throw new AppError("INTERNAL_ERROR");
+    }
 
-  return created;
+    const evidenceIds = await insertCodeEvidence(
+      tx,
+      issue.workspaceId,
+      input.activity.evidence.map((evidence) => ({
+        reviewIssueId: issue.id,
+        issueActivityId: created.id,
+        evidence,
+      })),
+    );
+
+    return { ...created, evidenceIds };
+  });
 }
 
 /**
