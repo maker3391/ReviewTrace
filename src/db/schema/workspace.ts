@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   index,
   pgTable,
@@ -175,12 +176,25 @@ export const workspaceInvitations = pgTable(
     tokenHash: text("token_hash").notNull(),
 
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    /** 수락된 시각. `NULL` 이면 아직 살아 있는 초대다. */
+    /** 수락된 시각. `NULL` 이면 아직 소진되지 않은 초대다. */
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     /** 실제로 소속이 생긴 사용자. 누가 수락했는지 남긴다. */
     acceptedBy: uuid("accepted_by").references(() => users.id, {
       onDelete: "set null",
     }),
+
+    /**
+     * 사람이 **명시적으로 무효화한** 시각. `NULL` 이면 취소되지 않은 초대다.
+     *
+     * 🔴 **행을 지우지 않는다**(`api_keys.revoked_at` 과 같은 판단 — CLAUDE.md 12).
+     * 지우면 「누구를 초대했다가 거둬들였는가」가 함께 사라지고, 같은 주소로 다시 초대할 때
+     * 그 이력이 있었다는 사실조차 남지 않는다. 사라지는 것은 **그 Token 의 자격**뿐이다.
+     *
+     * 🔴 **만료와 취소는 다른 상태다.** 만료는 시간이 지나 저절로 된 것이라 재초대가 그 행을
+     * **회전**시켜 되살리지만(아래 index 설명), 취소는 사람이 「이 링크를 죽여라」라고 말한
+     * 것이라 **되살아나지 않는다.** 재초대는 그 옆에 새 행으로 선다.
+     */
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
 
     invitedBy: uuid("invited_by").references(() => users.id, {
       onDelete: "set null",
@@ -197,6 +211,39 @@ export const workspaceInvitations = pgTable(
     index("workspace_invitations_workspace_idx").on(table.workspaceId),
     // 로그인한 사람에게 「나를 기다리는 초대」를 보여 주는 경로.
     index("workspace_invitations_email_idx").on(table.email),
+
+    /**
+     * 🔴 **살아 있는 초대는 (Workspace, Email) 당 하나뿐이다.**
+     *
+     * 이것이 없으면 「초대 전에 한 번 조회해 본다」로는 **동시 요청 둘이 그대로 뚫는다** —
+     * 같은 사람에게 살아 있는 링크가 여러 개 생기고, 그중 하나를 취소해도 나머지가 남는다.
+     * 중복을 막는 주체는 응용 코드가 아니라 **이 index** 다
+     * (`workspaces_personal_owner_unique` · `workspace_members` PK 와 같은 판단).
+     *
+     * ## predicate 의 뜻 — 「살아 있다」가 무엇인가
+     *
+     * ```
+     * accepted_at IS NULL AND revoked_at IS NULL     <- 살아 있다 (index 안)
+     * accepted_at 있음                                <- 소진됐다 (History)
+     * revoked_at  있음                                <- 사람이 죽였다 (History)
+     * ```
+     *
+     * 🔴 **수락된 행을 막으면 나갔던 사람을 다시 초대할 수 없다.** 그래서 index 밖이다.
+     * 🔴 **취소된 행도 마찬가지다.** 새어 나간 링크를 죽이는 것이 그 주소를 영영 초대하지
+     * 못하게 만드는 일이 되어서는 안 된다 — 취소는 「이 Token 을 무효로」이지
+     * 「이 사람을 차단」이 아니다. `revoked_at` 을 predicate 에 넣지 않으면 그 행이
+     * index 안에 남아 **재초대를 자기가 막아 버린다.**
+     *
+     * 🔴 **`expires_at > now()` 를 predicate 에 넣지 않는다.** partial index 의 predicate 는
+     * IMMUTABLE 이어야 해 `now()` 는 애초에 받아들여지지 않고, 받아들여진들 **시간이 흐르면
+     * 저절로 뜻이 바뀌는 제약**은 제약이 아니다. 만료된 초대는 index 안에 그대로 남고,
+     * 재초대는 그 행을 **회전**시킨다(`invitation-service.ts` 의 upsert).
+     * **취소와 만료가 갈리는 자리가 여기다** — 만료는 회전으로 되살아나고, 취소는 index
+     * 밖으로 나가 그 옆에 새 행이 선다.
+     */
+    uniqueIndex("workspace_invitations_live_email_unique")
+      .on(table.workspaceId, table.email)
+      .where(sql`${table.acceptedAt} is null and ${table.revokedAt} is null`),
   ],
 );
 

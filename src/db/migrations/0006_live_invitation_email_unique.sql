@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "workspace_invitations_live_email_unique" ON "workspace_invitations" USING btree ("workspace_id","email") WHERE "workspace_invitations"."accepted_at" is null;
