@@ -4,6 +4,7 @@ import { and, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
 import { knowledgePages, users } from "@/db/schema";
+import { isUniqueViolation } from "@/db/unique-violation";
 import {
   resolveKnowledgePageInput,
   type KnowledgePageInput,
@@ -194,10 +195,17 @@ export async function updateKnowledgePage(
       /**
        * unique 위반은 **사용자 입력 문제**다 — 500 이 아니라 `CONFLICT` 다.
        * 🔴 Driver 오류 message 에는 쿼리와 값이 실려 온다. 밖으로 흘리지 않는다(CLAUDE.md 19).
+       *
+       * 🔴 **unique 위반«일 때만» 바꾼다.** 무엇이 오든 `CONFLICT` 로 접으면 접속 끊김·
+       * timeout 까지 「같은 slug 가 있습니다」가 되어, 사용자는 멀쩡한 이름을 바꿔 가며
+       * 계속 실패하고 진짜 원인은 어디에도 남지 않는다(`src/db/unique-violation.ts`).
        */
-      throw new AppError("CONFLICT", "같은 slug 의 문서가 이미 있습니다.", {
-        cause,
-      });
+      if (isUniqueViolation(cause)) {
+        throw new AppError("CONFLICT", "같은 slug 의 문서가 이미 있습니다.", {
+          cause,
+        });
+      }
+      throw cause;
     });
 
   const slug = updated[0]?.slug;
