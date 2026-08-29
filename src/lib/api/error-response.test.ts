@@ -55,15 +55,20 @@ describe("Error Contract", () => {
 });
 
 describe("apiErrorFromUnknown", () => {
-  it("AppError 는 code·message 를 그대로 쓴다", async () => {
-    const response = apiErrorFromUnknown(
-      new AppError("CONFLICT", "이미 저장된 Review 다"),
-    );
+  /**
+   * 🔴 **`reason` 은 응답에 실리지 않는다.** 내부 이름이라 계약이 아니고, 실리면 이름을
+   * 다듬는 순간 Agent 쪽이 깨진다 — 밖으로 나가는 것은 `code` 와 고정 문구뿐이다.
+   */
+  it("AppError 는 code 를 유지하고 message 는 기계 문구다", async () => {
+    const response = apiErrorFromUnknown(new AppError("PROJECT_SLUG_TAKEN"));
 
     expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({
-      error: { code: "CONFLICT", message: "이미 저장된 Review 다" },
-    });
+
+    const body = (await response.json()) as { error: { code: string; message: string } };
+
+    expect(body.error.code).toBe("CONFLICT");
+    expect(body.error.message).not.toContain("PROJECT_SLUG_TAKEN");
+    expect(body.error.message.length).toBeGreaterThan(0);
   });
 
   it("🔴 알 수 없는 오류의 내부 메시지를 내보내지 않는다", async () => {

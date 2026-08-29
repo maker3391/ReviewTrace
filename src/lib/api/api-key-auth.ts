@@ -54,7 +54,7 @@ export async function authenticateAgent(
 
   // 형식부터 걸러 Database 를 보지 않고 거절한다.
   if (token === null) {
-    throw new AppError("UNAUTHORIZED");
+    throw new AppError("AGENT_UNAUTHORIZED");
   }
 
   const keyHash = hashApiKey(token);
@@ -73,15 +73,15 @@ export async function authenticateAgent(
 
   const key = rows[0];
   if (key === undefined) {
-    throw new AppError("UNAUTHORIZED");
+    throw new AppError("AGENT_UNAUTHORIZED");
   }
 
   const now = new Date();
   if (key.revokedAt !== null) {
-    throw new AppError("UNAUTHORIZED");
+    throw new AppError("AGENT_UNAUTHORIZED");
   }
   if (key.expiresAt !== null && key.expiresAt.getTime() <= now.getTime()) {
-    throw new AppError("UNAUTHORIZED");
+    throw new AppError("AGENT_UNAUTHORIZED");
   }
 
   await executor

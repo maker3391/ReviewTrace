@@ -1,55 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import {
-  actionFail,
-  actionFromError,
-  actionOk,
-  actionValidationFailed,
-} from "@/lib/action/action-result";
-import { AppError } from "@/lib/errors";
+import { actionOk, actionValidationFailed } from "@/lib/action/action-result";
 
+/**
+ * `ActionResult` 자체의 형태.
+ *
+ * 🔴 **문구는 여기서 만들지 않는다.** 실패를 무슨 말로 적을지는 화면 언어를 아는 자리
+ * (`lib/action/action-error.ts`)가 정하고, 그 시험은 `action-error.test.ts` 에 있다 —
+ * 이 파일이 순수한 채로 남아야 Client Component 가 `import type` 만으로 쓸 수 있다.
+ */
 describe("ActionResult", () => {
   it("성공은 데이터를 그대로 담는다", () => {
     const result = actionOk({ id: "abc" });
 
     expect(result.ok).toBe(true);
     expect(result.ok && result.data).toEqual({ id: "abc" });
-  });
-
-  it("실패는 code 와 message 로만 나간다", () => {
-    const result = actionFail("FORBIDDEN");
-
-    expect(result).toEqual({
-      ok: false,
-      error: { code: "FORBIDDEN", message: "권한이 없습니다." },
-    });
-  });
-
-  it("AppError 는 code 를 유지한다", () => {
-    const result = actionFromError(
-      new AppError("NOT_FOUND", "Issue 를 찾을 수 없습니다."),
-    );
-
-    expect(result.ok).toBe(false);
-    expect(result.ok === false && result.error).toEqual({
-      code: "NOT_FOUND",
-      message: "Issue 를 찾을 수 없습니다.",
-    });
-  });
-
-  it("🔴 알 수 없는 오류의 message 를 밖으로 흘리지 않는다", () => {
-    const leaky = new Error(
-      'connection to server at "10.0.0.5" failed: password authentication failed',
-    );
-
-    const result = actionFromError(leaky);
-
-    expect(result.ok).toBe(false);
-    expect(result.ok === false && result.error).toEqual({
-      code: "INTERNAL_ERROR",
-      message: "요청을 처리하지 못했습니다.",
-    });
   });
 
   it("Zod 실패를 필드별 메시지로 옮긴다", () => {
@@ -64,7 +30,7 @@ describe("ActionResult", () => {
       return;
     }
 
-    const result = actionValidationFailed(parsed.error);
+    const result = actionValidationFailed(parsed.error, "입력값이 올바르지 않습니다.");
 
     expect(result.ok).toBe(false);
     expect(result.ok === false && result.error.code).toBe("VALIDATION_ERROR");

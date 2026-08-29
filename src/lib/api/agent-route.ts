@@ -71,15 +71,12 @@ export async function readJsonBody(request: Request): Promise<unknown> {
   try {
     body = await request.json();
   } catch {
-    throw new AppError("VALIDATION_ERROR", "요청 본문이 올바른 JSON 이 아니다.");
+    throw new AppError("AGENT_BODY_NOT_JSON");
   }
 
   if (hasUnstorableText(body)) {
     // 🔴 어느 값이 문제였는지 되돌려 담지 않는다 — 받은 값을 응답에 싣지 않는다.
-    throw new AppError(
-      "VALIDATION_ERROR",
-      "요청 본문에 저장할 수 없는 문자가 들어 있다 (NUL · 짝 없는 Surrogate).",
-    );
+    throw new AppError("AGENT_BODY_UNSTORABLE_TEXT");
   }
 
   return body;

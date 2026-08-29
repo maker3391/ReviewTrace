@@ -1,4 +1,9 @@
-import { AppError, ERROR_CODES, toPublicError, type ErrorCode } from "@/lib/errors";
+import {
+  ERROR_CODES,
+  machineMessage,
+  toPublicError,
+  type ErrorCode,
+} from "@/lib/errors";
 
 /**
  * Public Agent API 의 Error Contract.
@@ -38,11 +43,15 @@ export interface ApiErrorBody {
 /**
  * 오류 본문 하나.
  *
- * 기본 메시지 표를 여기서 다시 갖지 않는다 — `AppError` 가 이미 갖고 있고,
+ * 기본 메시지 표를 여기서 다시 갖지 않는다 — `lib/errors.ts` 가 이미 갖고 있고,
  * 두 곳에 적으면 갈라진다.
+ *
+ * 🔴 **`message` 는 «기계가 읽는» 고정 문구다.** Route 가 「어느 자리가 틀렸는지」처럼
+ * Agent 가 자기 요청을 고치는 데 필요한 말을 넘길 수 있다 — 화면 언어를 따르지 않는다.
+ * 사람이 보는 문구는 이 길로 나가지 않는다(`lib/format/app-error.ts`).
  */
 export function apiErrorBody(code: ErrorCode, message?: string): ApiErrorBody {
-  return { error: toPublicError(new AppError(code, message)) };
+  return { error: { code, message: message ?? machineMessage(code) } };
 }
 
 /** 밖으로 나가는 오류 응답 하나. Route Handler 는 이것만 돌려준다. */
