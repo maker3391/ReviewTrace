@@ -7,6 +7,8 @@ import GitHub from "next-auth/providers/github";
 import { db } from "@/db";
 import { accounts, sessions, users, verificationTokens } from "@/db/schema";
 import { LOGIN_PATH } from "@/config/routes";
+import { withoutStoredCredentials } from "@/lib/auth/account-credentials";
+import { githubProfileToUser } from "@/lib/auth/github-profile";
 import { authEnv } from "@/lib/env";
 import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
 
@@ -49,13 +51,23 @@ export function buildAuthConfig(): NextAuthConfig {
   const env = authEnv();
 
   return {
-    // 🔴 Adapter 가 users·accounts·sessions 를 쓴다. 표의 정본은 `src/db/schema` 다.
-    adapter: DrizzleAdapter(db(), {
-      usersTable: users,
-      accountsTable: accounts,
-      sessionsTable: sessions,
-      verificationTokensTable: verificationTokens,
-    }),
+    /**
+     * 🔴 Adapter 가 users·accounts·sessions 를 쓴다. 표의 정본은 `src/db/schema` 다.
+     *
+     * 🔴 **감싼 이유는 하나다 — GitHub OAuth Token 을 `accounts` 에 남기지 않기 위해서다.**
+     * Adapter 의 기본 `linkAccount` 는 넘겨받은 Account 를 그대로 INSERT 해서
+     * `access_token`·`refresh_token` 이 평문으로 눌러앉는다. 로그인이 끝난 뒤 그 값을 쓰는
+     * 코드가 없으므로 **암호화가 아니라 저장하지 않는 쪽**을 골랐다
+     * (근거와 조사 내용은 `account-credentials.ts` 에 있다).
+     */
+    adapter: withoutStoredCredentials(
+      DrizzleAdapter(db(), {
+        usersTable: users,
+        accountsTable: accounts,
+        sessionsTable: sessions,
+        verificationTokensTable: verificationTokens,
+      }),
+    ),
 
     session: { strategy: "database" },
 
@@ -71,22 +83,8 @@ export function buildAuthConfig(): NextAuthConfig {
       GitHub({
         clientId: env.GITHUB_CLIENT_ID,
         clientSecret: env.GITHUB_CLIENT_SECRET,
-        profile(profile) {
-          return {
-            id: String(profile.id),
-            name: profile.name ?? profile.login,
-            /**
-             * GitHub 은 이메일을 비공개로 둘 수 있어 `email` 이 비어 올 수 있다.
-             * `users.email` 은 NOT NULL 이고 unique 라, 비면 로그인이 통째로 실패한다.
-             * GitHub 이 계정마다 보장하는 noreply 주소로 채운다 — 값을 지어내지 않으면서
-             * 계정마다 다른 값이 된다.
-             */
-            email:
-              profile.email ??
-              `${profile.id}+${profile.login}@users.noreply.github.com`,
-            image: profile.avatar_url,
-          };
-        },
+        // 🔴 Email 이 `users` 로 들어오는 유일한 입구다 — 규칙은 `github-profile.ts` 에 있다.
+        profile: githubProfileToUser,
       }),
     ],
 
