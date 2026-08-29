@@ -67,3 +67,80 @@ export function toPublicError(error: unknown): PublicError {
     message: DEFAULT_MESSAGE.INTERNAL_ERROR,
   };
 }
+
+/**
+ * 로그에 남겨도 되는 형태로 오류를 좁힌다.
+ *
+ * 🔴 **`console.error(..., error)` 로 오류 객체를 그대로 넘기면 바인딩된 값이 로그에 남는다.**
+ * Drizzle 은 질의 실패를 `DrizzleQueryError` 로 감싸면서 `message` 에
+ * `params: <바인딩된 값 전부>` 를 붙인다(`drizzle-orm/errors.js` 의 생성자).
+ * 그 값에는 **API Key 의 SHA-256 Hash** 와 **Agent 가 보낸 Payload 원문**이 들어 있다.
+ *
+ * `api-key-token.ts` 는 **「원문·Hash 를 Log·응답·오류 메시지에 담지 않는다」**고 못 박아 뒀는데,
+ * 인증 조회(`where key_hash = $1`)가 접속 끊김·timeout 으로 실패하는 순간 그 Hash 가
+ * 그대로 로그로 나갔다.
+ *
+ * 그래서 **값이 실릴 수 있는 자리를 통째로 버린다** — 남기는 것은
+ * 오류 종류 · SQL 의 «틀»(값은 `$1` 자리표시자로만 있다) · SQLSTATE 다.
+ * 이 셋이면 무엇이 왜 실패했는지 좇을 수 있고, 사용자 값은 하나도 남지 않는다.
+ *
+ * 🔴 **`params` 를 「가려서」 남기지 않는다.** 어느 칸이 비밀인지 이 함수는 알 수 없다.
+ */
+const LOG_QUERY_MAX = 200;
+const LOG_CAUSE_MAX_DEPTH = 5;
+
+function hasBoundParams(value: object): boolean {
+  return Array.isArray((value as { params?: unknown }).params);
+}
+
+export function describeErrorForLog(error: unknown): string {
+  // 우리가 만든 메시지라 그대로 남겨도 된다.
+  if (isAppError(error)) {
+    return `AppError(${error.code}): ${error.message}`;
+  }
+
+  if (typeof error !== "object" || error === null) {
+    return `non-error thrown: ${typeof error}`;
+  }
+
+  const parts: string[] = [];
+  const name = (error as { name?: unknown }).name;
+  parts.push(typeof name === "string" && name !== "" ? name : "Error");
+
+  if (hasBoundParams(error)) {
+    // 🔴 `message` 를 쓰지 않는다 — 거기에 params 가 붙어 있다.
+    const query = (error as { query?: unknown }).query;
+    if (typeof query === "string") {
+      parts.push(`query=${query.slice(0, LOG_QUERY_MAX)}`);
+    }
+    parts.push("params=[redacted]");
+  } else {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message !== "") {
+      parts.push(message);
+    }
+  }
+
+  // SQLSTATE 는 값이 아니라 분류라 남긴다. 감싸인 안쪽까지 따라간다.
+  let current: unknown = error;
+  for (let depth = 0; depth <= LOG_CAUSE_MAX_DEPTH; depth += 1) {
+    if (typeof current !== "object" || current === null) {
+      break;
+    }
+    const code = (current as { code?: unknown }).code;
+    if (typeof code === "string" && code !== "") {
+      parts.push(`sqlstate=${code}`);
+      break;
+    }
+    if (!("cause" in current)) {
+      break;
+    }
+    const next = (current as { cause?: unknown }).cause;
+    if (next === current) {
+      break;
+    }
+    current = next;
+  }
+
+  return parts.join(" | ");
+}

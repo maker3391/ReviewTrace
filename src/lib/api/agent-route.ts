@@ -3,7 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { apiError, apiErrorFromUnknown } from "@/lib/api/error-response";
-import { AppError, isAppError } from "@/lib/errors";
+import { AppError, describeErrorForLog, isAppError } from "@/lib/errors";
 import { hasUnstorableText } from "@/lib/validation/db-text";
 
 /**
@@ -62,7 +62,9 @@ export async function runAgentRoute(
     return await handler();
   } catch (error) {
     if (!isAppError(error)) {
-      console.error("[agent-api] 처리하지 못한 오류", error);
+      // 🔴 오류 객체를 그대로 넘기지 않는다 — Drizzle 이 바인딩된 값(API Key Hash·Payload)을
+      //    message 에 싣는다(`describeErrorForLog`).
+      console.error("[agent-api] 처리하지 못한 오류:", describeErrorForLog(error));
     }
     return apiErrorFromUnknown(error);
   }
