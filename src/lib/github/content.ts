@@ -143,7 +143,7 @@ export async function readGithubLines(
    * 내면 빈 문자열이라, 그렇게 재면 멀쩡한 근거가 「범위 밖」으로 찍힌다.
    * 경계는 글자가 아니라 **줄 수**로 잰다.
    */
-  const lineCount = file.text.split("\n").length;
+  const lineCount = countLines(file.text);
 
   /**
    * 🔴 **끝 줄도 함께 잰다.** 시작 줄만 보면, 10줄짜리 파일에 `9~100` 을 보내고 9~10줄의
@@ -177,6 +177,23 @@ export function sliceLines(
   const to = endLine === null ? startLine : endLine;
 
   return all.slice(from, Math.max(from, to)).join("\n");
+}
+
+/**
+ * 실제 줄 수. **끝의 개행을 줄로 세지 않는다.**
+ *
+ * 🔴 `"l1\nl2\nl3\n".split("\n")` 는 **4개**다 — 마지막은 개행 뒤의 빈 조각이지
+ * 줄이 아니다. 그대로 세면 3줄짜리 파일에서 `startLine: 4` 가 범위 안으로 통과하고,
+ * 잘라 낸 빈 조각이 `VERIFIED` 로 저장된다. 빈 파일도 1줄짜리로 보인다.
+ *
+ * 대부분의 파일이 개행으로 끝나므로 이것은 드문 경우가 아니라 **기본값**이다.
+ */
+function countLines(text: string): number {
+  const lines = text.split("\n");
+  if (lines.at(-1) === "") {
+    lines.pop();
+  }
+  return lines.length;
 }
 
 /** 파일 하나를 통째로 읽는다. 자르는 일은 부르는 쪽이 한다. */

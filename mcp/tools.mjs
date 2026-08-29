@@ -181,11 +181,13 @@ export function registerTools(server, client, state) {
           /**
            * 같은 Review 를 두 번 열지 않게 하는 열쇠.
            *
-           * 🔴 **성공할 때까지 같은 열쇠를 든다.** 서버가 저장한 뒤 응답만 잃으면 이 Tool 은
-           * 실패로 끝나는데, 다음 호출에서 열쇠를 새로 만들면 **같은 Review 가 하나 더**
-           * 저장된다. 실패가 확정돼도 열쇠를 버리지 않고, 한 번 성공했을 때만 비운다.
+           * 🔴 **성공할 때까지 같은 열쇠를 들되, «그 요청»에만 쓴다.** 서버가 저장한 뒤
+           * 응답만 잃으면 이 Tool 은 실패로 끝난다 — 다음 호출에서 열쇠를 새로 만들면
+           * 같은 Review 가 하나 더 저장된다. 그렇다고 열쇠를 무조건 물려주면 더 나쁘다:
+           * **다른 commit 으로 연 Review 가 앞선 Review 의 replay 로 접혀**, 이어지는
+           * `add_issue` 가 엉뚱한 세션에 붙는다. 그래서 열쇠는 저장소+commit 에 묶인다.
            */
-          (state.pendingReviewKey ??= randomUUID()),
+          reviewKeyFor(state, `${repo.fullName}@${commitSha ?? ""}`),
         );
 
         /**
@@ -201,6 +203,7 @@ export function registerTools(server, client, state) {
         state.lastIssueId = null;
         // 열쇠는 «성공한 뒤에만» 비운다.
         state.pendingReviewKey = null;
+        state.pendingReviewFingerprint = null;
 
         return {
           reviewId: result.reviewSessionId,
@@ -348,31 +351,40 @@ export function registerTools(server, client, state) {
     },
     (args) =>
       guard(async () => {
-        const result = await activity(
-          client,
-          state,
-          args,
-          "REVIEWED_AGAIN",
-          "재검토를 기록했다.",
-        );
-
-        /**
-         * 🔴 **「아직 남아 있다」를 History 에만 적고 상태를 두면 그 회귀가 사라진다.**
-         *
-         * 닫혀 있던 Issue 는 `RESOLVED` 인 채로 남아, 미해결을 찾는 조회에 걸리지 않는다 —
-         * 다시 무너진 것을 아무도 못 본다. 상태와 History 는 함께 움직여야 한다.
-         */
         if (args.stillPresent !== true) {
-          return result;
+          return activity(client, state, args, "REVIEWED_AGAIN", "재검토를 기록했다.");
         }
 
-        await client.updateStatus(result.issueId, {
+        /**
+         * 🔴 **상태를 «먼저» 옮긴다.**
+         *
+         * 두 번의 요청이라 사이에서 끊길 수 있다. 「아직 남아 있다」를 History 에만 적고
+         * 상태가 `RESOLVED` 로 남으면, 다시 무너진 문제가 미해결 조회에서 사라져
+         * **아무도 못 본다.** 반대로 상태만 옮기고 기록이 빠지면, 열려 있는 Issue 에
+         * 설명 한 줄이 없을 뿐이다 — 그쪽이 덜 위험하다.
+         *
+         * `PATCH` 는 서버에서 상태·시각·요약·Activity 를 **한 Transaction** 으로 움직인다.
+         * 여기서 나누어지는 것은 그 뒤에 붙이는 REVIEWED_AGAIN 설명뿐이다.
+         */
+        const issueId = requireIssue(state, args.issueId);
+
+        await client.updateStatus(issueId, {
           status: "REOPENED",
           commitSha: args.commitSha ?? null,
           actor: { type: "AGENT", name: args.actor ?? "unknown-agent" },
         });
+        state.lastIssueId = issueId;
 
-        return { ...result, 안내: "재검토를 기록하고 Issue 를 다시 열었다." };
+        await client.addActivity(issueId, {
+          type: "REVIEWED_AGAIN",
+          actor: { type: "AGENT", name: args.actor ?? "unknown-agent" },
+          description: args.summary ?? null,
+          commitSha: args.commitSha ?? null,
+          decision: toDecision(args),
+          evidence: toEvidence(args),
+        });
+
+        return { issueId, 안내: "Issue 를 다시 열고 재검토를 기록했다." };
       }),
   );
 
@@ -518,6 +530,20 @@ function requireIssue(state, issueId) {
     );
   }
   return resolved;
+}
+
+/**
+ * 이 요청에 쓸 Idempotency-Key.
+ *
+ * 같은 저장소·commit 으로 다시 부르면 앞선 열쇠를 물려주고(서버가 replay 로 접는다),
+ * 다른 대상이면 새로 만든다 — 물려주면 다른 Review 가 앞선 것으로 접힌다.
+ */
+function reviewKeyFor(state, fingerprint) {
+  if (state.pendingReviewKey === null || state.pendingReviewFingerprint !== fingerprint) {
+    state.pendingReviewKey = randomUUID();
+    state.pendingReviewFingerprint = fingerprint;
+  }
+  return state.pendingReviewKey;
 }
 
 export class ToolError extends Error {}

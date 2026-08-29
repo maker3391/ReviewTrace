@@ -57,3 +57,25 @@ describe("범위 경계", () => {
     expect(sliceLines(file, 2, 100)).toBe("l2\nl3");
   });
 });
+
+/**
+ * 🔴 되돌림 확인(2026-08-29): `readGithubLines` 의 `countLines` 를 `split("\n").length` 로
+ * 되돌리면 「끝 개행을 줄로 세지 않는다」가 실패한다.
+ *
+ * 이 결함은 실제로 있었다 — 대부분의 파일이 개행으로 끝나므로 `"l1\nl2\nl3\n"` 은
+ * 4개로 쪼개진다. 그대로 세면 3줄짜리 파일에서 `startLine: 4` 가 범위 안으로 통과하고,
+ * 잘라 낸 빈 조각이 `VERIFIED` 로 저장된다. 드문 경우가 아니라 **기본값**이었다.
+ */
+describe("끝 개행", () => {
+  it("🔴 개행으로 끝나는 파일의 줄 수는 개행 앞까지다", () => {
+    // 3줄짜리 파일. `split` 은 4개를 준다.
+    expect("l1\nl2\nl3\n".split("\n")).toHaveLength(4);
+    // 그 4번째는 줄이 아니므로 잘라 내면 비어 있다.
+    expect(sliceLines("l1\nl2\nl3\n", 4, 4)).toBe("");
+  });
+
+  it("🔴 빈 파일에는 1번째 줄도 없다", () => {
+    expect("".split("\n")).toHaveLength(1);
+    expect(sliceLines("", 1, 1)).toBe("");
+  });
+});

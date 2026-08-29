@@ -87,8 +87,27 @@ async function main() {
    * 잘라 낸 글자가 비었는지로 경계를 재면 그 줄이 「범위 밖」으로 찍힌다 — 멀쩡한 근거가
    * `UNAVAILABLE` 이 된다. 그래서 여기서 진짜 빈 줄 하나를 골라 확인한다.
    */
+  /**
+   * 🔴 **마지막 조각을 빈 줄로 착각하지 않는다.** 개행으로 끝나는 파일을 `split` 하면
+   * 끝에 빈 조각이 하나 더 생기는데 그것은 줄이 아니다. 그것을 골라 시험하면
+   * 「범위 밖을 VERIFIED 로 적는」 버그를 정상으로 못 박게 된다 — 실제로 그랬다.
+   *
+   * `package.json` 에는 빈 줄이 없으므로 빈 줄이 있는 파일을 따로 읽는다.
+   */
+  const blankSource = await fetch(
+    `https://api.github.com/repos/${OWNER}/${NAME}/contents/README.md?ref=${commitSha}`,
+    {
+      headers: {
+        Accept: "application/vnd.github.raw+json",
+        "User-Agent": "ReviewTrace",
+      },
+    },
+  ).then((r) => (r.ok ? r.text() : ""));
   const blankLine =
-    source.split("\n").findIndex((line) => line.trim() === "") + 1;
+    blankSource
+      .split("\n")
+      .slice(0, -1)
+      .findIndex((line) => line.trim() === "") + 1;
 
   const key = generateApiKey();
   await psql(
@@ -133,6 +152,7 @@ async function main() {
         issue("파일 밖 줄", "E-4", { startLine: 99_999, endLine: 99_999 }),
         issue("없는 파일", "E-5", { startLine: 1, endLine: 2 }),
         issue("실제로 있는 빈 줄", "E-6", {
+          filePath: "README.md",
           startLine: blankLine,
           endLine: blankLine,
         }),
@@ -163,6 +183,12 @@ async function main() {
       }),
     }),
   });
+
+  check(
+    blankLine > 0,
+    `README.md 의 ${blankLine}번째 줄이 실제 빈 줄이다`,
+    "빈 줄을 못 찾았다 — 이 시험은 아무것도 지키지 못한다",
+  );
 
   check(ingest.status === 201, "Evidence 8건을 저장했다", `ingest 가 ${ingest.status}`);
   if (ingest.status !== 201) {

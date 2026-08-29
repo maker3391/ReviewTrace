@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import type { DbExecutor } from "@/db";
 import { repositories } from "@/db/schema";
@@ -219,6 +219,16 @@ async function findByFullName(
         sql`lower(${repositories.fullName}) = lower(${fullName})`,
       ),
     )
+    /**
+     * 🔴 **순서를 못 박는다.** 이름은 유일하지 않다 — 지워진 저장소와 같은 이름으로
+     * 새 저장소가 생기면 숫자 id 가 다른 두 행이 같은 `fullName` 을 갖는다(그것이
+     * 옳다). 그때 순서 없이 하나를 집으면 **어느 행이 나올지 정해지지 않아**,
+     * 숫자 id 를 모르는 요청이 지워진 저장소의 Knowledge 에 붙을 수 있다.
+     *
+     * 가장 최근에 손댄 행을 고른다 — 살아 있는 쪽이 계속 갱신되기 때문이다.
+     * `id` 는 같은 시각일 때를 위한 마지막 기준이다.
+     */
+    .orderBy(desc(repositories.updatedAt), asc(repositories.id))
     .limit(1);
 
   return rows[0] ?? null;

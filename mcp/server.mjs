@@ -74,6 +74,8 @@ async function main() {
     commitSha: null,
     /** 아직 성공하지 못한 `create_review` 의 Idempotency-Key. 성공해야 비워진다. */
     pendingReviewKey: null,
+    /** 그 열쇠가 어떤 요청의 것인가(`owner/name@commit`). 다르면 물려주지 않는다. */
+    pendingReviewFingerprint: null,
   };
 
   registerTools(server, createClient(config), state);
