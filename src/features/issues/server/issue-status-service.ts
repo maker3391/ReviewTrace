@@ -1,8 +1,8 @@
 import "server-only";
 
-import { and, eq } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
+import { issueInWorkspace } from "@/features/issues/server/issue-scope";
 import { issueActivities, reviewIssues } from "@/db/schema";
 import { insertCodeEvidence } from "@/features/issues/server/code-evidence-service";
 import {
@@ -71,12 +71,7 @@ export async function updateIssueStatus(
         resolutionSummary: resolving ? update.resolutionSummary : null,
         updatedAt: now,
       })
-      .where(
-        and(
-          eq(reviewIssues.id, issueId),
-          eq(reviewIssues.workspaceId, workspaceId),
-        ),
-      )
+      .where(issueInWorkspace(issueId, workspaceId))
       .returning({
         id: reviewIssues.id,
         status: reviewIssues.status,
