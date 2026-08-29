@@ -57,3 +57,33 @@ export const authEnvSchema = z.object({
 });
 
 export type AuthEnv = z.infer<typeof authEnvSchema>;
+
+/**
+ * GitHub Evidence 확인에만 쓰는 값(스펙 15).
+ *
+ * 🔴 **전부 선택 항목이다.** 없어도 ReviewTrace 는 그대로 돈다 — Evidence 가
+ * `UNVERIFIED`/`UNAVAILABLE` 로 남을 뿐이다. 확인 수단이 없다고 기록 자체를 거절하면
+ * Private 저장소를 쓰는 사용자는 이 제품을 아예 쓸 수 없다.
+ *
+ * 🔴 **사용자의 GitHub OAuth Token 을 쓰지 않는다.** 로그인에 쓰는 Scope 는
+ * `read:user`·`user:email` 뿐이고, 코드를 읽으려면 `repo` 를 더 받아야 한다 —
+ * 그것은 **모든 사용자에게 모든 저장소의 읽기·쓰기 권한을 요구**하는 것이라
+ * Evidence 확인 하나를 위해 치를 대가가 아니다(CLAUDE.md 19).
+ */
+export const githubEnvSchema = z.object({
+  /**
+   * Evidence 확인에 쓰는 Server-only Token. 없으면 익명으로 호출한다
+   * (Public 저장소만 보이고 시간당 60회).
+   *
+   * 🔴 NEXT_PUBLIC_ 이 아니다. 이 값은 Client 번들에 넘어가지 않는다.
+   */
+  GITHUB_API_TOKEN: z
+    .string()
+    .min(1)
+    .optional(),
+
+  /** GitHub API 주소. GitHub Enterprise 를 쓰는 자리를 막지 않기 위해 열어 둔다. */
+  GITHUB_API_URL: z.url().default("https://api.github.com"),
+});
+
+export type GithubEnv = z.infer<typeof githubEnvSchema>;

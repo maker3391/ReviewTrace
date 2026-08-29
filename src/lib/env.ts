@@ -4,8 +4,10 @@ import type { z } from "zod";
 
 import {
   authEnvSchema,
+  githubEnvSchema,
   serverEnvSchema,
   type AuthEnv,
+  type GithubEnv,
   type ServerEnv,
 } from "@/lib/env.schema";
 
@@ -36,6 +38,7 @@ function parseOrThrow<T extends z.ZodType>(schema: T): z.infer<T> {
 
 let cachedServerEnv: ServerEnv | null = null;
 let cachedAuthEnv: AuthEnv | null = null;
+let cachedGithubEnv: GithubEnv | null = null;
 
 export function serverEnv(): ServerEnv {
   cachedServerEnv ??= parseOrThrow(serverEnvSchema);
@@ -46,4 +49,10 @@ export function serverEnv(): ServerEnv {
 export function authEnv(): AuthEnv {
   cachedAuthEnv ??= parseOrThrow(authEnvSchema);
   return cachedAuthEnv;
+}
+
+/** Evidence 확인 경로에서만 부른다. Token 이 없어도 통과한다 — 값이 전부 선택이다. */
+export function githubEnv(): GithubEnv {
+  cachedGithubEnv ??= parseOrThrow(githubEnvSchema);
+  return cachedGithubEnv;
 }
