@@ -51,6 +51,25 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/w/acme/p/smil/wiki/rules")).toBe(false);
   });
 
+  /**
+   * 🔴 되돌림 확인(2026-08-29): `routes.ts` 의 `PUBLIC_ASSET_PATHS` 를 빼면 아래 두 건이
+   * 실제로 실패한다. 직접 빼 보고 되돌렸다.
+   *
+   * 실물로 확인한 증상이다 — 고치기 전 `curl -o /dev/null -w '%{http_code}'` 가
+   * `/logo.png` · `/icon.png` 에 **307 -> /login** 을 돌려줬고, 로그인 화면의 로고 자리가
+   * 깨진 이미지였다(`naturalWidth = 0`).
+   */
+  it("🔴 브랜드 자산은 공개다 — 로그인 화면 자신이 쓰는 파일이다", () => {
+    expect(isPublicPath("/logo.png")).toBe(true);
+    expect(isPublicPath("/icon.png")).toBe(true);
+  });
+
+  it("🔴 확장자가 같다고 공개가 되지 않는다 — 목록에 «적힌 이름»만이다", () => {
+    expect(isPublicPath("/secret.png")).toBe(false);
+    expect(isPublicPath("/w/acme/logo.png")).toBe(false);
+    expect(isPublicPath("/logo.png/../w/acme/dashboard")).toBe(false);
+  });
+
   it("목록에 없는 경로는 보호다 — 새 화면이 조용히 공개되지 않는다", () => {
     expect(isPublicPath("/anything-new")).toBe(false);
     expect(isPublicPath("/w")).toBe(false);

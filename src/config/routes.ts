@@ -40,7 +40,27 @@ export const AUTH_API_PREFIX = "/api/auth";
  */
 export const AGENT_API_PREFIX = "/api/v1";
 
-const PUBLIC_EXACT_PATHS: readonly string[] = [LOGIN_PATH];
+/**
+ * 브랜드 자산. 🔴 **로그인 화면 «자신»이 쓰는 파일이라 반드시 공개다.**
+ *
+ * `public/` 과 `src/app/icon.png` 은 세션 검사를 도는 경로 위에 있다 — Proxy 의 matcher 가
+ * 빼 두는 것은 `_next/static`·`_next/image` 뿐이다. 그래서 로그인하지 않은 사람에게는
+ * 이 둘이 `307 -> /login` 이 되고, **로고 자리가 깨진 이미지로, 탭 아이콘이 빈 칸으로** 나갔다.
+ * `public/` 이 비어 있던 동안에는 드러나지 않던 자리다.
+ *
+ * 🔴 **확장자 규칙(`\.png$` 따위)으로 열지 않는다.** 그렇게 하면 앞으로 생길 어떤 경로든
+ * 이름 끝만 맞추면 세션 검사를 건너뛴다 — 「목록에 없으면 보호」가 무너진다(CLAUDE.md 11).
+ * 자산을 더할 때 이 목록에 적는 수고가, 잊었을 때 화면이 새는 것보다 싸다.
+ *
+ * `/icon.png` 은 `src/app/icon.png` 에서 Next 가 만들어 내는 파비콘 주소다
+ * (`<link rel="icon" href="/icon.png?icon.…">` — Query 는 판정에 쓰지 않는다).
+ */
+const PUBLIC_ASSET_PATHS: readonly string[] = ["/logo.png", "/icon.png"];
+
+const PUBLIC_EXACT_PATHS: readonly string[] = [
+  LOGIN_PATH,
+  ...PUBLIC_ASSET_PATHS,
+];
 
 const PUBLIC_PREFIXES: readonly string[] = [
   AUTH_API_PREFIX,
