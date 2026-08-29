@@ -3,19 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   inviteMemberSchema,
   invitationTokenSchema,
-  normalizeEmail,
 } from "@/features/invitations/schemas/invitation";
 
-describe("normalizeEmail", () => {
-  /**
-   * 🔴 보내는 쪽과 받는 쪽이 같은 규칙을 써야 한다. 한쪽만 소문자로 만들면
-   * `A@b.com` 으로 초대한 사람이 `a@b.com` 으로는 못 들어온다.
-   */
-  it("앞뒤 공백을 없애고 소문자로 맞춘다", () => {
-    expect(normalizeEmail("  User@Example.COM ")).toBe("user@example.com");
-  });
-});
-
+/** 정규화 규칙 자체의 시험은 `src/lib/validation/email.test.ts` 에 있다. */
 describe("inviteMemberSchema", () => {
   it("정규화한 이메일을 돌려준다", () => {
     const result = inviteMemberSchema.safeParse({ email: " A@B.com " });
