@@ -18,6 +18,7 @@ import { projectSectionHref } from "@/config/navigation";
 import { findProjectDashboard } from "@/features/dashboard/server/project-dashboard-query";
 import type { ProjectContext } from "@/features/projects/types/project";
 import { formatAgeInDays, formatDate } from "@/lib/format/date";
+import { readLocale, readMessages } from "@/lib/ui/appearance";
 
 /**
  * Project Dashboard(스펙 6).
@@ -38,10 +39,12 @@ export async function ProjectDashboardScreen({
   /** 🔴 그 Workspace 안에 있음이 확인된 Project. */
   project: ProjectContext;
 }) {
-  const dashboard = await findProjectDashboard({
-    workspaceId,
-    projectId: project.projectId,
-  });
+  const [dashboard, locale, messages] = await Promise.all([
+    findProjectDashboard({ workspaceId, projectId: project.projectId }),
+    readLocale(),
+    readMessages(),
+  ]);
+  const t = messages.projectDashboard;
   const now = new Date();
 
   const issuesHref = projectSectionHref(workspaceSlug, project.slug, "issues");
@@ -54,52 +57,62 @@ export async function ProjectDashboardScreen({
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
       <PageHeader
         title={project.name}
         description={project.description ?? undefined}
       />
 
       <StatRow
-            stats={[
-              {
-                label: "Reviews",
-                value: dashboard.kpi.recentReviews,
-                hint: "최근 30일",
-              },
-              {
-                label: "Issues",
-                value: dashboard.kpi.recentIssuesFound,
-                hint: "최근 30일",
-              },
-              { label: "Open", value: dashboard.kpi.openIssues, hint: "현재" },
-              {
-                label: "Resolution Rate",
-                value:
-                  dashboard.kpi.resolutionRate === null
-                    ? null
-                    : `${dashboard.kpi.resolutionRate}%`,
-                hint: "최근 30일 발견분",
-              },
+        stats={[
+          {
+            label: t.kpiReviews,
+            value: dashboard.kpi.recentReviews,
+            hint: t.hintLast30Days,
+          },
+          {
+            label: t.kpiIssues,
+            value: dashboard.kpi.recentIssuesFound,
+            hint: t.hintLast30Days,
+          },
+          {
+            label: t.kpiOpen,
+            value: dashboard.kpi.openIssues,
+            hint: t.hintNow,
+          },
+          {
+            label: t.kpiResolutionRate,
+            value:
+              dashboard.kpi.resolutionRate === null
+                ? null
+                : `${dashboard.kpi.resolutionRate}%`,
+            hint: t.hintFoundLast30Days,
+          },
         ]}
       />
 
       <Section
-        title="Open Issues"
+        title={t.openIssues.title}
         variant="raised"
         bleed
-        action={{ label: "전체 보기", href: issuesHref }}
+        action={{ label: messages.common.viewAll, href: issuesHref }}
       >
         {dashboard.openIssues.length === 0 ? (
-          <SectionEmpty>열려 있는 Issue 가 없습니다.</SectionEmpty>
+          <SectionEmpty>{t.openIssues.empty}</SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-24">Severity</TableHead>
-                <TableHead>Issue</TableHead>
-                <TableHead className="w-56">Repository · Location</TableHead>
-                <TableHead className="w-20 text-right">Age</TableHead>
+                <TableHead className="w-24">
+                  {t.openIssues.colSeverity}
+                </TableHead>
+                <TableHead>{t.openIssues.colIssue}</TableHead>
+                <TableHead className="w-56">
+                  {t.openIssues.colLocation}
+                </TableHead>
+                <TableHead className="w-20 text-right">
+                  {t.openIssues.colAge}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -126,7 +139,7 @@ export async function ProjectDashboardScreen({
                     <CodeLocation filePath={issue.filePath} />
                   </TableCell>
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
-                    {formatAgeInDays(issue.firstDetectedAt, now)}
+                    {formatAgeInDays(issue.firstDetectedAt, now, locale)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -135,18 +148,24 @@ export async function ProjectDashboardScreen({
         )}
       </Section>
 
-      <Section title="Frequent Patterns" variant="raised" bleed>
+      <Section title={t.patterns.title} variant="raised" bleed>
         {dashboard.frequentPatterns.length === 0 ? (
-          <SectionEmpty>Pattern 이 없습니다.</SectionEmpty>
+          <SectionEmpty>{t.patterns.empty}</SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Pattern</TableHead>
-                <TableHead className="w-44">Category</TableHead>
-                <TableHead className="w-24 text-right">발생</TableHead>
-                <TableHead className="w-24 text-right">해결</TableHead>
-                <TableHead className="w-32 text-right">최근</TableHead>
+                <TableHead>{t.patterns.colPattern}</TableHead>
+                <TableHead className="w-44">{t.patterns.colCategory}</TableHead>
+                <TableHead className="w-24 text-right">
+                  {t.patterns.colOccurrences}
+                </TableHead>
+                <TableHead className="w-24 text-right">
+                  {t.patterns.colResolved}
+                </TableHead>
+                <TableHead className="w-32 text-right">
+                  {t.patterns.colLast}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -175,22 +194,30 @@ export async function ProjectDashboardScreen({
       </Section>
 
       <Section
-        title="Recent Reviews"
+        title={t.recentReviews.title}
         variant="raised"
         bleed
-        action={{ label: "전체 보기", href: reviewsHref }}
+        action={{ label: messages.common.viewAll, href: reviewsHref }}
       >
         {dashboard.recentReviews.length === 0 ? (
-          <SectionEmpty>Review 가 없습니다.</SectionEmpty>
+          <SectionEmpty>{t.recentReviews.empty}</SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-36">Reviewer</TableHead>
-                <TableHead>Repository</TableHead>
-                <TableHead className="w-56">Target</TableHead>
-                <TableHead className="w-20 text-right">Issues</TableHead>
-                <TableHead className="w-28 text-right">Date</TableHead>
+                <TableHead className="w-36">
+                  {t.recentReviews.colReviewer}
+                </TableHead>
+                <TableHead>{t.recentReviews.colRepository}</TableHead>
+                <TableHead className="w-56">
+                  {t.recentReviews.colTarget}
+                </TableHead>
+                <TableHead className="w-20 text-right">
+                  {t.recentReviews.colIssues}
+                </TableHead>
+                <TableHead className="w-28 text-right">
+                  {t.recentReviews.colDate}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -222,23 +249,27 @@ export async function ProjectDashboardScreen({
       </Section>
 
       <Section
-        title="Repositories"
+        title={t.repositories.title}
         variant="raised"
         bleed
-        action={{ label: "전체 보기", href: repositoriesHref }}
+        action={{ label: messages.common.viewAll, href: repositoriesHref }}
       >
         {dashboard.repositories.length === 0 ? (
-          <SectionEmpty>
-            Repository 가 없습니다. Agent 가 Review 를 보내면 등록됩니다.
-          </SectionEmpty>
+          <SectionEmpty>{t.repositories.empty}</SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Repository</TableHead>
-                <TableHead className="w-24 text-right">Reviews</TableHead>
-                <TableHead className="w-24 text-right">Open</TableHead>
-                <TableHead className="w-32 text-right">최근 Review</TableHead>
+                <TableHead>{t.repositories.colRepository}</TableHead>
+                <TableHead className="w-24 text-right">
+                  {t.repositories.colReviews}
+                </TableHead>
+                <TableHead className="w-24 text-right">
+                  {t.repositories.colOpen}
+                </TableHead>
+                <TableHead className="w-32 text-right">
+                  {t.repositories.colLastReview}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -270,14 +301,14 @@ export async function ProjectDashboardScreen({
         사람이 적은 것(Explicit)과 Review 가 남긴 것(Observed)은 출처가 다르다.
       */}
       <Section
-        title="Wiki"
-        description="사람이 적은 문서"
+        title={t.wiki.title}
+        description={t.wiki.description}
         variant="raised"
         bleed
-        action={{ label: "전체 보기", href: wikiHref }}
+        action={{ label: messages.common.viewAll, href: wikiHref }}
       >
         {dashboard.knowledgePages.length === 0 ? (
-          <SectionEmpty>문서가 없습니다.</SectionEmpty>
+          <SectionEmpty>{t.wiki.empty}</SectionEmpty>
         ) : (
           <ul className="divide-y divide-border/60 px-5">
             {dashboard.knowledgePages.map((page) => (
@@ -301,13 +332,13 @@ export async function ProjectDashboardScreen({
       </Section>
 
       <Section
-        title="Recent Resolutions"
-        description="Review 가 남긴 해결 기록"
+        title={t.resolutions.title}
+        description={t.resolutions.description}
         variant="raised"
         bleed
       >
         {dashboard.recentResolutions.length === 0 ? (
-          <SectionEmpty>해결 기록이 없습니다.</SectionEmpty>
+          <SectionEmpty>{t.resolutions.empty}</SectionEmpty>
         ) : (
           <ul className="divide-y divide-border/60 px-5">
             {dashboard.recentResolutions.map((resolution) => (

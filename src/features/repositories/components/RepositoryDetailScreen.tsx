@@ -20,6 +20,7 @@ import { MoveRepositoryDialog } from "@/features/repositories/components/MoveRep
 import type { RepositoryDetail } from "@/features/repositories/server/repository-query";
 import { listRepositoryReviews } from "@/features/reviews/server/review-query";
 import { formatAgeInDays, formatDate } from "@/lib/format/date";
+import { readLocale } from "@/lib/ui/appearance";
 import type { ProjectScope } from "@/types/tenant";
 
 /** 상세 화면이 펼치는 행 수. 전체는 각 목록 화면이 답한다. */
@@ -71,15 +72,16 @@ export async function RepositoryDetailScreen({
   /** 옮길 수 있는 Project 목록. 같은 Workspace 것만 서버가 골라 넘긴다. */
   projectOptions: readonly { slug: string; name: string }[];
 }) {
-  const [openIssues, reviews] = await Promise.all([
+  const [openIssues, reviews, locale] = await Promise.all([
     listRepositoryOpenIssues(scope, repository.id, SECTION_LIMIT),
     listRepositoryReviews(scope, repository.id, SECTION_LIMIT),
+    readLocale(),
   ]);
 
   const now = new Date();
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
       <PageHeader
         title={repository.fullName}
         meta={
@@ -179,7 +181,7 @@ export async function RepositoryDetailScreen({
                     <StatusBadge status={issue.status} />
                   </TableCell>
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
-                    {formatAgeInDays(issue.firstDetectedAt, now)}
+                    {formatAgeInDays(issue.firstDetectedAt, now, locale)}
                   </TableCell>
                 </TableRow>
               ))}

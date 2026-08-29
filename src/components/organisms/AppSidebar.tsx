@@ -23,6 +23,7 @@ import {
   WorkspaceSwitcher,
   type SwitcherWorkspace,
 } from "@/components/organisms/WorkspaceSwitcher";
+import type { CreateWorkspaceLabels } from "@/features/workspaces/components/CreateWorkspaceDialog";
 import {
   Tooltip,
   TooltipContent,
@@ -34,6 +35,8 @@ import {
   sectionHref,
   WORKSPACE_FOOTER_ITEMS,
   WORKSPACE_ITEMS,
+  type ProjectMenuKey,
+  type WorkspaceMenuKey,
 } from "@/config/navigation";
 import { readProjectSlugFromPath } from "@/config/routes";
 import { writeSidebarCollapsedCookie } from "@/lib/ui/sidebar-state";
@@ -49,11 +52,11 @@ import { cn } from "@/lib/utils";
  *
  * ```
  * [ CodeApex ▼ ]     Workspace Switcher — Tenant
- * Dashboard / Projects / Knowledge
+ * Dashboard / Projects / Wiki
  * ──────────
  * PROJECT            머리글 (지금 어느 Project 안인가)
  * SMIL
- *   Overview / Reviews / Issues / Knowledge / Repositories / Settings
+ *   Overview / Reviews / Issues / Wiki / Repositories / Settings
  * ──────────
  * Members / Settings 가끔 여는 것
  * ```
@@ -74,7 +77,31 @@ import { cn } from "@/lib/utils";
  *
  * Icon 은 두 상태에서 **왼쪽 끝에서 같은 거리**에 있다(`nav px-2` + `item px-2`).
  * 그래서 접히고 펼쳐질 때 Icon 이 좌우로 튀지 않는다.
+ *
+ * ## 좁은 폭
+ *
+ * 🔴 **`md` 아래에서는 «고른 상태와 무관하게» 아이콘만 남는다**(`w-16`). 390px 화면에서
+ * 사이드바가 16rem 을 차지하면 본문이 볼 수 없게 좁아진다. 접기 버튼도 그때는 숨긴다 —
+ * 눌러 봐야 폭이 달라지지 않아 「듣지 않는 버튼」이 된다.
+ *
+ * 🔴 **쿠키 값을 좁은 폭에서 덮어쓰지 않는다.** 여기서 하는 일은 CSS 로 그리는 방식을
+ * 바꾸는 것뿐이라, 넓은 화면으로 돌아오면 사용자가 골라 둔 상태 그대로다.
  */
+
+/** 사이드바가 실제로 그리는 낱말. 🔴 사전 전체를 넘기지 않는다(CLAUDE.md 11). */
+export interface SidebarLabels {
+  primary: string;
+  projectHeading: string;
+  expand: string;
+  collapse: string;
+  workspaceLabel: string;
+  personal: string;
+  createWorkspace: string;
+  /** Switcher 아래에서 열리는 Dialog 의 문구. */
+  createWorkspaceDialog: CreateWorkspaceLabels;
+  workspace: Record<WorkspaceMenuKey, string>;
+  project: Record<ProjectMenuKey, string>;
+}
 
 /**
  * 메뉴 키 ↔ Icon.
@@ -85,7 +112,7 @@ import { cn } from "@/lib/utils";
 const WORKSPACE_ICONS: Record<string, LucideIcon> = {
   DASHBOARD: LayoutDashboard,
   PROJECTS: Boxes,
-  KNOWLEDGE: BookText,
+  WIKI: BookText,
   MEMBERS: Users,
   SETTINGS: Settings,
 };
@@ -94,7 +121,7 @@ const PROJECT_ICONS: Record<string, LucideIcon> = {
   OVERVIEW: LayoutDashboard,
   REVIEWS: ListChecks,
   ISSUES: Bug,
-  KNOWLEDGE: BookText,
+  WIKI: BookText,
   REPOSITORIES: FolderGit2,
   SETTINGS: SlidersHorizontal,
 };
@@ -104,6 +131,7 @@ export function AppSidebar({
   workspaces,
   projects,
   defaultCollapsed,
+  labels,
 }: {
   currentSlug: string;
   workspaces: readonly SwitcherWorkspace[];
@@ -116,6 +144,7 @@ export function AppSidebar({
   projects: readonly { slug: string; name: string }[];
   /** 🔴 서버가 쿠키에서 읽어 넘긴 첫 상태. 이것이 있어야 새로고침 때 깜빡이지 않는다. */
   defaultCollapsed: boolean;
+  labels: SidebarLabels;
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
@@ -141,22 +170,29 @@ export function AppSidebar({
 
   return (
     <nav
-      aria-label="주요 메뉴"
+      aria-label={labels.primary}
       data-collapsed={collapsed}
       className={cn(
         "flex shrink-0 flex-col gap-1 overflow-hidden border-r border-sidebar-border bg-sidebar px-2 py-3",
         "transition-[width] duration-200 ease-out motion-reduce:transition-none",
-        collapsed ? "w-[4.5rem]" : "w-64",
+        // 🔴 좁은 폭에서는 고른 상태와 무관하게 아이콘만 남는다.
+        "w-16",
+        collapsed ? "md:w-[5.5rem]" : "md:w-64",
       )}
     >
       {/*
         🔴 접기 버튼은 **Workspace 선택 바 옆**, 두 상태 모두 «같은 줄»에 둔다.
 
         접힐 때 아래로 내려가면 버튼이 위아래로 튀어 어디를 눌러야 하는지 매번 다시 찾게 된다.
-        그래서 접힘 폭을 아바타 하나(56px)가 아니라 **아바타 + 버튼이 나란히 들어가는 72px**
-        로 잡았다 — 아이콘만 남기는 것보다 4px 넓지만 버튼 위치가 고정된다.
+        그래서 접힘 폭을 아바타 하나가 아니라 **아바타 + 버튼이 나란히 들어가는 크기**로 잡았다.
 
-        계산: 좌우 padding 16 + 아바타 24 + gap 4 + 버튼 28 = 72
+        🔴 폭 계산에 **Switcher 버튼 자신의 좌우 padding 을 빠뜨리면 아바타가 잘린다.**
+        처음에 72px 로 잡았다가 실제로 잘렸다. 필요한 것은 전부 더한 값이다:
+
+          nav px-2(16) + [버튼 px-2(16) + 아바타(24)] + gap(4) + 접기 버튼(28) = 88px
+
+        아바타의 왼쪽 offset 은 nav 8 + 버튼 8 = 16 으로, 아래 메뉴 Icon 과 같다 —
+        접고 펼칠 때 좌우로 튀지 않는다.
       */}
       <div className="mb-2 flex items-center gap-1">
         <div className="min-w-0 flex-1">
@@ -164,9 +200,19 @@ export function AppSidebar({
             currentSlug={currentSlug}
             workspaces={workspaces}
             collapsed={collapsed}
+            labels={{
+              workspaceLabel: labels.workspaceLabel,
+              personal: labels.personal,
+              createWorkspace: labels.createWorkspace,
+              dialog: labels.createWorkspaceDialog,
+            }}
           />
         </div>
-        <CollapseToggle collapsed={collapsed} onToggle={toggle} />
+        <CollapseToggle
+          collapsed={collapsed}
+          onToggle={toggle}
+          labels={labels}
+        />
       </div>
 
       <ul className="flex flex-col gap-0.5">
@@ -174,7 +220,7 @@ export function AppSidebar({
           <NavLink
             key={item.key}
             href={sectionHref(currentSlug, item.section)}
-            label={item.label}
+            label={labels.workspace[item.key]}
             icon={WORKSPACE_ICONS[item.key]}
             pathname={pathname}
             collapsed={collapsed}
@@ -191,6 +237,8 @@ export function AppSidebar({
           */}
           <div
             className={cn(
+              // 🔴 좁은 폭에서는 자리 자체를 두지 않는다 — 아이콘만 남는 폭이다.
+              "max-md:hidden",
               "overflow-hidden px-2 transition-[max-height,opacity,padding] duration-200 ease-out motion-reduce:transition-none",
               collapsed
                 ? "max-h-0 py-0 opacity-0"
@@ -198,7 +246,7 @@ export function AppSidebar({
             )}
           >
             <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-              Project
+              {labels.projectHeading}
             </p>
             <p className="truncate text-[15px] font-semibold tracking-tight text-sidebar-foreground">
               {currentProject.name}
@@ -213,7 +261,7 @@ export function AppSidebar({
                   currentProject.slug,
                   item.section,
                 )}
-                label={item.label}
+                label={labels.project[item.key]}
                 icon={PROJECT_ICONS[item.key]}
                 pathname={pathname}
                 collapsed={collapsed}
@@ -232,7 +280,7 @@ export function AppSidebar({
           <NavLink
             key={item.key}
             href={sectionHref(currentSlug, item.section)}
-            label={item.label}
+            label={labels.workspace[item.key]}
             icon={WORKSPACE_ICONS[item.key]}
             pathname={pathname}
             collapsed={collapsed}
@@ -262,12 +310,14 @@ function Divider({ className }: { className?: string }) {
 function CollapseToggle({
   collapsed,
   onToggle,
+  labels,
 }: {
   collapsed: boolean;
   onToggle: () => void;
+  labels: { expand: string; collapse: string };
 }) {
   const Icon = collapsed ? PanelLeftOpen : PanelLeftClose;
-  const label = collapsed ? "사이드바 펼치기" : "사이드바 접기";
+  const label = collapsed ? labels.expand : labels.collapse;
 
   const button = (
     <button
@@ -275,7 +325,8 @@ function CollapseToggle({
       onClick={onToggle}
       aria-label={label}
       aria-expanded={!collapsed}
-      className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 outline-none hover:bg-sidebar-accent/60 hover:text-sidebar-foreground focus-visible:ring-3 focus-visible:ring-sidebar-ring/50"
+      // 🔴 좁은 폭에서는 숨긴다 — 눌러도 폭이 달라지지 않아 듣지 않는 버튼이 된다.
+      className="hidden size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 outline-none hover:bg-sidebar-accent/60 hover:text-sidebar-foreground focus-visible:ring-3 focus-visible:ring-sidebar-ring/50 md:flex"
     >
       <Icon aria-hidden className="size-[18px] shrink-0" />
     </button>
@@ -386,6 +437,9 @@ function NavLabel({
     <span
       className={cn(
         "min-w-0 flex-1 truncate whitespace-nowrap text-left transition-opacity ease-out motion-reduce:transition-none",
+        // 🔴 좁은 폭에서는 고른 상태와 무관하게 사라진다. DOM 에서 지우지는 않는다 —
+        // 링크의 이름이 사라지면 스크린 리더가 어디로 가는 링크인지 읽을 수 없다.
+        "max-md:pointer-events-none max-md:opacity-0",
         collapsed
           ? "pointer-events-none opacity-0 duration-100"
           : "opacity-100 duration-150 delay-150",

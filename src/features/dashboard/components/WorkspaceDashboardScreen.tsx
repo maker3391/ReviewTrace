@@ -16,8 +16,9 @@ import {
 } from "@/components/ui/table";
 import { projectSectionHref, sectionHref } from "@/config/navigation";
 import { findWorkspaceDashboard } from "@/features/dashboard/server/workspace-dashboard-query";
-import { CreateProjectDialog } from "@/features/projects/components/CreateProjectDialog";
+import { CreateProjectButton } from "@/features/projects/components/CreateProjectButton";
 import { formatAgeInDays, formatDate } from "@/lib/format/date";
+import { readLocale, readMessages } from "@/lib/ui/appearance";
 
 /**
  * Workspace Dashboard(스펙 5).
@@ -41,70 +42,83 @@ export async function WorkspaceDashboardScreen({
   workspaceSlug: string;
   workspaceName: string;
 }) {
-  const dashboard = await findWorkspaceDashboard(workspaceId);
+  const [dashboard, locale, messages] = await Promise.all([
+    findWorkspaceDashboard(workspaceId),
+    readLocale(),
+    readMessages(),
+  ]);
+  const t = messages.workspaceDashboard;
   // 🔴 「며칠째인가」의 기준 시각을 한 번만 정한다. 줄마다 now() 를 부르면 값이 갈린다.
   const now = new Date();
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-7 px-6 py-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-7 px-4 py-5 sm:px-6 sm:py-6">
       <PageHeader
         title={workspaceName}
-        description="이 Workspace 전체의 Review 상태"
-        actions={<CreateProjectDialog workspaceSlug={workspaceSlug} />}
+        description={t.description}
+        actions={<CreateProjectButton workspaceSlug={workspaceSlug} />}
       />
 
       <StatRow
         stats={[
           {
-            label: "Reviews",
+            label: t.kpiReviews,
             value: dashboard.kpi.recentReviews,
-            hint: "최근 30일",
+            hint: t.hintLast30Days,
             icon: ListChecks,
           },
           {
-            label: "Issues Found",
+            label: t.kpiIssuesFound,
             value: dashboard.kpi.recentIssuesFound,
-            hint: "최근 30일",
+            hint: t.hintLast30Days,
           },
           {
-            label: "Resolved",
+            label: t.kpiResolved,
             value: dashboard.kpi.recentResolvedIssues,
-            hint: "최근 30일",
+            hint: t.hintLast30Days,
           },
           {
-            label: "Open",
+            label: t.kpiOpen,
             value: dashboard.kpi.openIssues,
-            hint: "현재 열려 있는 전체",
+            hint: t.hintOpenNow,
             tone: "attention",
           },
         ]}
       />
 
       <Section
-        title="Projects"
+        title={t.projects.title}
         variant="raised"
         bleed
         action={{
-          label: "전체 보기",
+          label: messages.common.viewAll,
           href: sectionHref(workspaceSlug, "projects"),
         }}
       >
         {dashboard.projects.length === 0 ? (
           <SectionEmpty
             icon={<Boxes className="size-4" />}
-            title="Project 가 없습니다"
+            title={t.projects.empty}
           >
-            Repository 는 Project 아래에 붙습니다. 제품·업무 단위로 하나 만드세요.
+            {t.projects.emptyHint}
           </SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Project</TableHead>
-                <TableHead className="w-28 text-right">Repositories</TableHead>
-                <TableHead className="w-24 text-right">Reviews</TableHead>
-                <TableHead className="w-24 text-right">Open</TableHead>
-                <TableHead className="w-32 text-right">최근 활동</TableHead>
+                <TableHead>{t.projects.colProject}</TableHead>
+                <TableHead className="w-28 text-right">
+                  {t.projects.colRepositories}
+                </TableHead>
+                <TableHead className="w-24 text-right">
+                  {t.projects.colReviews}
+                </TableHead>
+                <TableHead className="w-24 text-right">
+                  {t.projects.colOpen}
+                </TableHead>
+                <TableHead className="w-32 text-right">
+                  {t.projects.colLastActivity}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -155,24 +169,30 @@ export async function WorkspaceDashboardScreen({
       </Section>
 
       <Section
-        title="Needs Attention"
-        description="급한 것부터, 같은 등급 안에서는 오래된 것부터"
+        title={t.needsAttention.title}
+        description={t.needsAttention.description}
         variant="raised"
         bleed
       >
         {dashboard.needsAttention.length === 0 ? (
           <SectionEmpty
             icon={<AlertTriangle className="size-4" />}
-            title="열려 있는 Issue 가 없습니다"
+            title={t.needsAttention.empty}
           />
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-24">Severity</TableHead>
-                <TableHead>Issue</TableHead>
-                <TableHead className="w-44">Project</TableHead>
-                <TableHead className="w-20 text-right">Age</TableHead>
+                <TableHead className="w-24">
+                  {t.needsAttention.colSeverity}
+                </TableHead>
+                <TableHead>{t.needsAttention.colIssue}</TableHead>
+                <TableHead className="w-44">
+                  {t.needsAttention.colProject}
+                </TableHead>
+                <TableHead className="w-20 text-right">
+                  {t.needsAttention.colAge}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -199,7 +219,7 @@ export async function WorkspaceDashboardScreen({
                     {issue.projectName}
                   </TableCell>
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
-                    {formatAgeInDays(issue.firstDetectedAt, now)}
+                    {formatAgeInDays(issue.firstDetectedAt, now, locale)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -210,17 +230,17 @@ export async function WorkspaceDashboardScreen({
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Section
-          title="Frequent Patterns"
-          description="반복되는 문제"
+          title={t.patterns.title}
+          description={t.patterns.description}
           variant="raised"
           bleed
         >
           {dashboard.frequentPatterns.length === 0 ? (
             <SectionEmpty
               icon={<Repeat2 className="size-4" />}
-              title="Pattern 이 없습니다"
+              title={t.patterns.empty}
             >
-              Agent 가 Review 에 patternKey 를 함께 보내면 여기에 쌓입니다.
+              {t.patterns.emptyHint}
             </SectionEmpty>
           ) : (
             <ul className="divide-y divide-border/60">
@@ -242,7 +262,7 @@ export async function WorkspaceDashboardScreen({
                       {pattern.occurrences}
                     </p>
                     <p className="text-[11px] tabular-nums text-muted-foreground">
-                      해결 {pattern.resolvedCount}
+                      {t.patterns.resolved(pattern.resolvedCount)}
                     </p>
                   </div>
                 </li>
@@ -252,15 +272,15 @@ export async function WorkspaceDashboardScreen({
         </Section>
 
         <Section
-          title="Recent Activity"
-          description="Review 실행과 해결 기록"
+          title={t.activity.title}
+          description={t.activity.description}
           variant="raised"
           bleed
         >
           {dashboard.recentActivity.length === 0 ? (
             <SectionEmpty
               icon={<ListChecks className="size-4" />}
-              title="활동이 없습니다"
+              title={t.activity.empty}
             />
           ) : (
             <ul className="divide-y divide-border/60">
@@ -289,17 +309,19 @@ export async function WorkspaceDashboardScreen({
                             {entry.reviewerName}
                           </span>
                           <span className="text-muted-foreground">
-                            {" 가 "}
-                            {entry.repositoryFullName} 검토 — Issue{" "}
-                            {entry.issueCount}건
+                            {t.activity.reviewSuffix(
+                              entry.repositoryFullName,
+                              entry.issueCount,
+                            )}
                           </span>
                         </>
                       ) : (
                         <>
                           <span className="font-medium">{entry.title}</span>
                           <span className="text-muted-foreground">
-                            {" 해결 — "}
-                            {entry.repositoryFullName}
+                            {t.activity.resolutionSuffix(
+                              entry.repositoryFullName,
+                            )}
                           </span>
                         </>
                       )}

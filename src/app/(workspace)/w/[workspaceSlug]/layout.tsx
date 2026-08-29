@@ -8,6 +8,7 @@ import { listMemberWorkspaces } from "@/lib/auth/workspace-context";
 import { cookies, headers } from "next/headers";
 
 import { readProjectSlugFromPath } from "@/config/routes";
+import { readMessages } from "@/lib/ui/appearance";
 import {
   parseSidebarCollapsed,
   SIDEBAR_COLLAPSED_COOKIE,
@@ -46,9 +47,10 @@ export default async function WorkspaceLayout({
    * 화면에서 도는데, 거기에 Review·Issue 집계를 얹으면 Project 를 열지 않는 화면에서도
    * 매번 Join 이 붙는다.
    */
-  const [workspaces, projects] = await Promise.all([
+  const [workspaces, projects, t] = await Promise.all([
     listMemberWorkspaces(user.id),
     listProjectOptions(workspace.workspaceId),
+    readMessages(),
   ]);
 
   /**
@@ -95,6 +97,28 @@ export default async function WorkspaceLayout({
             name: item.name,
           }))}
           defaultCollapsed={sidebarCollapsed}
+          /*
+            🔴 사전을 통째로 넘기지 않는다 — 사이드바가 실제로 그리는 낱말만 간다
+            (CLAUDE.md 11). Client Component 로 가는 것은 전부 RSC payload 에 실린다.
+          */
+          labels={{
+            primary: t.nav.primary,
+            projectHeading: t.nav.projectHeading,
+            expand: t.nav.expand,
+            collapse: t.nav.collapse,
+            workspaceLabel: t.nav.workspaceLabel,
+            personal: t.nav.personal,
+            createWorkspace: t.nav.createWorkspace,
+            createWorkspaceDialog: {
+              title: t.workspaceDialog.title,
+              description: t.workspaceDialog.description,
+              name: t.workspaceDialog.name,
+              submit: t.workspaceDialog.submit,
+              submitting: t.workspaceDialog.submitting,
+            },
+            workspace: t.nav.workspace,
+            project: t.nav.project,
+          }}
         />
         <main className="flex min-w-0 flex-1 flex-col overflow-auto">
           {children}

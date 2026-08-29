@@ -17,6 +17,8 @@ import {
   type IssueQueryScope,
 } from "@/features/issues/server/issue-query";
 import type { IssueFilter } from "@/features/issues/schemas/issue-filter";
+import { formatDate } from "@/lib/format/date";
+import { readMessages } from "@/lib/ui/appearance";
 
 /**
  * Issue 목록의 데이터 영역.
@@ -35,15 +37,13 @@ export async function IssueTable({
   /** 상세로 들어가는 주소의 뿌리. 조회 조건이 아니다. */
   basePath: Route;
 }) {
-  const page = await findIssues(scope, filter);
+  const [page, t] = await Promise.all([
+    findIssues(scope, filter),
+    readMessages().then((messages) => messages.issues),
+  ]);
 
   if (page.items.length === 0) {
-    return (
-      <EmptyState
-        title="조건에 맞는 Issue 가 없습니다."
-        description="Filter 를 넓히거나, Agent 가 Review 결과를 아직 보내지 않았는지 확인하세요."
-      />
-    );
+    return <EmptyState title={t.empty} description={t.emptyHint} />;
   }
 
   return (
@@ -51,12 +51,12 @@ export async function IssueTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-24">Severity</TableHead>
-            <TableHead>Title</TableHead>
-            <TableHead className="w-44">Category</TableHead>
-            <TableHead className="w-56">Location</TableHead>
-            <TableHead className="w-28">Status</TableHead>
-            <TableHead className="w-32 text-right">Detected</TableHead>
+            <TableHead className="w-24">{t.colSeverity}</TableHead>
+            <TableHead>{t.colTitle}</TableHead>
+            <TableHead className="w-44">{t.colCategory}</TableHead>
+            <TableHead className="w-56">{t.colLocation}</TableHead>
+            <TableHead className="w-28">{t.colStatus}</TableHead>
+            <TableHead className="w-32 text-right">{t.colDetected}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -104,8 +104,11 @@ export async function IssueTable({
       </Table>
 
       <p className="px-4 py-3 text-xs text-muted-foreground">
-        전체 {page.total}건 중 {(page.page - 1) * page.pageSize + 1}–
-        {(page.page - 1) * page.pageSize + page.items.length}
+        {t.pagination(
+          page.total,
+          (page.page - 1) * page.pageSize + 1,
+          (page.page - 1) * page.pageSize + page.items.length,
+        )}
       </p>
     </div>
   );
@@ -124,12 +127,4 @@ function EmptyState({
       <p className="mt-1 text-xs text-muted-foreground">{description}</p>
     </div>
   );
-}
-
-// 서버·클라이언트의 Locale 차이로 문자열이 갈리지 않게 형식을 직접 고정한다.
-function formatDate(value: Date): string {
-  const year = value.getUTCFullYear();
-  const month = String(value.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(value.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }

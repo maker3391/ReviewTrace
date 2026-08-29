@@ -25,6 +25,11 @@ import {
   ISSUE_STATUSES,
 } from "@/types/review";
 
+/**
+ * 🔴 **Domain 값은 번역하지 않는다**(CLAUDE.md 2·13). `HIGH` · `TRANSACTION` · `OPEN` 은
+ * Agent 가 보내고 API 가 계약으로 쓰는 값이라 그대로 쓴다 — 여기서 옮기면 고른 것과
+ * 주소에 실리는 것이 갈린다. 언어를 타는 것은 「전체」를 뜻하는 첫 항목뿐이다.
+ */
 function toOptions(values: readonly string[], allLabel: string): FilterOption[] {
   return [
     { value: FILTER_ALL, label: allLabel },
@@ -32,9 +37,20 @@ function toOptions(values: readonly string[], allLabel: string): FilterOption[] 
   ];
 }
 
-const SEVERITY_OPTIONS = toOptions(ISSUE_SEVERITIES, "모든 Severity");
-const CATEGORY_OPTIONS = toOptions(ISSUE_CATEGORIES, "모든 Category");
-const STATUS_OPTIONS = toOptions(ISSUE_STATUSES, "모든 Status");
+/** 이 화면이 그리는 낱말. 🔴 사전 전체를 넘기지 않는다(CLAUDE.md 11). */
+export interface IssueFilterLabels {
+  search: string;
+  searchPlaceholder: string;
+  severity: string;
+  category: string;
+  status: string;
+  allSeverity: string;
+  allCategory: string;
+  allStatus: string;
+  submit: string;
+  submitting: string;
+  reset: string;
+}
 
 /**
  * Issue 목록의 Search / Filter.
@@ -46,11 +62,17 @@ const STATUS_OPTIONS = toOptions(ISSUE_STATUSES, "모든 Status");
 export function IssueFilterBar({
   basePath,
   filter,
+  labels,
 }: {
   /** 이 목록이 사는 Workspace 경로(`/w/{slug}/issues`). Filter 는 주소만 바꾸고 Workspace 를 넘지 않는다. */
   basePath: Route;
   filter: IssueFilter;
+  labels: IssueFilterLabels;
 }) {
+  const severityOptions = toOptions(ISSUE_SEVERITIES, labels.allSeverity);
+  const categoryOptions = toOptions(ISSUE_CATEGORIES, labels.allCategory);
+  const statusOptions = toOptions(ISSUE_STATUSES, labels.allStatus);
+
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -84,13 +106,13 @@ export function IssueFilterBar({
   return (
     <form
       onSubmit={handleSubmit(navigate)}
-      className="flex flex-wrap items-end gap-3 border-b border-border px-4 py-3"
+      className="flex flex-wrap items-end gap-3 border-b border-border px-1 py-3 sm:px-4"
     >
-      <div className="flex flex-col">
+      <div className="flex min-w-0 flex-1 flex-col sm:flex-none">
         <SearchField
-          label="검색"
-          placeholder="제목 · 파일 · Pattern"
-          className="w-64"
+          label={labels.search}
+          placeholder={labels.searchPlaceholder}
+          className="w-full sm:w-64"
           aria-invalid={errors.q !== undefined}
           {...register("q")}
         />
@@ -106,11 +128,11 @@ export function IssueFilterBar({
         name="severity"
         render={({ field }) => (
           <FilterSelectField
-            label="Severity"
+            label={labels.severity}
             value={field.value}
             onValueChange={field.onChange}
-            options={SEVERITY_OPTIONS}
-            className="w-40"
+            options={severityOptions}
+            className="w-[calc(50%-0.375rem)] sm:w-40"
           />
         )}
       />
@@ -120,11 +142,11 @@ export function IssueFilterBar({
         name="category"
         render={({ field }) => (
           <FilterSelectField
-            label="Category"
+            label={labels.category}
             value={field.value}
             onValueChange={field.onChange}
-            options={CATEGORY_OPTIONS}
-            className="w-52"
+            options={categoryOptions}
+            className="w-[calc(50%-0.375rem)] sm:w-52"
           />
         )}
       />
@@ -134,17 +156,17 @@ export function IssueFilterBar({
         name="status"
         render={({ field }) => (
           <FilterSelectField
-            label="Status"
+            label={labels.status}
             value={field.value}
             onValueChange={field.onChange}
-            options={STATUS_OPTIONS}
-            className="w-40"
+            options={statusOptions}
+            className="w-[calc(50%-0.375rem)] sm:w-40"
           />
         )}
       />
 
       <Button type="submit" size="sm" disabled={isPending}>
-        {isPending ? "조회 중" : "조회"}
+        {isPending ? labels.submitting : labels.submit}
       </Button>
       <Button
         type="button"
@@ -162,7 +184,7 @@ export function IssueFilterBar({
           });
         }}
       >
-        초기화
+        {labels.reset}
       </Button>
     </form>
   );

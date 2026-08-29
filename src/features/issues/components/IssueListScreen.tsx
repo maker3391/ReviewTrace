@@ -11,6 +11,7 @@ import {
   type RawSearchParams,
 } from "@/features/issues/schemas/issue-filter";
 import type { IssueQueryScope } from "@/features/issues/server/issue-query";
+import { readMessages } from "@/lib/ui/appearance";
 
 /**
  * Issue 목록 화면.
@@ -40,15 +41,13 @@ export async function IssueListScreen({
   searchParams: Promise<RawSearchParams>;
 }) {
   const filter = parseIssueFilter(await searchParams);
+  const t = (await readMessages()).issues;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
-      <PageHeader
-        title="Issues"
-        description={`${projectName} 에서 Agent 와 사람이 남긴 Code Issue`}
-      />
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
+      <PageHeader title={t.title} description={t.description(projectName)} />
 
-      <IssueFilterBar basePath={basePath} filter={filter} />
+      <IssueFilterBar basePath={basePath} filter={filter} labels={t.filter} />
 
       {/*
         🔴 key 가 Filter 마다 바뀌어야 새 Suspense Boundary 가 열려 Skeleton 이 보인다.
@@ -57,7 +56,18 @@ export async function IssueListScreen({
       */}
       <Suspense
         key={issueFilterToQueryString(filter)}
-        fallback={<IssueTableSkeleton />}
+        fallback={
+          <IssueTableSkeleton
+            labels={{
+              colSeverity: t.colSeverity,
+              colTitle: t.colTitle,
+              colCategory: t.colCategory,
+              colLocation: t.colLocation,
+              colStatus: t.colStatus,
+              colDetected: t.colDetected,
+            }}
+          />
+        }
       >
         <IssueTable scope={scope} filter={filter} basePath={basePath} />
       </Suspense>

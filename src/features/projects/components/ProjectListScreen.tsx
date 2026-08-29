@@ -12,9 +12,10 @@ import {
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { projectSectionHref } from "@/config/navigation";
-import { CreateProjectDialog } from "@/features/projects/components/CreateProjectDialog";
+import { CreateProjectButton } from "@/features/projects/components/CreateProjectButton";
 import { listProjectSummaries } from "@/features/projects/server/project-service";
 import { formatDate } from "@/lib/format/date";
+import { readMessages } from "@/lib/ui/appearance";
 
 /**
  * Project 목록 화면.
@@ -30,31 +31,40 @@ export async function ProjectListScreen({
   workspaceId: string;
   workspaceSlug: string;
 }) {
-  const projects = await listProjectSummaries(workspaceId);
+  const [projects, t] = await Promise.all([
+    listProjectSummaries(workspaceId),
+    readMessages().then((messages) => messages.projects),
+  ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
       <PageHeader
-        title="Projects"
-        description="하나의 제품 또는 업무 단위. Repository 는 Project 아래에 붙습니다."
-        actions={<CreateProjectDialog workspaceSlug={workspaceSlug} />}
+        title={t.title}
+        description={t.description}
+        actions={<CreateProjectButton workspaceSlug={workspaceSlug} />}
       />
 
       <Section variant="raised" bleed>
         {projects.length === 0 ? (
-          <SectionEmpty icon={<Boxes className="size-4" />} title="Project 가 없습니다">
-            제품·업무 단위로 하나 만드세요 — 예: SMIL, ReviewTrace, ERP.
+          <SectionEmpty icon={<Boxes className="size-4" />} title={t.empty}>
+            {t.emptyHint}
           </SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Project</TableHead>
-                <TableHead className="w-40">slug</TableHead>
-                <TableHead className="w-28 text-right">Repositories</TableHead>
-                <TableHead className="w-24 text-right">Reviews</TableHead>
-                <TableHead className="w-28 text-right">Open Issues</TableHead>
-                <TableHead className="w-32 text-right">최근 활동</TableHead>
+                <TableHead>{t.colProject}</TableHead>
+                <TableHead className="w-40">{t.colSlug}</TableHead>
+                <TableHead className="w-28 text-right">
+                  {t.colRepositories}
+                </TableHead>
+                <TableHead className="w-24 text-right">{t.colReviews}</TableHead>
+                <TableHead className="w-28 text-right">
+                  {t.colOpenIssues}
+                </TableHead>
+                <TableHead className="w-32 text-right">
+                  {t.colLastActivity}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

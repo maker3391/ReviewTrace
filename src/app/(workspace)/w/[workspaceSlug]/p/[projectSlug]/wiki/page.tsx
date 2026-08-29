@@ -3,6 +3,7 @@ import type { Route } from "next";
 
 import { KnowledgeScreen } from "@/features/knowledge/components/KnowledgeScreen";
 import { requireProject } from "@/lib/auth/require-project";
+import { readMessages } from "@/lib/ui/appearance";
 
 export const metadata: Metadata = {
   title: "Wiki",
@@ -21,6 +22,7 @@ export default async function ProjectKnowledgePage({
 }) {
   const { workspaceSlug, projectSlug } = await params;
   const { workspace, project } = await requireProject(workspaceSlug, projectSlug);
+  const t = (await readMessages()).wiki;
 
   return (
     <KnowledgeScreen
@@ -29,8 +31,8 @@ export default async function ProjectKnowledgePage({
         projectId: project.projectId,
       }}
       basePath={`/w/${workspace.slug}/p/${project.slug}/wiki` as Route}
-      heading="Project Wiki"
-      description={`${project.name} 안에서만 뜻이 있는 규칙과 기록`}
+      heading={t.projectHeading}
+      description={t.projectDescription(project.name)}
     />
   );
 }

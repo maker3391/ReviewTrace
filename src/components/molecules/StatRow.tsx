@@ -43,7 +43,7 @@ export function StatRow({ stats }: { stats: readonly Stat[] }) {
         const attention = stat.tone === "attention" && stat.value !== 0;
 
         return (
-          <div key={stat.label} className="flex flex-col gap-1 px-5 py-4">
+          <div key={stat.label} className="flex flex-col gap-1 px-4 py-3.5 sm:px-5 sm:py-4">
             <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               {Icon !== undefined && <Icon aria-hidden className="size-3.5" />}
               {stat.label}
@@ -59,8 +59,8 @@ export function StatRow({ stats }: { stats: readonly Stat[] }) {
               className={cn(
                 "font-semibold leading-none tracking-tight tabular-nums",
                 typeof stat.value === "number"
-                  ? "text-[26px]"
-                  : "text-lg break-words",
+                  ? "text-[22px] sm:text-[26px]"
+                  : "text-base break-words sm:text-lg",
                 attention ? "text-destructive" : "text-foreground",
               )}
             >

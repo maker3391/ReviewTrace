@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { listKnowledgePages } from "@/features/knowledge/server/knowledge-page-service";
 import { formatDate } from "@/lib/format/date";
+import { readMessages } from "@/lib/ui/appearance";
 
 /**
  * Wiki 목록 화면.
@@ -38,33 +39,36 @@ export async function KnowledgeScreen({
   heading: string;
   description: string;
 }) {
-  const pages = await listKnowledgePages(scope);
+  const [pages, t] = await Promise.all([
+    listKnowledgePages(scope),
+    readMessages().then((messages) => messages.wiki),
+  ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
       <PageHeader
         title={heading}
         description={description}
         actions={
           <Button asChild size="sm">
-            <Link href={`${basePath}/new` as Route}>문서 작성</Link>
+            <Link href={`${basePath}/new` as Route}>{t.create}</Link>
           </Button>
         }
       />
 
       <Section variant="raised" bleed>
         {pages.length === 0 ? (
-          <SectionEmpty icon={<BookText className="size-4" />} title="문서가 없습니다">
-            반복해서 설명하게 되는 규칙부터 적어 두세요.
+          <SectionEmpty icon={<BookText className="size-4" />} title={t.empty}>
+            {t.emptyHint}
           </SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>제목</TableHead>
-                <TableHead className="w-56">slug</TableHead>
-                <TableHead className="w-40">작성자</TableHead>
-                <TableHead className="w-32 text-right">수정</TableHead>
+                <TableHead>{t.colTitle}</TableHead>
+                <TableHead className="w-56">{t.colSlug}</TableHead>
+                <TableHead className="w-40">{t.colAuthor}</TableHead>
+                <TableHead className="w-32 text-right">{t.colUpdated}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

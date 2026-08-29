@@ -19,6 +19,11 @@ import { projectPath, workspacePath } from "@/config/routes";
  *
  * 🔴 **항목에 Icon 을 두지 않는다**(CLAUDE.md 16). 다섯 글자짜리 낱말 앞의 아이콘은
  * 정보를 더하지 않고 시선만 나눈다. 계층은 그룹과 divider 로 드러낸다.
+ *
+ * 🔴 **항목에 «이름»도 두지 않는다.** 화면에 그려지는 낱말은 언어마다 달라지므로
+ * 사전(`config/messages/*.ts`)의 `nav` 가 **키로** 갖는다 — 이 파일은 Proxy·시험도 읽는
+ * 순수 대응표라 언어를 알아야 할 이유가 없다. 메뉴를 하나 더하면 사전 쪽에서
+ * typecheck 가 깨져, 이름 없는 항목이 조용히 생기지 않는다.
  */
 
 export type WorkspaceMenuKey =
@@ -38,7 +43,6 @@ export type ProjectMenuKey =
 
 export interface NavigationItem<Key extends string> {
   key: Key;
-  label: string;
   /** 주소의 마지막 조각. Project 의 `OVERVIEW` 만 빈 문자열이다 — 그것이 Project 자신이다. */
   section: string;
 }
@@ -50,25 +54,25 @@ export interface NavigationItem<Key extends string> {
  * 모든 메뉴를 같은 시각적 강도로 두지 않는다(CLAUDE.md 16).
  */
 export const WORKSPACE_ITEMS: readonly NavigationItem<WorkspaceMenuKey>[] = [
-  { key: "DASHBOARD", label: "Dashboard", section: "dashboard" },
-  { key: "PROJECTS", label: "Projects", section: "projects" },
-  { key: "WIKI", label: "Wiki", section: "wiki" },
+  { key: "DASHBOARD", section: "dashboard" },
+  { key: "PROJECTS", section: "projects" },
+  { key: "WIKI", section: "wiki" },
 ] as const;
 
 export const WORKSPACE_FOOTER_ITEMS: readonly NavigationItem<WorkspaceMenuKey>[] =
   [
-    { key: "MEMBERS", label: "Members", section: "members" },
-    { key: "SETTINGS", label: "Settings", section: "settings" },
+    { key: "MEMBERS", section: "members" },
+    { key: "SETTINGS", section: "settings" },
   ] as const;
 
 /** Project 층의 메뉴. Project 를 고른 뒤에만 그린다. */
 export const PROJECT_ITEMS: readonly NavigationItem<ProjectMenuKey>[] = [
-  { key: "OVERVIEW", label: "Overview", section: "" },
-  { key: "REVIEWS", label: "Reviews", section: "reviews" },
-  { key: "ISSUES", label: "Issues", section: "issues" },
-  { key: "WIKI", label: "Wiki", section: "wiki" },
-  { key: "REPOSITORIES", label: "Repositories", section: "repositories" },
-  { key: "SETTINGS", label: "Settings", section: "settings" },
+  { key: "OVERVIEW", section: "" },
+  { key: "REVIEWS", section: "reviews" },
+  { key: "ISSUES", section: "issues" },
+  { key: "WIKI", section: "wiki" },
+  { key: "REPOSITORIES", section: "repositories" },
+  { key: "SETTINGS", section: "settings" },
 ] as const;
 
 /** Workspace 를 바꿔도 보고 있던 Section 을 유지하기 위한 기본 Section. */

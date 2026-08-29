@@ -5,7 +5,10 @@ import { usePathname } from "next/navigation";
 import { Check, ChevronsUpDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { CreateWorkspaceDialog } from "@/features/workspaces/components/CreateWorkspaceDialog";
+import {
+  CreateWorkspaceDialog,
+  type CreateWorkspaceLabels,
+} from "@/features/workspaces/components/CreateWorkspaceDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,11 +43,19 @@ export function WorkspaceSwitcher({
   currentSlug,
   workspaces,
   collapsed = false,
+  labels,
 }: {
   currentSlug: string;
   workspaces: readonly SwitcherWorkspace[];
   /** 접힌 사이드바에서는 아바타만 남는다 — 이름을 좁은 폭에 욱여넣지 않는다. */
   collapsed?: boolean;
+  /** 🔴 이 Component 가 실제로 그리는 낱말만 받는다(CLAUDE.md 11). */
+  labels: {
+    workspaceLabel: string;
+    personal: string;
+    createWorkspace: string;
+    dialog: CreateWorkspaceLabels;
+  };
 }) {
   const pathname = usePathname();
   const section = currentSection(pathname);
@@ -83,6 +94,8 @@ export function WorkspaceSwitcher({
             <span
               className={cn(
                 "truncate whitespace-nowrap text-[13px] transition-opacity ease-out motion-reduce:transition-none",
+                // 🔴 좁은 폭에서는 아이콘 폭만 남는다 — 이름은 고른 상태와 무관하게 사라진다.
+                "max-md:pointer-events-none max-md:opacity-0",
                 collapsed
                   ? "pointer-events-none opacity-0 duration-100"
                   : "opacity-100 duration-150 delay-150",
@@ -95,6 +108,7 @@ export function WorkspaceSwitcher({
             aria-hidden
             className={cn(
               "size-3.5 shrink-0 opacity-50 transition-opacity ease-out motion-reduce:transition-none",
+              "max-md:opacity-0",
               collapsed ? "opacity-0 duration-100" : "duration-150 delay-150",
             )}
           />
@@ -103,7 +117,7 @@ export function WorkspaceSwitcher({
 
       <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuLabel className="text-xs text-muted-foreground">
-          Workspace
+          {labels.workspaceLabel}
         </DropdownMenuLabel>
 
         {workspaces.map((item) => {
@@ -119,7 +133,7 @@ export function WorkspaceSwitcher({
                 <span className="truncate">{item.name}</span>
                 {item.isPersonal && (
                   <span className="ml-auto text-[10px] text-muted-foreground">
-                    Personal
+                    {labels.personal}
                   </span>
                 )}
               </Link>
@@ -134,13 +148,14 @@ export function WorkspaceSwitcher({
         */}
         <div className="px-1 py-0.5">
           <CreateWorkspaceDialog
+            labels={labels.dialog}
             trigger={
               <Button
                 variant="ghost"
                 size="sm"
                 className="w-full justify-start font-normal"
               >
-                Workspace 만들기
+                {labels.createWorkspace}
               </Button>
             }
           />

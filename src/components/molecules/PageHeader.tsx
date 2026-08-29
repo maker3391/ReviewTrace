@@ -35,8 +35,9 @@ export function PageHeader({
   meta?: ReactNode;
   actions?: ReactNode;
 }) {
+  // 🔴 좁은 폭에서 Action 이 제목 위로 겹치지 않게 «줄바꿈»한다 — 자르지 않는다.
   return (
-    <header className="flex flex-wrap items-start justify-between gap-4">
+    <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
       <div className="min-w-0 flex-1">
         {breadcrumb !== undefined && (
           <Link
@@ -48,7 +49,7 @@ export function PageHeader({
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-semibold leading-tight tracking-[-0.01em] text-foreground">
+          <h1 className="min-w-0 break-words text-lg font-semibold leading-tight tracking-[-0.01em] text-foreground sm:text-xl">
             {title}
           </h1>
           {titleAdornment}

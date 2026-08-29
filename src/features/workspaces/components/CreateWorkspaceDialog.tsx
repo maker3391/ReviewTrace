@@ -31,7 +31,22 @@ import {
  * 만들고 나면 그 Workspace 로 옮겨 간다. Switcher 목록은 Server Action 의
  * `revalidatePath(.., "layout")` 이 서버에서 다시 그린다.
  */
-export function CreateWorkspaceDialog({ trigger }: { trigger: ReactNode }) {
+/** 🔴 이 Dialog 가 실제로 그리는 낱말만 받는다(CLAUDE.md 11). */
+export interface CreateWorkspaceLabels {
+  title: string;
+  description: string;
+  name: string;
+  submit: string;
+  submitting: string;
+}
+
+export function CreateWorkspaceDialog({
+  trigger,
+  labels,
+}: {
+  trigger: ReactNode;
+  labels: CreateWorkspaceLabels;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -71,10 +86,8 @@ export function CreateWorkspaceDialog({ trigger }: { trigger: ReactNode }) {
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-sm">Workspace 만들기</DialogTitle>
-          <DialogDescription>
-            팀·조직 단위입니다. 멤버와 API Key 의 경계가 됩니다.
-          </DialogDescription>
+          <DialogTitle className="text-sm">{labels.title}</DialogTitle>
+          <DialogDescription>{labels.description}</DialogDescription>
         </DialogHeader>
 
         <form
@@ -83,7 +96,7 @@ export function CreateWorkspaceDialog({ trigger }: { trigger: ReactNode }) {
           className="flex flex-col gap-1"
         >
           <label className="text-xs font-medium" htmlFor="workspace-name">
-            이름
+            {labels.name}
           </label>
           <Input
             id="workspace-name"
@@ -109,7 +122,7 @@ export function CreateWorkspaceDialog({ trigger }: { trigger: ReactNode }) {
             size="sm"
             disabled={form.formState.isSubmitting}
           >
-            {form.formState.isSubmitting ? "만드는 중" : "만들기"}
+            {form.formState.isSubmitting ? labels.submitting : labels.submit}
           </Button>
         </DialogFooter>
       </DialogContent>

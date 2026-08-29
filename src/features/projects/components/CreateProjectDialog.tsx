@@ -33,10 +33,27 @@ import {
  * 만들고 나면 그 Project 로 옮겨 간다. 목록을 여기서 다시 불러오지 않는다 —
  * Server Action 의 `revalidatePath` 가 서버에 다시 그리게 한다.
  */
+/** 🔴 이 Dialog 가 실제로 그리는 낱말만 받는다(CLAUDE.md 11). */
+export interface CreateProjectLabels {
+  trigger: string;
+  title: string;
+  description: string;
+  name: string;
+  slug: string;
+  optional: string;
+  slugPlaceholder: string;
+  slugHint: string;
+  descriptionField: string;
+  submit: string;
+  submitting: string;
+}
+
 export function CreateProjectDialog({
   workspaceSlug,
+  labels,
 }: {
   workspaceSlug: string;
+  labels: CreateProjectLabels;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -75,15 +92,13 @@ export function CreateProjectDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">Project 만들기</Button>
+        <Button size="sm">{labels.trigger}</Button>
       </DialogTrigger>
 
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-sm">Project 만들기</DialogTitle>
-          <DialogDescription>
-            하나의 제품 또는 업무 단위입니다. Repository 는 이 아래에 붙습니다.
-          </DialogDescription>
+          <DialogTitle className="text-sm">{labels.title}</DialogTitle>
+          <DialogDescription>{labels.description}</DialogDescription>
         </DialogHeader>
 
         <form
@@ -93,7 +108,7 @@ export function CreateProjectDialog({
         >
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium" htmlFor="project-name">
-              이름
+              {labels.name}
             </label>
             <Input
               id="project-name"
@@ -109,16 +124,15 @@ export function CreateProjectDialog({
 
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium" htmlFor="project-slug">
-              slug <span className="text-muted-foreground">(선택)</span>
+              {labels.slug}{" "}
+              <span className="text-muted-foreground">{labels.optional}</span>
             </label>
             <Input
               id="project-slug"
-              placeholder="비워 두면 이름에서 만듭니다"
+              placeholder={labels.slugPlaceholder}
               {...form.register("slug")}
             />
-            <p className="text-[11px] text-muted-foreground">
-              주소에 쓰입니다 — /w/{workspaceSlug}/p/&#123;slug&#125;
-            </p>
+            <p className="text-[11px] text-muted-foreground">{labels.slugHint}</p>
             {form.formState.errors.slug !== undefined && (
               <p className="text-xs text-destructive">
                 {form.formState.errors.slug.message}
@@ -128,7 +142,8 @@ export function CreateProjectDialog({
 
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium" htmlFor="project-description">
-              설명 <span className="text-muted-foreground">(선택)</span>
+              {labels.descriptionField}{" "}
+              <span className="text-muted-foreground">{labels.optional}</span>
             </label>
             <Textarea
               id="project-description"
@@ -156,7 +171,7 @@ export function CreateProjectDialog({
             size="sm"
             disabled={form.formState.isSubmitting}
           >
-            {form.formState.isSubmitting ? "만드는 중" : "만들기"}
+            {form.formState.isSubmitting ? labels.submitting : labels.submit}
           </Button>
         </DialogFooter>
       </DialogContent>

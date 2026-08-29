@@ -16,6 +16,7 @@ import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { listProjectReviews } from "@/features/reviews/server/review-query";
 import type { ProjectContext } from "@/features/projects/types/project";
 import { formatDate } from "@/lib/format/date";
+import { readMessages } from "@/lib/ui/appearance";
 
 /**
  * Project 의 Review 목록.
@@ -35,33 +36,30 @@ export async function ReviewListScreen({
   /** 상세로 들어가는 주소의 뿌리. */
   basePath: Route;
 }) {
-  const reviews = await listProjectReviews({
-    workspaceId,
-    projectId: project.projectId,
-  });
+  const [reviews, t] = await Promise.all([
+    listProjectReviews({ workspaceId, projectId: project.projectId }),
+    readMessages().then((messages) => messages.reviews),
+  ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
-      <PageHeader
-        title="Reviews"
-        description={`${project.name} 에서 실행된 Code Review`}
-      />
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
+      <PageHeader title={t.title} description={t.description(project.name)} />
 
       <Section variant="raised" bleed>
         {reviews.length === 0 ? (
-          <SectionEmpty icon={<ListChecks className="size-4" />} title="Review 가 없습니다">
-            Agent 가 POST /api/v1/reviews 로 결과를 보내면 여기에 쌓입니다.
+          <SectionEmpty icon={<ListChecks className="size-4" />} title={t.empty}>
+            {t.emptyHint}
           </SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-40">Reviewer</TableHead>
-                <TableHead>Repository</TableHead>
-                <TableHead className="w-28">Target</TableHead>
-                <TableHead className="w-56">Branch · Commit</TableHead>
-                <TableHead className="w-20 text-right">Issues</TableHead>
-                <TableHead className="w-28 text-right">Date</TableHead>
+                <TableHead className="w-40">{t.colReviewer}</TableHead>
+                <TableHead>{t.colRepository}</TableHead>
+                <TableHead className="w-28">{t.colTarget}</TableHead>
+                <TableHead className="w-56">{t.colBranchCommit}</TableHead>
+                <TableHead className="w-20 text-right">{t.colIssues}</TableHead>
+                <TableHead className="w-28 text-right">{t.colDate}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

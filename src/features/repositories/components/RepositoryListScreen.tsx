@@ -16,6 +16,7 @@ import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { listRepositoryStatuses } from "@/features/repositories/server/repository-query";
 import type { ProjectContext } from "@/features/projects/types/project";
 import { formatDate } from "@/lib/format/date";
+import { readMessages } from "@/lib/ui/appearance";
 
 /**
  * Project 의 Repository 목록.
@@ -37,32 +38,33 @@ export async function RepositoryListScreen({
   /** 상세로 들어가는 주소의 뿌리. */
   basePath: Route;
 }) {
-  const repositories = await listRepositoryStatuses({
-    workspaceId,
-    projectId: project.projectId,
-  });
+  const [repositories, t] = await Promise.all([
+    listRepositoryStatuses({ workspaceId, projectId: project.projectId }),
+    readMessages().then((messages) => messages.repositories),
+  ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
-      <PageHeader
-        title="Repositories"
-        description={`${project.name} 의 코드베이스`}
-      />
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
+      <PageHeader title={t.title} description={t.description(project.name)} />
 
       <Section variant="raised" bleed>
         {repositories.length === 0 ? (
-          <SectionEmpty icon={<FolderGit2 className="size-4" />} title="Repository 가 없습니다">
-            Agent 가 이 Project 로 Review 를 보내면 자동으로 등록됩니다.
+          <SectionEmpty icon={<FolderGit2 className="size-4" />} title={t.empty}>
+            {t.emptyHint}
           </SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Repository</TableHead>
-                <TableHead className="w-32">Default Branch</TableHead>
-                <TableHead className="w-24 text-right">Reviews</TableHead>
-                <TableHead className="w-28 text-right">Open Issues</TableHead>
-                <TableHead className="w-32 text-right">최근 Review</TableHead>
+                <TableHead>{t.colRepository}</TableHead>
+                <TableHead className="w-32">{t.colDefaultBranch}</TableHead>
+                <TableHead className="w-24 text-right">{t.colReviews}</TableHead>
+                <TableHead className="w-28 text-right">
+                  {t.colOpenIssues}
+                </TableHead>
+                <TableHead className="w-32 text-right">
+                  {t.colLastReview}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

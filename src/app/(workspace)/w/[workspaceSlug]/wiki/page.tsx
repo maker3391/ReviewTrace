@@ -3,6 +3,7 @@ import type { Route } from "next";
 
 import { KnowledgeScreen } from "@/features/knowledge/components/KnowledgeScreen";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
+import { readMessages } from "@/lib/ui/appearance";
 
 export const metadata: Metadata = {
   title: "Wiki",
@@ -21,13 +22,14 @@ export default async function WorkspaceKnowledgePage({
 }) {
   const { workspaceSlug } = await params;
   const { workspace } = await requireWorkspace(workspaceSlug);
+  const t = (await readMessages()).wiki;
 
   return (
     <KnowledgeScreen
       scope={{ workspaceId: workspace.workspaceId, projectId: null }}
       basePath={`/w/${workspace.slug}/wiki` as Route}
-      heading="Workspace Wiki"
-      description="Project 를 가리지 않고 지켜야 하는 규칙"
+      heading={t.workspaceHeading}
+      description={t.workspaceDescription}
     />
   );
 }
