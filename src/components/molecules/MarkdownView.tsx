@@ -1,5 +1,8 @@
 import Markdown from "react-markdown";
+import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
+
+import { cn } from "@/lib/utils";
 
 /**
  * Markdown 원문을 화면으로 그린다.
@@ -24,16 +27,62 @@ import remarkGfm from "remark-gfm";
  * Feature 마다 `react-markdown` 을 직접 부르면 그때 고칠 자리가 흩어진다.
  *
  * 서식은 Tailwind Class 로 직접 준다 — 이것 하나 때문에 typography Plugin 을 더 넣지 않는다.
+ *
+ * ## 코드블록 강조 — class 만 받고 색은 우리가 준다
+ *
+ * `rehype-highlight` 는 토큰에 `hljs-*` **class 만** 붙인다. 🔴 **그것이 들고 다니는
+ * theme CSS 는 가져오지 않는다** — 그 CSS 는 배경·글꼴·padding 까지 자기 것으로 덮어써
+ * 코드블록 하나만 다른 제품에서 떼어 온 것처럼 보이게 만든다. 우리는 아래 `pre` 에서
+ * **필요한 class 몇 개에만** 우리 CSS 변수를 준다.
+ *
+ * 🔴 **편집기와 같은 세 변수를 쓴다**(`components/molecules/MarkdownEditor.tsx`) —
+ * keyword `--primary` · 문자열/숫자 `--foreground` · 주석 `--muted-foreground`,
+ * 나머지(식별자·타입·함수 이름·괄호)는 **일부러 손대지 않는다.** 같은 문서를 쓸 때와
+ * 읽을 때 같은 것이 같은 강도로 보여야 한다.
+ *
+ * 🔴 **이것은 `rehype-raw` 와 다르다.** 붙는 것은 `<span class="hljs-…">` 뿐이고 본문의
+ * raw HTML 은 여전히 «만들어지지 않는다» — 위 보증은 그대로다.
  */
-export function MarkdownView({ content }: { content: string }) {
+export function MarkdownView({
+  content,
+  emptyLabel,
+}: {
+  content: string;
+  /**
+   * 본문이 비었을 때의 한 줄.
+   *
+   * 🔴 **이 Component 는 사전을 읽지 않는다.** Server(문서 상세)와 Client(편집기 미리
+   * 보기) 양쪽에서 쓰이므로 `readMessages()` 를 부를 수 없다 — 문구는 화면 언어를 아는
+   * 쪽이 넘긴다(`ConfirmDialog` 와 같은 판단).
+   */
+  emptyLabel: string;
+}) {
   if (content.trim() === "") {
-    return <p className="text-xs text-muted-foreground">본문이 비어 있습니다.</p>;
+    return <p className="text-xs text-muted-foreground">{emptyLabel}</p>;
   }
 
   return (
-    <div className="flex flex-col gap-3 text-sm leading-relaxed">
+    /*
+      🔴 **`break-words` 는 장식이 아니다 — 페이지가 좌우로 넘치는 것을 막는다.**
+
+      본문에는 띄어쓰기가 없는 긴 덩어리가 들어온다: URL 한 줄, 긴 식별자, 경로.
+      기본값(`overflow-wrap: normal`)에서는 그런 낱말이 **줄 안에서 끊기지 않아** 문단이
+      제 폭보다 넓어지고, 그 폭이 그대로 위로 올라가 **`<main>` 전체가 가로로 스크롤**한다.
+      390·768·1024 세 폭에서 실제로 그랬다(1024 에서도 main 이 753 → 1165 로 늘었다).
+
+      `overflow-wrap` 은 **상속**되므로 문단·목록·인용·표 셀까지 한 번에 걸린다. 🔴 그런데
+      `pre` 는 `white-space: pre` 라 애초에 줄바꿈 자리가 없어 **영향을 받지 않는다** —
+      코드블록은 지금처럼 제 컨테이너 안에서 가로로 스크롤한다(CLAUDE.md 16).
+    */
+    <div className="flex flex-col gap-3 text-sm leading-relaxed break-words">
       <Markdown
         remarkPlugins={[remarkGfm]}
+        /*
+          🔴 **언어를 «추측»하지 않는다**(`detect` 는 기본값 false 그대로). ```text 처럼
+          언어를 적지 않은 블록은 강조하지 않는다 — 로그·표·의사코드를 아무 언어로
+          칠하면 없는 문법이 있는 것처럼 읽힌다.
+        */
+        rehypePlugins={[rehypeHighlight]}
         components={{
           h1: ({ children }) => (
             <h2 className="mt-4 border-b border-border pb-1 text-base font-semibold tracking-tight">
@@ -73,8 +122,22 @@ export function MarkdownView({ content }: { content: string }) {
             );
           },
           pre: ({ children }) => (
-            // 🔴 긴 줄은 가로로 스크롤한다. 페이지 전체가 옆으로 늘어나지 않게 한다.
-            <pre className="overflow-x-auto rounded-sm border border-border bg-muted/40 p-3">
+            /*
+              🔴 긴 줄은 가로로 스크롤한다. 페이지 전체가 옆으로 늘어나지 않게 한다.
+
+              색은 여기 한 곳에서 준다 — 코드 본문은 편집기의 코드블록과 같은
+              `--accent-foreground` 이고, 그 위에 세 갈래만 갈라 놓는다.
+            */
+            <pre
+              className={cn(
+                "overflow-x-auto rounded-sm border border-border bg-muted/40 p-3 text-accent-foreground",
+                "[&_.hljs-comment]:text-muted-foreground [&_.hljs-comment]:italic",
+                "[&_.hljs-quote]:text-muted-foreground [&_.hljs-quote]:italic",
+                "[&_.hljs-keyword]:text-primary [&_.hljs-literal]:text-primary",
+                "[&_.hljs-string]:text-foreground [&_.hljs-number]:text-foreground",
+                "[&_.hljs-regexp]:text-foreground",
+              )}
+            >
               {children}
             </pre>
           ),
