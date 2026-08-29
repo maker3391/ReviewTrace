@@ -28,12 +28,17 @@ export function MemberRoleSelect({
   role,
   disabled,
   disabledReason,
+  label,
+  roleOptions,
 }: {
   workspaceSlug: string;
   userId: string;
   role: WorkspaceRole;
   disabled: boolean;
   disabledReason?: string;
+  label: string;
+  /** 🔴 값의 이름표. Select 의 `value` 와 Server Action 에 가는 값은 `WorkspaceRole` 그대로다. */
+  roleOptions: Record<WorkspaceRole, string>;
 }) {
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -55,11 +60,8 @@ export function MemberRoleSelect({
 
   if (disabled) {
     return (
-      <span
-        className="font-mono text-xs text-muted-foreground"
-        title={disabledReason}
-      >
-        {role}
+      <span className="text-xs text-muted-foreground" title={disabledReason}>
+        {roleOptions[role]}
       </span>
     );
   }
@@ -67,13 +69,13 @@ export function MemberRoleSelect({
   return (
     <div className="flex flex-col gap-1">
       <Select value={role} onValueChange={onChange} disabled={pending}>
-        <SelectTrigger className="h-7 w-28" aria-label="역할">
+        <SelectTrigger className="h-7 w-28" aria-label={label}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {WORKSPACE_ROLES.map((option) => (
             <SelectItem key={option} value={option}>
-              {option}
+              {roleOptions[option]}
             </SelectItem>
           ))}
         </SelectContent>

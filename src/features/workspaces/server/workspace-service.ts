@@ -43,7 +43,7 @@ export async function createWorkspace(
 ): Promise<CreatedWorkspace> {
   const name = input.name.trim();
   if (name === "") {
-    throw new AppError("VALIDATION_ERROR", "Workspace 이름을 입력하세요.");
+    throw new AppError("WORKSPACE_NAME_REQUIRED");
   }
 
   const base = normalizeSlug(name);
@@ -77,10 +77,7 @@ export async function createWorkspace(
   }
 
   // 🔴 값 자체를 message 에 담지 않는다 — 사용자가 넣은 문자열이 로그로 흘러 나간다.
-  throw new AppError(
-    "CONFLICT",
-    "그 이름으로 Workspace 주소를 만들지 못했습니다. 다른 이름을 써 주세요.",
-  );
+  throw new AppError("WORKSPACE_NAME_UNUSABLE");
 }
 
 export interface WorkspaceMemberRow {
@@ -143,10 +140,7 @@ export async function changeMemberRole(
       .limit(1);
 
     if (personal[0]?.personalOwnerId === input.userId) {
-      throw new AppError(
-        "CONFLICT",
-        "Personal Workspace 의 주인은 역할을 바꿀 수 없습니다.",
-      );
+      throw new AppError("PERSONAL_WORKSPACE_ROLE_FIXED");
     }
 
     if (input.role !== "OWNER") {
@@ -169,10 +163,7 @@ export async function changeMemberRole(
         .for("update");
 
       if (others.length === 0) {
-        throw new AppError(
-          "CONFLICT",
-          "마지막 OWNER 입니다. 다른 멤버를 OWNER 로 올린 뒤에 바꿔 주세요.",
-        );
+        throw new AppError("WORKSPACE_LAST_OWNER");
       }
     }
 
@@ -188,7 +179,7 @@ export async function changeMemberRole(
       .returning({ userId: workspaceMembers.userId });
 
     if (changed.length === 0) {
-      throw new AppError("NOT_FOUND", "멤버를 찾을 수 없습니다.");
+      throw new AppError("WORKSPACE_MEMBER_NOT_FOUND");
     }
   });
 }

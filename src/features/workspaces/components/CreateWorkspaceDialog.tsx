@@ -2,9 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 
+import { Spinner } from "@/components/atoms/Spinner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +20,7 @@ import {
   createWorkspaceSchema,
   type CreateWorkspaceInput,
 } from "@/features/workspaces/schemas/workspace";
+import { useLocalizedForm } from "@/lib/validation/use-localized-form";
 
 /**
  * Workspace 만들기.
@@ -51,8 +51,7 @@ export function CreateWorkspaceDialog({
   const [open, setOpen] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  const form = useForm<CreateWorkspaceInput>({
-    resolver: zodResolver(createWorkspaceSchema),
+  const form = useLocalizedForm<CreateWorkspaceInput>(createWorkspaceSchema, {
     defaultValues: { name: "" },
   });
 
@@ -122,7 +121,9 @@ export function CreateWorkspaceDialog({
             size="sm"
             disabled={form.formState.isSubmitting}
           >
-            {form.formState.isSubmitting ? labels.submitting : labels.submit}
+            {/* 🔴 label 을 갈아 끼우지 않는다 — 무엇을 실행 중인지가 계속 보여야 한다. */}
+            {form.formState.isSubmitting && <Spinner />}
+            {labels.submit}
           </Button>
         </DialogFooter>
       </DialogContent>

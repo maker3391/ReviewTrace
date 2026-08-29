@@ -12,12 +12,12 @@ import {
   changeMemberRole,
   createWorkspace,
 } from "@/features/workspaces/server/workspace-service";
+import { actionFromError } from "@/lib/action/action-error";
 import {
-  actionFromError,
   actionOk,
-  actionValidationFailed,
   type ActionResult,
 } from "@/lib/action/action-result";
+import { parseActionInput } from "@/lib/action/parse-action-input";
 import { requireUser } from "@/lib/auth/require-workspace";
 import { requireOwner, requireWorkspace } from "@/lib/auth/require-workspace";
 
@@ -42,9 +42,9 @@ export interface CreatedWorkspaceResult {
 export async function createWorkspaceAction(
   input: CreateWorkspaceInput,
 ): Promise<ActionResult<CreatedWorkspaceResult>> {
-  const parsed = createWorkspaceSchema.safeParse(input);
-  if (!parsed.success) {
-    return actionValidationFailed(parsed.error);
+  const parsed = await parseActionInput(createWorkspaceSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
   }
 
   try {
@@ -77,9 +77,9 @@ export async function changeMemberRoleAction(
   workspaceSlug: string,
   input: ChangeMemberRoleInput,
 ): Promise<ActionResult> {
-  const parsed = changeMemberRoleSchema.safeParse(input);
-  if (!parsed.success) {
-    return actionValidationFailed(parsed.error);
+  const parsed = await parseActionInput(changeMemberRoleSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
   }
 
   try {
