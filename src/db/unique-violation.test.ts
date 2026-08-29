@@ -88,4 +88,45 @@ describe("isUniqueViolation", () => {
     // 상한을 넘으면 찾지 못하고 멈춘다 — 무한히 파고들지 않는 것이 요점이다.
     expect(isUniqueViolation(nested)).toBe(false);
   });
+
+  /**
+   * 🔴 자기참조가 아니라 **둘이 서로를 가리키는** 경우다.
+   * `next === current` 검사로는 못 잡고, 깊이 상한만이 막는다.
+   */
+  it("🔴 cause 가 A→B→A 로 맞물려 돌아도 멈춘다", () => {
+    const a = new Error("a");
+    const b = new Error("b");
+    Object.assign(a, { cause: b });
+    Object.assign(b, { cause: a });
+
+    // 상한이 없으면 여기서 영원히 돈다.
+    expect(isUniqueViolation(a)).toBe(false);
+  });
+
+  it("맞물린 사슬이라도 상한 안에 unique 위반이 있으면 찾는다", () => {
+    const inner = pgUniqueViolation();
+    const outer = new Error("wrap");
+    Object.assign(outer, { cause: inner });
+
+    expect(isUniqueViolation(outer)).toBe(true);
+  });
+
+  /**
+   * 🔴 「타입이 아니라 모양만 본다」의 한계를 못 박아 둔다.
+   *
+   * `23505` 를 들고 오는 것은 PostgreSQL 뿐이지만, 이 판정은 **어느 unique 제약이
+   * 깨졌는지까지는 구분하지 못한다.** 부르는 쪽이 「slug 가 겹쳤다」로 단정해도 되는 이유는
+   * **그 표에 slug 말고 다른 unique 제약이 없기 때문**이다 — `projects` 는
+   * `(workspace_id, slug)` 하나, `knowledge_pages` 는 부분 unique 둘 다 slug 다.
+   * 그 표에 unique 제약을 더하면 이 단정이 깨진다.
+   */
+  it("어느 제약이 깨졌는지까지는 구분하지 못한다 — 부르는 쪽의 전제다", () => {
+    const otherConstraint = new Error(
+      'duplicate key value violates unique constraint "some_other_unique"',
+    );
+    Object.assign(otherConstraint, { code: "23505" });
+
+    // 이것도 true 다. 지금 두 표에는 slug 말고 unique 제약이 없어 문제되지 않는다.
+    expect(isUniqueViolation(otherConstraint)).toBe(true);
+  });
 });
