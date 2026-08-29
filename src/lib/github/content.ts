@@ -144,7 +144,14 @@ export async function readGithubLines(
    * 경계는 글자가 아니라 **줄 수**로 잰다.
    */
   const lineCount = file.text.split("\n").length;
-  if (lines.startLine > lineCount) {
+
+  /**
+   * 🔴 **끝 줄도 함께 잰다.** 시작 줄만 보면, 10줄짜리 파일에 `9~100` 을 보내고 9~10줄의
+   * 코드를 snapshot 으로 넣은 근거가 `VERIFIED` 가 된다 — **없는 11~100줄까지 확인했다**는
+   * 말이 남는다. 근거는 「이 범위가 이렇다」는 주장이므로, 범위 일부가 파일 밖이면
+   * 그 주장을 확인한 것이 아니다.
+   */
+  if (lines.startLine > lineCount || (lines.endLine ?? 0) > lineCount) {
     return { ok: false, reason: "OUT_OF_RANGE" };
   }
 

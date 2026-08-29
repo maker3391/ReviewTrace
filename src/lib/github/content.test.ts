@@ -35,3 +35,25 @@ describe("sliceLines", () => {
     expect(sliceLines(file, null, null)).toBe(file);
   });
 });
+
+/**
+ * 🔴 되돌림 확인(2026-08-29): `readGithubLines` 의 `endLine > lineCount` 검사를 떼면
+ * 「끝 줄이 파일 밖이면 확인한 것이 아니다」가 실패한다.
+ *
+ * 이 결함은 실제로 있었다 — 10줄짜리 파일에 `9~100` 을 보내고 9~10줄의 코드를
+ * snapshot 으로 넣으면 `VERIFIED` 가 됐다. **없는 11~100줄까지 확인했다**는 말이
+ * 남는다. 근거는 「이 범위가 이렇다」는 주장이므로, 범위 일부가 파일 밖이면
+ * 그 주장을 확인한 것이 아니다.
+ */
+describe("범위 경계", () => {
+  const file = "l1\nl2\nl3";
+
+  it("끝 줄이 파일 안이면 자른다", () => {
+    expect(sliceLines(file, 2, 3)).toBe("l2\nl3");
+  });
+
+  it("🔴 끝 줄이 파일 밖이면 있는 만큼만 나온다 — 부르는 쪽이 줄 수로 걸러야 한다", () => {
+    // `sliceLines` 는 조용히 잘라 준다. 그래서 경계 판단을 여기 맡기지 않는다.
+    expect(sliceLines(file, 2, 100)).toBe("l2\nl3");
+  });
+});

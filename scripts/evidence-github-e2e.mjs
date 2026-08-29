@@ -137,6 +137,12 @@ async function main() {
           endLine: blankLine,
         }),
         issue("비정규 경로", "E-7", { startLine: 2, endLine: 4 }),
+        // 🔴 시작은 파일 안, 끝만 파일 밖. 시작 줄만 재면 VERIFIED 가 된다.
+        issue("끝 줄만 파일 밖", "E-8", {
+          startLine: 2,
+          endLine: 99_999,
+          snapshot: truth,
+        }),
       ].map((entry) => {
         if (entry.externalId === "E-5") {
           return {
@@ -158,7 +164,7 @@ async function main() {
     }),
   });
 
-  check(ingest.status === 201, "Evidence 7건을 저장했다", `ingest 가 ${ingest.status}`);
+  check(ingest.status === 201, "Evidence 8건을 저장했다", `ingest 가 ${ingest.status}`);
   if (ingest.status !== 201) {
     return 1;
   }
@@ -182,6 +188,8 @@ async function main() {
     "E-6": "VERIFIED",
     // 🔴 `..` 을 걷어내고 다른 파일을 읽어 VERIFIED 로 적지 않는다.
     "E-7": "UNAVAILABLE",
+    // 🔴 범위 일부가 파일 밖이면 그 주장을 확인한 것이 아니다.
+    "E-8": "UNAVAILABLE",
   };
 
   const rows = await psql(
@@ -219,6 +227,12 @@ async function main() {
     actual.get("E-6")?.verification === "VERIFIED",
     "🔴 파일에 실제로 있는 빈 줄이 범위 밖으로 오해되지 않는다",
     "빈 줄이 UNAVAILABLE 로 찍혔다",
+  );
+
+  check(
+    actual.get("E-8")?.verification === "UNAVAILABLE",
+    "🔴 끝 줄이 파일 밖이면 «없는 줄까지 확인했다»고 적지 않는다",
+    "범위 일부가 파일 밖인데 확인된 것으로 남았다",
   );
 
   check(
