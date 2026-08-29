@@ -26,9 +26,10 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | shadcn/ui Primitive **11개** (`components/ui`) | 있다 — Button · Input · Textarea · Select · Badge · Table · Dialog · Dropdown Menu · Skeleton · Card · Tooltip |
 | `react-markdown` · `remark-gfm` | 있다 — **Wiki 본문 렌더링 전용.** 아는 자리는 `components/molecules/MarkdownView.tsx` 하나뿐이다 |
 | Atomic Design 계층 (`atoms` · `molecules` · `organisms`) | 있다 |
-| Drizzle Schema (**16 table · 8 enum**) · Migration 환경(`db:generate`·`db:migrate`) | 있다 |
+| Drizzle Schema (**17 table · 10 enum**) · Migration 환경(`db:generate`·`db:migrate`) | 있다 |
 | Zod · React Hook Form(`zodResolver`) | 있다 |
 | Feature 디렉터리 (`auth` · `invitations` · `issues` · `projects` · `dashboard` · `knowledge` · `reviews` · `repositories` · `api-keys`) | 있다 |
+| **MCP Server** (`mcp/` · stdio · Tool 8종) | **있다** — Claude Code · Codex 실제 연결 확인 (아래) |
 | Workspace Shell (`app/(workspace)/w/[workspaceSlug]` + AppHeader · AppSidebar · WorkspaceSwitcher) | 있다 |
 | SSR + Suspense + Skeleton 조회 골격 (`/w/{ws}/p/{project}/issues`) | 있다 |
 | Error Handling (`AppError` · `PublicError` · `error.tsx` · `global-error.tsx` · `not-found.tsx`) | 있다 |
@@ -41,13 +42,15 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | **User : Workspace = N:M** (`workspace_members` 가 정본) · Workspace Switcher | **있다** |
 | **Workspace 초대** 발행·수락 (Token 원문 미저장 · SHA-256 Hash 만) | **있다** — 링크를 직접 전달한다. 메일 발송은 없다 |
 | **화면 접근 통제** — `proxy.ts`(렌더 전 관문) + `requireWorkspace`(소속 판정) | **있다** |
-| **Agent API 4종** (`POST /api/v1/reviews` · `POST /api/v1/issues/{id}/activities` · `PATCH /api/v1/issues/{id}` · `GET /api/v1/knowledge/context`) | **있다.** 실제 서버·실제 PostgreSQL 로 E2E 확인 (아래) |
-| **API Key** 발급·폐기·Bearer 검증 (`ci_` + 256bit 난수 · SHA-256 Hash 만 저장) | **있다** — Application Service 까지. 🔴 **발급 «화면»·Server Action 은 없다** |
+| **Agent API 7종** (`POST /reviews` · `POST /reviews/{id}/issues` · `PATCH /issues/{id}` · `POST /issues/{id}/activities` · `GET /issues/{id}` · `GET /issues` · `GET /knowledge/context`) | **있다.** 실제 서버·실제 PostgreSQL 로 E2E 확인 (아래) |
+| **Decision Record** (`solution`·`decisionReason`·`alternativesConsidered`·`tradeOff`·`verification`·`regressionTest`·`residualRisk`) | **있다** — 🔴 Issue 가 아니라 **IssueActivity** 에 붙는다. 시도마다 따로 남아 덮어써지지 않는다 |
+| **Code Evidence** (`issue_code_evidences` · BEFORE/AFTER · GitHub 대조) | **있다** — 확인은 응답 뒤(`after()`)에 돈다. 확인 못 하면 `UNAVAILABLE` 로 남고 Snapshot 은 보존된다 |
+| **API Key** 발급·폐기·Bearer 검증 (`ci_` + 256bit 난수 · SHA-256 Hash 만 저장) | **있다** — 화면(`/w/{ws}/settings`)까지 |
 | Agent API Error Contract (`error.code`·`message`, Code↔Status 대응 한 곳) | 있다 |
 | **Project 계층** (`Workspace -> Project -> Repository -> ReviewSession -> ReviewIssue`) | **있다** — `projects` 표 · `UNIQUE(workspace_id, slug)` · `repositories.project_id` |
 | **Project 생성 화면** (`/w/{ws}/projects`) · Project Navigation | **있다** |
 | **Workspace Dashboard** (KPI · Projects · Needs Attention · Frequent Patterns · Recent Activity) | **있다** — 전부 SQL Aggregate. JS 집계 없음 |
-| **Project Dashboard** (KPI · Open Issues · Patterns · Recent Reviews · Repositories · Knowledge · Resolutions) | **있다** |
+| **Project Dashboard** (KPI · Open Issues · Patterns · Recent Reviews · Repositories · Wiki · Resolutions) | **있다** |
 | **Wiki**(`knowledge_pages`) 목록·상세·생성·수정·삭제 · Workspace/Project Scope 분리 | **있다** — Markdown 원문 저장 |
 | Reviews · Repositories 목록 화면 (Project 아래) | **있다** — 조회만 |
 | `GET /api/v1/knowledge/context` 의 **Project Scope + Wiki** | **있다** — `?projectSlug=` · 응답에 `scope`·`wiki` |
@@ -57,9 +60,13 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | **Workspace 만들기**(Switcher) · **멤버 역할 변경**(마지막 OWNER 강등 차단) | **있다** |
 | **Project 수정·삭제**(`/w/{ws}/p/{p}/settings` · 삭제 영향 건수 표시 후 이름 확인) | **있다** |
 | **Repository 를 Project 사이에서 이동** | **있다** — Review·Issue 가 함께 따라간다 |
-| ReviewIssue 의 **화면 CRUD**(상태 변경·Activity 추가) | **없다. 다음 단계** — Agent API 로만 가능 |
+| ReviewIssue 의 **화면 CRUD**(상태 변경·Activity 추가) | **있다** — Agent API 와 **같은 Application Service** 를 쓴다 |
 | Wiki 의 Markdown **렌더링** | **있다** — `MarkdownView` 한 곳. 🔴 raw HTML 을 렌더하지 않아 sanitize 가 따로 필요 없다 |
 | 멤버 **내보내기** · Workspace 이름·slug 변경 | **없다. 다음 단계** |
+| MCP 의 npm 배포(`npx`로 바로 쓰기) | **없다.** 지금은 이 저장소의 `mcp/server.mjs` 를 절대 경로로 가리킨다 |
+| Agent Integration 화면(`/w/{ws}/settings` · Claude Code · Codex 설정 복사) | **있다** — 🔴 키를 끼워 넣지 않고 `<your-api-key>` 자리표시자를 그린다 |
+| Agent 문서 (`docs/agent-integration.md` · `docs/agent-api.md`) | **있다** |
+| 언어 전환(KO·EN) · 테마 전환(light·dark·system) | **있다** — 쿠키를 서버가 읽어 첫 응답부터 반영한다(FOUC 없음). 🔴 상세 화면 일부는 아직 한국어로 남아 있다 |
 
 ### 검증된 것 (2026-08-28 실행)
 
@@ -834,6 +841,11 @@ API Key -> Workspace 결정 -> Zod Validation -> Repository Upsert
 
 🔴 **Client 가 Workspace 를 임의 지정하도록 만들지 않는다.**
 
+🔴 **`externalRepositoryId` 는 선택이다**(2026-08-28 변경). Agent 가 아는 것은 git remote 뿐이고,
+GitHub 의 숫자 id 를 알려면 Agent 가 GitHub API 를 따로 불러야 한다 — 기록 하나 남기자고 Agent 에게
+저장소 접근 권한을 요구하지 않는다. 보내면 rename 해도 같은 저장소로 남고, 안 보내면 `owner/name` 이
+신원이 된다. 나중에 숫자 id 가 오면 서버가 그 행의 신원을 승격해 꿰맨다(`repository-upsert.ts`).
+
 **`project` 는 선택이다.** 보내지 않으면 그 Workspace 의 `default` Project 로 들어간다 —
 Agent 는 화면이 없어 Project 를 미리 만들 수 없고, 첫 Review 를 통째로 거절하면 무엇을 먼저
 만들어야 하는지 알 방법이 없다.
@@ -1329,6 +1341,12 @@ pnpm build
 ```
 
 【향후 · Database 도입 시】 `pnpm db:generate` · `pnpm db:migrate` 로 Migration 상태도 검증한다.
+
+🔴 **`pnpm dev` 가 떠 있는 채로 `pnpm build` 를 돌리지 않는다.** 둘이 `.next` 를 함께 쓰기 때문에
+빌드가 dev 서버의 산출물을 덮어쓰고, dev 서버는 **살아 있는 채로 일부 Route 만 500 을 뱉는**
+좀비가 된다. 실제로 그렇게 돼서 E2E 18건이 한꺼번에 실패했고 **코드에는 아무 문제가 없었다**.
+증상이 「어떤 Route 만 500」이면 코드를 뒤지기 전에 `.next` 부터 의심해라 —
+서버를 내리고 `rm -rf .next` 한 뒤 다시 띄우면 된다.
 
 🔴 **검증 실패를 「기존 문제」라고 추측하지 않는다. 원인을 확인한다.** 기존 실패가 확실하면 근거와 함께 별도로 보고한다.
 🔴 **DB 가 없어 검증할 수 없는 부분은 성공했다고 추측하지 말고 그 사실을 명확히 보고한다.**

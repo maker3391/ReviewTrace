@@ -1,295 +1,510 @@
 # ReviewTrace
 
-> **Review. Resolve. Remember.**
+**Engineering memory for coding agents.**
 
-External Coding Agent(Claude Code · Codex CLI · 그 밖의 Agent · 사람)의 **Code Review 결과를
-수집**하고 **Finding → Fix Attempt → Verification → Resolution 이력을 축적**해,
-**반복되는 문제와 과거의 해결 방법을 Knowledge 로 만드는** Developer Review Memory System.
+Your agent fixes the bug. ReviewTrace remembers why.
 
-```text
-Code Change -> External Agent Review -> ReviewSession -> ReviewIssue
-  -> Fix Attempt -> Verification -> Resolution -> Pattern / Knowledge
-  -> 다음 개발 및 Review 에서 재사용
+ReviewTrace is a self-hosted system that captures what coding agents learn while reviewing and
+fixing code — the problem, the root cause, the alternatives they weighed, the solution they chose,
+the trade-off they accepted, and the exact lines of code involved — and makes it searchable by the
+next agent, months later.
+
+It connects to **Claude Code** and **Codex** over MCP.
+
+> **Status:** pre-1.0, self-hosted, actively developed. Not published to npm; you run it locally.
+
+<!--
+  DEMO SLOT — 15–20s GIF: Claude Code finds an issue -> records it in ReviewTrace ->
+  applies a fix -> resolve_issue -> the issue shows RESOLVED with BEFORE/AFTER evidence.
+  Insert here once recorded:  ![ReviewTrace demo](docs/assets/demo.gif)
+-->
+
+---
+
+## Why
+
+Coding agents are sharp inside a session and amnesiac between them.
+
+An agent that fixed a transaction-boundary bug in your repo three months ago cannot tell you:
+
+- what the problem actually was
+- why it happened
+- what other approaches were considered and rejected
+- why *this* fix was chosen
+- which lines changed
+- how it was verified, and what test keeps it from breaking again
+
+That context existed. It lived in a chat transcript and then it was gone. The next agent — or the
+next you — rediscovers the same problem and re-derives the same answer, or worse, picks the option
+that was already tried and rejected.
+
+ReviewTrace is not a place to dump review output. It stores **engineering decision history**:
+findings, attempts, decisions, verification, and resolution, tied to immutable commits.
+
+---
+
+## How it works in practice
+
+**Day 1.** Claude Code reviews a pull request and finds an external HTTP call inside a database
+transaction. Through the ReviewTrace MCP server it records:
+
+```
+Issue          External API call inside DB transaction
+Severity       HIGH          Category  TRANSACTION
+Pattern        EXTERNAL_IO_IN_TRANSACTION
+Root cause     Retry wrapper was added around the service method, which already had @Transactional
+Evidence       BEFORE  a81f3c2  OrderService.java:82-95
+Solution       Moved the outbound call after commit, kept the retry outside the boundary
+Alternatives   Shorter tx timeout (rejected: hides the problem), async outbox (rejected: too early)
+Trade-off      One extra round trip on the happy path
+Verification   Re-reviewed at 4b1d0e9; connection-pool saturation test no longer reproduces
+Regression     OrderServiceTx test asserts no external client is called inside the boundary
+Evidence       AFTER   4b1d0e9  OrderService.java:78-91
 ```
 
-🔴 **이 프로젝트는 AI Code Reviewer 를 만들지 않는다.** Review 는 외부 Agent 가 한다.
-여기의 책임은 **수집 → 구조화 → 저장 → 추적 → 검색 → 분석 → 재사용** 이다.
+**Months later.** Codex is touching payment code in the same repo. Before writing anything it calls
+`get_repository_knowledge` and `search_issues`, and gets back the recurring patterns in this
+repository, the issues still open, and the past resolutions — with the reasoning and the commits
+attached. It does not re-litigate a decision that was already made.
 
-작업 규칙·Domain·Architecture 의 정본은 [`CLAUDE.md`](./CLAUDE.md) 다.
-**무엇이 실제로 존재하는지는 그 문서 0절이 정본이다.**
-
----
-
-## 1. 지금 있는 것
-
-인증 · Multi-Workspace · Tenant 격리까지 서 있다.
-**무엇이 실제로 도는지는 [`CLAUDE.md`](./CLAUDE.md) 0절이 정본이다** — 아래는 요약이다.
-
-| 있다 | 없다 (다음 단계) |
-|---|---|
-| Next.js 16 App Router · React 19 · TypeScript strict | Workspace 새로 만들기 (Personal 외) |
-| Tailwind 4 · shadcn/ui · Atomic Design 계층 | 멤버 내보내기 · 역할 변경 |
-| PostgreSQL + Drizzle Schema · Migration 환경 | API Key 발급 **화면** |
-| Zod · React Hook Form | Repositories · Reviews · Knowledge 화면 |
-| **GitHub OAuth 로그인 · 서버 측 세션** | Dashboard 통계 |
-| **Personal Workspace 자동 생성 · N:M 소속** | 초대 메일 발송 (지금은 링크를 직접 전달) |
-| **`/w/[slug]` Workspace 라우팅 · Switcher** | |
-| **Workspace 초대 발행·수락** | |
-| SSR + Suspense + Skeleton 조회 골격 | |
-| Error Handling · `ActionResult` 계약 | |
-| Lint · Typecheck · Test · Build | |
-
-🔴 **Dashboard 에 통계 숫자가 없는 것은 미완성이 아니라 의도다.** 데이터를 쌓는 경로가 아직
-없으므로 숫자를 그리면 전부 거짓이다.
+Search today is exact and structured: filter by repository, status, severity, category, pattern
+key, or a substring over title / file path / pattern. Semantic and vector search are **not**
+implemented and are deliberately not on the near-term roadmap.
 
 ---
 
-## 2. 시작하기
+## Quick start
 
-### 2.1 요구 사항
+**Requirements:** Node.js 20.9+ · pnpm 11 · Docker (for PostgreSQL 17) · a GitHub OAuth App.
 
-- Node.js 20.9 이상 (개발·검증은 Node 24 에서 했다)
-- pnpm 11
-- PostgreSQL 17 — 로컬에 없으면 아래 Docker 로 띄운다
+```bash
+git clone https://github.com/maker3391/ReviewTrace.git
+cd ReviewTrace
+pnpm install
+cp .env.example .env
+```
 
-### 2.2 설치
+Fill in `.env`. There are no defaults for these — the app fails at startup rather than running
+half-configured (`src/lib/env.schema.ts`):
+
+| Variable | What it is |
+| --- | --- |
+| `DATABASE_URL` | `postgres://…` connection string |
+| `AUTH_SECRET` | 32+ chars — `openssl rand -base64 32` |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth App credentials |
+| `POSTGRES_PASSWORD` | used by `docker-compose.yml`; must match `DATABASE_URL` |
+| `APP_URL` | optional, defaults to `http://localhost:3000` |
+| `GITHUB_API_TOKEN` | optional, server-side token used to verify code evidence |
+
+Create the OAuth App at **GitHub → Settings → Developer settings → OAuth Apps**, with callback URL
+`http://localhost:3000/api/auth/callback/github`. The path is fixed by Auth.js; if you run on a
+different port, register that port too.
+
+```bash
+docker compose up -d   # PostgreSQL 17
+pnpm db:migrate        # apply migrations
+pnpm dev               # http://localhost:3000
+```
+
+Then:
+
+1. **Sign in with GitHub.** The first sign-in *is* sign-up. A personal workspace is created and you
+   own it.
+2. **Issue an API key** at `/w/{workspace}/settings` → API Keys (owner only). The token starts with
+   `ci_` and is **shown exactly once** — only its SHA-256 hash is stored.
+3. **Connect your agent** (below).
+
+You do **not** register repositories or create projects by hand. The first review from an agent
+upserts the repository from its git remote, and reviews land in the workspace's `default` project
+unless the agent names another one.
+
+---
+
+## Connect Claude Code
+
+The MCP server lives in this repository at `mcp/server.mjs` and runs over stdio. It is **not
+published to npm yet**, so point Claude Code at the absolute path of your clone.
+
+```bash
+claude mcp add reviewtrace -s user \
+  -e "REVIEWTRACE_API_URL=http://localhost:3000" \
+  -e "REVIEWTRACE_API_KEY=<your-api-key>" \
+  -- node /absolute/path/to/ReviewTrace/mcp/server.mjs
+```
+
+Verify:
+
+```bash
+claude mcp list
+# reviewtrace  ✔ Connected
+```
+
+Verified end to end in this repository: connection plus real tool calls that wrote rows to
+PostgreSQL.
+
+`-s user` installs it for every project, which is what you want — the memory is not scoped to one
+checkout. Avoid a project-scoped `.mcp.json`: it lives inside a repository and is one careless
+commit away from leaking your key.
+
+## Connect Codex
+
+Codex uses a different CLI shape. Use `codex mcp add` — hand-editing `[mcp_servers.*]` into
+`~/.codex/config.toml` was **not** picked up in our testing.
+
+```bash
+codex mcp add reviewtrace \
+  --env "REVIEWTRACE_API_URL=http://localhost:3000" \
+  --env "REVIEWTRACE_API_KEY=<your-api-key>" \
+  -- node /absolute/path/to/ReviewTrace/mcp/server.mjs
+```
+
+Verify:
+
+```bash
+codex mcp get reviewtrace
+# enabled: true   transport: stdio
+```
+
+Registration, transport, and read tool calls are confirmed — Codex invoked
+`get_repository_knowledge` against a running ReviewTrace and got a real answer back.
+
+One thing to expect: Codex asks for approval before it runs a **write** tool. ReviewTrace
+declares `create_review`, `add_issue`, `add_fix_attempt`, `review_again`, and `resolve_issue`
+as non-read-only, because they are — they change what your team will read later. You approve
+once in the interactive TUI. Non-interactive `codex exec` refuses them outright, so Codex
+writes have not been exercised end to end yet; the same tools are verified through Claude Code
+and through `scripts/mcp-e2e.mjs`.
+
+### Keeping the key out of your repository
+
+The server reads `REVIEWTRACE_API_KEY` from the environment your MCP client passes in, or from
+`~/.reviewtrace/config.json`:
+
+```json
+{ "apiUrl": "http://localhost:3000", "apiKey": "<your-api-key>" }
+```
+
+Never put it in your project's `.env` — that file is inside a repository.
+
+### Further reading
+
+- [Agent integration guide](docs/agent-integration.md) — which tool to call when, and what makes a
+  record worth keeping. Written for the agent, not for you.
+- [Agent API reference](docs/agent-api.md) — the HTTP contract the MCP server sits on.
+
+---
+
+## Telling your agent to use it
+
+No prompt engineering ritual required. The MCP server ships its own instructions, so a sentence is
+usually enough.
+
+```
+Review the changes on this branch. Before you start, check ReviewTrace for past issues in this
+repo. Record what you find, and when you fix something record why you chose that fix.
+```
+
+```
+이 브랜치를 리뷰해라. 시작 전에 ReviewTrace 에서 이 저장소의 과거 문제를 먼저 확인하고,
+찾은 문제와 고친 이유를 ReviewTrace 에 기록해라.
+```
+
+**Tools exposed:** `create_review` · `add_issue` · `add_fix_attempt` · `review_again` ·
+`resolve_issue` · `get_issue` · `search_issues` · `get_repository_knowledge`.
+
+---
+
+## What gets remembered
+
+Three tables carry the knowledge. Every field below exists in `src/db/schema/review.ts`.
+
+**Issue** — what was found. Stable across repeated reports.
+
+`title` · `description` · `severity` · `category` · `status` · `rootCause` · `failurePath` ·
+`patternKey` · `filePath` · `startLine` · `endLine` · `suggestion` · `resolutionSummary` ·
+`firstDetectedAt` · `resolvedAt` · `source` + `externalId` (dedup key)
+
+`rootCause` answers a different question than `description`. Symptoms alone are not reusable;
+causes are.
+
+**Activity** — one step in the history, with the decision record attached to it.
+
+`type` · `actorType` · `actorName` · `description` · `commitSha` · `solution` ·
+`decisionReason` · `alternativesConsidered` · `tradeOff` · `verification` · `regressionTest` ·
+`residualRisk`
+
+The decision record lives on the *activity*, not the issue. An issue is usually fixed more than
+once — putting the reasoning on the issue means the second attempt silently overwrites why the
+first one failed, which is exactly the part worth keeping. Every decision field is optional: a
+blank field beats a field an agent invented to satisfy a validator.
+
+**Code evidence** — the lines themselves.
+
+`kind` (`BEFORE` / `AFTER`) · `commitSha` · `filePath` · `startLine` · `endLine` · `snapshot` ·
+`verification` · `verifiedAt`
+
+Issues also carry free-form `tags`, separate from `category` (a fixed technical area) and
+`patternKey` (a normalized name for a recurring problem, e.g. `N_PLUS_ONE`).
+
+---
+
+## Review lifecycle
+
+```
+DETECTED ──▶ FIX_ATTEMPTED ──▶ REVIEWED_AGAIN ──▶ RESOLVED ──▶ REOPENED
+                  ▲                    │
+                  └────────────────────┘
+```
+
+| Activity | Meaning |
+| --- | --- |
+| `DETECTED` | An agent or a human found the issue |
+| `FIX_ATTEMPTED` | Someone tried a fix — solution and reasoning recorded here |
+| `REVIEWED_AGAIN` | The fix was re-reviewed; what is still wrong, if anything |
+| `RESOLVED` | Verified fixed; a resolution summary is **required** |
+| `REOPENED` | It came back; `resolvedAt` and the summary are cleared |
+| `IGNORED` | Won't fix, or a false positive |
+| `COMMENT` | A note that changes nothing |
+
+Statuses: `OPEN` · `IN_PROGRESS` · `RESOLVED` · `IGNORED` · `FALSE_POSITIVE` · `REOPENED`.
+
+Status and history move together in one transaction. `RESOLVED` without a `resolutionSummary` is
+rejected — storing `resolved = true` and nothing else throws away the only part that gets reused.
+`FALSE_POSITIVE` is deliberately separate from `RESOLVED`; merging them would make the pattern
+statistics lie.
+
+---
+
+## Code evidence
+
+An issue that says "line 82 is wrong" is worthless once the branch moves. Evidence is pinned to an
+**immutable commit**, never to a branch head:
+
+```
+repository + commitSha + filePath + startLine..endLine  →  snapshot
+```
+
+The snapshot is what the agent claims it read. Whether GitHub agrees is recorded separately:
+
+| `verification` | Meaning |
+| --- | --- |
+| `UNVERIFIED` | Not checked yet |
+| `VERIFIED` | Matches GitHub at that commit |
+| `MISMATCH` | Present at that commit, but different |
+| `UNAVAILABLE` | Couldn't look — private repo, missing commit, rate limit, GitHub down |
+
+Keeping "the agent sent this" apart from "GitHub confirms this" is the point. The verification pass
+runs *outside* the write transaction, so a slow or unreachable GitHub never blocks a recording, and
+the snapshot fallback means the UI still shows something for private or deleted repositories.
+
+**Only public repositories are ever read.** The server asks GitHub whether the repository is public
+before fetching anything, and stops if it is not — even with a token configured. Registering a
+repository in a workspace is not proof that the workspace may read it: anyone can put
+`someone-else/private` in a payload, and without that check a shared server token would pull other
+people's code into their evidence.
+
+`GITHUB_API_TOKEN` is optional and only raises the anonymous rate limit. Verification never uses
+your login token: sign-in requests only `read:user` and `user:email`, and asking every user for
+`repo` scope to check a code snippet is not a trade worth making.
+
+---
+
+## Real examples
+
+Both of these are bugs found in ReviewTrace itself.
+
+**1. A UUID is not an authorization boundary.**
+`verifyCodeEvidence` looked up evidence rows by id alone. The ids were server-generated inside the
+same transaction, so nothing was exploitable — but this repository's rule is that *every* id-based
+lookup also carries a workspace condition, and one exception becomes the precedent for the next
+one. A `workspaceId` condition was added to the select, the join, and the update.
+→ `src/features/issues/server/code-evidence-service.ts`
+
+**2. Claude Code found a ReviewTrace bug through ReviewTrace's own MCP server.**
+When evidence was submitted without a line range, `readGithubLines` returned the *whole file*, and
+`decideVerification` compared the agent's snippet to it with `===`. Every rangeless piece of
+evidence was therefore marked `MISMATCH` — the UI was effectively accusing the agent of lying, when
+the server had asked the wrong question. The read now reports whether it returned a whole file, and
+verification asks "is it *contained*?" for whole files and "is it *equal*?" for line ranges.
+Normalization trims line endings and trailing whitespace but never indentation, because in code
+indentation is meaning.
+→ `src/lib/github/content.ts`, `src/features/issues/server/code-evidence-service.ts`,
+regression test in `src/features/issues/server/code-evidence-service.test.ts`
+
+---
+
+## What ReviewTrace is not
+
+Not an AI code reviewer — your agent does the reviewing. Not an LLM wrapper: there is no model call
+anywhere in the core path. Not an IDE, and not an agent orchestration engine.
+
+---
+
+## Architecture
+
+```
+Claude Code / Codex
+        │  MCP (stdio)
+        ▼
+mcp/server.mjs ─────────► POST   /api/v1/reviews
+  no business logic       POST   /api/v1/reviews/{reviewId}/issues
+                          POST   /api/v1/issues/{issueId}/activities
+                          PATCH  /api/v1/issues/{issueId}
+                          GET    /api/v1/issues
+                          GET    /api/v1/issues/{issueId}
+                          GET    /api/v1/knowledge/context
+                                   │
+                                   ▼
+                          API key auth → Zod → Application service
+                                   │
+                          ┌────────┴────────┐
+                          ▼                 ▼
+                     PostgreSQL      GitHub adapter
+                                   (evidence verification)
+```
+
+**The MCP adapter is not a security boundary.** It holds no business rules: tenant resolution,
+validation, repository ownership and evidence verification all happen behind the REST API. If MCP
+filtered anything itself, the two entry points would drift apart, and that gap would become the
+bypass. Anything MCP can do, an HTTP client with the same key can do — deliberately, because the
+API is the canonical contract and MCP is one client of it.
+
+The web app is a modular monolith: Next.js App Router, server components for reads, server actions
+for writes, application services in `src/features/{domain}/server`, Drizzle over PostgreSQL. No
+message queue, no cache layer, no vector database.
+
+---
+
+## Security model
+
+- **The API key *is* the tenant.** There is no workspace field in any payload or query; a client
+  cannot name a workspace. Every agent query is scoped by the key's workspace.
+- **Keys are stored as SHA-256 hashes.** The plaintext exists only in the issuing response and is
+  shown once. Malformed tokens are rejected before touching the database.
+- **Rejections are indistinguishable.** Missing, malformed, unknown, revoked, and expired keys all
+  return the same `UNAUTHORIZED`. Distinguishing them leaks the existence of a key.
+- **Someone else's resource is `404`, not `403`.** A `403` confirms the id exists and lets you
+  enumerate other tenants.
+- **Revocation does not delete.** Revoked keys keep their row so their history survives.
+- **GitHub tokens stay server-side.** Sign-in uses GitHub OAuth with database sessions; the access
+  token lives in the `accounts` table and never reaches the session object or the browser.
+- **Security headers** are set for every response — `frame-ancestors 'none'`, `nosniff`,
+  `strict-origin-when-cross-origin` (workspace and project names are in the URL path), and HSTS in
+  production only (`next.config.ts`).
+- **No secrets in the repository.** `.env` is ignored; `.env.example` has placeholders only.
+
+---
+
+## Why setup is simple
+
+Agents never have to be told internal identifiers.
+
+| You'd expect to supply | Where it actually comes from |
+| --- | --- |
+| Workspace id | The API key |
+| Project | Optional `slug`; falls back to `default` |
+| Repository | `git remote` in the current checkout |
+| Commit | `git HEAD` |
+| Review id | Remembered by the MCP process for the session |
+| Issue id | Defaults to the last issue the session touched |
+
+You paste a key once. You never paste a UUID.
+
+---
+
+## Tech stack
+
+Next.js 16 (App Router) · React 19 · TypeScript strict · PostgreSQL 17 · Drizzle ORM · Auth.js
+(GitHub OAuth, database sessions) · Zod 4 · React Hook Form · Tailwind CSS 4 · shadcn/ui ·
+`@modelcontextprotocol/sdk` · Vitest · pnpm.
+
+---
+
+## Local development
 
 ```bash
 pnpm install
-cp .env.example .env   # 값을 채운다
+docker compose up -d      # PostgreSQL 17 (container: code-intelligence-postgres)
+pnpm db:migrate
+pnpm dev                  # http://localhost:3000
 ```
-
-`.env` 에 반드시 있어야 하는 값은 넷이다 — `DATABASE_URL` · `AUTH_SECRET` ·
-`GITHUB_CLIENT_ID` · `GITHUB_CLIENT_SECRET`.
-**없으면 기동 대신 실패한다** — 기본값을 두지 않았다(`src/lib/env.schema.ts`).
-
-Schema 는 둘로 나뉘어 있다: Database 만 쓰는 코드(Migration·조회 시험)가 OAuth Secret 까지
-요구하지 않게 하기 위한 것이고, **「없으면 실패」는 양쪽 모두 그대로다.**
-
-### 2.3 GitHub OAuth App
-
-로그인 방식은 **GitHub OAuth 하나**다. 비밀번호 로그인은 없고, 처음 로그인하면 그것이 가입이다.
-
-1. GitHub → **Settings → Developer settings → OAuth Apps → New OAuth App**
-2. 값을 채운다.
-
-   | 칸 | 값 |
-   |---|---|
-   | Application name | 아무 이름 (예: `ReviewTrace (local)`) |
-   | Homepage URL | `http://localhost:3000` |
-   | **Authorization callback URL** | **`http://localhost:3000/api/auth/callback/github`** |
-
-3. **Generate a new client secret** 을 눌러 값을 받는다
-4. `.env` 에 채운다.
-
-   ```bash
-   AUTH_SECRET=          # openssl rand -base64 32
-   GITHUB_CLIENT_ID=
-   GITHUB_CLIENT_SECRET=
-   ```
-
-🔴 **Callback URL 의 경로(`/api/auth/callback/github`)는 Auth.js 가 정한다.** 바꾸면 로그인이
-`redirect_uri_mismatch` 로 막힌다. 포트를 바꿔 띄운다면(예: `3910`) OAuth App 쪽 주소도
-그 포트로 맞추거나, 그 포트를 위한 App 을 따로 만든다.
-
-🔴 **Secret 을 커밋하지 않는다.** `.env` 는 Git 제외이고 `.env.example` 에는 자리만 있다.
-
-### 2.4 PostgreSQL
-
-이 저장소는 **띄우는 방법만 제공한다. 실행은 사장님이 직접 한다.**
-
-```bash
-# .env 에 POSTGRES_PASSWORD 를 먼저 채운다 (DATABASE_URL 과 같은 값)
-docker compose up -d
-docker compose down     # 정지 (데이터는 볼륨에 남는다)
-docker compose down -v  # 정지 + 데이터 삭제
-```
-
-컨테이너 이름은 `code-intelligence-postgres`, 볼륨은 `code-intelligence-postgres-data` 다.
-**다른 프로젝트의 컨테이너와 섞이지 않는다.**
-
-### 2.5 Migration
-
-```bash
-pnpm db:generate   # Schema 변경 -> SQL 파일 생성 (Database 없이 돈다)
-pnpm db:migrate    # 생성된 SQL 을 Database 에 적용 (Database 필요)
-```
-
-- 정본은 `src/db/schema/**` 이고, 산출물은 `src/db/migrations/**` 다. **둘 다 커밋한다**
-- `drizzle-kit push` 는 쓰지 않는다 — 생성된 SQL 을 사람이 읽고 리뷰한 뒤에 적용한다
-
-### 2.6 개발 서버
-
-```bash
-pnpm dev     # http://localhost:3000
-```
-
----
-
-## 3. 검증
-
-코드를 고쳤으면 저장소 루트에서 **네 개 모두** 돌린다.
 
 ```bash
 pnpm lint
-pnpm typecheck   # next typegen && tsc --noEmit
-pnpm test        # vitest run
+pnpm typecheck            # next typegen && tsc --noEmit
+pnpm test
 pnpm build
 ```
 
-`typecheck` 가 `next typegen` 을 먼저 부르는 이유: `typedRoutes` 로 생성되는 Route 타입과
-`PageProps` / `LayoutProps` 가 없으면 `tsc` 만으로는 실제 빌드와 같은 것을 보지 못한다.
+Schema changes: edit `src/db/schema/**`, run `pnpm db:generate`, read the generated SQL, then
+`pnpm db:migrate`. Both the schema and the generated migration are committed. `drizzle-kit push` is
+not used — migrations are reviewed by a human before they run.
+
+`docker compose down` stops the database and keeps the volume; `down -v` deletes the data.
+
+## Testing
+
+```bash
+pnpm test                          # unit tests, no database required
+DB_INTEGRATION=true pnpm test      # tenant-isolation tests against real PostgreSQL
+bash scripts/agent-api-e2e.sh      # Agent REST API end to end (needs a dev server + database)
+node scripts/mcp-e2e.mjs           # MCP → REST → PostgreSQL end to end
+node scripts/evidence-github-e2e.mjs   # evidence verified against real GitHub (needs network)
+bash scripts/dashboard-explain.sh  # EXPLAIN ANALYZE on dashboard queries at volume
+```
+
+Integration tests run inside transactions that are rolled back, so they leave no rows behind. The
+end-to-end scripts drive a real dev server against a real database and read the resulting rows back
+with `psql` — "it returned 200" is not accepted as proof that something was stored.
+
+The evidence script is the one that proves `VERIFIED` is reachable at all: it reads real lines from
+a public repository at a real commit, sends them back as evidence, and checks that matching content
+verifies, altered content mismatches, out-of-range lines and missing files stay unavailable, and a
+genuinely blank line is not mistaken for out-of-range. It needs network, so it is not part of
+`pnpm test` — a test that fails offline stops being read as a test.
+
+Do not run `pnpm build` while `pnpm dev` is up. They share `.next`, and the build leaves the dev
+server alive but serving 500s on some routes.
 
 ---
 
-## 4. 구조
+## Roadmap
 
-```text
-src/
-  proxy.ts                 렌더 전에 도는 관문 (Next.js 16 의 Middleware)
-  app/                     Routing / Layout / Composition — 얇게 유지한다
-    page.tsx               로그인 뒤 어느 Workspace 로 갈지 정하는 랜딩
-    (auth)/                로그인 · 초대 수락 — Shell 없는 공개 화면
-    (workspace)/w/[workspaceSlug]/
-                           Workspace Shell (Header + Sidebar + Switcher)
-    api/auth/              Auth.js Endpoint
-    api/v1/                Agent Public API (API Key 인증)
-    error.tsx              화면 단위 Error Boundary
-    global-error.tsx       Root Layout 이 깨졌을 때
-  features/                Domain Feature
-    auth/                  로그인·로그아웃 Server Action 과 버튼
-    invitations/           초대 발행·수락 (actions/ components/ schemas/ server/)
-    issues/                components/ schemas/ server/ types/
-  components/
-    ui/                    shadcn/ui Primitive (정본)
-    atoms/                 SeverityBadge · StatusBadge · CodeLocation
-    molecules/             SearchField · FilterSelectField
-    organisms/             AppHeader · AppSidebar · WorkspaceSwitcher
-  db/
-    schema/                Drizzle Schema (정본)
-    migrations/            생성된 SQL
-    index.ts               Lazy Drizzle Client
-  lib/
-    action/                Server Action 반환 계약 (ActionResult)
-    auth/                  Auth.js 설정 · 세션 읽기 · 소속 판정
-    workspace/             Personal Workspace · slug · 마지막 Workspace 기억
-    env.schema.ts          환경 변수 Zod Schema (순수)
-    env.ts                 검증된 환경 변수 로더 (server-only)
-    errors.ts              AppError · PublicError
-  config/                  navigation(메뉴 ↔ 라우트 대응표) · routes(공개 경로) · app
-  types/                   Domain 값 집합 (Database Enum 과 같은 배열을 본다)
-```
+**Working today**
 
-의존 방향은 `ui -> atoms -> molecules -> organisms` 다.
-**Domain 의 의미를 가진 Component 는 공용 계층으로 올리지 않고** `features/{domain}/components` 에 둔다.
+- GitHub OAuth sign-in, database-backed sessions, workspaces, invitations, roles
+- Projects → repositories → reviews → issues → activities → evidence
+- Agent REST API (7 endpoints) with API-key auth and tenant isolation
+- MCP server with 8 tools, verified against Claude Code
+- Code evidence with GitHub verification and snapshot fallback
+- Decision records on every activity
+- Workspace and project dashboards, issue / review / repository detail pages, markdown wiki
+- API key issue and revoke UI
+
+**In progress**
+
+- Publishing the MCP server as an installable package (so `npx` replaces the absolute path)
+- Exercising Codex write tools outside the interactive TUI (they need approval, by design)
+- Screenshots and a demo recording
+
+**Planned**
+
+- Removing members; renaming a workspace
+- A hosted instance
+- Deeper GitHub integration (pull request context)
+- LLM- or embedding-based features are explicitly deferred until the structured data justifies them
 
 ---
 
-## 5. 이 저장소가 못 박은 것
+## Contributing
 
-### 조회는 SSR
+Issues and pull requests are welcome. Work branches from `develop`; pull requests target `develop`,
+never `main`. Run `pnpm lint`, `pnpm typecheck`, `pnpm test` and `pnpm build` before opening one.
 
-`/w/{slug}/issues` 가 그 본보기다.
+Project conventions — domain model, architecture boundaries, database rules, security rules — live
+in [`CLAUDE.md`](./CLAUDE.md), which applies to human and agent contributors alike.
 
-```text
-Search/Filter -> URL Search Params 변경 -> Server Component 재실행
-  -> Suspense Boundary -> Table Skeleton -> 새 Result
-```
+## License
 
-- Filter·Search·Pagination 상태는 **URL 에만** 있다. 새로고침·URL 공유·뒤로가기가 된다
-- 🔴 조회 중에도 **Header · Search · Filter 는 남고 Table 영역만** 바뀐다.
-  그래서 `loading.tsx` 를 쓰지 않고 Table 만 감싸는 `<Suspense>` 를 쓴다
-- Skeleton 은 실제 Table 과 **같은 열·같은 행 높이**로 그린다 (Layout Shift 방지)
-
-### Server Action 은 Transport
-
-```text
-브라우저 폼 -> Server Action -> Application Service -> Repository -> PostgreSQL
-                   |
-                   +-> revalidatePath — 서버가 목록을 다시 그린다
-```
-
-- 업무 규칙·검증·트랜잭션은 Application Layer 의 몫이다
-- 🔴 **실패는 예외로 던지지 않고 `ActionResult` 로 돌려준다.** 프로덕션 빌드에서 Server Action 의
-  예외는 **메시지가 지워진 채** 도착해 화면이 이유를 보여 줄 수 없다.
-  계약과 헬퍼는 `src/lib/action/action-result.ts` 에 있다
-- 실제로 쓰는 자리: 로그인·로그아웃(`features/auth/actions`), 초대 발행·수락(`features/invitations/actions`)
-
-### 외부 입력은 Zod
-
-- **URL Search Params** 는 `.catch()` 로 기본값에 떨어뜨린다 — 주소창의 오타가 화면을 500 으로 만들지 않는다
-- **Form** 은 같은 값이라도 별도 Schema 로 검증해 사용자에게 알린다 (React Hook Form + `zodResolver`)
-- **환경 변수**도 외부 입력이다. 형식이 틀리면 읽는 순간 실패한다
-
-### Multi-Tenant 는 Workspace
-
-```text
-Web Request    Session -> User + URL slug -> WorkspaceMember -> Authorized Workspace
-Agent Request  API Key -> Key Lookup      -> Workspace       -> Authorized Workspace
-```
-
-- **누구나 GitHub OAuth 로 가입한다.** 처음 로그인하면 그 사람의 Personal Workspace 가 생기고
-  그가 OWNER 가 된다. 다른 Workspace 에는 **초대**로 들어간다
-- **User : Workspace 는 N:M 이다.** 한 사람이 Personal 의 OWNER 이면서 회사 Workspace 의
-  MEMBER 일 수 있고, 소속의 정본은 `workspace_members` 하나뿐이다
-- 화면 주소가 Tenant Context 를 담는다 — `/w/{workspaceSlug}/{section}`.
-  세션 안의 「현재 Workspace」에 숨기지 않아 **탭마다 다른 Workspace 를 볼 수 있다**
-
-🔴 **URL 의 `workspaceSlug` 는 Context 표시일 뿐 권한 증명이 아니다.** 주소를 남의 Workspace 로
-바꿔도 소속 조회가 비면 아무것도 열리지 않고, **없는 Workspace 와 남의 Workspace 는 밖에서
-구분되지 않는다**(둘 다 404). 판정은 `src/lib/auth/require-workspace.ts` 한 곳이 한다.
-
-🔴 **Client 가 보낸 `userId`·`workspaceId` 로 접근 권한을 정하지 않는다.**
-
-### 오류는 code 와 message 만 나간다
-
-```json
-{ "error": { "code": "VALIDATION_ERROR", "message": "Invalid review payload" } }
-```
-
-Stack Trace · SQL · Driver 오류 원문 · 내부 경로는 밖으로 나가지 않는다.
-알 수 없는 오류는 `INTERNAL_ERROR` 로 뭉갠다 — Driver 는 접속 문자열을 message 에 실어 던진다.
-
----
-
-## 6. Database
-
-```text
-User -> WorkspaceMember -> Workspace
-                             |-- ApiKey
-                             +-- Repository -> ReviewSession -> ReviewIssue
-                                                                  |-- IssueActivity
-                                                                  +-- IssueTag -- Tag
-```
-
-- 🔴 **검색·Filter·Statistics 에 쓰는 값은 JSONB 에 몰아넣지 않는다.**
-  `severity` `category` `status` `patternKey` `filePath` 는 전부 Column 이고 Enum 으로 못 박혀 있다.
-  JSONB 는 Agent 원본 Payload(`review_sessions.raw_payload`) 한 자리에만 쓴다
-- 🔴 **Index 는 조회 패턴이 있는 것만 만들었다.** 각 Index 옆에 어떤 화면이 쓰는지 적어 두었다
-- `ReviewSession` 의 대상은 PR 에 한정하지 않는다 — `PULL_REQUEST · COMMIT · BRANCH · REPOSITORY · MANUAL`.
-  **PR 번호는 Optional Metadata 일 뿐 Domain Root 가 아니다**
-
----
-
-## 7. 다음 단계
-
-순서대로다.
-
-1. **API Key 발급 화면** — Application Service 는 있고 화면·Server Action 이 없다.
-   그것이 없으면 Agent 를 붙이려고 코드를 직접 불러야 한다
-2. **Issue 상세 화면** — IssueActivity History 와 Resolution 을 사람이 읽는 자리
-3. **Repositories 화면** — 연결·해제(`is_active`)와 Repository 별 통계
-4. **Workspace 만들기 · 멤버 관리** — Personal 외 Workspace 생성, 내보내기, 역할 변경
-5. **Dashboard 통계** — 데이터가 실제로 쌓인 뒤에 그린다
-
----
-
-## 8. Git
-
-```text
-feature/* -> develop -> main
-```
-
-- PR base 는 항상 `develop`. `main` 으로 직접 PR 하지 않는다
-- 커밋: `type: subject` 한 줄, 한글 명령형 (`feat` `fix` `refactor` `docs` `style` `chore`)
-- **한 커밋 = 한 작업.** `git add .` 로 전부 뭉치지 않는다
+No license file has been added yet, so default copyright applies. One will be added before a
+tagged release.
