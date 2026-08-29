@@ -156,6 +156,10 @@ export async function findKnowledgeContext(
   if (query.repositoryId !== null) {
     filters.push(eq(reviewIssues.repositoryId, query.repositoryId));
   }
+  if (query.repository !== null) {
+    // GitHub 의 `owner/name` 은 대소문자를 가리지 않는다.
+    filters.push(sql`lower(${repositories.fullName}) = lower(${query.repository})`);
+  }
   if (query.category !== null) {
     filters.push(eq(reviewIssues.category, query.category));
   }

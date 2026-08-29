@@ -34,6 +34,14 @@ export const knowledgeContextQuerySchema = z.object({
    * 그 Project 문서를 함께** 준다 — Agent 는 둘 다 지켜야 한다.
    */
   projectSlug: optionalTrimmed(200),
+  /**
+   * `owner/name` 으로 좁히기(스펙 6).
+   *
+   * 🔴 **Agent 는 우리 UUID 를 모른다.** 아는 것은 git remote 뿐이다 — 내부 ID 를
+   * 알아야 쓸 수 있는 조회는 Agent 에게 없는 것과 같다. `repositoryId` 는 화면과
+   * 기존 Client 를 위해 남겨 둔다.
+   */
+  repository: optionalTrimmed(401),
   repositoryId: z
     .uuid()
     .nullish()
@@ -72,6 +80,7 @@ export function readKnowledgeContextQuery(
 
   const keys = [
     "projectSlug",
+    "repository",
     "repositoryId",
     "category",
     "pattern",
