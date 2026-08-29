@@ -505,8 +505,12 @@ export function registerTools(server, client, state) {
           돌려준다. 그것을 그대로 넘기면 Agent 는 남의 저장소 이야기를 「이 저장소의 규칙」
           으로 읽는다 — 오류도 경고도 없이 판단만 틀어진다.
           `search_issues` 는 이미 `"(전체)"` 로 표시하고 있었다. 같은 표시를 여기도 붙인다.
+
+          🔴 **표시를 spread «뒤»에 둔다.** 지금 서버 응답에는 `repository` 칸이 없지만,
+          나중에 생기면 앞에 두었을 때 그 값이 우리 표시를 덮어 **범위를 잘못 알린다** —
+          그것도 오류 없이 조용히. 어느 범위로 «불렀는지»는 서버가 아니라 이쪽이 안다.
         */
-        return { repository: repository ?? "(전체)", ...context };
+        return { ...context, repository: repository ?? "(전체)" };
       }),
   );
 }
