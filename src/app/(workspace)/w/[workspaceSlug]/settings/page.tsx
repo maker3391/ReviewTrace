@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 
 import { Section } from "@/components/molecules/Section";
+import { AgentIntegrationPanel } from "@/features/api-keys/components/AgentIntegrationPanel";
 import { ApiKeyPanel } from "@/features/api-keys/components/ApiKeyPanel";
 import { listApiKeys } from "@/features/api-keys/server/api-key-service";
 import { StatRow } from "@/components/molecules/StatRow";
 import { listProjectOptions } from "@/features/projects/server/project-service";
 import { listWorkspaceMembers } from "@/features/invitations/server/invitation-service";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
+import { serverEnv } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -80,6 +82,22 @@ export default async function WorkspaceSettingsPage({
           description="Agent 가 이 Workspace 에 Review 를 보낼 때 쓰는 자격"
         >
           <ApiKeyPanel workspaceSlug={workspace.slug} apiKeys={apiKeys} />
+        </Section>
+      )}
+
+      {isOwner && (
+        <Section
+          title="Agent Integration"
+          description="Claude Code · Codex 에 이 Workspace 를 연결한다"
+          variant="raised"
+          bleed
+        >
+          {/*
+            🔴 **주소만 서버가 채우고 키는 채우지 않는다.** 키가 사람 눈에 보이는 자리는
+            발급 직후 1회뿐이다 — 여기에 끼워 넣으면 화면·복사기록·스크린샷으로 한 번 더
+            퍼진다(CLAUDE.md 11·19).
+          */}
+          <AgentIntegrationPanel apiUrl={serverEnv().APP_URL} />
         </Section>
       )}
     </div>
