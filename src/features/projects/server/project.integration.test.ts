@@ -8,6 +8,7 @@ import {
   users,
   workspaceMembers,
 } from "@/db/schema";
+import { loadIntegrationDbEnv } from "@/db/testing/integration-env";
 import { findProjectDashboard } from "@/features/dashboard/server/project-dashboard-query";
 import { findWorkspaceDashboard } from "@/features/dashboard/server/workspace-dashboard-query";
 import { findIssues } from "@/features/issues/server/issue-query";
@@ -47,13 +48,41 @@ import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
 /**
  * 실제 PostgreSQL 을 쓰는 시험 — **Project 계층과 Tenant 격리**.
  *
- * 여기 있는 것들은 **Fake 로 증명할 수 없다** — 지키는 주체가 응용 코드가 아니라
- * Database 의 제약과 Join 조건이기 때문이다.
+ * # 🔴 이 파일은 기본 `pnpm test` 에서 «돌지 않는다»
  *
  * ```bash
- * # 기본 실행에서는 건너뛴다. PostgreSQL 이 떠 있고 .env 에 DATABASE_URL 이 있어야 한다.
- * DB_INTEGRATION=true pnpm test
+ * pnpm test                       # 이 파일 전체를 건너뛴다
+ * DB_INTEGRATION=true pnpm test   # PostgreSQL 이 떠 있고 .env 에 DATABASE_URL 이 있어야 한다
  * ```
+ *
+ * **기본 실행이 초록인 것은 Tenant 안전의 근거가 아니다.** 아래는 `DB_INTEGRATION=true`
+ * 없이는 **한 번도 확인되지 않는다**:
+ *
+ * - `workspaceId` · `projectId` 를 **겹쳐 건 조건**이 실제로 남의 Tenant 를 걸러 내는가
+ *   (`findProjectBySlug` · `findProjectDashboard` · `findIssues` · `find*Detail` · `listProjectSummaries`)
+ * - `UNIQUE(workspace_id, slug)` 와 `knowledge_pages` 의 **부분 unique index 두 개**가
+ *   실제로 걸려 있는가
+ * - `ON DELETE CASCADE` 로 무엇이 함께 사라지는가
+ * - `count(*) filter (...)` · 상관 Subquery 같은 **SQL 집계가 무엇을 세는가**
+ * - `FOR UPDATE` 가 마지막 OWNER 판정에서 무엇을 잠그는가
+ *
+ * # 왜 기본에서 빼 두었는가
+ *
+ * 이 시험은 **실제 PostgreSQL 이 떠 있어야** 돈다. 그 조건을 기본 `pnpm test` 에 걸면
+ * Database 가 없는 자리(신규 clone · CI 기본 job)에서 **코드에 아무 문제가 없는데도**
+ * 빨간불이 켜지고, 그런 시험은 곧 읽히지 않게 된다. 그래서 실행 조건을 명시적으로 나눴다 —
+ * **빼 둔 이유는 「중요하지 않아서」가 아니라 「전제가 다르기 때문」이다.**
+ *
+ * CI 에서 함께 돌리는 방법은 `README.md` 의 **Testing** 절에 적어 두었다.
+ *
+ * # 기본 실행에서도 도는 짝
+ *
+ * Fake 하나로 증명되는 **판정 규칙**은 따로 옮겨 두었다 — 그쪽은 Database 없이 매번 돈다.
+ *
+ * - `project-service.test.ts` — slug 후보·직접 적은 slug 거절·CONFLICT 변환·Ingest Project 확보
+ * - `../../workspaces/server/workspace-service.test.ts` — 마지막 OWNER·Personal 주인
+ *
+ * 🔴 **그것이 이 파일을 대신하지 않는다.** Fake 는 `where` 를 해석하지 않는다.
  *
  * 🔴 **데이터를 남기지 않는다.** 모든 시험이 자기 Transaction 안에서 돌고 끝에서 되돌린다.
  * 있는 데이터를 지우거나 바꾸지 않으며 `TRUNCATE` 도 쓰지 않는다.
@@ -62,7 +91,8 @@ const enabled = process.env.DB_INTEGRATION === "true";
 
 beforeAll(() => {
   if (enabled) {
-    process.loadEnvFile(".env");
+    // 🔴 `.env` 가 없어도 환경 변수로 충분하면 돈다. 근거는 그 파일에 있다.
+    loadIntegrationDbEnv();
   }
 });
 
