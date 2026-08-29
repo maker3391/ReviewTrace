@@ -7,7 +7,7 @@ import { findKnowledgePage } from "@/features/knowledge/server/knowledge-page-se
 import { requireWorkspace } from "@/lib/auth/require-workspace";
 
 export const metadata: Metadata = {
-  title: "Knowledge",
+  title: "Wiki",
 };
 
 export default async function WorkspaceKnowledgeDetailPage({
@@ -33,7 +33,7 @@ export default async function WorkspaceKnowledgeDetailPage({
       page={page}
       workspaceSlug={workspace.slug}
       projectSlug={null}
-      basePath={`/w/${workspace.slug}/knowledge` as Route}
+      basePath={`/w/${workspace.slug}/wiki` as Route}
     />
   );
 }

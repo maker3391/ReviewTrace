@@ -24,7 +24,10 @@ const RESERVED_SLUGS: readonly string[] = [
   "new",
   "reviews",
   "issues",
+  // 🔴 `knowledge` 는 예전 주소다. 지금은 `wiki` 를 쓰지만, 예약어에서 빼면
+  // 그 이름의 Project 가 만들어져 옛 링크와 부딪힌다.
   "knowledge",
+  "wiki",
   "repositories",
   "settings",
 ];

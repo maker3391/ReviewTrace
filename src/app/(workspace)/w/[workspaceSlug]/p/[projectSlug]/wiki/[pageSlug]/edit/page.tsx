@@ -39,7 +39,7 @@ export default async function EditProjectKnowledgePage({
       <KnowledgePageForm
         workspaceSlug={workspace.slug}
         projectSlug={project.slug}
-        listPath={`/w/${workspace.slug}/p/${project.slug}/knowledge` as Route}
+        listPath={`/w/${workspace.slug}/p/${project.slug}/wiki` as Route}
         current={{ slug: page.slug, title: page.title, content: page.content }}
       />
     </div>

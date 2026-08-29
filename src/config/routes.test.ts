@@ -48,7 +48,7 @@ describe("isPublicPath", () => {
   it("🔴 Project 화면도 전부 보호다 — 한 층 깊어졌다고 공개가 되지 않는다", () => {
     expect(isPublicPath("/w/acme/p/smil")).toBe(false);
     expect(isPublicPath("/w/acme/p/smil/issues")).toBe(false);
-    expect(isPublicPath("/w/acme/p/smil/knowledge/rules")).toBe(false);
+    expect(isPublicPath("/w/acme/p/smil/wiki/rules")).toBe(false);
   });
 
   it("목록에 없는 경로는 보호다 — 새 화면이 조용히 공개되지 않는다", () => {

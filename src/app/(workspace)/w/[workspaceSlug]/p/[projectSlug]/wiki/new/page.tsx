@@ -25,7 +25,7 @@ export default async function NewProjectKnowledgePage({
       <KnowledgePageForm
         workspaceSlug={workspace.slug}
         projectSlug={project.slug}
-        listPath={`/w/${workspace.slug}/p/${project.slug}/knowledge` as Route}
+        listPath={`/w/${workspace.slug}/p/${project.slug}/wiki` as Route}
         current={null}
       />
     </div>

@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PageHeader } from "@/components/molecules/PageHeader";
 import { projectSectionHref } from "@/config/navigation";
 import { findProjectDashboard } from "@/features/dashboard/server/project-dashboard-query";
 import type { ProjectContext } from "@/features/projects/types/project";
@@ -45,11 +46,7 @@ export async function ProjectDashboardScreen({
 
   const issuesHref = projectSectionHref(workspaceSlug, project.slug, "issues");
   const reviewsHref = projectSectionHref(workspaceSlug, project.slug, "reviews");
-  const knowledgeHref = projectSectionHref(
-    workspaceSlug,
-    project.slug,
-    "knowledge",
-  );
+  const wikiHref = projectSectionHref(workspaceSlug, project.slug, "wiki");
   const repositoriesHref = projectSectionHref(
     workspaceSlug,
     project.slug,
@@ -57,19 +54,13 @@ export async function ProjectDashboardScreen({
   );
 
   return (
-    <div className="flex flex-col gap-8 p-6">
-      <header>
-        <h1 className="text-lg font-semibold tracking-tight">{project.name}</h1>
-        {project.description !== null && (
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {project.description}
-          </p>
-        )}
-      </header>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
+      <PageHeader
+        title={project.name}
+        description={project.description ?? undefined}
+      />
 
-      <Section title="Overview">
-        <div className="pt-4">
-          <StatRow
+      <StatRow
             stats={[
               {
                 label: "Reviews",
@@ -90,12 +81,15 @@ export async function ProjectDashboardScreen({
                     : `${dashboard.kpi.resolutionRate}%`,
                 hint: "최근 30일 발견분",
               },
-            ]}
-          />
-        </div>
-      </Section>
+        ]}
+      />
 
-      <Section title="Open Issues" action={{ label: "전체 보기", href: issuesHref }}>
+      <Section
+        title="Open Issues"
+        variant="raised"
+        bleed
+        action={{ label: "전체 보기", href: issuesHref }}
+      >
         {dashboard.openIssues.length === 0 ? (
           <SectionEmpty>열려 있는 Issue 가 없습니다.</SectionEmpty>
         ) : (
@@ -114,9 +108,14 @@ export async function ProjectDashboardScreen({
                   <TableCell>
                     <SeverityBadge severity={issue.severity} />
                   </TableCell>
-                  <TableCell>
-                    <span className="font-medium">{issue.title}</span>
-                    <span className="ml-2 font-mono text-[11px] text-muted-foreground">
+                  <TableCell className="max-w-md">
+                    <span
+                      title={issue.title}
+                      className="block truncate font-medium"
+                    >
+                      {issue.title}
+                    </span>
+                    <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
                       {issue.category}
                     </span>
                   </TableCell>
@@ -136,7 +135,7 @@ export async function ProjectDashboardScreen({
         )}
       </Section>
 
-      <Section title="Frequent Patterns">
+      <Section title="Frequent Patterns" variant="raised" bleed>
         {dashboard.frequentPatterns.length === 0 ? (
           <SectionEmpty>Pattern 이 없습니다.</SectionEmpty>
         ) : (
@@ -177,6 +176,8 @@ export async function ProjectDashboardScreen({
 
       <Section
         title="Recent Reviews"
+        variant="raised"
+        bleed
         action={{ label: "전체 보기", href: reviewsHref }}
       >
         {dashboard.recentReviews.length === 0 ? (
@@ -222,6 +223,8 @@ export async function ProjectDashboardScreen({
 
       <Section
         title="Repositories"
+        variant="raised"
+        bleed
         action={{ label: "전체 보기", href: repositoriesHref }}
       >
         {dashboard.repositories.length === 0 ? (
@@ -267,21 +270,23 @@ export async function ProjectDashboardScreen({
         사람이 적은 것(Explicit)과 Review 가 남긴 것(Observed)은 출처가 다르다.
       */}
       <Section
-        title="Knowledge"
+        title="Wiki"
         description="사람이 적은 문서"
-        action={{ label: "전체 보기", href: knowledgeHref }}
+        variant="raised"
+        bleed
+        action={{ label: "전체 보기", href: wikiHref }}
       >
         {dashboard.knowledgePages.length === 0 ? (
           <SectionEmpty>문서가 없습니다.</SectionEmpty>
         ) : (
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-border/60 px-5">
             {dashboard.knowledgePages.map((page) => (
               <li
                 key={page.slug}
                 className="flex items-baseline gap-3 py-2 text-xs"
               >
                 <Link
-                  href={`${knowledgeHref}/${page.slug}` as Route}
+                  href={`${wikiHref}/${page.slug}` as Route}
                   className="min-w-0 flex-1 truncate font-medium underline-offset-2 hover:underline"
                 >
                   {page.title}
@@ -295,11 +300,16 @@ export async function ProjectDashboardScreen({
         )}
       </Section>
 
-      <Section title="Recent Resolutions" description="Review 가 남긴 해결 기록">
+      <Section
+        title="Recent Resolutions"
+        description="Review 가 남긴 해결 기록"
+        variant="raised"
+        bleed
+      >
         {dashboard.recentResolutions.length === 0 ? (
           <SectionEmpty>해결 기록이 없습니다.</SectionEmpty>
         ) : (
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-border/60 px-5">
             {dashboard.recentResolutions.map((resolution) => (
               <li key={resolution.id} className="flex flex-col gap-0.5 py-2">
                 <div className="flex items-baseline gap-2">

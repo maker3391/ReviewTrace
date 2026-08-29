@@ -24,7 +24,7 @@ import { projectPath, workspacePath } from "@/config/routes";
 export type WorkspaceMenuKey =
   | "DASHBOARD"
   | "PROJECTS"
-  | "KNOWLEDGE"
+  | "WIKI"
   | "MEMBERS"
   | "SETTINGS";
 
@@ -32,7 +32,7 @@ export type ProjectMenuKey =
   | "OVERVIEW"
   | "REVIEWS"
   | "ISSUES"
-  | "KNOWLEDGE"
+  | "WIKI"
   | "REPOSITORIES"
   | "SETTINGS";
 
@@ -52,7 +52,7 @@ export interface NavigationItem<Key extends string> {
 export const WORKSPACE_ITEMS: readonly NavigationItem<WorkspaceMenuKey>[] = [
   { key: "DASHBOARD", label: "Dashboard", section: "dashboard" },
   { key: "PROJECTS", label: "Projects", section: "projects" },
-  { key: "KNOWLEDGE", label: "Knowledge", section: "knowledge" },
+  { key: "WIKI", label: "Wiki", section: "wiki" },
 ] as const;
 
 export const WORKSPACE_FOOTER_ITEMS: readonly NavigationItem<WorkspaceMenuKey>[] =
@@ -66,7 +66,7 @@ export const PROJECT_ITEMS: readonly NavigationItem<ProjectMenuKey>[] = [
   { key: "OVERVIEW", label: "Overview", section: "" },
   { key: "REVIEWS", label: "Reviews", section: "reviews" },
   { key: "ISSUES", label: "Issues", section: "issues" },
-  { key: "KNOWLEDGE", label: "Knowledge", section: "knowledge" },
+  { key: "WIKI", label: "Wiki", section: "wiki" },
   { key: "REPOSITORIES", label: "Repositories", section: "repositories" },
   { key: "SETTINGS", label: "Settings", section: "settings" },
 ] as const;

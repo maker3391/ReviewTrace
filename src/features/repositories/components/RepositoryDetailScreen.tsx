@@ -4,6 +4,7 @@ import type { Route } from "next";
 import { CodeLocation } from "@/components/atoms/CodeLocation";
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
 import { StatusBadge } from "@/components/atoms/StatusBadge";
+import { MetaDot, PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { StatRow } from "@/components/molecules/StatRow";
 import {
@@ -78,43 +79,48 @@ export async function RepositoryDetailScreen({
   const now = new Date();
 
   return (
-    <div className="flex flex-col gap-8 p-6">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-mono text-lg font-semibold tracking-tight">
-            {repository.fullName}
-          </h1>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {repository.provider} · {repository.defaultBranch}
-            {!repository.isActive && " · 연결 해제됨"}
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
+      <PageHeader
+        title={repository.fullName}
+        meta={
+          <>
+            <span>{repository.provider}</span>
+            <MetaDot />
+            <span className="font-mono">{repository.defaultBranch}</span>
+            {!repository.isActive && (
+              <>
+                <MetaDot />
+                <span>연결 해제됨</span>
+              </>
+            )}
             {repository.htmlUrl !== null &&
               isSafeExternalUrl(repository.htmlUrl) && (
                 <>
-                  {" · "}
+                  <MetaDot />
                   <a
                     href={repository.htmlUrl}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="underline-offset-2 hover:text-foreground hover:underline"
+                    className="underline-offset-4 hover:text-foreground hover:underline"
                   >
                     GitHub
                   </a>
                 </>
               )}
-          </p>
-        </div>
-        <MoveRepositoryDialog
-          workspaceSlug={workspaceSlug}
-          projectSlug={projectSlug}
-          repositoryId={repository.id}
-          repositoryFullName={repository.fullName}
-          projectOptions={projectOptions}
-        />
-      </header>
+          </>
+        }
+        actions={
+          <MoveRepositoryDialog
+            workspaceSlug={workspaceSlug}
+            projectSlug={projectSlug}
+            repositoryId={repository.id}
+            repositoryFullName={repository.fullName}
+            projectOptions={projectOptions}
+          />
+        }
+      />
 
-      <Section title="Overview">
-        <div className="pt-4">
-          <StatRow
+      <StatRow
             stats={[
               { label: "Reviews", value: repository.reviewCount },
               { label: "Open", value: repository.openIssueCount, hint: "현재" },
@@ -126,13 +132,13 @@ export async function RepositoryDetailScreen({
                     : formatDate(repository.lastReviewAt),
               },
               { label: "등록", value: formatDate(repository.createdAt) },
-            ]}
-          />
-        </div>
-      </Section>
+        ]}
+      />
 
       <Section
         title="Open Issues"
+        variant="raised"
+        bleed
         action={{ label: "전체 보기", href: issuesPath }}
       >
         {openIssues.length === 0 ? (
@@ -154,14 +160,15 @@ export async function RepositoryDetailScreen({
                   <TableCell>
                     <SeverityBadge severity={issue.severity} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="max-w-md">
                     <Link
                       href={`${issuesPath}/${issue.id}` as Route}
-                      className="font-medium underline-offset-2 hover:underline"
+                      title={issue.title}
+                      className="block truncate font-medium underline-offset-4 hover:underline"
                     >
                       {issue.title}
                     </Link>
-                    <span className="ml-2 font-mono text-[11px] text-muted-foreground">
+                    <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
                       {issue.category}
                     </span>
                   </TableCell>
@@ -183,6 +190,8 @@ export async function RepositoryDetailScreen({
 
       <Section
         title="Recent Reviews"
+        variant="raised"
+        bleed
         action={{ label: "전체 보기", href: reviewsPath }}
       >
         {reviews.length === 0 ? (

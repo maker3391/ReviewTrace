@@ -45,7 +45,7 @@ async function resolveScope(
     return {
       scope: { workspaceId: workspace.workspaceId, projectId: null },
       userId: user.id,
-      basePath: `/w/${workspaceSlug}/knowledge`,
+      basePath: `/w/${workspaceSlug}/wiki`,
     };
   }
 
@@ -56,7 +56,7 @@ async function resolveScope(
   return {
     scope: { workspaceId: workspace.workspaceId, projectId: project.projectId },
     userId: user.id,
-    basePath: `/w/${workspaceSlug}/p/${projectSlug}/knowledge`,
+    basePath: `/w/${workspaceSlug}/p/${projectSlug}/wiki`,
   };
 }
 
