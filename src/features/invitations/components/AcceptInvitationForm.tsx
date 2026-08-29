@@ -13,7 +13,14 @@ import { acceptInvitationAction } from "@/features/invitations/actions/accept-in
  *
  * 🔴 사용자용 message 만 그린다. 원본 오류를 화면에 내보내지 않는다(CLAUDE.md 19).
  */
-export function AcceptInvitationForm({ token }: { token: string }) {
+export function AcceptInvitationForm({
+  token,
+  label,
+}: {
+  token: string;
+  /** 🔴 이 버튼이 그리는 낱말 하나뿐이다(CLAUDE.md 11). */
+  label: string;
+}) {
   const [failure, setFailure] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -33,7 +40,7 @@ export function AcceptInvitationForm({ token }: { token: string }) {
   return (
     <div className="flex flex-col gap-2">
       <Button type="button" onClick={onAccept} disabled={pending}>
-        초대 수락
+        {label}
       </Button>
 
       {failure !== null && (

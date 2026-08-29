@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +9,7 @@ import {
   inviteMemberSchema,
   type InviteMemberInput,
 } from "@/features/invitations/schemas/invitation";
+import { useLocalizedForm } from "@/lib/validation/use-localized-form";
 
 /**
  * 초대 폼.
@@ -20,12 +19,25 @@ import {
  *
  * 🔴 **발행된 링크는 이 화면에서 한 번만 보인다.** 서버에 원문이 없으므로 새로고침하면 사라진다.
  */
-export function InviteMemberForm({ workspaceSlug }: { workspaceSlug: string }) {
+/** 🔴 이 폼이 실제로 그리는 낱말만 받는다(CLAUDE.md 11). */
+export interface InviteMemberLabels {
+  emailLabel: string;
+  submit: string;
+  linkTitle: string;
+  linkWarning: string;
+}
+
+export function InviteMemberForm({
+  workspaceSlug,
+  labels,
+}: {
+  workspaceSlug: string;
+  labels: InviteMemberLabels;
+}) {
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
-  const form = useForm<InviteMemberInput>({
-    resolver: zodResolver(inviteMemberSchema),
+  const form = useLocalizedForm<InviteMemberInput>(inviteMemberSchema, {
     defaultValues: { email: "" },
   });
 
@@ -58,8 +70,8 @@ export function InviteMemberForm({ workspaceSlug }: { workspaceSlug: string }) {
           <Input
             {...form.register("email")}
             type="email"
-            placeholder="초대할 이메일"
-            aria-label="초대할 이메일"
+            placeholder={labels.emailLabel}
+            aria-label={labels.emailLabel}
           />
           {form.formState.errors.email !== undefined && (
             <p className="text-xs text-destructive">
@@ -68,7 +80,7 @@ export function InviteMemberForm({ workspaceSlug }: { workspaceSlug: string }) {
           )}
         </div>
         <Button type="submit" size="sm" disabled={form.formState.isSubmitting}>
-          초대
+          {labels.submit}
         </Button>
       </form>
 
@@ -80,9 +92,9 @@ export function InviteMemberForm({ workspaceSlug }: { workspaceSlug: string }) {
 
       {inviteUrl !== null && (
         <div className="rounded-md border border-border bg-muted/40 p-3">
-          <p className="text-xs font-medium">초대 링크</p>
+          <p className="text-xs font-medium">{labels.linkTitle}</p>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            지금 복사하세요. 이 링크는 다시 볼 수 없습니다.
+            {labels.linkWarning}
           </p>
           <code className="mt-2 block break-all font-mono text-[11px]">
             {inviteUrl}

@@ -6,11 +6,9 @@ import { DEFAULT_SECTION, sectionHref } from "@/config/navigation";
 import { invitationTokenSchema } from "@/features/invitations/schemas/invitation";
 import { acceptInvitation } from "@/features/invitations/server/invitation-service";
 import { requireUser } from "@/lib/auth/require-workspace";
-import {
-  actionFromError,
-  actionValidationFailed,
-  type ActionResult,
-} from "@/lib/action/action-result";
+import { actionFromError } from "@/lib/action/action-error";
+import type { ActionResult } from "@/lib/action/action-result";
+import { parseActionInput } from "@/lib/action/parse-action-input";
 
 /**
  * 초대 수락.
@@ -25,9 +23,17 @@ import {
 export async function acceptInvitationAction(
   rawToken: string,
 ): Promise<ActionResult<never>> {
-  const parsed = invitationTokenSchema.safeParse(rawToken);
-  if (!parsed.success) {
-    return actionValidationFailed(parsed.error, "초대 링크가 올바르지 않습니다.");
+  /*
+    🔴 문구를 여기 적지 않는다 — 화면 언어를 따라야 한다. Schema 는 형식만 알고
+    (`invitation.ts`), 말은 사전이 갖는다(`config/messages`).
+  */
+  const parsed = await parseActionInput(
+    invitationTokenSchema,
+    rawToken,
+    (validation) => validation.rules.invitationToken,
+  );
+  if (!parsed.ok) {
+    return parsed.failure;
   }
 
   let slug: string;

@@ -8,12 +8,12 @@ import {
   requireOwner,
   requireWorkspace,
 } from "@/lib/auth/require-workspace";
+import { actionFromError } from "@/lib/action/action-error";
 import {
-  actionFromError,
   actionOk,
-  actionValidationFailed,
   type ActionResult,
 } from "@/lib/action/action-result";
+import { parseActionInput } from "@/lib/action/parse-action-input";
 
 /**
  * 초대 발행.
@@ -37,12 +37,12 @@ export async function inviteMemberAction(
   workspaceSlug: string,
   formData: FormData,
 ): Promise<ActionResult<InviteMemberResult>> {
-  const parsed = inviteMemberSchema.safeParse({
+  const parsed = await parseActionInput(inviteMemberSchema, {
     email: formData.get("email"),
   });
 
-  if (!parsed.success) {
-    return actionValidationFailed(parsed.error);
+  if (!parsed.ok) {
+    return parsed.failure;
   }
 
   try {
@@ -55,7 +55,11 @@ export async function inviteMemberAction(
       invitedBy: user.id,
     });
 
-    revalidatePath(`/w/${workspaceSlug}/settings`);
+    /*
+      🔴 **수락 대기 목록이 있는 화면은 «멤버»다.** `/settings` 를 다시 그리면 초대를
+      발행해도 바로 옆의 목록이 그대로라, 사용자는 초대가 나가지 않았다고 읽는다.
+    */
+    revalidatePath(`/w/${workspaceSlug}/members`);
 
     return actionOk({
       // 상대 경로로 돌려준다 — 화면이 자기 origin 을 붙인다. 서버가 Host 를 지어내지 않는다.
