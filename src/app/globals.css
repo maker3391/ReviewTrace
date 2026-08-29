@@ -7,7 +7,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  /*
+   * 🔴 한글은 Geist 에 글리프가 없어 «두 번째» 폰트가 받는다.
+   * 브라우저는 글자마다 글리프가 있는 첫 폰트를 고르므로 라틴은 Geist 그대로다.
+   */
+  --font-sans: var(--font-sans), var(--font-sans-kr);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
