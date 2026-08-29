@@ -4,10 +4,13 @@ import type { Route } from "next";
 import { CodeLocation } from "@/components/atoms/CodeLocation";
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
 import { StatusBadge } from "@/components/atoms/StatusBadge";
+import { PageContainer } from "@/components/molecules/PageContainer";
 import { MetaDot, PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { StatRow } from "@/components/molecules/StatRow";
 import {
+  FLEX_CELL,
+  NAME_CELL,
   Table,
   TableBody,
   TableCell,
@@ -20,7 +23,8 @@ import { MoveRepositoryDialog } from "@/features/repositories/components/MoveRep
 import type { RepositoryDetail } from "@/features/repositories/server/repository-query";
 import { listRepositoryReviews } from "@/features/reviews/server/review-query";
 import { formatAgeInDays, formatDate } from "@/lib/format/date";
-import { readLocale } from "@/lib/ui/appearance";
+import { readLocale, readMessages } from "@/lib/ui/appearance";
+import { cn } from "@/lib/utils";
 import type { ProjectScope } from "@/types/tenant";
 
 /** 상세 화면이 펼치는 행 수. 전체는 각 목록 화면이 답한다. */
@@ -72,27 +76,30 @@ export async function RepositoryDetailScreen({
   /** 옮길 수 있는 Project 목록. 같은 Workspace 것만 서버가 골라 넘긴다. */
   projectOptions: readonly { slug: string; name: string }[];
 }) {
-  const [openIssues, reviews, locale] = await Promise.all([
+  const [openIssues, reviews, locale, messages] = await Promise.all([
     listRepositoryOpenIssues(scope, repository.id, SECTION_LIMIT),
     listRepositoryReviews(scope, repository.id, SECTION_LIMIT),
     readLocale(),
+    readMessages(),
   ]);
+  const t = messages.repositoryDetail;
+  const issueColumns = messages.issues;
 
   const now = new Date();
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
+    <PageContainer width="wide">
       <PageHeader
         title={repository.fullName}
         meta={
           <>
-            <span>{repository.provider}</span>
+            <span>{messages.enums.provider[repository.provider]}</span>
             <MetaDot />
             <span className="font-mono">{repository.defaultBranch}</span>
             {!repository.isActive && (
               <>
                 <MetaDot />
-                <span>연결 해제됨</span>
+                <span>{t.disconnected}</span>
               </>
             )}
             {repository.htmlUrl !== null &&
@@ -116,44 +123,61 @@ export async function RepositoryDetailScreen({
             workspaceSlug={workspaceSlug}
             projectSlug={projectSlug}
             repositoryId={repository.id}
-            repositoryFullName={repository.fullName}
             projectOptions={projectOptions}
+            labels={{
+              trigger: t.move,
+              description: t.moveDescription(repository.fullName),
+              target: t.moveTarget,
+              placeholder: t.movePlaceholder,
+              cancel: t.cancel,
+              move: t.moveAction,
+            }}
           />
         }
       />
 
       <StatRow
             stats={[
-              { label: "Reviews", value: repository.reviewCount },
-              { label: "Open", value: repository.openIssueCount, hint: "현재" },
+              { label: t.reviews, value: repository.reviewCount },
               {
-                label: "최근 Review",
+                label: t.openIssues,
+                value: repository.openIssueCount,
+                hint: t.now,
+              },
+              {
+                label: t.lastReview,
                 value:
                   repository.lastReviewAt === null
                     ? null
                     : formatDate(repository.lastReviewAt),
               },
-              { label: "등록", value: formatDate(repository.createdAt) },
+              { label: t.registered, value: formatDate(repository.createdAt) },
         ]}
       />
 
       <Section
-        title="Open Issues"
+        title={t.openIssues}
         variant="raised"
         bleed
-        action={{ label: "전체 보기", href: issuesPath }}
+        action={{ label: messages.common.viewAll, href: issuesPath }}
       >
         {openIssues.length === 0 ? (
-          <SectionEmpty>열려 있는 Issue 가 없습니다.</SectionEmpty>
+          <SectionEmpty>{t.noOpenIssues}</SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-24">Severity</TableHead>
-                <TableHead>Issue</TableHead>
-                <TableHead className="w-56">Location</TableHead>
-                <TableHead className="w-28">Status</TableHead>
-                <TableHead className="w-20 text-right">Age</TableHead>
+                <TableHead className="w-24">
+                  {issueColumns.colSeverity}
+                </TableHead>
+                <TableHead>{issueColumns.colTitle}</TableHead>
+                <TableHead className="w-56">
+                  {issueColumns.colLocation}
+                </TableHead>
+                <TableHead className="w-28">{issueColumns.colStatus}</TableHead>
+                <TableHead className="w-20 text-right">
+                  {messages.projectDashboard.openIssues.colAge}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -162,7 +186,7 @@ export async function RepositoryDetailScreen({
                   <TableCell>
                     <SeverityBadge severity={issue.severity} />
                   </TableCell>
-                  <TableCell className="max-w-md">
+                  <TableCell className={NAME_CELL}>
                     <Link
                       href={`${issuesPath}/${issue.id}` as Route}
                       title={issue.title}
@@ -170,12 +194,15 @@ export async function RepositoryDetailScreen({
                     >
                       {issue.title}
                     </Link>
-                    <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
-                      {issue.category}
+                    <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                      {messages.enums.category[issue.category]}
                     </span>
                   </TableCell>
-                  <TableCell>
-                    <CodeLocation filePath={issue.filePath} />
+                  <TableCell className="max-w-[14rem] overflow-hidden">
+                    <CodeLocation
+                      className="block truncate"
+                      filePath={issue.filePath}
+                    />
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={issue.status} />
@@ -191,36 +218,45 @@ export async function RepositoryDetailScreen({
       </Section>
 
       <Section
-        title="Recent Reviews"
+        title={t.recentReviews}
         variant="raised"
         bleed
-        action={{ label: "전체 보기", href: reviewsPath }}
+        action={{ label: messages.common.viewAll, href: reviewsPath }}
       >
         {reviews.length === 0 ? (
-          <SectionEmpty>Review 가 없습니다.</SectionEmpty>
+          <SectionEmpty>{t.noReviews}</SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-40">Reviewer</TableHead>
-                <TableHead>Target</TableHead>
-                <TableHead className="w-20 text-right">Issues</TableHead>
-                <TableHead className="w-28 text-right">Date</TableHead>
+                <TableHead className="w-40">
+                  {messages.reviews.colReviewer}
+                </TableHead>
+                <TableHead>{messages.reviews.colTarget}</TableHead>
+                <TableHead className="w-20 text-right">
+                  {messages.reviews.colIssues}
+                </TableHead>
+                <TableHead className="w-28 text-right">
+                  {messages.reviews.colDate}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {reviews.map((review) => (
                 <TableRow key={review.id}>
-                  <TableCell>
+                  <TableCell className="max-w-[10rem]">
                     <Link
                       href={`${reviewsPath}/${review.id}` as Route}
-                      className="font-medium underline-offset-2 hover:underline"
+                      title={review.reviewerName}
+                      className="block truncate font-medium underline-offset-2 hover:underline"
                     >
                       {review.reviewerName}
                     </Link>
                   </TableCell>
-                  <TableCell className="font-mono text-[11px] text-muted-foreground">
-                    {review.targetType}
+                  <TableCell
+                    className={cn(FLEX_CELL, "truncate font-mono text-[11px] text-muted-foreground")}
+                  >
+                    {messages.enums.targetType[review.targetType]}
                     {review.branch !== null && ` · ${review.branch}`}
                     {review.commitSha !== null &&
                       ` · ${review.commitSha.slice(0, 7)}`}
@@ -237,6 +273,6 @@ export async function RepositoryDetailScreen({
           </Table>
         )}
       </Section>
-    </div>
+    </PageContainer>
   );
 }

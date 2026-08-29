@@ -12,6 +12,7 @@ import {
   optionalDecisionRecordSchema,
 } from "@/features/issues/schemas/decision-record";
 import { TAG_NAME_MAX_LENGTH } from "@/features/reviews/utils/tag-name";
+import { rule } from "@/lib/validation/validation-rule";
 
 /**
  * `POST /api/v1/reviews` 의 Payload 계약(스펙 29).
@@ -103,7 +104,7 @@ export const reviewRepositorySchema = z.object({
      * 두 번째 요청이 만들어 낸 신원이 첫 행과 같아지기 때문이다.
      */
     (value) => value === null || !value.toLowerCase().startsWith("fullname:"),
-    { message: "externalRepositoryId 는 fullname: 으로 시작할 수 없다" },
+    rule("reservedExternalRepositoryId"),
   ),
   owner: nonEmpty(IDENTIFIER_MAX),
   name: nonEmpty(IDENTIFIER_MAX),
@@ -139,7 +140,7 @@ export const reviewRepositorySchema = z.object({
     repository.fullName.toLowerCase() ===
     `${repository.owner}/${repository.name}`.toLowerCase(),
   {
-    message: "fullName 은 owner/name 과 같아야 한다",
+    ...rule("fullNameMismatch"),
     path: ["fullName"],
   },
 );
@@ -198,7 +199,7 @@ export const reviewIssueInputSchema = z
       issue.startLine === null ||
       issue.endLine === null ||
       issue.endLine >= issue.startLine,
-    { message: "endLine 은 startLine 보다 작을 수 없다", path: ["endLine"] },
+    { ...rule("endLineBeforeStartLine"), path: ["endLine"] },
   );
 
 export const reviewIngestSchema = z.object({

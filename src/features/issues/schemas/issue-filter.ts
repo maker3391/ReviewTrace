@@ -40,7 +40,8 @@ export type IssueFilter = z.infer<typeof issueFilterSchema>;
  * 🔴 검증 규칙을 Component 안의 `if` 로 흩뿌리지 않는다. 여기에 둔다(CLAUDE.md 9).
  */
 export const issueFilterFormSchema = z.object({
-  q: z.string().trim().max(200, "검색어는 200자를 넘을 수 없습니다."),
+  // 🔴 오류 «문구» 는 여기 없다 — 규칙만 있고 말은 사전이 갖는다(`lib/validation/zod-error-map.ts`).
+  q: z.string().trim().max(200),
   severity: z.enum([FILTER_ALL, ...ISSUE_SEVERITIES]),
   category: z.enum([FILTER_ALL, ...ISSUE_CATEGORIES]),
   status: z.enum([FILTER_ALL, ...ISSUE_STATUSES]),

@@ -108,8 +108,6 @@ export async function findIssues(
     };
   } catch (cause) {
     // Driver 오류 message 에는 접속 문자열·쿼리가 실려 온다. 밖으로 흘리지 않는다.
-    throw new AppError("INTERNAL_ERROR", "Issue 목록을 불러오지 못했습니다.", {
-      cause,
-    });
+    throw new AppError("UNEXPECTED", { cause });
   }
 }

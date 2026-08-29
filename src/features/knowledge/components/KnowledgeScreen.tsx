@@ -3,10 +3,12 @@ import type { Route } from "next";
 
 import { BookText } from "lucide-react";
 
+import { PageContainer } from "@/components/molecules/PageContainer";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { Button } from "@/components/ui/button";
 import {
+  NAME_CELL,
   Table,
   TableBody,
   TableCell,
@@ -45,7 +47,7 @@ export async function KnowledgeScreen({
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
+    <PageContainer width="wide">
       <PageHeader
         title={heading}
         description={description}
@@ -66,7 +68,7 @@ export async function KnowledgeScreen({
             <TableHeader>
               <TableRow>
                 <TableHead>{t.colTitle}</TableHead>
-                <TableHead className="w-56">{t.colSlug}</TableHead>
+                <TableHead className="w-40">{t.colSlug}</TableHead>
                 <TableHead className="w-40">{t.colAuthor}</TableHead>
                 <TableHead className="w-32 text-right">{t.colUpdated}</TableHead>
               </TableRow>
@@ -74,7 +76,7 @@ export async function KnowledgeScreen({
             <TableBody>
               {pages.map((page) => (
                 <TableRow key={page.slug}>
-                  <TableCell className="max-w-md">
+                  <TableCell className={NAME_CELL}>
                     <Link
                       href={`${basePath}/${page.slug}` as Route}
                       title={page.title}
@@ -83,10 +85,23 @@ export async function KnowledgeScreen({
                       {page.title}
                     </Link>
                   </TableCell>
-                  <TableCell className="max-w-56 whitespace-normal break-all font-mono text-xs text-muted-foreground">
+                  {/*
+                    🔴 **slug 는 이 행의 «주인공»이 아니다.** 제목이 식별자고 slug 는 그
+                    보조라, 좁은 폭에서 자리를 다투면 slug 가 먼저 접힌다. `break-all` 로
+                    두면 390 에서 이 칸이 54px 이 되어 **한 행이 101px(7줄)** 로 늘어났다 —
+                    제목이 40px 한 줄인데 slug 때문에 행이 세 배가 됐다. 실측한 값이다.
+
+                    그래서 Projects 목록의 slug 칸과 **같은 방식**으로 다룬다 —
+                    제 폭 안에서 잘리고 전문은 `title` 로 확인한다
+                    (`features/projects/components/ProjectListScreen.tsx`).
+                  */}
+                  <TableCell
+                    className="max-w-[10rem] truncate font-mono text-xs text-muted-foreground"
+                    title={page.slug}
+                  >
                     {page.slug}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="max-w-[10rem] truncate text-xs text-muted-foreground">
                     {page.authorName ?? "—"}
                   </TableCell>
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
@@ -98,6 +113,6 @@ export async function KnowledgeScreen({
           </Table>
         )}
       </Section>
-    </div>
+    </PageContainer>
   );
 }

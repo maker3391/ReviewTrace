@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Boxes } from "lucide-react";
 
 import {
+  NAME_CELL,
   Table,
   TableBody,
   TableCell,
@@ -9,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PageContainer } from "@/components/molecules/PageContainer";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { projectSectionHref } from "@/config/navigation";
@@ -37,10 +39,9 @@ export async function ProjectListScreen({
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
+    <PageContainer width="wide">
       <PageHeader
         title={t.title}
-        description={t.description}
         actions={<CreateProjectButton workspaceSlug={workspaceSlug} />}
       />
 
@@ -70,7 +71,7 @@ export async function ProjectListScreen({
             <TableBody>
               {projects.map((project) => (
                 <TableRow key={project.projectId}>
-                  <TableCell className="max-w-sm">
+                  <TableCell className={NAME_CELL}>
                     <Link
                       href={projectSectionHref(workspaceSlug, project.slug, "")}
                       title={project.name}
@@ -79,12 +80,18 @@ export async function ProjectListScreen({
                       {project.name}
                     </Link>
                     {project.description !== null && (
-                      <span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground">
+                      <span
+                        className="mt-0.5 block truncate text-xs font-normal text-muted-foreground"
+                        title={project.description}
+                      >
                         {project.description}
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
+                  <TableCell
+                    className="max-w-[10rem] truncate font-mono text-xs text-muted-foreground"
+                    title={project.slug}
+                  >
                     {project.slug}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
@@ -107,6 +114,6 @@ export async function ProjectListScreen({
           </Table>
         )}
       </Section>
-    </div>
+    </PageContainer>
   );
 }

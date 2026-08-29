@@ -5,9 +5,9 @@ import { KnowledgeScreen } from "@/features/knowledge/components/KnowledgeScreen
 import { requireProject } from "@/lib/auth/require-project";
 import { readMessages } from "@/lib/ui/appearance";
 
-export const metadata: Metadata = {
-  title: "Wiki",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.wiki };
+}
 
 /**
  * Project Wiki — 업무 규칙 · Architecture Decision · 외부 연동 규칙 · 장애 기록처럼

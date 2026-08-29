@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Route } from "next";
 
+import { PageContainer } from "@/components/molecules/PageContainer";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { IssueFilterBar } from "@/features/issues/components/IssueFilterBar";
 import { IssueTable } from "@/features/issues/components/IssueTable";
@@ -30,24 +31,33 @@ import { readMessages } from "@/lib/ui/appearance";
 export async function IssueListScreen({
   scope,
   basePath,
-  projectName,
   searchParams,
 }: {
   /** 🔴 소속 확인을 통과한 값만 들어온다. URL 의 slug 를 그대로 넣지 않는다(CLAUDE.md 11). */
   scope: IssueQueryScope;
   /** 주소를 다시 만들기 위한 값. 조회 조건이 아니다. */
   basePath: Route;
-  projectName: string;
   searchParams: Promise<RawSearchParams>;
 }) {
   const filter = parseIssueFilter(await searchParams);
-  const t = (await readMessages()).issues;
+  const messages = await readMessages();
+  const t = messages.issues;
+  const label = messages.enums;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
-      <PageHeader title={t.title} description={t.description(projectName)} />
+    <PageContainer width="wide">
+      <PageHeader title={t.title} />
 
-      <IssueFilterBar basePath={basePath} filter={filter} labels={t.filter} />
+      <IssueFilterBar
+        basePath={basePath}
+        filter={filter}
+        labels={{
+          ...t.filter,
+          severityOptions: label.severity,
+          categoryOptions: label.category,
+          statusOptions: label.status,
+        }}
+      />
 
       {/*
         🔴 key 가 Filter 마다 바뀌어야 새 Suspense Boundary 가 열려 Skeleton 이 보인다.
@@ -71,6 +81,6 @@ export async function IssueListScreen({
       >
         <IssueTable scope={scope} filter={filter} basePath={basePath} />
       </Suspense>
-    </div>
+    </PageContainer>
   );
 }

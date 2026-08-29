@@ -166,7 +166,7 @@ export async function resolveIngestRepository(
 
   const id = rows[0]?.id;
   if (id === undefined) {
-    throw new AppError("INTERNAL_ERROR");
+    throw new AppError("UNEXPECTED");
   }
 
   return id;

@@ -5,9 +5,9 @@ import { KnowledgeScreen } from "@/features/knowledge/components/KnowledgeScreen
 import { requireWorkspace } from "@/lib/auth/require-workspace";
 import { readMessages } from "@/lib/ui/appearance";
 
-export const metadata: Metadata = {
-  title: "Wiki",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.wiki };
+}
 
 /**
  * Workspace Wiki — 개발 공통 규칙 · Git/PR 규칙 · Security 정책처럼

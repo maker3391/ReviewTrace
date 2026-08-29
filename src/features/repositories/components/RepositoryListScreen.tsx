@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import {
+  NAME_CELL,
   Table,
   TableBody,
   TableCell,
@@ -11,12 +12,14 @@ import {
 } from "@/components/ui/table";
 import { FolderGit2 } from "lucide-react";
 
+import { PageContainer } from "@/components/molecules/PageContainer";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { listRepositoryStatuses } from "@/features/repositories/server/repository-query";
 import type { ProjectContext } from "@/features/projects/types/project";
 import { formatDate } from "@/lib/format/date";
 import { readMessages } from "@/lib/ui/appearance";
+import { cn } from "@/lib/utils";
 
 /**
  * Project 의 Repository 목록.
@@ -44,8 +47,8 @@ export async function RepositoryListScreen({
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
-      <PageHeader title={t.title} description={t.description(project.name)} />
+    <PageContainer width="wide">
+      <PageHeader title={t.title} />
 
       <Section variant="raised" bleed>
         {repositories.length === 0 ? (
@@ -70,7 +73,7 @@ export async function RepositoryListScreen({
             <TableBody>
               {repositories.map((repository) => (
                 <TableRow key={repository.id}>
-                  <TableCell className="max-w-md whitespace-normal">
+                  <TableCell className={cn(NAME_CELL, "whitespace-normal")}>
                     <Link
                       href={`${basePath}/${repository.id}` as Route}
                       className="break-all font-mono text-xs underline-offset-4 hover:underline"
@@ -78,7 +81,10 @@ export async function RepositoryListScreen({
                       {repository.fullName}
                     </Link>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
+                  <TableCell
+                    className="max-w-[8rem] truncate font-mono text-xs text-muted-foreground"
+                    title={repository.defaultBranch}
+                  >
                     {repository.defaultBranch}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
@@ -98,6 +104,6 @@ export async function RepositoryListScreen({
           </Table>
         )}
       </Section>
-    </div>
+    </PageContainer>
   );
 }

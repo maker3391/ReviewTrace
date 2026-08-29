@@ -203,7 +203,7 @@ export async function ingestReview(
             );
 
       if (replay === null) {
-        throw new AppError("INTERNAL_ERROR");
+        throw new AppError("UNEXPECTED");
       }
       return replay;
     }
@@ -690,7 +690,7 @@ export async function appendReviewIssues(
 
     const session = rows[0];
     if (session === undefined) {
-      throw new AppError("NOT_FOUND");
+      throw new AppError("RESOURCE_NOT_FOUND");
     }
 
     const inserted = await insertSessionIssues(tx, {

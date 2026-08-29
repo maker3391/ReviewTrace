@@ -58,8 +58,20 @@ export function PageHeader({
         {description !== undefined && (
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         )}
+        {/*
+          🔴 **`flex-wrap` 만으로는 «한 낱말»을 감당하지 못한다.**
+
+          여기 오는 값은 사람이 쓴 문장이 아니라 식별자다 — `REFRESH_TOKEN_RACE_CONDITION_
+          WITH_A_VERY_LONG_PATTERN_KEY_NAME` 같은 Pattern Key 는 빈칸이 없어 «줄바꿈할
+          자리»가 없다. 390px 에서 그 조각 하나가 446px 을 차지해 머리글이 화면 밖으로
+          나갔고, 그러면 **페이지 전체가 좌우로 넘친다**(실측: main 462 / 311).
+
+          `wrap-anywhere`(overflow-wrap: anywhere) 는 `break-words` 와 달리 **min-content
+          계산까지 바꾼다** — 그래야 flex 항목이 실제로 줄어든다. 그리고 「자리가 없을 때만」
+          끊으므로 넉넉한 폭에서는 지금과 똑같이 그려진다.
+        */}
         {meta !== undefined && (
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs wrap-anywhere text-muted-foreground">
             {meta}
           </p>
         )}

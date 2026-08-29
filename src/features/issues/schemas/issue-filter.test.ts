@@ -6,6 +6,7 @@ import {
   issueFilterToQueryString,
   parseIssueFilter,
 } from "@/features/issues/schemas/issue-filter";
+import { parseOptions } from "@/lib/validation/zod-error-map";
 
 describe("parseIssueFilter", () => {
   it("비어 있으면 전체 조회로 떨어진다", () => {
@@ -101,8 +102,30 @@ describe("issueFilterFormSchema", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe(
-      "검색어는 200자를 넘을 수 없습니다.",
+    expect(result.error?.issues[0]?.code).toBe("too_big");
+  });
+
+  /**
+   * 🔴 **Schema 는 규칙만 갖고 문구는 갖지 않는다.**
+   *
+   * 같은 Schema·같은 규칙에 error map 만 갈아 끼우면 두 언어가 나온다. 그리고 **상한
+   * 200 이 두 문구에 모두 남아 있다** — 「너무 깁니다」로 뭉개지 않는다.
+   */
+  it.each([
+    ["ko" as const, "200자"],
+    ["en" as const, "200 characters"],
+  ])("%s 로 parse 하면 그 언어로 적히고 상한이 문구에 남는다", (locale, part) => {
+    const result = issueFilterFormSchema.safeParse(
+      {
+        q: "x".repeat(201),
+        severity: FILTER_ALL,
+        category: FILTER_ALL,
+        status: FILTER_ALL,
+      },
+      parseOptions(locale),
     );
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toContain(part);
   });
 });

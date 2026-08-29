@@ -60,7 +60,7 @@ function scopeCondition(scope: KnowledgeScope): SQL {
 
   if (condition === undefined) {
     // `and` 는 인자가 모두 undefined 일 때만 undefined 다. 여기서는 일어나지 않는다.
-    throw new AppError("INTERNAL_ERROR");
+    throw new AppError("UNEXPECTED");
   }
   return condition;
 }
@@ -128,7 +128,9 @@ export async function createKnowledgePage(
 ): Promise<string> {
   const resolved = resolveKnowledgePageInput(command.input);
   if (!resolved.ok) {
-    throw new AppError("VALIDATION_ERROR", resolved.reason);
+    throw new AppError("KNOWLEDGE_PAGE_SLUG_RESERVED", {
+      meta: { slug: resolved.slug },
+    });
   }
 
   /**
@@ -153,7 +155,7 @@ export async function createKnowledgePage(
 
   const slug = created[0]?.slug;
   if (slug === undefined) {
-    throw new AppError("CONFLICT", "같은 slug 의 문서가 이미 있습니다.");
+    throw new AppError("KNOWLEDGE_PAGE_SLUG_TAKEN");
   }
 
   return slug;
@@ -172,7 +174,9 @@ export async function updateKnowledgePage(
 ): Promise<string> {
   const resolved = resolveKnowledgePageInput(command.input);
   if (!resolved.ok) {
-    throw new AppError("VALIDATION_ERROR", resolved.reason);
+    throw new AppError("KNOWLEDGE_PAGE_SLUG_RESERVED", {
+      meta: { slug: resolved.slug },
+    });
   }
 
   const updated = await executor
@@ -195,14 +199,12 @@ export async function updateKnowledgePage(
        * unique 위반은 **사용자 입력 문제**다 — 500 이 아니라 `CONFLICT` 다.
        * 🔴 Driver 오류 message 에는 쿼리와 값이 실려 온다. 밖으로 흘리지 않는다(CLAUDE.md 19).
        */
-      throw new AppError("CONFLICT", "같은 slug 의 문서가 이미 있습니다.", {
-        cause,
-      });
+      throw new AppError("KNOWLEDGE_PAGE_SLUG_TAKEN", { cause });
     });
 
   const slug = updated[0]?.slug;
   if (slug === undefined) {
-    throw new AppError("NOT_FOUND", "문서를 찾을 수 없습니다.");
+    throw new AppError("KNOWLEDGE_PAGE_NOT_FOUND");
   }
 
   return slug;
@@ -227,7 +229,7 @@ export async function deleteKnowledgePage(
     .returning({ id: knowledgePages.id });
 
   if (deleted.length === 0) {
-    throw new AppError("NOT_FOUND", "문서를 찾을 수 없습니다.");
+    throw new AppError("KNOWLEDGE_PAGE_NOT_FOUND");
   }
 }
 

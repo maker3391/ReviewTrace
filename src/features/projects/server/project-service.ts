@@ -199,7 +199,7 @@ export async function createProject(
 ): Promise<ProjectContext> {
   const resolved = resolveProjectInput(command.input);
   if (!resolved.ok) {
-    throw new AppError("VALIDATION_ERROR", resolved.reason);
+    throw new AppError("PROJECT_SLUG_RESERVED", { meta: { slug: resolved.slug } });
   }
 
   const explicitSlug = command.input.slug.trim() !== "";
@@ -234,12 +234,8 @@ export async function createProject(
     }
   }
 
-  throw new AppError(
-    "CONFLICT",
-    explicitSlug
-      ? "같은 slug 의 Project 가 이미 있습니다."
-      : "같은 이름의 Project 가 이미 있습니다. slug 를 직접 정해 주세요.",
-  );
+  // 🔴 「직접 적은 slug 가 겹쳤다」와 「이름에서 만든 후보가 다 막혔다」는 다음 할 일이 다르다.
+  throw new AppError(explicitSlug ? "PROJECT_SLUG_TAKEN" : "PROJECT_NAME_TAKEN");
 }
 
 /**
@@ -304,7 +300,7 @@ export async function resolveIngestProject(
 
   const raced = await findProjectBySlug(input.workspaceId, slug, executor);
   if (raced === null) {
-    throw new AppError("INTERNAL_ERROR");
+    throw new AppError("UNEXPECTED");
   }
   return raced.projectId;
 }
@@ -326,7 +322,7 @@ export async function updateProject(
 ): Promise<ProjectContext> {
   const resolved = resolveProjectInput(command.input);
   if (!resolved.ok) {
-    throw new AppError("VALIDATION_ERROR", resolved.reason);
+    throw new AppError("PROJECT_SLUG_RESERVED", { meta: { slug: resolved.slug } });
   }
 
   const updated = await executor
@@ -354,14 +350,12 @@ export async function updateProject(
        * unique 위반은 **사용자 입력 문제**다 — 500 이 아니라 `CONFLICT` 다.
        * 🔴 Driver 오류 message 에는 쿼리와 값이 실려 온다. 밖으로 흘리지 않는다(CLAUDE.md 19).
        */
-      throw new AppError("CONFLICT", "같은 slug 의 Project 가 이미 있습니다.", {
-        cause,
-      });
+      throw new AppError("PROJECT_SLUG_TAKEN", { cause });
     });
 
   const project = updated[0];
   if (project === undefined) {
-    throw new AppError("NOT_FOUND", "Project 를 찾을 수 없습니다.");
+    throw new AppError("PROJECT_NOT_FOUND");
   }
 
   return project;
@@ -445,6 +439,6 @@ export async function deleteProject(
     .returning({ id: projects.id });
 
   if (deleted.length === 0) {
-    throw new AppError("NOT_FOUND", "Project 를 찾을 수 없습니다.");
+    throw new AppError("PROJECT_NOT_FOUND");
   }
 }

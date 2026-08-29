@@ -5,10 +5,11 @@ import type { Route } from "next";
 import { IssueDetailScreen } from "@/features/issues/components/IssueDetailScreen";
 import { findIssueDetail } from "@/features/issues/server/issue-detail-query";
 import { requireProject } from "@/lib/auth/require-project";
+import { readMessages } from "@/lib/ui/appearance";
 
-export const metadata: Metadata = {
-  title: "Issue",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.issue };
+}
 
 /**
  * 🔴 UUID 가 아닌 값이 들어와도 Driver 가 던지지 않게 조회가 `null` 로 끝나야 한다.

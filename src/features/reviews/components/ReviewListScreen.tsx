@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import {
+  NAME_CELL,
   Table,
   TableBody,
   TableCell,
@@ -11,12 +12,14 @@ import {
 } from "@/components/ui/table";
 import { ListChecks } from "lucide-react";
 
+import { PageContainer } from "@/components/molecules/PageContainer";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { listProjectReviews } from "@/features/reviews/server/review-query";
 import type { ProjectContext } from "@/features/projects/types/project";
 import { formatDate } from "@/lib/format/date";
 import { readMessages } from "@/lib/ui/appearance";
+import { cn } from "@/lib/utils";
 
 /**
  * Project 의 Review 목록.
@@ -36,14 +39,16 @@ export async function ReviewListScreen({
   /** 상세로 들어가는 주소의 뿌리. */
   basePath: Route;
 }) {
-  const [reviews, t] = await Promise.all([
+  const [reviews, messages] = await Promise.all([
     listProjectReviews({ workspaceId, projectId: project.projectId }),
-    readMessages().then((messages) => messages.reviews),
+    readMessages(),
   ]);
+  const t = messages.reviews;
+  const label = messages.enums;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
-      <PageHeader title={t.title} description={t.description(project.name)} />
+    <PageContainer width="wide">
+      <PageHeader title={t.title} />
 
       <Section variant="raised" bleed>
         {reviews.length === 0 ? (
@@ -65,20 +70,21 @@ export async function ReviewListScreen({
             <TableBody>
               {reviews.map((review) => (
                 <TableRow key={review.id}>
-                  <TableCell>
+                  <TableCell className="max-w-[10rem]">
                     <Link
                       href={`${basePath}/${review.id}` as Route}
-                      className="font-medium underline-offset-2 hover:underline"
+                      title={review.reviewerName}
+                      className="block truncate font-medium underline-offset-2 hover:underline"
                     >
                       {review.reviewerName}
                     </Link>
                   </TableCell>
                   {/* Repository 이름은 식별자다 — 잘라내지 않고 줄바꿈으로 다룬다. */}
-                  <TableCell className="max-w-64 whitespace-normal break-all font-mono text-xs text-muted-foreground">
+                  <TableCell className={cn(NAME_CELL, "whitespace-normal break-all font-mono text-xs text-muted-foreground")}>
                     {review.repositoryFullName}
                   </TableCell>
                   <TableCell className="font-mono text-[11px] text-muted-foreground">
-                    {review.targetType}
+                    {label.targetType[review.targetType]}
                   </TableCell>
                   <TableCell className="max-w-64 whitespace-normal break-all font-mono text-[11px] text-muted-foreground">
                     {review.branch ?? "—"}
@@ -97,6 +103,6 @@ export async function ReviewListScreen({
           </Table>
         )}
       </Section>
-    </div>
+    </PageContainer>
   );
 }

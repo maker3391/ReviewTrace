@@ -4,9 +4,11 @@ import type { Route } from "next";
 import { CodeLocation } from "@/components/atoms/CodeLocation";
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
 import { StatusBadge } from "@/components/atoms/StatusBadge";
+import { PageContainer } from "@/components/molecules/PageContainer";
 import { MetaDot, PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import {
+  NAME_CELL,
   Table,
   TableBody,
   TableCell,
@@ -16,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import type { ReviewDetail } from "@/features/reviews/server/review-query";
 import { formatDate } from "@/lib/format/date";
+import { readMessages } from "@/lib/ui/appearance";
 
 /**
  * ReviewSession 상세 — **한 번의 Review 실행**이 무엇을 남겼는가.
@@ -26,7 +29,7 @@ import { formatDate } from "@/lib/format/date";
  * 🔴 **Issue 상태는 «지금» 값이다.** 이 Review 가 발견했을 때의 상태가 아니라, 그 뒤
  * Fix·Re-review 를 거친 현재 상태다 — 그 과정은 Issue 상세의 History 가 보여 준다.
  */
-export function ReviewDetailScreen({
+export async function ReviewDetailScreen({
   review,
   reviewsPath,
   issuesPath,
@@ -38,6 +41,9 @@ export function ReviewDetailScreen({
   issuesPath: Route;
   repositoriesPath: Route;
 }) {
+  const messages = await readMessages();
+  const t = messages.reviewDetail;
+
   return (
     /*
       🔴 상세 화면의 결을 Issue 상세와 맞춘다.
@@ -46,9 +52,9 @@ export function ReviewDetailScreen({
       덜 된 화면처럼 보인다. 다만 Review 는 Issue 와 달리 «곁에서 조작할 것»이 없어
       두 단으로 나누지 않고 한 단으로 둔다 — 구조는 정보의 성격을 따른다(CLAUDE.md 16).
     */
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
+    <PageContainer width="wide">
       <PageHeader
-        breadcrumb={{ label: "Reviews", href: reviewsPath }}
+        breadcrumb={{ label: messages.nav.project.REVIEWS, href: reviewsPath }}
         title={review.reviewerName}
         meta={
           <>
@@ -59,7 +65,7 @@ export function ReviewDetailScreen({
               {review.repositoryFullName}
             </Link>
             <MetaDot />
-            <span>{review.reviewerType}</span>
+            <span>{messages.enums.reviewerType[review.reviewerType]}</span>
             {review.reviewerVersion !== null && (
               <>
                 <MetaDot />
@@ -72,26 +78,36 @@ export function ReviewDetailScreen({
         }
       />
 
-      <Section title="대상" variant="raised">
-        <dl className="grid grid-cols-[7rem_1fr] gap-x-6 gap-y-2 text-xs">
-          <dt className="text-muted-foreground">Type</dt>
-          <dd className="font-mono">{review.targetType}</dd>
+      <Section title={t.target} variant="raised">
+        {/*
+          🔴 **`1fr` 은 「남는 폭」이 아니라 「min-content 아래로는 안 줄어드는 폭」이다.**
+          Commit SHA 40자는 끊을 자리가 없어 그 칸의 min-content 가 288px 이고, 목록 전체가
+          424px 을 요구했다. Section 이 `overflow-hidden` 이라 390px 에서 SHA 가 **스크롤도
+          없이 잘려 아예 읽히지 않았다**(실측: dl 424 / 자리 252).
 
-          <dt className="text-muted-foreground">Branch</dt>
+          `minmax(0,1fr)` 로 값 칸이 줄어들 수 있게 하고, `wrap-anywhere` 로 SHA 를 여러
+          줄에 걸쳐 «전부» 보이게 한다. 이름 칸은 좁을 때만 5rem 으로 줄어든다 — `sm` 위로는
+          7rem 그대로다.
+        */}
+        <dl className="grid grid-cols-[5rem_minmax(0,1fr)] gap-x-4 gap-y-2 text-xs wrap-anywhere sm:grid-cols-[7rem_minmax(0,1fr)] sm:gap-x-6">
+          <dt className="text-muted-foreground">{t.targetType}</dt>
+          <dd>{messages.enums.targetType[review.targetType]}</dd>
+
+          <dt className="text-muted-foreground">{t.branch}</dt>
           <dd className="font-mono">{review.branch ?? "—"}</dd>
 
-          <dt className="text-muted-foreground">Commit</dt>
+          <dt className="text-muted-foreground">{t.commit}</dt>
           <dd className="font-mono">{review.commitSha ?? "—"}</dd>
 
           {/* PR 은 있을 때만 그린다 — 없는 칸을 늘어놓지 않는다. */}
           {review.pullRequestNumber !== null && (
             <>
-              <dt className="text-muted-foreground">Pull Request</dt>
+              <dt className="text-muted-foreground">{t.pullRequest}</dt>
               <dd className="font-mono">#{review.pullRequestNumber}</dd>
             </>
           )}
 
-          <dt className="text-muted-foreground">실행</dt>
+          <dt className="text-muted-foreground">{t.ranAt}</dt>
           <dd className="tabular-nums">
             {formatDate(review.startedAt)}
             {review.completedAt !== null &&
@@ -101,31 +117,37 @@ export function ReviewDetailScreen({
       </Section>
 
       {review.summary !== null && (
-        <Section title="요약" variant="raised">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">
+        <Section title={t.summary} variant="raised">
+          <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed">
             {review.summary}
           </p>
         </Section>
       )}
 
       <Section
-        title="발견한 Issue"
-        description={`${review.issues.length}건 · 상태는 현재 값`}
+        title={t.foundIssues}
+        description={t.foundIssuesHint(review.issues.length)}
         variant="raised"
         bleed
       >
         {review.issues.length === 0 ? (
-          <SectionEmpty title="문제를 찾지 못했습니다">
-            그것도 기록입니다 — 「이 Commit 은 깨끗했다」가 남습니다.
+          <SectionEmpty title={t.clean}>
+            {t.cleanHint}
           </SectionEmpty>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-24">Severity</TableHead>
-                <TableHead>Issue</TableHead>
-                <TableHead className="w-56">Location</TableHead>
-                <TableHead className="w-28">Status</TableHead>
+                <TableHead className="w-24">
+                  {messages.issues.colSeverity}
+                </TableHead>
+                <TableHead>{messages.issues.colTitle}</TableHead>
+                <TableHead className="w-56">
+                  {messages.issues.colLocation}
+                </TableHead>
+                <TableHead className="w-28">
+                  {messages.issues.colStatus}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -134,7 +156,7 @@ export function ReviewDetailScreen({
                   <TableCell>
                     <SeverityBadge severity={issue.severity} />
                   </TableCell>
-                  <TableCell className="max-w-md">
+                  <TableCell className={NAME_CELL}>
                     <Link
                       href={`${issuesPath}/${issue.id}` as Route}
                       title={issue.title}
@@ -142,12 +164,13 @@ export function ReviewDetailScreen({
                     >
                       {issue.title}
                     </Link>
-                    <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-                      {issue.category}
+                    <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                      {messages.enums.category[issue.category]}
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="max-w-[14rem] overflow-hidden">
                     <CodeLocation
+                      className="block truncate"
                       filePath={issue.filePath}
                       lineStart={issue.startLine}
                       lineEnd={issue.endLine}
@@ -162,6 +185,6 @@ export function ReviewDetailScreen({
           </Table>
         )}
       </Section>
-    </div>
+    </PageContainer>
   );
 }

@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 
+import { PageContainer } from "@/components/molecules/PageContainer";
 import { Section } from "@/components/molecules/Section";
 import { ProjectSettingsPanel } from "@/features/projects/components/ProjectSettingsPanel";
 import { findProjectDeletionImpact } from "@/features/projects/server/project-service";
 import { requireProject } from "@/lib/auth/require-project";
+import { readMessages } from "@/lib/ui/appearance";
 
-export const metadata: Metadata = {
-  title: "Project Settings",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.projectSettings };
+}
 
 /**
  * Project 설정 — 이름·slug·설명과 삭제.
@@ -22,6 +24,7 @@ export default async function ProjectSettingsPage({
 }) {
   const { workspaceSlug, projectSlug } = await params;
   const { workspace, project } = await requireProject(workspaceSlug, projectSlug);
+  const t = (await readMessages()).projectSettings;
 
   const impact = await findProjectDeletionImpact({
     workspaceId: workspace.workspaceId,
@@ -29,8 +32,8 @@ export default async function ProjectSettingsPage({
   });
 
   return (
-    <div className="flex flex-col gap-8 p-6">
-      <h1 className="text-lg font-semibold tracking-tight">Project Settings</h1>
+    <PageContainer className="gap-8">
+      <h1 className="text-lg font-semibold tracking-tight">{t.title}</h1>
 
       <Section title={project.name}>
         <ProjectSettingsPanel
@@ -41,8 +44,32 @@ export default async function ProjectSettingsPage({
             description: project.description,
           }}
           impact={impact}
+          labels={{
+            name: t.name,
+            slug: t.slug,
+            slugHint: t.slugHint,
+            description: t.descriptionField,
+            save: t.save,
+            deleteTitle: t.deleteTitle,
+            deleteImpact: t.deleteImpact(impact),
+            deleteRescue: t.deleteRescue,
+            deleteDialogTitle: t.deleteDialogTitle(project.name),
+            deleteDialogImpact:
+              impact.repositories +
+                impact.reviewSessions +
+                impact.reviewIssues +
+                impact.knowledgePages ===
+              0
+                ? t.deleteEmpty
+                : t.deleteImpact(impact),
+            irreversible: t.irreversible,
+            confirmPrefix: t.confirmPrefix,
+            confirmSuffix: t.confirmSuffix,
+            delete: t.delete,
+            cancel: t.cancel,
+          }}
         />
       </Section>
-    </div>
+    </PageContainer>
   );
 }

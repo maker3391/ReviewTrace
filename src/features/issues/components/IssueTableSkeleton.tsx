@@ -7,6 +7,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  ISSUE_COL,
+  ISSUE_TABLE,
+} from "@/features/issues/components/issue-table-columns";
 import { ISSUE_PAGE_SIZE } from "@/features/issues/schemas/issue-filter";
 
 /** 첫 화면에서 실제로 채워지는 정도. 화면 전체를 스켈레톤으로 덮지 않기 위한 크기다. */
@@ -34,15 +38,15 @@ export interface SkeletonLabels {
  */
 export function IssueTableSkeleton({ labels: t }: { labels: SkeletonLabels }) {
   return (
-    <Table>
+    <Table className={ISSUE_TABLE}>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-24">{t.colSeverity}</TableHead>
+          <TableHead className={ISSUE_COL.severity}>{t.colSeverity}</TableHead>
           <TableHead>{t.colTitle}</TableHead>
-          <TableHead className="w-44">{t.colCategory}</TableHead>
-          <TableHead className="w-56">{t.colLocation}</TableHead>
-          <TableHead className="w-28">{t.colStatus}</TableHead>
-          <TableHead className="w-32 text-right">{t.colDetected}</TableHead>
+          <TableHead className={ISSUE_COL.category}>{t.colCategory}</TableHead>
+          <TableHead className={ISSUE_COL.location}>{t.colLocation}</TableHead>
+          <TableHead className={ISSUE_COL.status}>{t.colStatus}</TableHead>
+          <TableHead className={ISSUE_COL.detected}>{t.colDetected}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -54,16 +58,16 @@ export function IssueTableSkeleton({ labels: t }: { labels: SkeletonLabels }) {
             <TableCell>
               <Skeleton className="h-4 w-3/4" />
             </TableCell>
-            <TableCell>
+            <TableCell className={ISSUE_COL.category}>
               <Skeleton className="h-4 w-28" />
             </TableCell>
-            <TableCell>
+            <TableCell className={ISSUE_COL.location}>
               <Skeleton className="h-4 w-40" />
             </TableCell>
             <TableCell>
               <Skeleton className="h-5 w-16" />
             </TableCell>
-            <TableCell>
+            <TableCell className={ISSUE_COL.detected}>
               <Skeleton className="ml-auto h-4 w-20" />
             </TableCell>
           </TableRow>

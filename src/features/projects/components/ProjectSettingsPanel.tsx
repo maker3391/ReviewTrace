@@ -2,19 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 
+import { Spinner } from "@/components/atoms/Spinner";
+import { ConfirmDialog } from "@/components/molecules/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -27,6 +18,7 @@ import {
   type CreateProjectInput,
 } from "@/features/projects/schemas/project";
 import type { ProjectDeletionImpact } from "@/features/projects/server/project-service";
+import { useLocalizedForm } from "@/lib/validation/use-localized-form";
 
 /**
  * Project 수정·삭제.
@@ -38,23 +30,46 @@ import type { ProjectDeletionImpact } from "@/features/projects/server/project-s
  *
  * `window.confirm` 을 쓰지 않는다 — 브라우저 모달은 자동화 도구에서 세션을 멈추게 한다.
  */
+/** 🔴 이 화면이 실제로 그리는 낱말만 받는다(CLAUDE.md 11). */
+export interface ProjectSettingsLabels {
+  name: string;
+  slug: string;
+  slugHint: string;
+  description: string;
+  save: string;
+  deleteTitle: string;
+  deleteImpact: string;
+  deleteRescue: string;
+  deleteDialogTitle: string;
+  deleteDialogImpact: string;
+  irreversible: string;
+  confirmPrefix: string;
+  confirmSuffix: string;
+  delete: string;
+  cancel: string;
+}
+
 export function ProjectSettingsPanel({
   workspaceSlug,
   project,
   impact,
+  labels,
 }: {
   workspaceSlug: string;
   project: { slug: string; name: string; description: string | null };
   impact: ProjectDeletionImpact;
+  labels: ProjectSettingsLabels;
 }) {
   const router = useRouter();
   const [failure, setFailure] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmName, setConfirmName] = useState("");
-  const [deleting, setDeleting] = useState(false);
 
-  const form = useForm<CreateProjectFormValues, unknown, CreateProjectInput>({
-    resolver: zodResolver(createProjectSchema),
+  const form = useLocalizedForm<
+    CreateProjectFormValues,
+    unknown,
+    CreateProjectInput
+  >(createProjectSchema, {
     defaultValues: {
       name: project.name,
       slug: project.slug,
@@ -80,37 +95,25 @@ export function ProjectSettingsPanel({
   }
 
   async function onDelete() {
-    setDeleting(true);
-    setFailure(null);
-
     const result = await deleteProjectAction({
       workspaceSlug,
       projectSlug: project.slug,
     });
 
-    setDeleting(false);
-
-    if (!result.ok) {
-      setFailure(result.error.message);
-      return;
+    if (result.ok) {
+      router.push(`/w/${workspaceSlug}/projects`);
     }
 
-    setDeleteOpen(false);
-    router.push(`/w/${workspaceSlug}/projects`);
+    // 실패 사유는 Dialog 가 제 안에 그린다 — 뒤에 가려진 폼으로 보내지 않는다.
+    return result;
   }
-
-  const total =
-    impact.repositories +
-    impact.reviewSessions +
-    impact.reviewIssues +
-    impact.knowledgePages;
 
   return (
     <div className="flex flex-col gap-6">
       <form onSubmit={form.handleSubmit(onSave)} className="flex flex-col gap-3 pt-3">
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium" htmlFor="project-settings-name">
-            이름
+            {labels.name}
           </label>
           <Input
             id="project-settings-name"
@@ -126,16 +129,14 @@ export function ProjectSettingsPanel({
 
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium" htmlFor="project-settings-slug">
-            slug
+            {labels.slug}
           </label>
           <Input
             id="project-settings-slug"
             className="max-w-md font-mono"
             {...form.register("slug")}
           />
-          <p className="text-[11px] text-muted-foreground">
-            바꾸면 이 Project 의 주소가 모두 바뀝니다.
-          </p>
+          <p className="text-[11px] text-muted-foreground">{labels.slugHint}</p>
           {form.formState.errors.slug !== undefined && (
             <p className="text-xs text-destructive">
               {form.formState.errors.slug.message}
@@ -148,7 +149,7 @@ export function ProjectSettingsPanel({
             className="text-xs font-medium"
             htmlFor="project-settings-description"
           >
-            설명
+            {labels.description}
           </label>
           <Textarea
             id="project-settings-description"
@@ -166,21 +167,30 @@ export function ProjectSettingsPanel({
 
         <div>
           <Button type="submit" size="sm" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting ? "저장 중" : "저장"}
+            {/* 🔴 label 을 갈아 끼우지 않는다 — 무엇을 실행 중인지가 계속 보여야 한다. */}
+            {form.formState.isSubmitting && <Spinner />}
+            {labels.save}
           </Button>
         </div>
       </form>
 
       <div className="flex flex-col gap-2 border-t border-border pt-4">
-        <p className="text-xs font-medium">Project 삭제</p>
+        <p className="text-xs font-medium">{labels.deleteTitle}</p>
         <p className="text-[11px] text-muted-foreground">
-          Repository {impact.repositories} · Review {impact.reviewSessions} · Issue{" "}
-          {impact.reviewIssues} · 문서 {impact.knowledgePages} 이 함께 사라집니다.
-          {impact.repositories > 0 &&
-            " Repository 를 살리려면 먼저 다른 Project 로 옮기세요."}
+          {labels.deleteImpact}
+          {impact.repositories > 0 && labels.deleteRescue}
         </p>
 
-        <Dialog
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-fit"
+          onClick={() => setDeleteOpen(true)}
+        >
+          {labels.delete}
+        </Button>
+
+        <ConfirmDialog
           open={deleteOpen}
           onOpenChange={(open) => {
             setDeleteOpen(open);
@@ -188,56 +198,31 @@ export function ProjectSettingsPanel({
               setConfirmName("");
             }
           }}
+          title={labels.deleteDialogTitle}
+          description={
+            <>
+              {labels.deleteDialogImpact} {labels.irreversible}
+            </>
+          }
+          actionLabel={labels.delete}
+          cancelLabel={labels.cancel}
+          /* 🔴 이름을 그대로 적기 전에는 실행되지 않는다 — 확인 버튼 하나로 지워지게 두지 않는다. */
+          confirmDisabled={confirmName !== project.name}
+          onConfirm={onDelete}
         >
-          <DialogTrigger asChild>
-            <Button size="sm" variant="outline" className="w-fit">
-              삭제
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="text-sm">
-                {project.name} 을(를) 삭제합니다
-              </DialogTitle>
-              <DialogDescription>
-                {total === 0
-                  ? "이 Project 에는 아직 아무것도 없습니다."
-                  : `Repository ${impact.repositories} · Review ${impact.reviewSessions} · Issue ${impact.reviewIssues} · 문서 ${impact.knowledgePages} 이 함께 지워집니다.`}{" "}
-                되돌릴 수 없습니다.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs" htmlFor="confirm-project-name">
-                확인을 위해 <span className="font-medium">{project.name}</span> 을(를)
-                입력하세요
-              </label>
-              <Input
-                id="confirm-project-name"
-                value={confirmName}
-                onChange={(event) => setConfirmName(event.target.value)}
-              />
-            </div>
-
-            <DialogFooter>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setDeleteOpen(false)}
-                disabled={deleting}
-              >
-                취소
-              </Button>
-              <Button
-                size="sm"
-                onClick={onDelete}
-                disabled={deleting || confirmName !== project.name}
-              >
-                {deleting ? "삭제 중" : "삭제"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs" htmlFor="confirm-project-name">
+              {labels.confirmPrefix}
+              <span className="font-medium">{project.name}</span>
+              {labels.confirmSuffix}
+            </label>
+            <Input
+              id="confirm-project-name"
+              value={confirmName}
+              onChange={(event) => setConfirmName(event.target.value)}
+            />
+          </div>
+        </ConfirmDialog>
       </div>
     </div>
   );

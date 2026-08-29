@@ -81,6 +81,7 @@ export default async function WorkspaceLayout({
     <div className="flex min-h-0 flex-1 flex-col">
       <AppHeader
         user={{ name: user.name, image: user.image }}
+        workspaceSlug={workspace.slug}
         workspaceName={workspace.name}
         projectName={currentProject?.name ?? null}
       />

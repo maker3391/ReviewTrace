@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 
 import { ProjectListScreen } from "@/features/projects/components/ProjectListScreen";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
+import { readMessages } from "@/lib/ui/appearance";
 
-export const metadata: Metadata = {
-  title: "Projects",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.projects };
+}
 
 /**
  * 🔴 **Workspace 는 서버가 정한다.** URL 의 slug 는 Context 표시일 뿐이고, 소속 확인을

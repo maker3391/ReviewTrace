@@ -1,11 +1,11 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller } from "react-hook-form";
 
+import { Spinner } from "@/components/atoms/Spinner";
 import {
   FilterSelectField,
   type FilterOption,
@@ -23,17 +23,25 @@ import {
   ISSUE_CATEGORIES,
   ISSUE_SEVERITIES,
   ISSUE_STATUSES,
+  type IssueCategory,
+  type IssueSeverity,
+  type IssueStatus,
 } from "@/types/review";
+import { useLocalizedForm } from "@/lib/validation/use-localized-form";
 
 /**
- * 🔴 **Domain 값은 번역하지 않는다**(CLAUDE.md 2·13). `HIGH` · `TRANSACTION` · `OPEN` 은
- * Agent 가 보내고 API 가 계약으로 쓰는 값이라 그대로 쓴다 — 여기서 옮기면 고른 것과
- * 주소에 실리는 것이 갈린다. 언어를 타는 것은 「전체」를 뜻하는 첫 항목뿐이다.
+ * 🔴 **`value` 는 Domain 값 그대로다**(CLAUDE.md 2·13). `HIGH` · `TRANSACTION` ·
+ * `OPEN` 이 그대로 URL Search Param 에 실려 서버 조회로 간다 — 바뀌는 것은 **보이는
+ * 글자**(`label`)뿐이다. 여기서 값을 옮기면 고른 것과 주소가 갈린다.
  */
-function toOptions(values: readonly string[], allLabel: string): FilterOption[] {
+function toOptions<Value extends string>(
+  values: readonly Value[],
+  allLabel: string,
+  labels: Record<Value, string>,
+): FilterOption[] {
   return [
     { value: FILTER_ALL, label: allLabel },
-    ...values.map((value) => ({ value, label: value })),
+    ...values.map((value) => ({ value, label: labels[value] })),
   ];
 }
 
@@ -47,6 +55,10 @@ export interface IssueFilterLabels {
   allSeverity: string;
   allCategory: string;
   allStatus: string;
+  /** 🔴 값의 이름표. 값 자체는 `types/review.ts` 것을 그대로 쓴다. */
+  severityOptions: Record<IssueSeverity, string>;
+  categoryOptions: Record<IssueCategory, string>;
+  statusOptions: Record<IssueStatus, string>;
   submit: string;
   submitting: string;
   reset: string;
@@ -69,9 +81,21 @@ export function IssueFilterBar({
   filter: IssueFilter;
   labels: IssueFilterLabels;
 }) {
-  const severityOptions = toOptions(ISSUE_SEVERITIES, labels.allSeverity);
-  const categoryOptions = toOptions(ISSUE_CATEGORIES, labels.allCategory);
-  const statusOptions = toOptions(ISSUE_STATUSES, labels.allStatus);
+  const severityOptions = toOptions(
+    ISSUE_SEVERITIES,
+    labels.allSeverity,
+    labels.severityOptions,
+  );
+  const categoryOptions = toOptions(
+    ISSUE_CATEGORIES,
+    labels.allCategory,
+    labels.categoryOptions,
+  );
+  const statusOptions = toOptions(
+    ISSUE_STATUSES,
+    labels.allStatus,
+    labels.statusOptions,
+  );
 
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -82,8 +106,7 @@ export function IssueFilterBar({
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<IssueFilterForm>({
-    resolver: zodResolver(issueFilterFormSchema),
+  } = useLocalizedForm<IssueFilterForm>(issueFilterFormSchema, {
     values: {
       q: filter.q,
       severity: filter.severity,
@@ -166,7 +189,9 @@ export function IssueFilterBar({
       />
 
       <Button type="submit" size="sm" disabled={isPending}>
-        {isPending ? labels.submitting : labels.submit}
+        {/* 🔴 label 을 갈아 끼우지 않는다 — 무엇을 실행 중인지가 계속 보여야 한다. */}
+        {isPending && <Spinner />}
+        {labels.submit}
       </Button>
       <Button
         type="button"

@@ -1,9 +1,9 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { Controller, useWatch } from "react-hook-form";
 
+import { Spinner } from "@/components/atoms/Spinner";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -20,6 +20,7 @@ import type {
 } from "@/features/issues/schemas/issue-form";
 import { issueStatusUpdateSchema } from "@/features/issues/schemas/issue-status-update";
 import { ISSUE_STATUSES, type IssueStatus } from "@/types/review";
+import { useLocalizedForm } from "@/lib/validation/use-localized-form";
 
 /**
  * 사람이 Issue 상태를 바꾸는 자리.
@@ -32,23 +33,39 @@ import { ISSUE_STATUSES, type IssueStatus } from "@/types/review";
  * 🔴 **누가 바꿨는지를 보내지 않는다.** Server Action 이 세션에서 읽는다 — 화면이 적어 보내면
  * 남의 이름으로 History 를 남길 수 있다(CLAUDE.md 11).
  */
+/** 🔴 이 폼이 실제로 그리는 낱말만 받는다(CLAUDE.md 11). */
+export interface IssueStatusLabels {
+  status: string;
+  changeStatus: string;
+  changing: string;
+  resolutionSummary: string;
+  resolutionPlaceholder: string;
+  /** 🔴 값의 이름표. Select 의 `value` 는 `IssueStatus` 그대로다. */
+  statusOptions: Record<IssueStatus, string>;
+}
+
 export function IssueStatusControl({
   workspaceSlug,
   projectSlug,
   issueId,
   currentStatus,
   currentResolutionSummary,
+  labels,
 }: {
   workspaceSlug: string;
   projectSlug: string;
   issueId: string;
   currentStatus: IssueStatus;
   currentResolutionSummary: string | null;
+  labels: IssueStatusLabels;
 }) {
   const [failure, setFailure] = useState<string | null>(null);
 
-  const form = useForm<IssueStatusFormValues, unknown, IssueStatusFormInput>({
-    resolver: zodResolver(issueStatusUpdateSchema),
+  const form = useLocalizedForm<
+    IssueStatusFormValues,
+    unknown,
+    IssueStatusFormInput
+  >(issueStatusUpdateSchema, {
     /*
       🔴 `defaultValues` 가 아니라 `values` 다. 상태를 바꾸면 서버가 이 화면을 다시 그리는데,
       `defaultValues` 는 그때 갱신되지 않아 폼이 「방금 떠난 상태」를 계속 들고 있게 된다.
@@ -101,23 +118,25 @@ export function IssueStatusControl({
       onSubmit={form.handleSubmit(onSubmit)}
       className="flex flex-col gap-3 pt-3"
     >
-      <div className="flex items-end gap-2">
+      {/* 곁 열(20rem)과 좁은 화면 둘 다에서 버튼이 밀려나지 않게 줄바꿈을 허용한다 —
+          `IssueActivityForm` 과 같은 이유다. 들어가는 폭에서는 지금과 똑같이 한 줄이다. */}
+      <div className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">
-            상태
+            {labels.status}
           </span>
           <Controller
             control={form.control}
             name="status"
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger className="h-8 w-44" aria-label="상태">
+                <SelectTrigger className="h-8 w-44" aria-label={labels.status}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {ISSUE_STATUSES.map((value) => (
                     <SelectItem key={value} value={value}>
-                      {value}
+                      {labels.statusOptions[value]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -135,7 +154,9 @@ export function IssueStatusControl({
           */
           disabled={form.formState.isSubmitting || status === currentStatus}
         >
-          {form.formState.isSubmitting ? "변경 중" : "상태 변경"}
+          {/* 🔴 label 을 갈아 끼우지 않는다 — 무엇을 실행 중인지가 계속 보여야 한다. */}
+          {form.formState.isSubmitting && <Spinner />}
+          {labels.changeStatus}
         </Button>
       </div>
 
@@ -149,16 +170,13 @@ export function IssueStatusControl({
             className="text-xs font-medium"
             htmlFor="issue-resolution-summary"
           >
-            해결 요약{" "}
-            <span className="text-muted-foreground">
-              어떻게 해결했는가 — 이것이 Knowledge 다
-            </span>
+            {labels.resolutionSummary}
           </label>
           <Textarea
             id="issue-resolution-summary"
             rows={4}
             className="text-xs"
-            placeholder="예: DB Transaction 범위를 줄이고 외부 API 호출을 밖으로 옮겼다"
+            placeholder={labels.resolutionPlaceholder}
             {...form.register("resolutionSummary")}
           />
           {form.formState.errors.resolutionSummary !== undefined && (

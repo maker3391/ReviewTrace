@@ -2,9 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 
+import { Spinner } from "@/components/atoms/Spinner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,6 +22,7 @@ import {
   type CreateProjectFormValues,
   type CreateProjectInput,
 } from "@/features/projects/schemas/project";
+import { useLocalizedForm } from "@/lib/validation/use-localized-form";
 
 /**
  * Project 생성 폼.
@@ -59,8 +59,11 @@ export function CreateProjectDialog({
   const [open, setOpen] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  const form = useForm<CreateProjectFormValues, unknown, CreateProjectInput>({
-    resolver: zodResolver(createProjectSchema),
+  const form = useLocalizedForm<
+    CreateProjectFormValues,
+    unknown,
+    CreateProjectInput
+  >(createProjectSchema, {
     defaultValues: { name: "", slug: "", description: "" },
   });
 
@@ -171,7 +174,9 @@ export function CreateProjectDialog({
             size="sm"
             disabled={form.formState.isSubmitting}
           >
-            {form.formState.isSubmitting ? labels.submitting : labels.submit}
+            {/* 🔴 label 을 갈아 끼우지 않는다 — 무엇을 실행 중인지가 계속 보여야 한다. */}
+            {form.formState.isSubmitting && <Spinner />}
+            {labels.submit}
           </Button>
         </DialogFooter>
       </DialogContent>

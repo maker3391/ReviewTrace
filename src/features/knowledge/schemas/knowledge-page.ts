@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { isStorableText } from "@/lib/validation/db-text";
+import { rule } from "@/lib/validation/validation-rule";
 import { normalizeSlug } from "@/lib/workspace/slug";
 
 /**
@@ -8,6 +9,10 @@ import { normalizeSlug } from "@/lib/workspace/slug";
  *
  * 🔴 **검증 규칙을 Component 안의 `if` 로 흩뿌리지 않는다. 여기에 둔다**(CLAUDE.md 9).
  * 화면(React Hook Form)과 Server Action 이 **같은 Schema 하나**를 본다.
+ *
+ * 🔴 **오류 «문구» 는 여기 없다.** Schema 가 아는 것은 규칙(`min(1)`·`max(200)`)과, 우리
+ * 고유 규칙이면 그 **이름**(`rule("unstorableText")`)뿐이다 — 문구를 여기 적으면 한
+ * 언어에 묶여 EN 화면에 한국어가 뜬다. 잇는 자리는 `lib/validation/zod-error-map.ts` 다.
  *
  * Markdown 원문을 그대로 저장한다 — Block Editor·협업 편집·자동 요약은 만들지 않는다(스펙 17).
  */
@@ -34,13 +39,9 @@ export const knowledgePageSchema = z.object({
   title: z
     .string()
     .trim()
-    .min(1, "제목을 입력하세요.")
-    .max(TITLE_MAX, `제목은 ${TITLE_MAX}자를 넘을 수 없습니다.`),
-  slug: z
-    .string()
-    .trim()
-    .max(SLUG_MAX, `slug 는 ${SLUG_MAX}자를 넘을 수 없습니다.`)
-    .default(""),
+    .min(1)
+    .max(TITLE_MAX),
+  slug: z.string().trim().max(SLUG_MAX).default(""),
   /**
    * Markdown 원문.
    *
@@ -54,8 +55,8 @@ export const knowledgePageSchema = z.object({
    */
   content: z
     .string()
-    .max(CONTENT_MAX, "본문이 너무 깁니다.")
-    .refine(isStorableText, "본문에 저장할 수 없는 문자가 들어 있습니다.")
+    .max(CONTENT_MAX)
+    .refine(isStorableText, rule("unstorableText"))
     .default(""),
 });
 
@@ -78,16 +79,24 @@ export interface ResolvedKnowledgePage {
  * 🔴 **정규화를 화면과 서버가 같은 함수로 한다**(`normalizeSlug`). 한쪽만 정규화하면
  * 사용자가 본 주소와 저장된 주소가 갈린다.
  */
+/**
+ * 왜 좁히지 못했는가.
+ *
+ * 🔴 **문구가 아니라 «이름»이다.** 한국어 한 줄을 돌려주면 Schema 가 화면의 말을 갖게
+ * 되어 EN 화면에 그것이 그대로 뜬다. 문구는 사전이 갖는다(`config/messages`).
+ */
+export type KnowledgePageInputFailure = "RESERVED_SLUG";
+
 export function resolveKnowledgePageInput(
   input: KnowledgePageInput,
-): { ok: true; value: ResolvedKnowledgePage } | { ok: false; reason: string } {
+):
+  | { ok: true; value: ResolvedKnowledgePage }
+  | { ok: false; reason: KnowledgePageInputFailure; slug: string } {
   const slug = normalizeSlug(input.slug === "" ? input.title : input.slug);
 
   if (RESERVED_SLUGS.includes(slug)) {
-    return {
-      ok: false,
-      reason: `'${slug}' 는 화면 주소로 쓰이는 이름이라 문서 slug 로 쓸 수 없습니다.`,
-    };
+    // 🔴 문장을 만들지 않고 **문장에 들어갈 값**만 돌려준다.
+    return { ok: false, reason: "RESERVED_SLUG", slug };
   }
 
   return { ok: true, value: { title: input.title, slug, content: input.content } };

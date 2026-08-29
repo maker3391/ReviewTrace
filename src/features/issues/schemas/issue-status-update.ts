@@ -5,6 +5,7 @@ import {
   codeEvidenceListSchema,
   optionalDecisionRecordSchema,
 } from "@/features/issues/schemas/decision-record";
+import { rule } from "@/lib/validation/validation-rule";
 import {
   ISSUE_STATUSES,
   type IssueActivityType,
@@ -80,7 +81,9 @@ export const issueStatusUpdateSchema = z
     (input) => input.status !== "RESOLVED" || input.resolutionSummary !== null,
     {
       // 🔴 `resolved = true` 만 저장하지 않는다 — **어떻게 해결했는가가 Knowledge 의 핵심**이다(CLAUDE.md 2).
-      message: "RESOLVED 로 바꿀 때는 resolutionSummary 가 필요하다",
+      // 🔴 문구가 아니라 규칙의 «이름»만 남긴다. 이 오류는 화면(IssueStatusControl)에도 뜨므로
+      //    한 언어로 적어 두면 EN 화면에 한국어가 그대로 뜬다(`lib/validation/zod-error-map.ts`).
+      ...rule("resolutionSummaryRequired"),
       path: ["resolutionSummary"],
     },
   );

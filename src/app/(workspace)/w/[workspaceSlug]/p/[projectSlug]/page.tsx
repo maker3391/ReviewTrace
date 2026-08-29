@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 
 import { ProjectDashboardScreen } from "@/features/dashboard/components/ProjectDashboardScreen";
 import { requireProject } from "@/lib/auth/require-project";
+import { readMessages } from "@/lib/ui/appearance";
 
-export const metadata: Metadata = {
-  title: "Project",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.project };
+}
 
 /**
  * Project Dashboard.

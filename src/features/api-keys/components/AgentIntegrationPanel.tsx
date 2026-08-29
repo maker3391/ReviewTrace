@@ -20,13 +20,38 @@ import { cn } from "@/lib/utils";
  */
 
 interface Integration {
-  key: string;
+  key: IntegrationKey;
   name: string;
   /** 이 Client 가 실제로 받는 명령. 실행 가능한 형태만 적는다. */
   command: (apiUrl: string) => string;
   verify: string;
-  /** 이 Client 에만 있는, 모르면 막히는 것. */
-  note: string;
+}
+
+/**
+ * 🔴 **명령은 여기, 문구는 사전에.**
+ *
+ * 명령줄은 언어와 무관한 «실행되는 것»이라 옮기면 동작이 달라진다. 반대로 「모르면
+ * 막히는 것」을 알려 주는 문장은 화면 언어를 따라야 한다 — 그래서 note 는 이 표에서
+ * 빼고 `labels.note` 로 받는다(CLAUDE.md 11).
+ */
+type IntegrationKey = "claude-code" | "codex";
+
+/** 🔴 이 화면이 실제로 그리는 낱말만 받는다. */
+export interface IntegrationLabels {
+  step1: string;
+  step2: string;
+  /**
+   * 🔴 **함수를 받지 않는다.** Server Component 가 Client Component 에 함수를 넘기면
+   * 「Functions cannot be passed directly to Client Components」로 **렌더가 통째로
+   * 실패한다** — 실제로 Settings 화면 전체가 그렇게 떨어졌다. 사전의 함수형 문구는
+   * **서버에서 미리 완성해** 문자열로 건넨다.
+   */
+  copyCommand: { step1: string; step2: string };
+  copy: string;
+  copied: string;
+  note: Record<IntegrationKey, string>;
+  keyHint: string;
+  keyHintTail: string;
 }
 
 const INTEGRATIONS: readonly Integration[] = [
@@ -41,9 +66,6 @@ const INTEGRATIONS: readonly Integration[] = [
         "  -- node /absolute/path/to/ReviewTrace/mcp/server.mjs",
       ].join("\n"),
     verify: "claude mcp list",
-    note:
-      "-s user 로 넣는다. 저장소 안의 .mcp.json 은 커밋 한 번으로 키가 새어 나가고, " +
-      "user 설정을 가려 연결이 끊긴다.",
   },
   {
     key: "codex",
@@ -56,13 +78,16 @@ const INTEGRATIONS: readonly Integration[] = [
         "  -- node /absolute/path/to/ReviewTrace/mcp/server.mjs",
       ].join("\n"),
     verify: "codex mcp get reviewtrace",
-    note:
-      "~/.codex/config.toml 에 [mcp_servers.*] 를 손으로 써 넣는 방식은 인식되지 않는다 — " +
-      "위 명령을 써라. 기록하는 Tool 은 Codex 가 실행 전에 한 번 승인을 묻는다.",
   },
 ];
 
-export function AgentIntegrationPanel({ apiUrl }: { apiUrl: string }) {
+export function AgentIntegrationPanel({
+  apiUrl,
+  labels,
+}: {
+  apiUrl: string;
+  labels: IntegrationLabels;
+}) {
   const [selected, setSelected] = useState(INTEGRATIONS[0]!.key);
   const integration =
     INTEGRATIONS.find((item) => item.key === selected) ?? INTEGRATIONS[0]!;
@@ -89,23 +114,43 @@ export function AgentIntegrationPanel({ apiUrl }: { apiUrl: string }) {
         ))}
       </div>
 
-      <Snippet label="1. 등록" code={integration.command(apiUrl)} />
-      <Snippet label="2. 확인" code={integration.verify} />
+      <Snippet
+        label={labels.step1}
+        copyAriaLabel={labels.copyCommand.step1}
+        code={integration.command(apiUrl)}
+        labels={labels}
+      />
+      <Snippet
+        label={labels.step2}
+        copyAriaLabel={labels.copyCommand.step2}
+        code={integration.verify}
+        labels={labels}
+      />
 
       <p className="text-[13px] leading-relaxed text-muted-foreground">
-        {integration.note}
+        {labels.note[integration.key]}
       </p>
 
       <p className="text-[13px] leading-relaxed text-muted-foreground">
-        {"<your-api-key>"} 자리에는 위에서 발급한 키를 넣는다. 🔴 그 키를 저장소 안의{" "}
-        <code className="font-mono text-xs">.env</code> 에 넣지 않는다 — 그 파일은 언젠가
-        커밋된다.
+        {"<your-api-key>"} {labels.keyHint}{" "}
+        <code className="font-mono text-xs">.env</code>
+        {labels.keyHintTail}
       </p>
     </div>
   );
 }
 
-function Snippet({ label, code }: { label: string; code: string }) {
+function Snippet({
+  label,
+  copyAriaLabel,
+  code,
+  labels,
+}: {
+  label: string;
+  copyAriaLabel: string;
+  code: string;
+  labels: IntegrationLabels;
+}) {
   const [copied, setCopied] = useState(false);
 
   /**
@@ -132,14 +177,14 @@ function Snippet({ label, code }: { label: string; code: string }) {
           variant="ghost"
           size="sm"
           onClick={copy}
-          aria-label={`${label} 명령 복사`}
+          aria-label={copyAriaLabel}
         >
           {copied ? (
             <Check className="size-3.5" aria-hidden="true" />
           ) : (
             <Copy className="size-3.5" aria-hidden="true" />
           )}
-          {copied ? "복사됨" : "복사"}
+          {copied ? labels.copied : labels.copy}
         </Button>
       </div>
       <pre className="overflow-x-auto rounded-lg border border-border/70 bg-surface-muted/60 px-3.5 py-3 font-mono text-xs leading-relaxed">

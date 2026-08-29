@@ -3,10 +3,12 @@ import type { Route } from "next";
 import { AlertTriangle, Boxes, ListChecks, Repeat2 } from "lucide-react";
 
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
+import { PageContainer } from "@/components/molecules/PageContainer";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { StatRow } from "@/components/molecules/StatRow";
 import {
+  NAME_CELL,
   Table,
   TableBody,
   TableCell,
@@ -48,14 +50,18 @@ export async function WorkspaceDashboardScreen({
     readMessages(),
   ]);
   const t = messages.workspaceDashboard;
+  const label = messages.enums;
   // 🔴 「며칠째인가」의 기준 시각을 한 번만 정한다. 줄마다 now() 를 부르면 값이 갈린다.
   const now = new Date();
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-7 px-4 py-5 sm:px-6 sm:py-6">
+    <PageContainer width="wide" className="gap-7">
+      {/*
+        🔴 제목 아래에 「이 Workspace 전체의 Review 상태」 같은 줄을 두지 않는다 —
+        바로 아래 KPI 줄이 그 말을 «숫자로» 하고 있다(CLAUDE.md 16).
+      */}
       <PageHeader
         title={workspaceName}
-        description={t.description}
         actions={<CreateProjectButton workspaceSlug={workspaceSlug} />}
       />
 
@@ -124,19 +130,23 @@ export async function WorkspaceDashboardScreen({
             <TableBody>
               {dashboard.projects.map((project) => (
                 <TableRow key={project.projectId}>
-                  <TableCell>
+                  <TableCell className={NAME_CELL}>
                     {/*
                       한 셀 안에 이름(주) 과 설명(보조)을 계층으로 둔다 —
                       열을 하나 더 만들면 표가 옆으로 길어지고 이름이 묻힌다.
                     */}
                     <Link
                       href={projectSectionHref(workspaceSlug, project.slug, "")}
-                      className="font-medium text-foreground underline-offset-4 hover:underline"
+                      title={project.name}
+                      className="block truncate font-medium text-foreground underline-offset-4 hover:underline"
                     >
                       {project.name}
                     </Link>
                     {project.description !== null && (
-                      <span className="mt-0.5 block max-w-md truncate text-xs font-normal text-muted-foreground">
+                      <span
+                        className="mt-0.5 block truncate text-xs font-normal text-muted-foreground"
+                        title={project.description}
+                      >
                         {project.description}
                       </span>
                     )}
@@ -168,12 +178,12 @@ export async function WorkspaceDashboardScreen({
         )}
       </Section>
 
-      <Section
-        title={t.needsAttention.title}
-        description={t.needsAttention.description}
-        variant="raised"
-        bleed
-      >
+      {/*
+        🔴 정렬 규칙(「급한 것부터, 같은 등급 안에서는 오래된 것부터」)을 설명 줄로 적지
+        않는다. Severity 와 Age 열이 그 순서를 «보여 주고» 있어, 매번 읽고 지나가야 하는
+        한 줄만 는다(CLAUDE.md 16).
+      */}
+      <Section title={t.needsAttention.title} variant="raised" bleed>
         {dashboard.needsAttention.length === 0 ? (
           <SectionEmpty
             icon={<AlertTriangle className="size-4" />}
@@ -201,21 +211,30 @@ export async function WorkspaceDashboardScreen({
                   <TableCell>
                     <SeverityBadge severity={issue.severity} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={NAME_CELL}>
                     <Link
                       href={
                         `${projectSectionHref(workspaceSlug, issue.projectSlug, "issues")}?q=${encodeURIComponent(issue.title)}` as Route
                       }
                       title={issue.title}
-                      className="block max-w-xl truncate font-medium text-foreground underline-offset-4 hover:underline"
+                      className="block truncate font-medium text-foreground underline-offset-4 hover:underline"
                     >
                       {issue.title}
                     </Link>
-                    <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
-                      {issue.category} · {issue.repositoryFullName}
+                    <span
+                      className="mt-0.5 block truncate text-[11px] text-muted-foreground"
+                      title={`${label.category[issue.category]} · ${issue.repositoryFullName}`}
+                    >
+                      {label.category[issue.category]} ·{" "}
+                      <span className="font-mono">
+                        {issue.repositoryFullName}
+                      </span>
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell
+                    className="max-w-[11rem] truncate text-xs text-muted-foreground"
+                    title={issue.projectName}
+                  >
                     {issue.projectName}
                   </TableCell>
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
@@ -229,12 +248,7 @@ export async function WorkspaceDashboardScreen({
       </Section>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <Section
-          title={t.patterns.title}
-          description={t.patterns.description}
-          variant="raised"
-          bleed
-        >
+        <Section title={t.patterns.title} variant="raised" bleed>
           {dashboard.frequentPatterns.length === 0 ? (
             <SectionEmpty
               icon={<Repeat2 className="size-4" />}
@@ -250,11 +264,14 @@ export async function WorkspaceDashboardScreen({
                   className="flex items-center gap-3 px-5 py-2.5"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-mono text-xs font-medium text-foreground">
+                    <p
+                      className="truncate font-mono text-xs font-medium text-foreground"
+                      title={pattern.patternKey}
+                    >
                       {pattern.patternKey}
                     </p>
-                    <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-                      {pattern.category}
+                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                      {label.category[pattern.category]}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
@@ -271,12 +288,7 @@ export async function WorkspaceDashboardScreen({
           )}
         </Section>
 
-        <Section
-          title={t.activity.title}
-          description={t.activity.description}
-          variant="raised"
-          bleed
-        >
+        <Section title={t.activity.title} variant="raised" bleed>
           {dashboard.recentActivity.length === 0 ? (
             <SectionEmpty
               icon={<ListChecks className="size-4" />}
@@ -336,6 +348,6 @@ export async function WorkspaceDashboardScreen({
           )}
         </Section>
       </div>
-    </div>
+    </PageContainer>
   );
 }

@@ -13,12 +13,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  ISSUE_COL,
+  ISSUE_TABLE,
+} from "@/features/issues/components/issue-table-columns";
+import {
   findIssues,
   type IssueQueryScope,
 } from "@/features/issues/server/issue-query";
 import type { IssueFilter } from "@/features/issues/schemas/issue-filter";
 import { formatDate } from "@/lib/format/date";
 import { readMessages } from "@/lib/ui/appearance";
+import { cn } from "@/lib/utils";
 
 /**
  * Issue 목록의 데이터 영역.
@@ -37,10 +42,12 @@ export async function IssueTable({
   /** 상세로 들어가는 주소의 뿌리. 조회 조건이 아니다. */
   basePath: Route;
 }) {
-  const [page, t] = await Promise.all([
+  const [page, messages] = await Promise.all([
     findIssues(scope, filter),
-    readMessages().then((messages) => messages.issues),
+    readMessages(),
   ]);
+  const t = messages.issues;
+  const label = messages.enums;
 
   if (page.items.length === 0) {
     return <EmptyState title={t.empty} description={t.emptyHint} />;
@@ -48,15 +55,17 @@ export async function IssueTable({
 
   return (
     <div className="flex flex-col">
-      <Table>
+      <Table className={ISSUE_TABLE}>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-24">{t.colSeverity}</TableHead>
+            <TableHead className={ISSUE_COL.severity}>
+              {t.colSeverity}
+            </TableHead>
             <TableHead>{t.colTitle}</TableHead>
-            <TableHead className="w-44">{t.colCategory}</TableHead>
-            <TableHead className="w-56">{t.colLocation}</TableHead>
-            <TableHead className="w-28">{t.colStatus}</TableHead>
-            <TableHead className="w-32 text-right">{t.colDetected}</TableHead>
+            <TableHead className={ISSUE_COL.category}>{t.colCategory}</TableHead>
+            <TableHead className={ISSUE_COL.location}>{t.colLocation}</TableHead>
+            <TableHead className={ISSUE_COL.status}>{t.colStatus}</TableHead>
+            <TableHead className={ISSUE_COL.detected}>{t.colDetected}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -65,7 +74,16 @@ export async function IssueTable({
               <TableCell>
                 <SeverityBadge severity={issue.severity} />
               </TableCell>
-              <TableCell className="max-w-md">
+              {/*
+                🔴 **제목은 «남는 폭을 전부 가져가는» 유일한 칸이다.** 예전에는 이 칸에
+                `max-w-md` 가 걸려 있어 화면이 아무리 넓어도 448px 에서 잘렸다 —
+                바깥에 500px 이 비어 있는데 제목만 「…」로 끝났다.
+                지금은 폭이 «표»에서 정해지므로 여기서 다시 잠그지 않는다.
+
+                잘린 제목의 전문은 `title` 로 확인한다. Pattern 은 제목 아래 보조 줄로
+                내린다 — 옆에 붙이면 그만큼 제목이 먼저 잘린다(CLAUDE.md 16).
+              */}
+              <TableCell>
                 <Link
                   href={`${basePath}/${issue.id}` as Route}
                   title={issue.title}
@@ -74,19 +92,36 @@ export async function IssueTable({
                   {issue.title}
                 </Link>
                 {issue.patternKey !== null && (
-                  <span className="ml-2 font-mono text-xs text-muted-foreground">
+                  <span
+                    className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground"
+                    title={issue.patternKey}
+                  >
                     {issue.patternKey}
                   </span>
                 )}
               </TableCell>
-              <TableCell className="font-mono text-xs text-muted-foreground">
-                {issue.category}
+              <TableCell
+                className={cn(
+                  ISSUE_COL.category,
+                  "truncate font-mono text-xs text-muted-foreground",
+                )}
+                title={label.category[issue.category]}
+              >
+                {label.category[issue.category]}
               </TableCell>
-              <TableCell>
-                <span className="block text-xs text-muted-foreground">
+              {/*
+                Repository 와 파일은 «어디였는가» 한 덩어리다 — 열을 둘로 쪼개면 표가 옆으로
+                길어지고 제목이 묻힌다. 둘 다 잘라 내되 전문은 `title` 에 남긴다.
+              */}
+              <TableCell className={cn(ISSUE_COL.location, "overflow-hidden")}>
+                <span
+                  className="block truncate text-xs text-muted-foreground"
+                  title={issue.repositoryFullName}
+                >
                   {issue.repositoryFullName}
                 </span>
                 <CodeLocation
+                  className="block truncate"
                   filePath={issue.filePath}
                   lineStart={issue.startLine}
                   lineEnd={issue.endLine}
@@ -95,7 +130,12 @@ export async function IssueTable({
               <TableCell>
                 <StatusBadge status={issue.status} />
               </TableCell>
-              <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
+              <TableCell
+                className={cn(
+                  ISSUE_COL.detected,
+                  "text-xs text-muted-foreground tabular-nums",
+                )}
+              >
                 {formatDate(issue.firstDetectedAt)}
               </TableCell>
             </TableRow>

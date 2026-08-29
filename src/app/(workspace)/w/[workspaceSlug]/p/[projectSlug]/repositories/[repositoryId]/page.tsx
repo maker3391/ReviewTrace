@@ -6,10 +6,11 @@ import { listProjectOptions } from "@/features/projects/server/project-service";
 import { RepositoryDetailScreen } from "@/features/repositories/components/RepositoryDetailScreen";
 import { findRepositoryDetail } from "@/features/repositories/server/repository-query";
 import { requireProject } from "@/lib/auth/require-project";
+import { readMessages } from "@/lib/ui/appearance";
 
-export const metadata: Metadata = {
-  title: "Repository",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.repository };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

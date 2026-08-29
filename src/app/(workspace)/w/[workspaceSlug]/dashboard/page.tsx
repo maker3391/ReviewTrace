@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 
 import { WorkspaceDashboardScreen } from "@/features/dashboard/components/WorkspaceDashboardScreen";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
+import { readMessages } from "@/lib/ui/appearance";
 
-export const metadata: Metadata = {
-  title: "Dashboard",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.dashboard };
+}
 
 /**
  * Workspace Dashboard.

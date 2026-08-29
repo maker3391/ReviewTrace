@@ -1,18 +1,21 @@
 import type { Metadata } from "next";
 
+import { PageContainer } from "@/components/molecules/PageContainer";
 import { Section } from "@/components/molecules/Section";
 import { AgentIntegrationPanel } from "@/features/api-keys/components/AgentIntegrationPanel";
 import { ApiKeyPanel } from "@/features/api-keys/components/ApiKeyPanel";
 import { listApiKeys } from "@/features/api-keys/server/api-key-service";
-import { StatRow } from "@/components/molecules/StatRow";
 import { listProjectOptions } from "@/features/projects/server/project-service";
 import { listWorkspaceMembers } from "@/features/invitations/server/invitation-service";
+import { DeleteAccountPanel } from "@/features/users/components/DeleteAccountPanel";
+import { findAccountDeletionImpact } from "@/features/users/server/account-deletion-service";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
+import { readMessages } from "@/lib/ui/appearance";
 import { serverEnv } from "@/lib/env";
 
-export const metadata: Metadata = {
-  title: "Settings",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.settings };
+}
 
 /**
  * Workspace 설정.
@@ -32,74 +35,154 @@ export default async function WorkspaceSettingsPage({
   params: Promise<{ workspaceSlug: string }>;
 }) {
   const { workspaceSlug } = await params;
-  const { workspace } = await requireWorkspace(workspaceSlug);
+  const { user, workspace } = await requireWorkspace(workspaceSlug);
+  const messages = await readMessages();
+  const t = messages.settings;
+  const keys = messages.apiKeys;
 
   const isOwner = workspace.role === "OWNER";
 
-  const [members, projects, apiKeys] = await Promise.all([
+  const [members, projects, apiKeys, accountImpact] = await Promise.all([
     listWorkspaceMembers(workspace.workspaceId),
     listProjectOptions(workspace.workspaceId),
     // 🔴 OWNER 가 아니면 조회하지도 않는다. 화면에서 감추는 것으로 대신하지 않는다.
     isOwner ? listApiKeys(workspace.workspaceId) : Promise.resolve([]),
+    /*
+      🔴 **이 Workspace 가 아니라 «이 사람»의 범위다.** 계정 삭제는 지금 보고 있는
+      Workspace 하나가 아니라 그가 속한 전부에 걸린다 — 그래서 조회도 `userId` 로 한다.
+    */
+    findAccountDeletionImpact(user.id),
   ]);
 
   return (
-    <div className="flex flex-col gap-8 p-6">
-      <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
+    <PageContainer className="gap-8">
+      <h1 className="text-lg font-semibold tracking-tight">{t.title}</h1>
 
-      <Section title="Workspace">
+      <Section title={t.workspaceSection}>
         <dl className="grid grid-cols-[8rem_1fr] gap-x-6 gap-y-2 pt-3 text-sm">
-          <dt className="text-xs text-muted-foreground">이름</dt>
+          <dt className="text-xs text-muted-foreground">{t.workspaceName}</dt>
           <dd className="font-medium">{workspace.name}</dd>
 
           <dt className="text-xs text-muted-foreground">slug</dt>
           <dd className="font-mono text-xs">{workspace.slug}</dd>
 
-          <dt className="text-xs text-muted-foreground">종류</dt>
+          <dt className="text-xs text-muted-foreground">{t.workspaceKind}</dt>
           <dd className="text-xs">
-            {workspace.isPersonal ? "Personal Workspace" : "Workspace"}
+            {workspace.isPersonal ? t.kindPersonal : t.kindTeam}
           </dd>
 
-          <dt className="text-xs text-muted-foreground">내 역할</dt>
-          <dd className="font-mono text-xs">{workspace.role}</dd>
+          <dt className="text-xs text-muted-foreground">{t.myRole}</dt>
+          {/* 🔴 값(`OWNER`)이 아니라 그 이름표를 그린다(`config/messages/ko.ts` 머리말). */}
+          <dd className="text-xs">{messages.enums.role[workspace.role]}</dd>
+
+          {/*
+            🔴 **Settings 는 Dashboard 가 아니다.** Projects·Members 수는 여기서 「비교할
+            지표」가 아니라 **이 Workspace 가 어떤 상태인가**를 말하는 한 줄이다 — KPI Card 로
+            키우면 정보량에 비해 화면을 통째로 먹고, 이 화면의 주인공(설정)보다 눈에 띈다
+            (CLAUDE.md 16). 그래서 Section 을 없애고 Workspace 기본 정보의 한 행으로 내렸다.
+          */}
+          <dt className="text-xs text-muted-foreground">{t.scale}</dt>
+          <dd className="flex items-center gap-2.5 text-xs">
+            <span className="flex items-baseline gap-1.5">
+              <span className="text-muted-foreground">{t.statProjects}</span>
+              <span className="font-medium tabular-nums">{projects.length}</span>
+            </span>
+            <span aria-hidden className="text-border">
+              ·
+            </span>
+            <span className="flex items-baseline gap-1.5">
+              <span className="text-muted-foreground">{t.statMembers}</span>
+              <span className="font-medium tabular-nums">{members.length}</span>
+            </span>
+          </dd>
         </dl>
       </Section>
 
-      <Section title="규모">
-        <div className="pt-4">
-          <StatRow
-            stats={[
-              { label: "Projects", value: projects.length },
-              { label: "Members", value: members.length },
-            ]}
-          />
-        </div>
-      </Section>
-
       {isOwner && (
-        <Section
-          title="API Keys"
-          description="Agent 가 이 Workspace 에 Review 를 보낼 때 쓰는 자격"
-        >
-          <ApiKeyPanel workspaceSlug={workspace.slug} apiKeys={apiKeys} />
+        <Section title={t.apiKeysSection}>
+          {/*
+            🔴 문구는 서버가 읽어 «그리는 낱말만» 넘긴다 — Client Component 는 쿠키를
+            스스로 읽을 수 없다(CLAUDE.md 11).
+          */}
+          <ApiKeyPanel
+            workspaceSlug={workspace.slug}
+            apiKeys={apiKeys}
+            labels={{
+              ...keys,
+              expiry: {
+                "30": keys.expiry30,
+                "90": keys.expiry90,
+                "365": keys.expiry365,
+                NEVER: keys.expiryNever,
+              },
+            }}
+          />
         </Section>
       )}
 
       {isOwner && (
-        <Section
-          title="Agent Integration"
-          description="Claude Code · Codex 에 이 Workspace 를 연결한다"
-          variant="raised"
-          bleed
-        >
+        <Section title={t.integrationSection} variant="raised" bleed>
           {/*
             🔴 **주소만 서버가 채우고 키는 채우지 않는다.** 키가 사람 눈에 보이는 자리는
             발급 직후 1회뿐이다 — 여기에 끼워 넣으면 화면·복사기록·스크린샷으로 한 번 더
             퍼진다(CLAUDE.md 11·19).
           */}
-          <AgentIntegrationPanel apiUrl={serverEnv().APP_URL} />
+          <AgentIntegrationPanel
+            apiUrl={serverEnv().APP_URL}
+            labels={{
+              ...messages.integration,
+              copy: keys.copy,
+              copied: keys.copied,
+              /*
+                🔴 **함수는 여기서 끝난다.** 사전의 `copyCommand` 는 함수라 그대로 넘기면
+                「Functions cannot be passed directly to Client Components」로 이 화면
+                전체가 오류로 떨어진다 — 서버에서 완성한 «문자열»만 건넨다(CLAUDE.md 7).
+              */
+              copyCommand: {
+                step1: messages.integration.copyCommand(
+                  messages.integration.step1,
+                ),
+                step2: messages.integration.copyCommand(
+                  messages.integration.step2,
+                ),
+              },
+              note: {
+                "claude-code": messages.integration.claudeNote,
+                codex: messages.integration.codexNote,
+              },
+            }}
+          />
         </Section>
       )}
-    </div>
+
+      {/*
+        🔴 **Workspace 설정이 아니라 «계정» 이다.** 이 화면 아래에 두지만 지금 보고 있는
+        Workspace 하나에 대한 일이 아니다 — 그래서 OWNER 조건이 붙지 않는다. 자기 계정을
+        지우는 것은 역할과 무관하다.
+
+        🔴 **서버가 그릴 것만 넘긴다.** 내부 id 도, 남의 Workspace 도 내려가지 않는다
+        (CLAUDE.md 11·19).
+      */}
+      <Section title={t.accountSection}>
+        <DeleteAccountPanel
+          deleted={accountImpact.deleted.map((entry) => ({
+            slug: entry.slug,
+            name: entry.name,
+          }))}
+          preserved={accountImpact.preserved.map((entry) => ({
+            slug: entry.slug,
+            name: entry.name,
+            slugRotated: entry.rotateSlug,
+          }))}
+          blocked={accountImpact.blocked.map((entry) => ({
+            slug: entry.slug,
+            name: entry.name,
+          }))}
+          losses={accountImpact.losses}
+          confirmValue={accountImpact.confirmValue}
+          labels={messages.account}
+        />
+      </Section>
+    </PageContainer>
   );
 }

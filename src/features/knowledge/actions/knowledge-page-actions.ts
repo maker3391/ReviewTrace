@@ -12,12 +12,12 @@ import {
   updateKnowledgePage,
   type KnowledgeScope,
 } from "@/features/knowledge/server/knowledge-page-service";
+import { actionFromError } from "@/lib/action/action-error";
 import {
-  actionFromError,
   actionOk,
-  actionValidationFailed,
   type ActionResult,
 } from "@/lib/action/action-result";
+import { parseActionInput } from "@/lib/action/parse-action-input";
 import { requireProject } from "@/lib/auth/require-project";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
 
@@ -68,9 +68,9 @@ export async function createKnowledgePageAction(
   target: { workspaceSlug: string; projectSlug: string | null },
   input: KnowledgePageInput,
 ): Promise<ActionResult<SavedKnowledgePage>> {
-  const parsed = knowledgePageSchema.safeParse(input);
-  if (!parsed.success) {
-    return actionValidationFailed(parsed.error);
+  const parsed = await parseActionInput(knowledgePageSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
   }
 
   try {
@@ -102,9 +102,9 @@ export async function updateKnowledgePageAction(
   },
   input: KnowledgePageInput,
 ): Promise<ActionResult<SavedKnowledgePage>> {
-  const parsed = knowledgePageSchema.safeParse(input);
-  if (!parsed.success) {
-    return actionValidationFailed(parsed.error);
+  const parsed = await parseActionInput(knowledgePageSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
   }
 
   try {

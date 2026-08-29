@@ -5,6 +5,9 @@ import { z } from "zod";
  *
  * 🔴 **검증 규칙을 Component 안의 `if` 로 흩뿌리지 않는다**(CLAUDE.md 9). 화면(RHF)과
  * Server Action 이 같은 Schema 하나를 본다.
+ *
+ * 🔴 **오류 «문구» 는 여기 없다** — 규칙만 있고 말은 사전이 갖는다
+ * (`lib/validation/zod-error-map.ts`). 아래 「표시 문구는 여기 두지 않는다」와 같은 이유다.
  */
 
 const NAME_MAX = 100;
@@ -18,8 +21,8 @@ export const issueApiKeySchema = z.object({
   name: z
     .string()
     .trim()
-    .min(1, "Key 이름을 입력하세요.")
-    .max(NAME_MAX, `Key 이름은 ${NAME_MAX}자를 넘을 수 없습니다.`),
+    .min(1)
+    .max(NAME_MAX),
   expiry: z.enum(API_KEY_EXPIRY_OPTIONS).default("NEVER"),
 });
 
@@ -41,10 +44,8 @@ export function resolveExpiresAt(expiry: ApiKeyExpiry, now: Date): Date | null {
   return new Date(now.getTime() + Number(expiry) * DAY_MS);
 }
 
-/** 화면에 보이는 만료 설명. 표시 문구를 한 곳에 둔다. */
-export const API_KEY_EXPIRY_LABEL: Record<ApiKeyExpiry, string> = {
-  "30": "30일",
-  "90": "90일",
-  "365": "1년",
-  NEVER: "만료 없음",
-};
+/*
+  🔴 **표시 문구는 여기 두지 않는다.** 선택지의 «값»은 이 Schema 의 것이지만 그 값을
+  사람이 읽는 «이름표»는 언어마다 다르다 — `config/messages/*.ts` 의 `apiKeys.expiry*`
+  가 갖고, 화면이 그 둘을 이어 붙인다(CLAUDE.md 11).
+*/

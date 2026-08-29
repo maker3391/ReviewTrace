@@ -3,10 +3,11 @@ import type { Route } from "next";
 
 import { ReviewListScreen } from "@/features/reviews/components/ReviewListScreen";
 import { requireProject } from "@/lib/auth/require-project";
+import { readMessages } from "@/lib/ui/appearance";
 
-export const metadata: Metadata = {
-  title: "Reviews",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.reviews };
+}
 
 export default async function ProjectReviewsPage({
   params,

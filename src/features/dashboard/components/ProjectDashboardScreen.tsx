@@ -6,6 +6,8 @@ import { SeverityBadge } from "@/components/atoms/SeverityBadge";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { StatRow } from "@/components/molecules/StatRow";
 import {
+  FLEX_CELL,
+  NAME_CELL,
   Table,
   TableBody,
   TableCell,
@@ -13,12 +15,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PageContainer } from "@/components/molecules/PageContainer";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { projectSectionHref } from "@/config/navigation";
 import { findProjectDashboard } from "@/features/dashboard/server/project-dashboard-query";
 import type { ProjectContext } from "@/features/projects/types/project";
 import { formatAgeInDays, formatDate } from "@/lib/format/date";
 import { readLocale, readMessages } from "@/lib/ui/appearance";
+import { cn } from "@/lib/utils";
 
 /**
  * Project Dashboard(스펙 6).
@@ -45,6 +49,7 @@ export async function ProjectDashboardScreen({
     readMessages(),
   ]);
   const t = messages.projectDashboard;
+  const label = messages.enums;
   const now = new Date();
 
   const issuesHref = projectSectionHref(workspaceSlug, project.slug, "issues");
@@ -57,7 +62,7 @@ export async function ProjectDashboardScreen({
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
+    <PageContainer width="wide">
       <PageHeader
         title={project.name}
         description={project.description ?? undefined}
@@ -121,22 +126,32 @@ export async function ProjectDashboardScreen({
                   <TableCell>
                     <SeverityBadge severity={issue.severity} />
                   </TableCell>
-                  <TableCell className="max-w-md">
+                  <TableCell className={NAME_CELL}>
                     <span
                       title={issue.title}
                       className="block truncate font-medium"
                     >
                       {issue.title}
                     </span>
-                    <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
-                      {issue.category}
+                    <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                      {label.category[issue.category]}
                     </span>
                   </TableCell>
-                  <TableCell>
-                    <span className="block font-mono text-[11px] text-muted-foreground">
+                  {/*
+                    🔴 «어디였는가»는 제 폭 안에서 잘려야 한다. 잘라 두지 않으면 긴 Repository
+                    이름 하나가 칸 밖으로 흘러 옆의 Age 와 겹쳐 그려진다 — 실제로 그랬다.
+                  */}
+                  <TableCell className="max-w-[14rem] overflow-hidden">
+                    <span
+                      className="block truncate font-mono text-[11px] text-muted-foreground"
+                      title={issue.repositoryFullName}
+                    >
                       {issue.repositoryFullName}
                     </span>
-                    <CodeLocation filePath={issue.filePath} />
+                    <CodeLocation
+                      className="block truncate"
+                      filePath={issue.filePath}
+                    />
                   </TableCell>
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
                     {formatAgeInDays(issue.firstDetectedAt, now, locale)}
@@ -171,11 +186,14 @@ export async function ProjectDashboardScreen({
             <TableBody>
               {dashboard.frequentPatterns.map((pattern) => (
                 <TableRow key={`${pattern.patternKey}-${pattern.category}`}>
-                  <TableCell className="font-mono text-xs font-medium">
+                  <TableCell
+                    className={cn(FLEX_CELL, "truncate font-mono text-xs font-medium")}
+                    title={pattern.patternKey}
+                  >
                     {pattern.patternKey}
                   </TableCell>
-                  <TableCell className="font-mono text-[11px] text-muted-foreground">
-                    {pattern.category}
+                  <TableCell className="text-[11px] text-muted-foreground">
+                    {label.category[pattern.category]}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {pattern.occurrences}
@@ -223,14 +241,20 @@ export async function ProjectDashboardScreen({
             <TableBody>
               {dashboard.recentReviews.map((review) => (
                 <TableRow key={review.id}>
-                  <TableCell className="font-medium">
+                  <TableCell
+                    className="max-w-[9rem] truncate font-medium"
+                    title={review.reviewerName}
+                  >
                     {review.reviewerName}
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
+                  <TableCell
+                    className={cn(FLEX_CELL, "truncate font-mono text-xs text-muted-foreground")}
+                    title={review.repositoryFullName}
+                  >
                     {review.repositoryFullName}
                   </TableCell>
                   <TableCell className="font-mono text-[11px] text-muted-foreground">
-                    {review.targetType}
+                    {label.targetType[review.targetType]}
                     {review.branch !== null && ` · ${review.branch}`}
                     {review.commitSha !== null &&
                       ` · ${review.commitSha.slice(0, 7)}`}
@@ -275,7 +299,10 @@ export async function ProjectDashboardScreen({
             <TableBody>
               {dashboard.repositories.map((repository) => (
                 <TableRow key={repository.id}>
-                  <TableCell className="font-mono text-xs">
+                  <TableCell
+                    className={cn(FLEX_CELL, "truncate font-mono text-xs")}
+                    title={repository.fullName}
+                  >
                     {repository.fullName}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
@@ -302,7 +329,6 @@ export async function ProjectDashboardScreen({
       */}
       <Section
         title={t.wiki.title}
-        description={t.wiki.description}
         variant="raised"
         bleed
         action={{ label: messages.common.viewAll, href: wikiHref }}
@@ -331,12 +357,7 @@ export async function ProjectDashboardScreen({
         )}
       </Section>
 
-      <Section
-        title={t.resolutions.title}
-        description={t.resolutions.description}
-        variant="raised"
-        bleed
-      >
+      <Section title={t.resolutions.title} variant="raised" bleed>
         {dashboard.recentResolutions.length === 0 ? (
           <SectionEmpty>{t.resolutions.empty}</SectionEmpty>
         ) : (
@@ -365,6 +386,6 @@ export async function ProjectDashboardScreen({
           </ul>
         )}
       </Section>
-    </div>
+    </PageContainer>
   );
 }

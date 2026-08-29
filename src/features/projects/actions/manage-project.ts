@@ -10,12 +10,12 @@ import {
   deleteProject,
   updateProject,
 } from "@/features/projects/server/project-service";
+import { actionFromError } from "@/lib/action/action-error";
 import {
-  actionFromError,
   actionOk,
-  actionValidationFailed,
   type ActionResult,
 } from "@/lib/action/action-result";
+import { parseActionInput } from "@/lib/action/parse-action-input";
 import { requireProject } from "@/lib/auth/require-project";
 
 /**
@@ -33,9 +33,9 @@ export async function updateProjectAction(
   target: { workspaceSlug: string; projectSlug: string },
   input: CreateProjectInput,
 ): Promise<ActionResult<UpdatedProjectResult>> {
-  const parsed = createProjectSchema.safeParse(input);
-  if (!parsed.success) {
-    return actionValidationFailed(parsed.error);
+  const parsed = await parseActionInput(createProjectSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
   }
 
   try {

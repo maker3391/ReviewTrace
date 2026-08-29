@@ -4,10 +4,11 @@ import type { Route } from "next";
 import { IssueListScreen } from "@/features/issues/components/IssueListScreen";
 import type { RawSearchParams } from "@/features/issues/schemas/issue-filter";
 import { requireProject } from "@/lib/auth/require-project";
+import { readMessages } from "@/lib/ui/appearance";
 
-export const metadata: Metadata = {
-  title: "Issues",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.issues };
+}
 
 /**
  * `app/` 은 얇게 유지한다 — 화면 조립은 Feature 가 한다(CLAUDE.md 6).
@@ -32,7 +33,6 @@ export default async function ProjectIssuesPage({
         projectId: project.projectId,
       }}
       basePath={`/w/${workspace.slug}/p/${project.slug}/issues` as Route}
-      projectName={project.name}
       searchParams={searchParams}
     />
   );

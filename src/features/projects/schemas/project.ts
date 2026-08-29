@@ -8,6 +8,9 @@ import { normalizeSlug } from "@/lib/workspace/slug";
  * 🔴 **검증 규칙을 Component 안의 `if` 로 흩뿌리지 않는다. 여기에 둔다**(CLAUDE.md 9).
  * 화면(React Hook Form)과 Server Action 이 **같은 Schema 하나**를 본다 — 두 곳에 따로
  * 적으면 브라우저는 통과시키는데 서버는 거절하는 값이 생긴다.
+ *
+ * 🔴 **오류 «문구» 는 여기 없다.** Schema 가 아는 것은 규칙뿐이고 문구는 사전이 갖는다 —
+ * 여기 적으면 한 언어에 묶인다(`lib/validation/zod-error-map.ts`).
  */
 
 const NAME_MAX = 100;
@@ -36,8 +39,8 @@ export const createProjectSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(1, "Project 이름을 입력하세요.")
-    .max(NAME_MAX, `Project 이름은 ${NAME_MAX}자를 넘을 수 없습니다.`),
+    .min(1)
+    .max(NAME_MAX),
   /**
    * 비워 두면 이름에서 만든다.
    *
@@ -47,13 +50,9 @@ export const createProjectSchema = z.object({
   slug: z
     .string()
     .trim()
-    .max(SLUG_MAX, `slug 는 ${SLUG_MAX}자를 넘을 수 없습니다.`)
+    .max(SLUG_MAX)
     .default(""),
-  description: z
-    .string()
-    .trim()
-    .max(DESCRIPTION_MAX, `설명은 ${DESCRIPTION_MAX}자를 넘을 수 없습니다.`)
-    .default(""),
+  description: z.string().trim().max(DESCRIPTION_MAX).default(""),
 });
 
 /**
@@ -80,16 +79,25 @@ export interface ResolvedProjectInput {
   description: string | null;
 }
 
+/**
+ * 왜 좁히지 못했는가.
+ *
+ * 🔴 **문구가 아니라 «이름»이다.** 여기에 한국어 한 줄을 돌려주면 Schema 가 화면의 말을
+ * 갖게 되어 EN 화면에 그것이 그대로 뜬다 — 실제로 그랬다. 문구는 사전이 갖고
+ * (`config/messages`), 부르는 쪽이 이 이름을 `AppError` 로 옮긴다.
+ */
+export type ProjectInputFailure = "RESERVED_SLUG";
+
 export function resolveProjectInput(
   input: CreateProjectInput,
-): { ok: true; value: ResolvedProjectInput } | { ok: false; reason: string } {
+):
+  | { ok: true; value: ResolvedProjectInput }
+  | { ok: false; reason: ProjectInputFailure; slug: string } {
   const slug = normalizeSlug(input.slug === "" ? input.name : input.slug);
 
   if (RESERVED_SLUGS.includes(slug)) {
-    return {
-      ok: false,
-      reason: `'${slug}' 는 화면 주소로 쓰이는 이름이라 Project slug 로 쓸 수 없습니다.`,
-    };
+    // 🔴 문장을 만들지 않고 **문장에 들어갈 값**만 돌려준다.
+    return { ok: false, reason: "RESERVED_SLUG", slug };
   }
 
   return {

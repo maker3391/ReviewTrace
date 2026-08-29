@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Spinner } from "@/components/atoms/Spinner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,18 +33,28 @@ import { moveRepositoryAction } from "@/features/repositories/actions/move-repos
  * 🔴 **목록은 서버가 소속을 확인해 넘긴 것**이다. 이 Component 는 slug 를 고를 뿐이고,
  * 실제 이동은 Server Action 이 다시 확인한 뒤에 한다.
  */
+/** 🔴 이 Dialog 가 실제로 그리는 낱말만 받는다(CLAUDE.md 11). */
+export interface MoveRepositoryLabels {
+  trigger: string;
+  description: string;
+  target: string;
+  placeholder: string;
+  cancel: string;
+  move: string;
+}
+
 export function MoveRepositoryDialog({
   workspaceSlug,
   projectSlug,
   repositoryId,
-  repositoryFullName,
   projectOptions,
+  labels,
 }: {
   workspaceSlug: string;
   projectSlug: string;
   repositoryId: string;
-  repositoryFullName: string;
   projectOptions: readonly { slug: string; name: string }[];
+  labels: MoveRepositoryLabels;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -90,20 +101,20 @@ export function MoveRepositoryDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
-          Project 이동
+          {labels.trigger}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-sm">Project 이동</DialogTitle>
+          <DialogTitle className="text-sm">{labels.trigger}</DialogTitle>
           <DialogDescription>
-            {repositoryFullName} 과 그 아래 Review·Issue 가 함께 옮겨집니다.
+            {labels.description}
           </DialogDescription>
         </DialogHeader>
 
         <Select value={target ?? undefined} onValueChange={setTarget}>
-          <SelectTrigger aria-label="옮길 Project">
-            <SelectValue placeholder="옮길 Project 를 고르세요" />
+          <SelectTrigger aria-label={labels.target}>
+            <SelectValue placeholder={labels.placeholder} />
           </SelectTrigger>
           <SelectContent>
             {options.map((option) => (
@@ -127,10 +138,12 @@ export function MoveRepositoryDialog({
             onClick={() => setOpen(false)}
             disabled={pending}
           >
-            취소
+            {labels.cancel}
           </Button>
           <Button size="sm" onClick={onMove} disabled={pending || target === null}>
-            {pending ? "옮기는 중" : "옮기기"}
+            {/* 🔴 label 을 갈아 끼우지 않는다 — 무엇을 실행 중인지가 계속 보여야 한다. */}
+            {pending && <Spinner />}
+            {labels.move}
           </Button>
         </DialogFooter>
       </DialogContent>

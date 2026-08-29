@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import type { Route } from "next";
 
-import { KnowledgePageForm } from "@/features/knowledge/components/KnowledgePageForm";
+import { KnowledgePageFormScreen } from "@/features/knowledge/components/KnowledgePageFormScreen";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
+import { readMessages } from "@/lib/ui/appearance";
 
-export const metadata: Metadata = {
-  title: "새 문서",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.wikiNew };
+}
 
 export default async function NewWorkspaceKnowledgePage({
   params,
@@ -18,16 +19,11 @@ export default async function NewWorkspaceKnowledgePage({
   const { workspace } = await requireWorkspace(workspaceSlug);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <h1 className="px-4 pt-4 text-base font-semibold tracking-tight">
-        새 문서
-      </h1>
-      <KnowledgePageForm
-        workspaceSlug={workspace.slug}
-        projectSlug={null}
-        listPath={`/w/${workspace.slug}/wiki` as Route}
-        current={null}
-      />
-    </div>
+    <KnowledgePageFormScreen
+      workspaceSlug={workspace.slug}
+      projectSlug={null}
+      listPath={`/w/${workspace.slug}/wiki` as Route}
+      current={null}
+    />
   );
 }

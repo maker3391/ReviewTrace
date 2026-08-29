@@ -4,6 +4,7 @@ import type { Route } from "next";
 import { CodeLocation } from "@/components/atoms/CodeLocation";
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
 import { StatusBadge } from "@/components/atoms/StatusBadge";
+import { PageContainer } from "@/components/molecules/PageContainer";
 import { MetaDot, PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import {
@@ -17,6 +18,7 @@ import type {
   IssueDetail,
 } from "@/features/issues/server/issue-detail-query";
 import { formatDate } from "@/lib/format/date";
+import { readMessages } from "@/lib/ui/appearance";
 import { cn } from "@/lib/utils";
 
 /**
@@ -43,7 +45,7 @@ import { cn } from "@/lib/utils";
  * 상태 전이와 기록 남기기는 사용자 입력이 있는 폼이라 그 자리에서만 Client Component 로
  * 내려간다(CLAUDE.md 7). 이 화면 자체는 Server Component 로 남는다.
  */
-export function IssueDetailScreen({
+export async function IssueDetailScreen({
   issue,
   reviewsPath,
   repositoriesPath,
@@ -53,6 +55,10 @@ export function IssueDetailScreen({
   reviewsPath: Route;
   repositoriesPath: Route;
 }) {
+  const messages = await readMessages();
+  const t = messages.issueDetail;
+  const label = messages.enums;
+
   /*
     Server Action 에 되돌려 줄 주소의 slug.
 
@@ -66,7 +72,7 @@ export function IssueDetailScreen({
   const canAct = workspaceSlug !== null && projectSlug !== null;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-6">
+    <PageContainer width="wide" className="gap-6">
       <PageHeader
         title={issue.title}
         titleAdornment={
@@ -84,7 +90,7 @@ export function IssueDetailScreen({
               {issue.repositoryFullName}
             </Link>
             <MetaDot />
-            <span className="font-mono">{issue.category}</span>
+            <span>{label.category[issue.category]}</span>
             {issue.patternKey !== null && (
               <>
                 <MetaDot />
@@ -92,11 +98,15 @@ export function IssueDetailScreen({
               </>
             )}
             <MetaDot />
-            <span>발견 {formatDate(issue.firstDetectedAt)}</span>
+            <span>
+              {t.detected} {formatDate(issue.firstDetectedAt)}
+            </span>
             {issue.resolvedAt !== null && (
               <>
                 <MetaDot />
-                <span>해결 {formatDate(issue.resolvedAt)}</span>
+                <span>
+                  {t.resolvedAt} {formatDate(issue.resolvedAt)}
+                </span>
               </>
             )}
           </>
@@ -106,49 +116,48 @@ export function IssueDetailScreen({
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
         {/* ── 본문 ─────────────────────────────────────────────────────── */}
         <div className="flex min-w-0 flex-col gap-5">
+          {/*
+            🔴 **여기 오는 글은 산문이 아니다.** Agent 가 적은 설명·제안·해결 요약에는
+            `rotateRefreshTokenFamilyAtomically(final` 같은 조각이 그대로 들어온다 —
+            빈칸이 없어 `whitespace-pre-wrap` 이 끊을 자리를 찾지 못한다. Section 은
+            `overflow-hidden` 이라 그 줄이 **스크롤도 없이 잘려 나갔다**(390px 실측 264/237).
+            `wrap-anywhere` 는 들어가지 못할 때만 끊으므로 넓은 폭에서는 지금과 같다.
+          */}
           {issue.description !== null && (
-            <Section title="설명" variant="raised">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+            <Section title={t.description} variant="raised">
+              <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed text-foreground">
                 {issue.description}
               </p>
             </Section>
           )}
 
+          {/*
+            🔴 「Agent 가 해 보라고 한 것」·「실제로 했다의 기록」 같은 부제를 두지 않는다.
+            제안과 해결은 나란히 서 있고 제목이 이미 그 차이를 말한다(CLAUDE.md 16).
+          */}
           {issue.suggestion !== null && (
-            <Section
-              title="제안"
-              description="Agent 가 「해 보라」고 한 것"
-              variant="raised"
-            >
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+            <Section title={t.suggestion} variant="raised">
+              <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed text-foreground">
                 {issue.suggestion}
               </p>
             </Section>
           )}
 
           {issue.resolutionSummary !== null && (
-            <Section
-              title="Resolution"
-              description="실제로 「했다」의 기록"
-              variant="raised"
-            >
+            <Section title={t.resolution} variant="raised">
               {/*
                 해결 기록만 브랜드 톤을 얹는다 — 이 화면에서 가장 값진 한 칸이기 때문이다.
                 🔴 색은 의미에만 쓴다(CLAUDE.md 16).
               */}
-              <p className="whitespace-pre-wrap border-l-2 border-primary/40 bg-primary/[0.03] py-1 pl-3 text-sm leading-relaxed text-foreground">
+              <p className="whitespace-pre-wrap wrap-anywhere border-l-2 border-primary/40 bg-primary/[0.03] py-1 pl-3 text-sm leading-relaxed text-foreground">
                 {issue.resolutionSummary}
               </p>
             </Section>
           )}
 
-          <Section
-            title="History"
-            description="Detection → Fix → Re-review → Resolution"
-            variant="raised"
-          >
+          <Section title={t.history} variant="raised">
             {issue.activities.length === 0 ? (
-              <SectionEmpty title="기록이 없습니다" />
+              <SectionEmpty title={t.noHistory} />
             ) : (
               <ol className="flex flex-col">
                 {issue.activities.map((activity, index) => (
@@ -156,6 +165,8 @@ export function IssueDetailScreen({
                     key={activity.id}
                     activity={activity}
                     last={index === issue.activities.length - 1}
+                    typeLabel={label.activityType[activity.type]}
+                    actorLabel={label.reviewerType[activity.actorType]}
                   />
                 ))}
               </ol>
@@ -167,6 +178,17 @@ export function IssueDetailScreen({
                   workspaceSlug={workspaceSlug}
                   projectSlug={projectSlug}
                   issueId={issue.id}
+                  labels={{
+                    activity: t.activity,
+                    activityType: t.activityType,
+                    commit: t.commit,
+                    commitSha: t.commitSha,
+                    optional: t.optional,
+                    description: t.activityDescription,
+                    recording: t.recording,
+                    record: t.record,
+                    typeOptions: label.activityType,
+                  }}
                 />
               </div>
             )}
@@ -176,18 +198,26 @@ export function IssueDetailScreen({
         {/* ── 곁 정보 ───────────────────────────────────────────────────── */}
         <aside className="flex flex-col gap-5">
           {canAct && (
-            <Section title="상태" variant="raised">
+            <Section title={t.status} variant="raised">
               <IssueStatusControl
                 workspaceSlug={workspaceSlug}
                 projectSlug={projectSlug}
                 issueId={issue.id}
                 currentStatus={issue.status}
                 currentResolutionSummary={issue.resolutionSummary}
+                labels={{
+                  status: t.status,
+                  changeStatus: t.changeStatus,
+                  changing: t.changing,
+                  resolutionSummary: t.resolutionSummary,
+                  resolutionPlaceholder: t.resolutionPlaceholder,
+                  statusOptions: label.status,
+                }}
               />
             </Section>
           )}
 
-          <Section title="위치" variant="raised">
+          <Section title={t.location} variant="raised">
             <CodeLocation
               filePath={issue.filePath}
               lineStart={issue.startLine}
@@ -196,10 +226,10 @@ export function IssueDetailScreen({
             />
           </Section>
 
-          <Section title="식별" variant="raised">
+          <Section title={t.identity} variant="raised">
             <dl className="flex flex-col gap-3 text-xs">
               <div>
-                <dt className="text-muted-foreground">Tags</dt>
+                <dt className="text-muted-foreground">{t.tags}</dt>
                 <dd className="mt-1">
                   {issue.tags.length === 0 ? (
                     <span className="text-muted-foreground/70">—</span>
@@ -223,7 +253,7 @@ export function IssueDetailScreen({
               </div>
 
               <div>
-                <dt className="text-muted-foreground">처음 본 Review</dt>
+                <dt className="text-muted-foreground">{t.firstReview}</dt>
                 <dd className="mt-1">
                   <Link
                     href={`${reviewsPath}/${issue.reviewSessionId}` as Route}
@@ -235,7 +265,7 @@ export function IssueDetailScreen({
               </div>
 
               <div>
-                <dt className="text-muted-foreground">Source</dt>
+                <dt className="text-muted-foreground">{t.source}</dt>
                 <dd className="mt-1 font-mono break-all">
                   {issue.source === null && issue.externalId === null
                     ? "—"
@@ -244,7 +274,7 @@ export function IssueDetailScreen({
               </div>
 
               <div>
-                <dt className="text-muted-foreground">마지막 변경</dt>
+                <dt className="text-muted-foreground">{t.lastChanged}</dt>
                 <dd className="mt-1 tabular-nums">
                   {formatDate(issue.updatedAt)}
                 </dd>
@@ -253,7 +283,7 @@ export function IssueDetailScreen({
           </Section>
         </aside>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 
@@ -269,9 +299,14 @@ export function IssueDetailScreen({
 function ActivityRow({
   activity,
   last,
+  typeLabel,
+  actorLabel,
 }: {
   activity: IssueActivityEntry;
   last: boolean;
+  /** 🔴 값이 아니라 이름표다. 값(`RESOLVED`)은 여전히 `activity.type` 이 갖는다. */
+  typeLabel: string;
+  actorLabel: string;
 }) {
   // 해결로 끝난 것만 브랜드 톤. 나머지는 중립이다 — 색을 의미에만 쓴다.
   const resolved = activity.type === "RESOLVED";
@@ -293,17 +328,17 @@ function ActivityRow({
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span
             className={cn(
-              "font-mono text-[11px] font-medium uppercase tracking-wide",
+              "text-[11px] font-semibold tracking-tight",
               resolved ? "text-primary" : "text-foreground",
             )}
           >
-            {activity.type}
+            {typeLabel}
           </span>
           <span className="text-xs font-medium text-foreground">
             {activity.actorName}
           </span>
           <span className="text-[11px] text-muted-foreground">
-            {activity.actorType}
+            {actorLabel}
           </span>
           {activity.commitSha !== null && (
             <span className="font-mono text-[11px] text-muted-foreground">
@@ -315,7 +350,7 @@ function ActivityRow({
           </span>
         </div>
         {activity.description !== null && (
-          <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-1 whitespace-pre-wrap wrap-anywhere text-xs leading-relaxed text-muted-foreground">
             {activity.description}
           </p>
         )}

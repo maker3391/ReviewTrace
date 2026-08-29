@@ -11,12 +11,12 @@ import {
   resolveExpiresAt,
   type IssueApiKeyInput,
 } from "@/features/api-keys/schemas/api-key";
+import { actionFromError } from "@/lib/action/action-error";
 import {
-  actionFromError,
   actionOk,
-  actionValidationFailed,
   type ActionResult,
 } from "@/lib/action/action-result";
+import { parseActionInput } from "@/lib/action/parse-action-input";
 import { requireOwner, requireWorkspace } from "@/lib/auth/require-workspace";
 
 /**
@@ -42,9 +42,9 @@ export async function issueApiKeyAction(
   workspaceSlug: string,
   input: IssueApiKeyInput,
 ): Promise<ActionResult<IssuedApiKeyResult>> {
-  const parsed = issueApiKeySchema.safeParse(input);
-  if (!parsed.success) {
-    return actionValidationFailed(parsed.error);
+  const parsed = await parseActionInput(issueApiKeySchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
   }
 
   try {

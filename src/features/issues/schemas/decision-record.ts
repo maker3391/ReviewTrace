@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { rule } from "@/lib/validation/validation-rule";
 import { CODE_EVIDENCE_KINDS } from "@/types/review";
 
 /**
@@ -112,7 +113,7 @@ export const codeEvidenceSchema = z
   })
   .refine(
     (e) => e.startLine === null || e.endLine === null || e.endLine >= e.startLine,
-    { message: "endLine 은 startLine 보다 작을 수 없다", path: ["endLine"] },
+    { ...rule("endLineBeforeStartLine"), path: ["endLine"] },
   )
   /**
    * 🔴 `endLine` 만 보내는 것을 거절한다.
@@ -122,7 +123,7 @@ export const codeEvidenceSchema = z
    * `VERIFIED` 로 찍힌다 — 보낸 사람이 가리킨 곳과 전혀 다른 자리가 확인된다.
    */
   .refine((e) => e.endLine === null || e.startLine !== null, {
-    message: "endLine 을 보내려면 startLine 도 함께 보내야 한다",
+    ...rule("endLineWithoutStartLine"),
     path: ["startLine"],
   });
 

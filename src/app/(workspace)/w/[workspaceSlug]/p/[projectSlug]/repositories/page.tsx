@@ -3,10 +3,11 @@ import type { Route } from "next";
 
 import { RepositoryListScreen } from "@/features/repositories/components/RepositoryListScreen";
 import { requireProject } from "@/lib/auth/require-project";
+import { readMessages } from "@/lib/ui/appearance";
 
-export const metadata: Metadata = {
-  title: "Repositories",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.repositories };
+}
 
 export default async function ProjectRepositoriesPage({
   params,

@@ -43,7 +43,7 @@ export async function issueApiKey(
 ): Promise<IssuedApiKey> {
   const name = input.name.trim();
   if (name === "" || name.length > NAME_MAX_LENGTH) {
-    throw new AppError("VALIDATION_ERROR", "API Key 이름이 올바르지 않다.");
+    throw new AppError("API_KEY_NAME_INVALID");
   }
 
   const generated = generateApiKey();
@@ -69,7 +69,7 @@ export async function issueApiKey(
 
   const created = rows[0];
   if (created === undefined) {
-    throw new AppError("INTERNAL_ERROR");
+    throw new AppError("UNEXPECTED");
   }
 
   return { ...created, plainToken: generated.plainToken };
@@ -120,6 +120,6 @@ export async function revokeApiKey(
     .returning({ id: apiKeys.id });
 
   if (revoked.length === 0) {
-    throw new AppError("NOT_FOUND");
+    throw new AppError("RESOURCE_NOT_FOUND");
   }
 }
