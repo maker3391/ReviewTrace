@@ -295,6 +295,31 @@ async function main() {
     "과거 해결이 안 나온다",
   );
 
+  // ── 6-b. 🔴 재검토에서 문제가 남아 있으면 닫힌 Issue 가 다시 열리는가 ────
+  //    History 에만 적고 상태를 두면, 미해결 조회에서 그 회귀가 사라진다.
+  body(
+    await client.callTool({
+      name: "review_again",
+      arguments: {
+        issueId: added.issueId,
+        summary: "부하가 올라가자 다시 재현됐다",
+        stillPresent: true,
+        actor: "mcp-e2e-agent",
+      },
+    }),
+    "review_again(stillPresent)",
+  );
+
+  const reopened = await psql(
+    `select status || '|' || coalesce(resolved_at::text,'null') || '|' || coalesce(resolution_summary,'null')
+     from review_issues where id='${added.issueId}'`,
+  );
+  check(
+    reopened.startsWith("REOPENED|null|null"),
+    "🔴 재검토에서 문제가 남아 있으면 Issue 가 다시 열리고 해결 흔적이 지워진다",
+    `상태가 ${reopened} 다`,
+  );
+
   // ── 7. 🔴 새 Review 를 열면 이전 Issue 를 잊는가 ─────────────────────────
   //    안 잊으면 issueId 를 생략한 resolve_issue 가 «이전 Review 의» Issue 를 닫는다.
   const secondReview = body(

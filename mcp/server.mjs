@@ -68,7 +68,13 @@ async function main() {
    * 방금 연 Review 와 방금 다룬 Issue 를 여기서 기억한다. 프로세스가 곧 한 세션이라
    * 다른 사용자와 섞이지 않는다.
    */
-  const state = { reviewId: null, lastIssueId: null, commitSha: null };
+  const state = {
+    reviewId: null,
+    lastIssueId: null,
+    commitSha: null,
+    /** 아직 성공하지 못한 `create_review` 의 Idempotency-Key. 성공해야 비워진다. */
+    pendingReviewKey: null,
+  };
 
   registerTools(server, createClient(config), state);
 

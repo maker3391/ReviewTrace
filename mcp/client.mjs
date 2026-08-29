@@ -92,7 +92,20 @@ export function createClient({ apiUrl, apiKey }) {
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
 
-      return { status: response.status, ok: response.ok, text: await response.text() };
+      /**
+       * 🔴 **오류 응답을 받았으면 그 사실을 잃지 않는다.**
+       *
+       * 4xx·5xx 헤더를 받은 뒤 오류 «본문»만 끊겨도 여기서 예외가 나면, 부르는 쪽은
+       * 「닿지 못했다」로 읽고 같은 POST 를 다시 보낸다 — 「응답을 받은 실패는
+       * 재시도하지 않는다」는 정책이 정확히 그 자리에서 깨진다. 본문은 사람이 읽을
+       * message 를 얻는 데 쓸 뿐이므로, 못 읽으면 빈 값으로 두고 상태만 들고 나간다.
+       */
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        return { status: response.status, ok: false, text };
+      }
+
+      return { status: response.status, ok: true, text: await response.text() };
     }
 
     let result;

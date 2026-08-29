@@ -178,8 +178,14 @@ export function registerTools(server, client, state) {
             summary: args.summary ?? null,
             issues: [],
           },
-          // 같은 Review 를 두 번 열지 않게 하는 열쇠. 프로세스마다 새로 만든다.
-          randomUUID(),
+          /**
+           * 같은 Review 를 두 번 열지 않게 하는 열쇠.
+           *
+           * 🔴 **성공할 때까지 같은 열쇠를 든다.** 서버가 저장한 뒤 응답만 잃으면 이 Tool 은
+           * 실패로 끝나는데, 다음 호출에서 열쇠를 새로 만들면 **같은 Review 가 하나 더**
+           * 저장된다. 실패가 확정돼도 열쇠를 버리지 않고, 한 번 성공했을 때만 비운다.
+           */
+          (state.pendingReviewKey ??= randomUUID()),
         );
 
         /**
@@ -193,6 +199,8 @@ export function registerTools(server, client, state) {
         state.reviewId = result.reviewSessionId;
         state.commitSha = commitSha;
         state.lastIssueId = null;
+        // 열쇠는 «성공한 뒤에만» 비운다.
+        state.pendingReviewKey = null;
 
         return {
           reviewId: result.reviewSessionId,
@@ -320,10 +328,17 @@ export function registerTools(server, client, state) {
       title: "다시 검토한 결과 기록",
       description:
         "고쳐졌다고 한 것을 다시 봤다는 기록을 남긴다. " +
-        "아직 남아 있으면 무엇이 남았는지 적는다. 통과했으면 resolve_issue 를 부른다.",
+        "문제가 아직 남아 있으면 stillPresent 를 true 로 준다 — 닫혀 있던 Issue 가 다시 열린다. " +
+        "검증까지 통과했으면 resolve_issue 를 부른다.",
       inputSchema: {
         issueId: z.string().optional(),
         summary: z.string().optional().describe("다시 본 결과"),
+        stillPresent: z
+          .boolean()
+          .optional()
+          .describe(
+            "다시 봤더니 문제가 그대로 있는가. true 면 Issue 를 REOPENED 로 되돌린다.",
+          ),
         commitSha: z.string().optional(),
         actor: actorName,
         evidence: z.array(evidenceItem).optional(),
@@ -332,9 +347,33 @@ export function registerTools(server, client, state) {
       annotations: { readOnlyHint: false, idempotentHint: false },
     },
     (args) =>
-      guard(() =>
-        activity(client, state, args, "REVIEWED_AGAIN", "재검토를 기록했다."),
-      ),
+      guard(async () => {
+        const result = await activity(
+          client,
+          state,
+          args,
+          "REVIEWED_AGAIN",
+          "재검토를 기록했다.",
+        );
+
+        /**
+         * 🔴 **「아직 남아 있다」를 History 에만 적고 상태를 두면 그 회귀가 사라진다.**
+         *
+         * 닫혀 있던 Issue 는 `RESOLVED` 인 채로 남아, 미해결을 찾는 조회에 걸리지 않는다 —
+         * 다시 무너진 것을 아무도 못 본다. 상태와 History 는 함께 움직여야 한다.
+         */
+        if (args.stillPresent !== true) {
+          return result;
+        }
+
+        await client.updateStatus(result.issueId, {
+          status: "REOPENED",
+          commitSha: args.commitSha ?? null,
+          actor: { type: "AGENT", name: args.actor ?? "unknown-agent" },
+        });
+
+        return { ...result, 안내: "재검토를 기록하고 Issue 를 다시 열었다." };
+      }),
   );
 
   server.registerTool(
