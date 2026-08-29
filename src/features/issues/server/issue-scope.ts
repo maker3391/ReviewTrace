@@ -39,6 +39,22 @@ import type { ProjectScope, WorkspaceScope } from "@/types/tenant";
  *
  * 🔴 **범위 밖은 `FORBIDDEN` 이 아니라 `NOT_FOUND`** 다 — 부르는 쪽이 그렇게 끝낸다.
  * 「없다」와 「남의 것이다」를 구분해 주면 그것만으로 그 ID 가 존재한다는 사실이 새어 나간다.
+ *
+ * ## 🔴 ID 로 Issue 를 다루는 경로는 «전부» 여기를 지난다
+ *
+ * | 경로 | 무엇을 하는가 | 범위 |
+ * |---|---|---|
+ * | `findAgentIssue` (`GET /api/v1/issues/{id}`) | 본문·근본원인·History 를 읽는다 | Workspace |
+ * | `updateIssueStatus` (`PATCH /api/v1/issues/{id}` · 화면) | 상태와 해결 요약을 **쓴다** | 둘 다 |
+ * | `findIssueInScope` (`POST /api/v1/issues/{id}/activities` · 화면) | Activity 를 **쓴다** | 둘 다 |
+ *
+ * 셋이 각자 `and(eq(id), eq(workspaceId))` 두 줄을 따로 갖고 있었다 — **하나만 빠져도 그
+ * 경로만 조용히 뚫리고, 시험이 걸 자리가 없었다.** 한 곳으로 모아야 이 조건 하나에 시험을
+ * 걸어 세 경로를 함께 지킬 수 있다(`issue-scope.test.ts` · `issue-status-service.test.ts`).
+ *
+ * 🔴 **`workspaceId`·`projectId` 는 반드시 «인가로 확인된» 값이어야 한다.** 요청 본문이나
+ * Query 에서 온 값을 그대로 넣지 않는다 — Agent 경로에서는 `authenticateAgent` 가,
+ * 화면에서는 `requireWorkspace`·`requireProject` 가 돌려준 값이다.
  */
 export type IssueScope = WorkspaceScope | ProjectScope;
 

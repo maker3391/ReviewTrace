@@ -3,7 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { apiError, apiErrorFromUnknown } from "@/lib/api/error-response";
-import { AppError, isAppError } from "@/lib/errors";
+import { AppError, describeErrorForLog, isAppError } from "@/lib/errors";
 import { hasUnstorableText } from "@/lib/validation/db-text";
 
 /**
@@ -21,10 +21,27 @@ export const IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
 const IDEMPOTENCY_KEY_MAX = 200;
 
+/**
+ * 재전송 판별에 쓸 열쇠를 읽는다. 헤더가 없으면 `null` — Dedup 을 요청하지 않은 것이다.
+ *
+ * 🔴 **상한을 넘은 열쇠를 «조용히 버리지» 않는다.** 예전에는 `null` 을 돌려줘, Agent 는
+ * 열쇠를 보냈다고 믿는데 서버는 Dedup 없이 저장했다 — 그 상태로 재전송하면
+ * **ReviewSession 이 하나 더 생긴다.** 오류도 경고도 없어 중복이 쌓이는 것을 알 수 없다.
+ * 재시도를 자동으로 하는 Agent 일수록 조용히 늘어난다.
+ *
+ * 그래서 `400` 으로 거절한다. 깨진 JSON 을 `readJsonBody` 가 거절하는 이유와 같다 —
+ * **Agent 가 자기 입력을 고칠 수 있어야 한다.** 조용히 무시하면 고칠 기회가 없다.
+ *
+ * @throws AppError `VALIDATION_ERROR`
+ */
 export function readIdempotencyKey(request: Request): string | null {
   const raw = request.headers.get(IDEMPOTENCY_KEY_HEADER)?.trim() ?? "";
-  if (raw === "" || raw.length > IDEMPOTENCY_KEY_MAX) {
+  if (raw === "") {
     return null;
+  }
+  if (raw.length > IDEMPOTENCY_KEY_MAX) {
+    // 🔴 받은 값을 응답에 되돌려 담지 않는다. 길이 규칙만 알린다.
+    throw new AppError("AGENT_IDEMPOTENCY_KEY_TOO_LONG");
   }
   return raw;
 }
@@ -42,7 +59,9 @@ export async function runAgentRoute(
     return await handler();
   } catch (error) {
     if (!isAppError(error)) {
-      console.error("[agent-api] 처리하지 못한 오류", error);
+      // 🔴 오류 객체를 그대로 넘기지 않는다 — Drizzle 이 바인딩된 값(API Key Hash·Payload)을
+      //    message 에 싣는다(`describeErrorForLog`).
+      console.error("[agent-api] 처리하지 못한 오류:", describeErrorForLog(error));
     }
     return apiErrorFromUnknown(error);
   }

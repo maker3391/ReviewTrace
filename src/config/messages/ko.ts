@@ -828,10 +828,12 @@ export const ko = {
     UNEXPECTED: "요청을 처리하지 못했습니다.",
     RESOURCE_NOT_FOUND: "대상을 찾을 수 없습니다.",
 
-    /** 🔴 아래 셋은 Agent 만 마주친다. 화면에는 뜨지 않지만 자리를 비워 두지 않는다. */
+    /** 🔴 아래 넷은 Agent 만 마주친다. 화면에는 뜨지 않지만 자리를 비워 두지 않는다. */
     AGENT_UNAUTHORIZED: "인증이 필요합니다.",
     AGENT_BODY_NOT_JSON: "요청 본문이 올바른 JSON 이 아닙니다.",
     AGENT_BODY_UNSTORABLE_TEXT: "요청 본문에 저장할 수 없는 문자가 들어 있습니다.",
+    AGENT_IDEMPOTENCY_KEY_TOO_LONG:
+      "Idempotency-Key 가 너무 깁니다.",
 
     API_KEY_NAME_INVALID: "API Key 이름이 올바르지 않습니다.",
 

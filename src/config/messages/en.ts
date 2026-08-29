@@ -647,6 +647,7 @@ export const en: Messages = {
     AGENT_BODY_NOT_JSON: "The request body is not valid JSON.",
     AGENT_BODY_UNSTORABLE_TEXT:
       "The request body contains characters that cannot be stored.",
+    AGENT_IDEMPOTENCY_KEY_TOO_LONG: "That Idempotency-Key is too long.",
 
     API_KEY_NAME_INVALID: "That API Key name is not valid.",
 

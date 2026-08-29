@@ -42,7 +42,9 @@ Records one review session, with zero or more issues, in a single transaction.
 
 **Headers** — `Idempotency-Key` (optional, ≤200 chars). Resending the same key against
 the same repository returns `200` and writes nothing. Omit it and the same commit can be
-reviewed twice, which is legitimate.
+reviewed twice, which is legitimate. A key longer than 200 characters is rejected with
+`400 VALIDATION_ERROR`; it is never ignored silently, because a dropped key would leave
+the request un-deduplicated while the caller believed it was protected.
 
 **Body**
 

@@ -204,6 +204,9 @@ describe("updateProject", () => {
     const driverError = new Error(
       'duplicate key value violates unique constraint "projects_workspace_slug_unique" — Key (workspace_id, slug)=(…, smil) already exists',
     );
+    // 🔴 실제 `pg` 는 SQLSTATE 를 `code` 에 담아 온다. 그것이 unique 위반의 «판정 근거»다
+    //    (`src/db/unique-violation.ts`) — Fake 도 진짜와 같은 모양이어야 한다.
+    Object.assign(driverError, { code: "23505" });
     const fake = fakeExecutor([failsWith("update", driverError)]);
 
     const error = await rejection(
@@ -221,6 +224,40 @@ describe("updateProject", () => {
     const message = isAppError(error) ? error.message : String(error);
     expect(message).not.toContain("duplicate key");
     expect(message).not.toContain("projects_workspace_slug_unique");
+  });
+
+  /**
+   * 🔴 **unique 위반«일 때만» CONFLICT 다.**
+   *
+   * 무엇이 오든 `CONFLICT` 로 접으면 접속 끊김·statement timeout·Pool 고갈까지
+   * 「같은 slug 가 이미 있습니다」로 둔갑한다. 사용자는 멀쩡한 이름을 계속 바꿔 가며
+   * 다시 시도하고, 진짜 원인은 화면에도 로그에도 남지 않는다 — 무엇이든 접던 예전보다
+   * 나쁜 과차단이다.
+   *
+   * ## 되돌림 확인
+   *
+   * `project-service.ts` 의 `if (isUniqueViolation(cause))` 를 지워 무조건
+   * `AppError` 를 던지게 되돌리면 이 시험이 **실패한다** — 접속 끊김이 CONFLICT 가 된다.
+   */
+  it("🔴 unique 위반이 «아닌» 실패는 CONFLICT 로 뭉개지 않는다", async () => {
+    const connectionLost = new Error("Connection terminated unexpectedly");
+    Object.assign(connectionLost, { code: "57P01" });
+    const fake = fakeExecutor([failsWith("update", connectionLost)]);
+
+    const error = await rejection(
+      updateProject(
+        {
+          workspaceId: WORKSPACE,
+          projectId: "p-erp",
+          input: input({ name: "ERP", slug: "smil" }),
+        },
+        fake.executor,
+      ),
+    );
+
+    // 되돌리면 여기서 AppError(CONFLICT) 가 된다 — 접속 장애가 이름 충돌로 보고된다.
+    expect(isAppError(error)).toBe(false);
+    expect(error).toBe(connectionLost);
   });
 });
 

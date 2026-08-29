@@ -494,7 +494,23 @@ export function registerTools(server, client, state) {
     (args) =>
       guard(async () => {
         const repository = args.repository ?? (await safeFullName());
-        return client.knowledgeContext({ repository, limit: args.limit });
+        const context = await client.knowledgeContext({
+          repository,
+          limit: args.limit,
+        });
+        /*
+          🔴 **좁히지 못했으면 그렇다고 말한다.** Tool 이름과 설명은 「이 저장소의」인데,
+          git 을 못 읽으면(`origin` 없음 · GitHub 이 아닌 remote · git 미설치) `repository`
+          가 `undefined` 가 되어 서버는 **Workspace 전체**의 Pattern·미해결 문제·과거 해결을
+          돌려준다. 그것을 그대로 넘기면 Agent 는 남의 저장소 이야기를 「이 저장소의 규칙」
+          으로 읽는다 — 오류도 경고도 없이 판단만 틀어진다.
+          `search_issues` 는 이미 `"(전체)"` 로 표시하고 있었다. 같은 표시를 여기도 붙인다.
+
+          🔴 **표시를 spread «뒤»에 둔다.** 지금 서버 응답에는 `repository` 칸이 없지만,
+          나중에 생기면 앞에 두었을 때 그 값이 우리 표시를 덮어 **범위를 잘못 알린다** —
+          그것도 오류 없이 조용히. 어느 범위로 «불렀는지»는 서버가 아니라 이쪽이 안다.
+        */
+        return { ...context, repository: repository ?? "(전체)" };
       }),
   );
 }

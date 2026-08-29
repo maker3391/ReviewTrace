@@ -73,11 +73,13 @@ describe("localizedPublicError — 같은 오류를 두 언어가 나눠 쓴다"
    */
   it("③ 언어가 달라도 code 는 같다", () => {
     for (const reason of APP_ERROR_REASONS) {
+      // 🔴 캐스트는 TypeScript 한계를 비켜 갈 뿐이다 — 사유는
+      //    `errors.architecture.test.ts` 의 `errorFor` 주석에 적어 두었다.
       const error =
         reason === "PROJECT_SLUG_RESERVED" ||
         reason === "KNOWLEDGE_PAGE_SLUG_RESERVED"
           ? new AppError(reason, { meta: { slug: "new" } })
-          : new AppError(reason);
+          : new AppError(reason as "UNEXPECTED");
 
       const koResult = localizedPublicError(error, ko.errors);
       const enResult = localizedPublicError(error, en.errors);
@@ -183,6 +185,7 @@ describe("⑪ HTTP Status 는 그대로다", () => {
       AGENT_UNAUTHORIZED: 401,
       AGENT_BODY_NOT_JSON: 400,
       AGENT_BODY_UNSTORABLE_TEXT: 400,
+      AGENT_IDEMPOTENCY_KEY_TOO_LONG: 400,
       API_KEY_NAME_INVALID: 400,
       PROJECT_SLUG_RESERVED: 400,
       PROJECT_SLUG_TAKEN: 409,

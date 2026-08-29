@@ -6,6 +6,7 @@ import { db, type DbExecutor } from "@/db";
 import { issueCodeEvidences, repositories, reviewIssues } from "@/db/schema";
 import type { CodeEvidenceInput } from "@/features/issues/schemas/decision-record";
 import { SNAPSHOT_MAX } from "@/features/issues/schemas/decision-record";
+import { describeErrorForLog } from "@/lib/errors";
 import { isPublicRepository, readGithubLines } from "@/lib/github/content";
 import type { EvidenceVerification } from "@/types/review";
 
@@ -243,7 +244,9 @@ export async function verifyCodeEvidence(
     }
   } catch (error) {
     // 🔴 확인 실패가 요청을 깨지 않는다. 원인은 서버 Log 에만 남는다(CLAUDE.md 19).
-    console.error("[evidence] GitHub 확인에 실패했다", error);
+    // 🔴 오류 객체를 그대로 넘기지 않는다 — 이 경로의 UPDATE 는 코드 Snapshot 을 바인딩하고,
+    //    Drizzle 은 그 값을 message 에 싣는다(`describeErrorForLog`).
+    console.error("[evidence] GitHub 확인에 실패했다:", describeErrorForLog(error));
   }
 }
 

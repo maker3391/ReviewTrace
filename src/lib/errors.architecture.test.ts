@@ -12,12 +12,23 @@ import {
   type AppErrorReason,
 } from "@/lib/errors";
 
-/** 값이 필요한 오류는 값과 함께 만든다. 시험이 전수를 돌기 위한 자리다. */
+/**
+ * 값이 필요한 오류는 값과 함께 만든다. 시험이 전수를 돌기 위한 자리다.
+ *
+ * 🔴 **아래 캐스트는 TypeScript 의 한계를 비켜 가는 것일 뿐 판정을 느슨하게 하지 않는다.**
+ * `AppErrorArgs` 는 reason 마다 tuple 하나씩으로 펼쳐지는데, 이름이 서른을 넘자 그 union
+ * 을 더 풀지 못해 **union 을 그대로 넘기는 이 자리만** 타입 오류가 났다. 돌 때 넘어가는
+ * 값은 언제나 진짜 `reason` 이라 이 시험이 확인하는 것(사전이 모든 오류를 덮는가 ·
+ * code 가 언어를 따라 흔들리지 않는가)은 그대로다.
+ *
+ * 🔴 **`new AppError("한국어 문구")` 를 막는 보증은 이 캐스트와 무관하다** — 그것은
+ * 부르는 자리마다 reason 을 «literal 로» 적기 때문에 지켜진다.
+ */
 function errorFor(reason: AppErrorReason): AppError {
   return reason === "PROJECT_SLUG_RESERVED" ||
     reason === "KNOWLEDGE_PAGE_SLUG_RESERVED"
     ? new AppError(reason, { meta: { slug: "new" } })
-    : new AppError(reason);
+    : new AppError(reason as "UNEXPECTED");
 }
 
 /**

@@ -3,6 +3,7 @@ import "server-only";
 import { and, asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
+import { issueInScope } from "@/features/issues/server/issue-scope";
 import {
   issueActivities,
   issueCodeEvidences,
@@ -142,12 +143,9 @@ export async function findAgentIssue(
         eq(reviewSessions.workspaceId, reviewIssues.workspaceId),
       ),
     )
-    .where(
-      and(
-        eq(reviewIssues.id, issueId),
-        eq(reviewIssues.workspaceId, workspaceId),
-      ),
-    )
+    // 🔴 ID 만으로 끝내지 않는다 — 범위 조건은 `issueInScope` 한 곳에서 받는다.
+    //    Agent 요청에는 Project 가 없으므로 Workspace 범위다(CLAUDE.md 13).
+    .where(and(eq(reviewIssues.id, issueId), issueInScope({ workspaceId })))
     .limit(1);
 
   const issue = rows[0];
@@ -161,11 +159,20 @@ export async function findAgentIssue(
   return { ...issue, activities };
 }
 
-export async function searchAgentIssues(
+/**
+ * Agent 검색의 `where`.
+ *
+ * 🔴 **Workspace 조건을 «맨 먼저, 무조건» 넣는다.** 나머지는 요청이 보낸 Filter 라 있을
+ * 수도 없을 수도 있지만 이 하나는 어떤 조합에서도 빠지지 않는다 — 빠지는 순간 아무 API Key
+ * 하나로 **모든 Tenant 의 Issue 목록**이 돌아온다.
+ *
+ * 질의를 돌리지 않고도 「무엇으로 좁히는가」를 확인할 수 있게 따로 뽑았다
+ * (`issue-agent-query.test.ts`). 화면 조회(`issue-query.ts`)와 같은 방식이다.
+ */
+export function buildAgentIssueSearchConditions(
   workspaceId: string,
   query: IssueSearchQuery,
-  executor: DbExecutor = db(),
-): Promise<AgentIssueSummary[]> {
+): SQL[] {
   const conditions: SQL[] = [eq(reviewIssues.workspaceId, workspaceId)];
 
   if (query.repository !== null) {
@@ -198,6 +205,16 @@ export async function searchAgentIssues(
       conditions.push(match);
     }
   }
+
+  return conditions;
+}
+
+export async function searchAgentIssues(
+  workspaceId: string,
+  query: IssueSearchQuery,
+  executor: DbExecutor = db(),
+): Promise<AgentIssueSummary[]> {
+  const conditions = buildAgentIssueSearchConditions(workspaceId, query);
 
   return executor
     .select({
