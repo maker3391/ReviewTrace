@@ -10,12 +10,12 @@ import {
 import { issueStatusUpdateSchema } from "@/features/issues/schemas/issue-status-update";
 import { addIssueActivity } from "@/features/issues/server/issue-activity-service";
 import { updateIssueStatus } from "@/features/issues/server/issue-status-service";
+import { actionFromError } from "@/lib/action/action-error";
 import {
-  actionFromError,
   actionOk,
-  actionValidationFailed,
   type ActionResult,
 } from "@/lib/action/action-result";
+import { parseActionInput } from "@/lib/action/parse-action-input";
 import { requireProject } from "@/lib/auth/require-project";
 import type { SessionUser } from "@/lib/auth/workspace-context";
 import type { IssueStatus, ReviewerType } from "@/types/review";
@@ -48,7 +48,8 @@ export interface IssueActionTarget {
   projectSlug: string;
   /**
    * 🔴 **이 값은 권한 근거가 아니다.** 주소창에서 온 문자열일 뿐이다 —
-   * 소속이 확인된 `workspaceId` 와 함께 걸릴 때만 의미가 있다(CLAUDE.md 11).
+   * 소속이 확인된 `workspaceId`·`projectId` 와 **함께** 걸릴 때만 의미가 있다
+   * (CLAUDE.md 11).
    */
   issueId: string;
 }
@@ -86,7 +87,7 @@ export async function updateIssueStatusAction(
   input: IssueStatusChangeInput,
 ): Promise<ActionResult> {
   try {
-    const { user, workspace } = await requireProject(
+    const { user, workspace, project } = await requireProject(
       target.workspaceSlug,
       target.projectSlug,
     );
@@ -94,19 +95,28 @@ export async function updateIssueStatusAction(
     const actor = sessionActor(user);
 
     // 🔴 화면이 보낸 것 중 «상태와 해결 요약만» 집는다. actor 는 여기서 붙인다.
-    const parsed = issueStatusUpdateSchema.safeParse({
+    const parsed = await parseActionInput(issueStatusUpdateSchema, {
       status: input.status,
       resolutionSummary: input.resolutionSummary,
       actor,
     });
 
-    if (!parsed.success) {
+    if (!parsed.ok) {
       // RESOLVED 인데 해결 요약이 없는 경우가 여기로 온다 — 규칙은 Schema 에 있다.
-      return actionValidationFailed(parsed.error);
+      return parsed.failure;
     }
 
     await updateIssueStatus({
-      workspaceId: workspace.workspaceId,
+      /**
+       * 🔴 **읽은 범위와 같은 범위로 쓴다.** 이 화면이 Issue 를 «보여 줄» 때 쓴 범위는
+       * `{workspaceId, projectId}` 였다(`findIssueDetail`). 쓰기를 Workspace 로만 좁히면
+       * 읽기와 쓰기의 범위가 어긋나 **Project A 화면에서 주소만 바꿔 Project B 의 Issue 를
+       * 움직일 수 있다.** 둘은 같은 범위여야 한다(CLAUDE.md 10·11).
+       */
+      scope: {
+        workspaceId: workspace.workspaceId,
+        projectId: project.projectId,
+      },
       issueId: target.issueId,
       update: parsed.data,
       // actor 를 항상 채워 보내므로 쓰이지 않는다. Agent 경로가 API Key 이름을 넣는 자리다.
@@ -133,26 +143,33 @@ export async function updateIssueStatusAction(
  * Issue History 에 한 줄 남긴다.
  *
  * 🔴 상태는 바꾸지 않는다 — 그것은 `updateIssueStatusAction` 의 몫이다.
- * Tenant 확인도 여기서 하지 않는다: `addIssueActivity` 가 확인된 `workspaceId` 와 함께
- * Issue 를 찾고, 못 찾으면 `NOT_FOUND` 로 끝난다.
+ * Tenant 확인도 여기서 하지 않는다: `addIssueActivity` 가 확인된 범위와 함께 Issue 를
+ * 찾고, 못 찾으면 `NOT_FOUND` 로 끝난다.
+ *
+ * 🔴 **범위는 `requireProject` 가 확인해 준 Project 까지다.** 화면은 어느 Project 를
+ * 보고 있는지 알고 있으므로, 그것을 넘기지 않으면 주소창의 issueId 만 바꿔 다른
+ * Project 의 History 에 한 줄 남길 수 있다 — 상태 변경과 같은 자리다.
  */
 export async function addIssueActivityAction(
   target: IssueActionTarget,
   input: IssueActivityFormInput,
 ): Promise<ActionResult> {
-  const parsed = issueActivityFormSchema.safeParse(input);
-  if (!parsed.success) {
-    return actionValidationFailed(parsed.error);
+  const parsed = await parseActionInput(issueActivityFormSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
   }
 
   try {
-    const { user, workspace } = await requireProject(
+    const { user, workspace, project } = await requireProject(
       target.workspaceSlug,
       target.projectSlug,
     );
 
     await addIssueActivity({
-      workspaceId: workspace.workspaceId,
+      scope: {
+        workspaceId: workspace.workspaceId,
+        projectId: project.projectId,
+      },
       issueId: target.issueId,
       activity: { ...parsed.data, actor: sessionActor(user) },
     });

@@ -4,9 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { moveRepositoryToProject } from "@/features/repositories/server/repository-query";
 import { findProjectBySlug } from "@/features/projects/server/project-service";
+import { actionFail, actionFromError } from "@/lib/action/action-error";
 import {
-  actionFail,
-  actionFromError,
   actionOk,
   type ActionResult,
 } from "@/lib/action/action-result";
@@ -26,7 +25,7 @@ export async function moveRepositoryAction(target: {
   targetProjectSlug: string;
 }): Promise<ActionResult> {
   try {
-    const { workspace } = await requireProject(
+    const { workspace, project } = await requireProject(
       target.workspaceSlug,
       target.projectSlug,
     );
@@ -37,12 +36,18 @@ export async function moveRepositoryAction(target: {
     );
 
     if (destination === null) {
-      return actionFail("NOT_FOUND", "옮길 Project 를 찾을 수 없습니다.");
+      return actionFail("MOVE_TARGET_PROJECT_NOT_FOUND");
     }
 
     await moveRepositoryToProject({
       workspaceId: workspace.workspaceId,
       repositoryId: target.repositoryId,
+      /**
+       * 🔴 **출발지도 함께 건다.** 이 화면이 Repository 를 «읽을 때» 쓴 범위가
+       * `{workspaceId, projectId}` 였으니 쓰기도 같아야 한다 — 아니면 Project A 화면에서
+       * 다른 Project 의 Repository ID 를 적어 보내는 것만으로 그것이 옮겨진다.
+       */
+      sourceProjectId: project.projectId,
       targetProjectId: destination.projectId,
     });
 

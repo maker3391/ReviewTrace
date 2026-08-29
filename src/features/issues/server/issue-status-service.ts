@@ -6,6 +6,10 @@ import { db, type DbExecutor } from "@/db";
 import { issueActivities, reviewIssues } from "@/db/schema";
 import { insertCodeEvidence } from "@/features/issues/server/code-evidence-service";
 import {
+  issueInScope,
+  type IssueScope,
+} from "@/features/issues/server/issue-scope";
+import {
   ACTIVITY_TYPE_BY_STATUS,
   type IssueStatusUpdateInput,
 } from "@/features/issues/schemas/issue-status-update";
@@ -44,7 +48,14 @@ export interface UpdatedIssue {
 
 export async function updateIssueStatus(
   input: {
-    workspaceId: string;
+    /**
+     * 🔴 **부르는 쪽이 «아는 만큼» 좁힌다**(`issue-scope.ts`).
+     *
+     * 화면은 주소에 Project 가 있으므로 `ProjectScope` 를 준다 — Project A 를 보면서
+     * 주소만 바꿔 Project B 의 Issue 를 움직이지 못한다. Agent 는 API Key 가 Workspace 만
+     * 정하므로 `WorkspaceScope` 다.
+     */
+    scope: IssueScope;
     issueId: string;
     update: IssueStatusUpdateInput;
     /** `actor` 를 생략했을 때 쓸 이름. API Key 의 이름이 들어온다. */
@@ -52,13 +63,14 @@ export async function updateIssueStatus(
   },
   executor: DbExecutor = db(),
 ): Promise<UpdatedIssue> {
-  const { workspaceId, issueId, update } = input;
+  const { scope, issueId, update } = input;
+  const workspaceId = scope.workspaceId;
   const resolving = update.status === "RESOLVED";
   const now = new Date();
 
   return executor.transaction(async (tx) => {
     /**
-     * 🔴 Tenant 조건을 UPDATE 자체에 건다.
+     * 🔴 범위 조건을 UPDATE 자체에 건다.
      *
      * 「조회해서 확인하고 → 수정한다」로 나누면 그 사이에 다른 요청이 끼어들 수 있고,
      * 무엇보다 조건이 두 문장으로 갈라진다. 한 문장이면 빠뜨릴 자리가 없다(스펙 15).
@@ -71,12 +83,7 @@ export async function updateIssueStatus(
         resolutionSummary: resolving ? update.resolutionSummary : null,
         updatedAt: now,
       })
-      .where(
-        and(
-          eq(reviewIssues.id, issueId),
-          eq(reviewIssues.workspaceId, workspaceId),
-        ),
-      )
+      .where(and(eq(reviewIssues.id, issueId), issueInScope(scope)))
       .returning({
         id: reviewIssues.id,
         status: reviewIssues.status,
@@ -87,8 +94,8 @@ export async function updateIssueStatus(
 
     const updated = updatedRows[0];
     if (updated === undefined) {
-      // 없는 Issue 와 남의 Workspace 의 Issue 를 구분해 알려주지 않는다.
-      throw new AppError("NOT_FOUND");
+      // 없는 Issue 와 범위 밖의 Issue(남의 Workspace · 다른 Project)를 구분해 알려주지 않는다.
+      throw new AppError("RESOURCE_NOT_FOUND");
     }
 
     // 같은 Transaction 이다 — 상태만 바뀌고 History 가 없는 순간을 만들지 않는다.

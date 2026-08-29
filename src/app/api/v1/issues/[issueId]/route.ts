@@ -38,7 +38,12 @@ export async function PATCH(
     }
 
     const { evidenceIds, ...issue } = await updateIssueStatus({
-      workspaceId: agent.workspaceId,
+      /**
+       * 🔴 **Agent 는 Workspace 까지만 좁힌다.** API Key 가 Workspace 를 정하고 Payload 에도
+       * Query 에도 Project 자리가 없다(CLAUDE.md 13) — 여기에 Project 를 요구하면 계약이
+       * 깨진다. 화면 쪽(Server Action)은 주소의 Project 까지 좁힌다.
+       */
+      scope: { workspaceId: agent.workspaceId },
       issueId: parsedId.data,
       update: parsed.data,
       fallbackActorName: agent.apiKeyName,

@@ -37,7 +37,12 @@ export async function POST(
     }
 
     const { evidenceIds, ...activity } = await addIssueActivity({
-      workspaceId: agent.workspaceId,
+      /**
+       * 🔴 **Agent 는 Project 까지 좁히지 «못한다».** API Key 가 Workspace 를 정하고
+       * Payload 에도 Query 에도 Project 자리가 없다(CLAUDE.md 13). 여기에 Project 를
+       * 넣으면 지금 도는 Agent 들의 요청이 전부 `NOT_FOUND` 가 된다.
+       */
+      scope: { workspaceId: agent.workspaceId },
       issueId: parsedId.data,
       activity: parsed.data,
     });

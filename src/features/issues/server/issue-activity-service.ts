@@ -6,6 +6,10 @@ import { db, type DbExecutor } from "@/db";
 import { issueActivities, reviewIssues } from "@/db/schema";
 import { insertCodeEvidence } from "@/features/issues/server/code-evidence-service";
 import type { IssueActivityInput } from "@/features/issues/schemas/issue-activity";
+import {
+  issueInScope,
+  type IssueScope,
+} from "@/features/issues/server/issue-scope";
 import { AppError } from "@/lib/errors";
 import type { IssueActivityType, ReviewerType } from "@/types/review";
 
@@ -37,7 +41,15 @@ export interface CreatedIssueActivity {
 
 export async function addIssueActivity(
   input: {
-    workspaceId: string;
+    /**
+     * 🔴 **상태 변경과 «같은» 범위 규칙을 쓴다**(`issueInScope`).
+     *
+     * 화면에서 온 요청은 URL 의 Project 까지 좁히고, Agent 요청은 API Key 가 정한
+     * Workspace 까지만 좁힌다 — Agent 에게는 Project 가 없기 때문이다(CLAUDE.md 13).
+     * 조건을 여기서 다시 적지 않는 이유는, 읽기와 쓰기가 갈라지면 그 순간
+     * 「Project A 화면에서 Project B 의 History 에 한 줄 남는」 자리가 생기기 때문이다.
+     */
+    scope: IssueScope;
     issueId: string;
     activity: IssueActivityInput;
   },
@@ -45,7 +57,7 @@ export async function addIssueActivity(
 ): Promise<CreatedIssueActivity> {
   // 🔴 행위와 그 근거는 함께 남거나 함께 남지 않는다 — 반쪽 History 를 만들지 않는다.
   return executor.transaction(async (tx) => {
-    const issue = await findIssueInWorkspace(tx, input.workspaceId, input.issueId);
+    const issue = await findIssueInScope(tx, input.scope, input.issueId);
 
     const rows = await tx
       .insert(issueActivities)
@@ -74,7 +86,7 @@ export async function addIssueActivity(
 
     const created = rows[0];
     if (created === undefined) {
-      throw new AppError("INTERNAL_ERROR");
+      throw new AppError("UNEXPECTED");
     }
 
     const evidenceIds = await insertCodeEvidence(
@@ -99,9 +111,9 @@ export async function addIssueActivity(
  *
  * @throws AppError `NOT_FOUND`
  */
-export async function findIssueInWorkspace(
+export async function findIssueInScope(
   executor: DbExecutor,
-  workspaceId: string,
+  scope: IssueScope,
   issueId: string,
 ): Promise<{ id: string; workspaceId: string; status: string }> {
   const rows = await executor
@@ -111,14 +123,12 @@ export async function findIssueInWorkspace(
       status: reviewIssues.status,
     })
     .from(reviewIssues)
-    .where(
-      and(eq(reviewIssues.id, issueId), eq(reviewIssues.workspaceId, workspaceId)),
-    )
+    .where(and(eq(reviewIssues.id, issueId), issueInScope(scope)))
     .limit(1);
 
   const issue = rows[0];
   if (issue === undefined) {
-    throw new AppError("NOT_FOUND");
+    throw new AppError("RESOURCE_NOT_FOUND");
   }
 
   return issue;

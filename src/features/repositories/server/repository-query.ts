@@ -164,28 +164,6 @@ function repositoryStats(scope: ProjectScope, executor: DbExecutor) {
   return { review, issue };
 }
 
-/** Repository 를 옮길 때 고를 수 있는 목록. 같은 Workspace 안의 것만 나온다. */
-export interface RepositoryMoveOption {
-  id: string;
-  fullName: string;
-  projectId: string;
-}
-
-export async function listWorkspaceRepositories(
-  workspaceId: string,
-  executor: DbExecutor = db(),
-): Promise<RepositoryMoveOption[]> {
-  return executor
-    .select({
-      id: repositories.id,
-      fullName: repositories.fullName,
-      projectId: repositories.projectId,
-    })
-    .from(repositories)
-    .where(eq(repositories.workspaceId, workspaceId))
-    .orderBy(asc(repositories.fullName));
-}
-
 /**
  * Repository 를 같은 Workspace 안의 다른 Project 로 옮긴다.
  *
@@ -198,6 +176,11 @@ export async function listWorkspaceRepositories(
  * 이 한 번의 UPDATE 로 아래가 전부 함께 이동한다. 이것이 `project_id` 를 하위 표에 복사하지
  * 않은 이유이기도 하다.
  *
+ * 🔴 **출발지도 조건이다.** 화면은 언제나 「이 Project 의 이 Repository 를 옮긴다」이고,
+ * 그 화면이 Repository 를 **읽을 때** 쓴 범위는 `{workspaceId, projectId}` 였다
+ * (`findRepositoryDetail`). 읽기와 쓰기의 범위가 어긋나면 **Project A 화면에서 주소와
+ * ID 만 알면 Project B 의 Repository 를 옮길 수 있다.**
+ *
  * @throws {AppError} 대상이나 목적지가 범위 밖이면 `NOT_FOUND`.
  */
 export async function moveRepositoryToProject(
@@ -205,6 +188,14 @@ export async function moveRepositoryToProject(
     /** 🔴 소속 확인을 통과한 값. */
     workspaceId: string;
     repositoryId: string;
+    /**
+     * 지금 이 Repository 가 있다고 «주장하는» Project — 요청이 시작된 화면의 것이다.
+     *
+     * 주면 조건이 하나 더 겹친다(CLAUDE.md 10). 화면에서 오는 요청은 **반드시 준다.**
+     * Project 화면 밖에서 부르는 자리(Workspace 범위의 정리·이관)는 이것을 모르므로
+     * Workspace 까지만 좁힌다.
+     */
+    sourceProjectId?: string;
     targetProjectId: string;
   },
   executor: DbExecutor = db(),
@@ -221,7 +212,7 @@ export async function moveRepositoryToProject(
     .limit(1);
 
   if (target[0] === undefined) {
-    throw new AppError("NOT_FOUND", "옮길 Project 를 찾을 수 없습니다.");
+    throw new AppError("MOVE_TARGET_PROJECT_NOT_FOUND");
   }
 
   const moved = await executor
@@ -231,11 +222,15 @@ export async function moveRepositoryToProject(
       and(
         eq(repositories.id, input.repositoryId),
         eq(repositories.workspaceId, input.workspaceId),
+        // 출발지를 아는 요청은 그것까지 조건으로 건다. 다르면 아무 행도 잡히지 않는다.
+        ...(input.sourceProjectId === undefined
+          ? []
+          : [eq(repositories.projectId, input.sourceProjectId)]),
       ),
     )
     .returning({ id: repositories.id });
 
   if (moved.length === 0) {
-    throw new AppError("NOT_FOUND", "Repository 를 찾을 수 없습니다.");
+    throw new AppError("REPOSITORY_NOT_FOUND");
   }
 }
