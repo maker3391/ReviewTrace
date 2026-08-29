@@ -40,7 +40,8 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | **GitHub OAuth 로그인 · 서버 측 세션**(Auth.js + Drizzle Adapter, `session.strategy = "database"`) | **있다** |
 | **가입 = 첫 로그인.** 누구나 가입하고 Personal Workspace 의 OWNER 가 된다 | **있다** |
 | **User : Workspace = N:M** (`workspace_members` 가 정본) · Workspace Switcher | **있다** |
-| **Workspace 초대** 발행·수락 (Token 원문 미저장 · SHA-256 Hash 만) | **있다** — 링크를 직접 전달한다. 메일 발송은 없다 |
+| **Workspace 초대** 발행·수락·**취소** (Token 원문 미저장 · SHA-256 Hash 만) | **있다** — 링크를 직접 전달한다. 메일 발송은 없다. 🔴 **취소는 행을 지우지 않는다**(`revoked_at`) — 누구를 초대했다 거뒀는지가 History 로 남는다. 취소된 Token 은 즉시 수락 불가이고, **같은 이메일 재초대를 막지 않는다** |
+| **살아 있는 초대는 (Workspace, canonical Email) 당 하나** | **있다** — `workspace_invitations_live_email_unique` (`WHERE accepted_at IS NULL AND revoked_at IS NULL`). 🔴 **응용 코드가 아니라 DB 가 보장한다.** 만료는 같은 행이 **회전**(새 Token·새 기한)하고 취소는 **새 행**이 선다 |
 | **화면 접근 통제** — `proxy.ts`(렌더 전 관문) + `requireWorkspace`(소속 판정) | **있다** |
 | **Agent API 7종** (`POST /reviews` · `POST /reviews/{id}/issues` · `PATCH /issues/{id}` · `POST /issues/{id}/activities` · `GET /issues/{id}` · `GET /issues` · `GET /knowledge/context`) | **있다.** 실제 서버·실제 PostgreSQL 로 E2E 확인 (아래) |
 | **Decision Record** (`solution`·`decisionReason`·`alternativesConsidered`·`tradeOff`·`verification`·`regressionTest`·`residualRisk`) | **있다** — 🔴 Issue 가 아니라 **IssueActivity** 에 붙는다. 시도마다 따로 남아 덮어써지지 않는다 |
@@ -61,12 +62,30 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | **Project 수정·삭제**(`/w/{ws}/p/{p}/settings` · 삭제 영향 건수 표시 후 이름 확인) | **있다** |
 | **Repository 를 Project 사이에서 이동** | **있다** — Review·Issue 가 함께 따라간다 |
 | ReviewIssue 의 **화면 CRUD**(상태 변경·Activity 추가) | **있다** — Agent API 와 **같은 Application Service** 를 쓴다 |
-| Wiki 의 Markdown **렌더링** | **있다** — `MarkdownView` 한 곳. 🔴 raw HTML 을 렌더하지 않아 sanitize 가 따로 필요 없다 |
+| Wiki 의 Markdown **렌더링** | **있다** — `MarkdownView` 한 곳. 🔴 raw HTML 을 렌더하지 않아 sanitize 가 따로 필요 없다. `rehype-highlight` 로 코드블록을 강조하되 **theme CSS 를 import 하지 않고** `hljs-*` class 에 우리 토큰만 얹는다 |
+| **Wiki 본문 편집기 (CodeMirror 6)** | **있다** — `components/molecules/MarkdownEditor.tsx`. 🔴 **Markdown 문자열이 정본이다** — `EditorState` 를 저장 모델로 쓰지 않는다. Toolbar 규칙은 `markdown-commands.ts` 의 **순수 함수 그대로**이고 CodeMirror 는 얇은 adapter(`markdown-command-transaction.ts`)로만 잇는다 — editor 를 바꿔도 규칙이 살아남는다 |
+| **오류 문구 지역화** (`error.tsx` · `global-error.tsx` · Zod · `AppError`) | **있다** — 🔴 **새 i18n 라이브러리를 넣지 않았다.** Zod 는 `z.config` 전역 변경 대신 **per-parse 경계**를 쓰고, `AppError` 는 **stable code + meta** 만 갖는다. Application 은 `messages`·locale·cookie·React 를 **import 하지 않는다**(architecture 시험이 import 를 따라가 확인) |
 | 멤버 **내보내기** · Workspace 이름·slug 변경 | **없다. 다음 단계** |
+| **GitHub OAuth Credential 을 `accounts` 에 저장하지 않기** | **있다** — Adapter 를 감싸 `access_token`·`refresh_token` 만 걷어낸다(`src/lib/auth/account-credentials.ts`) |
+| **사용자 계정 삭제(탈퇴)** | **있다** — `/w/{ws}/settings` 의 「계정」. 🔴 **`DELETE FROM users` 한 줄이 아니다**: Workspace 마다 「나 혼자면 통째로 삭제 · 다른 멤버가 있으면 보존 · 다른 멤버가 있는데 OWNER 가 나뿐이면 **삭제 거절**」을 한 Transaction 안에서 판단한다(`src/features/users/server/`). 🔴 남는 Personal Workspace 는 slug 가 GitHub 아이디라 **중립 slug(`w-…`)로 회전**하고 `personal_owner_id` 가 끊긴다. 🔴 **2026-08-28 까지는 없었다** — 그때는 `deleteUser`·`unlinkAccount` 를 부르는 Application Path 가 하나도 없었고(Adapter 구현만 있었다) 로그아웃이 `sessions` 행 하나만 지웠다 |
 | MCP 의 npm 배포(`npx`로 바로 쓰기) | **없다.** 지금은 이 저장소의 `mcp/server.mjs` 를 절대 경로로 가리킨다 |
 | Agent Integration 화면(`/w/{ws}/settings` · Claude Code · Codex 설정 복사) | **있다** — 🔴 키를 끼워 넣지 않고 `<your-api-key>` 자리표시자를 그린다 |
 | Agent 문서 (`docs/agent-integration.md` · `docs/agent-api.md`) | **있다** |
 | 언어 전환(KO·EN) · 테마 전환(light·dark·system) | **있다** — 쿠키를 서버가 읽어 첫 응답부터 반영한다(FOUC 없음). 🔴 상세 화면 일부는 아직 한국어로 남아 있다 |
+
+### 지금의 검증 숫자 (2026-08-29 실측)
+
+```
+pnpm lint                     0 problems
+pnpm typecheck                pass
+pnpm test                     405 passed / 83 skipped
+DB_INTEGRATION=true pnpm test 488 passed / 0 failed
+pnpm build                    success (31 route)
+```
+
+실제 PostgreSQL: **17 table · 10 enum · migration 파일 8 · 적용 기록 8 · index 35(전부 존재)**.
+🔴 **아래 절들의 숫자는 «그날의 기록»이다.** 지금 값은 이 표가 정본이고, 옛 숫자를 고쳐 쓰지 마라 —
+언제 무엇이 몇 건이었는지가 사라진다.
 
 ### 검증된 것 (2026-08-28 실행)
 
@@ -120,6 +139,12 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
   slug 는 GitHub 아이디에서 나왔다
 - 🔴 **GitHub Access Token 은 `accounts` 표에만 있다.** 세션 콜백이 프로필 세 칸만 돌려주므로
   세션 객체에 담기지 않는다
+- 🔴 **이 절은 「1행이 생겼다」까지만 적었고 «어느 칸이 채워졌는지»는 적지 않았다.**
+  2026-08-29 에 그 행을 직접 조회해 보니 **`access_token` 과 `refresh_token` 이 실제로
+  저장돼 있었다**(둘 다 `IS NOT NULL` · `scope = read:user,user:email` · `expires_at` 은 이미
+  지난 시각 · `id_token` 은 없음). 해시도 암호화도 걸려 있지 않았다 —
+  `api_keys` 는 SHA-256 Hash 만 저장하는데(CLAUDE.md 12) **같은 기준이 GitHub Token 에는
+  적용되지 않고 있었다.** 아래 「GitHub OAuth Credential 미저장」 절이 그 뒷이야기다
 - **미로그인 상태에서 `/` · `/w/{any}/issues` · `/w/{any}/dashboard` · `/w/{any}/settings` 가
   전부 `307 → /login`** 이고 **본문이 6바이트**다 — 보호된 화면의 뼈대가 나가지 않았다
 - 🔴 **세션 쿠키를 위조해 Proxy 를 통과시켜도 막힌다.** `authjs.session-token=forged` 로 보내면
@@ -236,16 +261,153 @@ Agent API E2E **53건**도 그대로 통과했다.
 Repository 3행으로 먼저 줄인 뒤 Issue 로 내려간다. Project 계층을 넣으며 더한 Index 가
 제 몫을 한다는 뜻이다.
 
+### GitHub OAuth Credential 미저장 (2026-08-29 실행)
+
+**과거에는 `accounts` 에 GitHub `access_token`·`refresh_token` 이 평문으로 저장됐다.**
+`@auth/drizzle-adapter` 의 `linkAccount` 가 Auth.js 가 넘긴 Account 객체를 그대로 INSERT
+하는 것이 원인이다 — 우리 코드가 담아 보낸 것이 아니라 **Adapter 의 기본 동작**이었다.
+
+🔴 **ReviewTrace 는 로그인 이후 그 Credential 을 쓰지 않는다.** 코드 전수 검색
+(`src/`·`mcp/` 에서 `access_token|accessToken|refresh_token|refreshToken`)의 결과는
+**Schema 선언과 주석뿐이고 읽는 코드가 0건**이다. GitHub 프로필 조회는 콜백 안에서
+응답으로 받은 Token 으로 끝나고(`@auth/core/providers/github.js`), 세션 콜백은 프로필 세
+칸만 돌려주며, **GitHub Evidence 대조는 서버가 따로 들고 있는 `GITHUB_API_TOKEN` 을 쓴다**
+(`src/lib/github/content.ts`) — 사용자 OAuth Token 과 무관하다.
+
+**지금은 저장하지 않는다.** `src/lib/auth/account-credentials.ts` 가 Adapter 를 감싸
+`linkAccount` 로 들어가는 `access_token`·`refresh_token` 만 걷어낸다(`config.ts` 는 그
+함수를 부르는 한 줄이다). 🔴 **암호화가 아니라 「저장하지 않기」를 골랐다** — 쓰지 않는 값에
+암호화를 붙이면 키 관리와 회전이라는 짐만 늘고 유출 표면은 그대로다.
+🔴 **Column 은 지우지 않았다.** Adapter 가 넘겨받은 객체를 그대로 INSERT 하므로 Column 이
+없으면 로그인 자체가 깨진다 — 「Adapter 호환에 필요한 Column」과 「값을 저장해야 하는
+Column」은 별개다.
+
+- 🔴 **재로그인은 `linkAccount` 를 다시 부르지 않는다.** OAuth 계정 행이 이미 있으면 Auth.js 는
+  세션만 만들고 돌아간다(`@auth/core/lib/actions/callback/handle-login.js`) — 그래서 저장된
+  Token 은 갱신되지도 않은 채 만료돼 남아 있었다. 행을 쓰는 Adapter 함수가 `linkAccount`
+  하나뿐이라 **막을 자리도 한 곳**이었다
+- **기존에 저장돼 있던 값을 지웠다** — `UPDATE accounts SET access_token=NULL,
+  refresh_token=NULL WHERE provider='github'` 한 문장, **1행**. 실행 전 조회에서
+  `has_access=t · has_refresh=t`, 실행 후 `f · f` 이고 `provider_account_id`·`user_id`·
+  `type`·`scope` 는 그대로다. `sessions` 2행 · `users` 1행 · `workspaces` 3행 ·
+  `api_keys` 4행도 건드리지 않았다
+- **실제 PostgreSQL 시험 6건이 통과했다**(`account-credentials.integration.test.ts`,
+  전부 되돌리는 Transaction 안). 제품과 **같은 `DrizzleAdapter`** 로 진짜 `accounts` 에
+  INSERT 한 뒤 행을 다시 조회한다 — `access_token`·`refresh_token` 이 `NULL` 이고,
+  신원 칸이 남아 `getUserByAccount` 가 같은 사용자를 찾으며(재로그인), 세션이 만들어져
+  `getSessionAndUser` 로 조회된다
+- 🔴 **되돌림 확인**: `stripAccountCredentials` 가 아무것도 걷어내지 않게 되돌리자
+  **시험 6건이 실제로 실패했다** — 통합시험 셋은 `expected 'gho_test_...' to be null`,
+  단위시험 셋은 `to not have property "access_token"`. 되돌린 것을 다시 복원해 초록을 확인했다
+- 🔴 **실제 GitHub OAuth 왕복은 다시 돌리지 못했다.** 확인한 것은 Adapter 경계까지다
+
+### 계정 삭제(탈퇴) 검증 (2026-08-29 실행)
+
+🔴 **`users` 를 참조하는 FK 아홉 개를 실제 catalog(`pg_constraint.confdeltype`)로 전수 확인했고
+Drizzle Schema 와 한 자리도 어긋나지 않았다** — CASCADE 셋(`accounts`·`sessions`·
+`workspace_members`), SET NULL 여섯(`workspaces.personal_owner_id`·`created_by` ·
+`projects.created_by` · `knowledge_pages.created_by` · `workspace_invitations.invited_by`·
+`accepted_by`). **그 밖에 사람을 가리키는 FK 는 없다.**
+
+**시험 27건이 통과했다** — 판단 규칙 9건(기본 `pnpm test`)과 실제 PostgreSQL 18건
+(`DB_INTEGRATION=true`). 전부 되돌려지는 Transaction 안에서 돌았고 **사장님 계정·Workspace 3개·
+API Key 6개는 한 행도 건드리지 않았다**(적용 뒤 전 표 행 수를 직접 조회해 시작과 같음을 확인).
+
+- **CASCADE 범위를 실측했다** — 혼자 쓰던 Workspace 를 지우면 Project·Repository·
+  ReviewSession·ReviewIssue·IssueActivity·Wiki·API Key·소속이 **0행**이 된다
+- **남의 Workspace 는 살아남는다** — 소속만 빠지고 Issue·Wiki·API Key 가 그대로다.
+  `created_by` 는 NULL 이 되지만 **문서와 Project 자체는 남는다**
+- 🔴 **`issue_activities.actor_name` 은 남긴다.** 그 Column 은 `users` 를 참조하지 않는
+  자유 문자열이라 **어느 행이 그 사람의 것인지 알 방법이 없다** — 이름으로 지우면 같은 이름의
+  다른 사람·Agent 행까지 훼손된다. 「누가 고쳤는가」는 Review 기록의 일부다(CLAUDE.md 2)
+- **세션은 전 기기에서 끊긴다** — 두 기기 세션이 0행이 되고 남의 세션은 그대로다
+- **초대 행의 이메일이 지워진다** — 내 이메일이 적힌 행만 사라지고 남의 이메일은 남는다
+- **막힘이 실제로 걸린다** — 다른 멤버가 있는데 OWNER 가 나뿐이면 `CONFLICT` 이고,
+  🔴 **지울 수 있었던 다른 Workspace 도 그대로 남는다**(반쪽 삭제 없음)
+- 🔴 **되돌림 확인** — 마지막 OWNER 차단을 지우자 시험 **5건**이, 「다른 멤버가 있으면 지우지
+  않는다」를 지우자 **15건**이, 초대 이메일 삭제를 지우자 **1건**이, slug 회전을 지우자
+  **1건**이 실제로 빨개졌다(`expected 'gh-…' not to be 'gh-…'`). 전부 되돌려 다시 초록을 확인했다
+- 🔴 **Schema 를 바꾸지 않았다. Migration 을 더하지 않았다** — 지금 있는 FK 로 정책이 전부 선다
+
+### 화면으로 끝까지 확인한 것 (2026-08-29 실행 · 조정자)
+
+**로그인된 실제 브라우저(CDP 9222 · Workspace `codeapex`)로 눌러 확인했다.** 🔴 세션 쿠키를
+위조하거나 `sessions` 행을 손으로 만들지 않았다 — 사장님이 직접 GitHub OAuth 를 마쳐 세션이 생겼다.
+
+- **Wiki 문서 삭제** — 삭제 → ConfirmDialog(`role=alertdialog` · X 버튼 없음 · 초기 focus 가
+  「취소」) → **취소하면 닫히고 문서는 그대로** → 다시 삭제 → 목록 갱신 + Empty state →
+  `knowledge_pages` **1 → 0**. 🔴 **SQL 이 아니라 제품 UI 로 지웠다**
+- **초대 취소 lifecycle 전 구간** — 발행한 Token 이 `200`·「수락」 화면인 것을 먼저 확인하고,
+  취소 후 **같은 Token 이 「사용할 수 없는 초대」** 가 되는 것을 확인했다. 목록에서 사라지고
+  DB 는 `revoked=t · accepted=f` 로 **행이 남는다**. 🔴 **같은 이메일 재초대가 성공했다** —
+  취소 행이 partial unique index 밖이라는 설계가 실물로 확인됐다
+- **계정 삭제 화면** — 「함께 삭제 / 그대로 유지 / 사라지는 것」이 **그 계정에 대해 실제로 계산한
+  값**으로 그려진다(프로젝트 2 · 이슈 2 · 문서 0 · API Key 5). 🔴 **실제 삭제는 누르지 않았다**
+- **Wiki CodeMirror 편집기** — 실제 앱에서 create·edit 왕복, 저장 후 재조회한 원문이 저장
+  문자열과 **문자 단위로 동일**(`restored === expected`). Strict Mode 가 도는 dev 에서
+  `.cm-editor` 가 **1개**(중복 생성 없음), 글꼴이 실제 `--font-mono`(Geist Mono)
+
+### 🔴 조정자가 낸 사고 — 운영 DB 의 index 가 두 시간 동안 없었다 (2026-08-29)
+
+`0006` 의 되돌림 검증을 하며 `workspace_invitations_live_email_unique` 를 **지웠다가 되살리지
+못했다.** 원인은 `docker exec` 에 **`-i` 를 빠뜨려** stdin 이 컨테이너에 붙지 않은 것이다 —
+`psql -f /dev/stdin` 이 아무것도 읽지 못했는데 스크립트는 **성공 메시지를 조건 없이 찍었다.**
+게다가 확인용 `SELECT` 를 백그라운드 작업과 같은 명령 블록에 넣어 **출력을 읽지 못했다.**
+
+그 사이 `drizzle.__drizzle_migrations` 에는 `0006` 이 적용됨으로 기록돼 있는데 **실물 index 는
+없었다.** `0007` 이 `DROP INDEX IF EXISTS` 로 시작한 덕에 결과적으로 메워졌다 — 🔴 **`db:generate`
+가 낸 SQL 은 `IF EXISTS` 가 없어 그대로 돌렸으면 `42P01` 로 migration 전체가 멈췄다.**
+
+배운 것 둘: ① **`docker exec` 로 SQL 을 파이프할 때 `-i` 가 없으면 조용히 아무 일도 일어나지
+않는다** ② **확인 문장을 넣어 놓고 결과를 읽지 않으면 안 넣은 것과 같다.**
+
+전수 감사 결과 **다른 drift 는 없다** — migration 이 기대하는 index **35개가 전부 존재**하고,
+표 17 · enum 10 · migration 파일 8 · 적용 기록 8 이 일치한다.
+
+### 반응형 정리에서 드러난 것 (2026-08-29)
+
+🔴 **`src/components/ui/table.tsx` 의 `"use client"` 가 열을 뭉갠 진짜 원인이었다.** 그 파일에는
+Hook 도 Handler 도 없는데(shadcn 기본값) 지시어가 있으면 Next 가 **모든 export 를 Client
+Reference Proxy** 로 바꾼다. Component 는 괜찮지만 **문자열 상수는 아니다**:
+
+```
+className={FLEX_CELL}     Proxy 가 prop 으로 경계를 건너가 Client 에서 풀린다  -> 동작
+cn(FLEX_CELL, "...")      Server 에서 지금 값을 읽는다 -> clsx 가 객체를 버린다 -> 사라짐
+```
+
+Reviews·Repositories 목록과 Project Dashboard 에는 `w-full max-w-0` 이 **애초에 붙은 적이
+없었고**, 오류도 경고도 없이 빠져 좁은 화면에서 그 칸이 45~55px 로 뭉개져서야 드러났다.
+🔴 **`ui/*` 중 같은 위험(`"use client"` + 문자열 상수 export)이 있는 파일은 더 없다**(전수 확인).
+
+또 하나 — **페이지 넘침을 `documentElement` 로 재면 «거짓 음성»이 나온다.** 이 앱의 스크롤
+컨테이너는 `<main class="overflow-auto">` 라 `main` 이 넘침을 흡수한다. `main` 기준으로 다시 재서
+Settings 가 390px 에서 **124px** 넘치는 것을 잡았다(발급 버튼이 화면 밖에 있었다).
+
 ### 🔴 검증되지 않은 것
 
 - 🔴 **`.env` 에 `AUTH_SECRET` 이 없다.** 위 E2E 는 프로세스 환경 변수로 넣어 띄웠다.
   **`.env` 에 넣지 않으면 다음에 띄울 때 인증 경로가 기동 단계에서 실패한다**
 - **Workspace Switcher·초대 폼·Settings 화면을 사람 눈으로 보지 않았다.** 로그인까지는 실제로
   갔지만 그 뒤 화면들은 타입·빌드·서버 응답까지만 확인했고 **눌러 보지 않았다**
-- **초대를 브라우저에서 발행·수락해 보지 않았다.** 그 흐름은 Database 시험으로만 확인했다
+- **초대 발행·«취소»는 2026-08-29 에 브라우저로 끝까지 확인했다**(위 절). 🔴 **아직 못 본 것은
+  「수락」이다** — 받는 쪽 계정이 하나 더 있어야 해서 Database 시험으로만 확인됐다
 - **동시 가입 경쟁을 실제로 부딪혀 보지 않았다.** 「두 사람이 같은 순간 첫 로그인」은
   `workspaces.personal_owner_id` unique 와 slug 재시도로 설계했고 시험은 **순차로** 돌렸다
 - **초대 메일을 보내지 않는다.** 발행된 링크를 사람이 직접 전달해야 한다 — 의도한 범위다
+- **계정 삭제 담당이 확인하지 못한 것** (2026-08-29):
+  - **계정 삭제 화면은 그 뒤 조정자가 확인했다**(위 「화면으로 끝까지 확인한 것」). 🔴 **남은 것은
+    「삭제 불가(ownership) 상태」다** — 다른 멤버가 있는 Workspace 가 있어야 재현되는데 그러려면
+    두 번째 사용자를 만들어야 해서 **되돌아가는 Transaction 안의 통합시험으로만** 확인됐다.
+    🔴 **실제 삭제 버튼은 누르지 않았다** — 사장님의 실제 계정이다
+  - **Server Action 왕복을 눌러 보지 않았다.** `deleteAccountAction` 은 타입·Application
+    Service 계층까지만 확인했다 — 삭제 뒤 `signOut({ redirect: false })` 가 실제로 쿠키를
+    지우는지, 화면이 `/login` 으로 넘어가는지는 **확인되지 않았다**
+  - **동시 탈퇴를 실제로 부딪혀 보지 않았다.** 「두 OWNER 가 같은 순간 탈퇴」는
+    `workspace_members` 행을 `FOR UPDATE` 로 잠가 설계했고 시험은 **순차로** 돌렸다 —
+    되돌아가는 Transaction 안에서는 두 연결을 동시에 굴릴 수 없어 **실제 경쟁은 재지 않았다**
+  - 🔴 **「멤버 내보내기」가 없다는 사실이 여기서 걸린다.** 남이 내 Personal Workspace 에
+    들어와 있고 OWNER 가 나뿐이면, 사용자가 할 수 있는 일은 **그 사람을 OWNER 로 올리는 것**
+    하나뿐이다(화면이 그렇게 안내한다). 내보내고 혼자가 되어 지우는 길은 아직 없다
 - **Agent API 담당이 확인하지 못한 것** (2026-08-28):
   - **부하·동시성을 재지 않았다.** 같은 `Idempotency-Key` 두 요청을 **동시에** 던져 보지 않았다.
     경쟁은 `(repository_id, idempotency_key)` unique 와 `onConflictDoNothing` 으로 설계했을 뿐

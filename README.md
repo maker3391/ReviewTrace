@@ -457,6 +457,65 @@ Integration tests run inside transactions that are rolled back, so they leave no
 end-to-end scripts drive a real dev server against a real database and read the resulting rows back
 with `psql` — "it returned 200" is not accepted as proof that something was stored.
 
+### A green `pnpm test` is not proof of tenant safety
+
+`pnpm test` skips two whole files, because they need a live PostgreSQL:
+
+- `src/lib/workspace/workspace.integration.test.ts` — sign-up, membership, invitations
+- `src/features/projects/server/project.integration.test.ts` — projects, dashboards, wiki scope,
+  detail lookups
+
+Until you pass `DB_INTEGRATION=true`, **none of the following is checked**:
+
+| Not checked by `pnpm test` | Who actually enforces it |
+| --- | --- |
+| Overlapping `workspaceId` + `projectId` conditions really do exclude another tenant | the SQL `WHERE` clause |
+| `UNIQUE(workspace_id, slug)`, `workspaces.personal_owner_id`, the two partial unique indexes on `knowledge_pages` | database constraints |
+| `ON DELETE CASCADE` removes repositories, reviews and issues with a project | foreign keys |
+| `count(*) filter (...)` and correlated subqueries count the right rows | the query itself |
+| A single-shot `UPDATE … WHERE accepted_at IS NULL` claims an invitation exactly once | transaction semantics |
+| `FOR UPDATE` locks the other owner rows while the last-owner rule is evaluated | row locks |
+
+The *decision rules* that sit above those queries — reject an explicitly chosen slug instead of
+silently renaming it, map a unique violation to `CONFLICT` without leaking the driver message,
+refuse to demote the last owner, store only the SHA-256 hash of an invitation token, keep every
+rejection reason indistinguishable — are covered by ordinary unit tests that run on every
+`pnpm test`. They use a fake executor (`src/db/testing/fake-executor.ts`), which does **not**
+interpret `WHERE`. It can prove what the code decides; it cannot prove what the database enforces.
+
+These files are skipped by default on purpose: a test that fails on a fresh clone, or in a CI job
+without a database, stops being read as a test. The point is that the split is explicit, not that
+the skipped half matters less.
+
+### Running the database tests in CI
+
+Not wired up — this is the recipe, not a description of an existing workflow. On GitHub Actions,
+add a `services.postgres` container to the job, point `DATABASE_URL` at it, run `pnpm db:migrate`,
+and run the suite with `DB_INTEGRATION=true`:
+
+```yaml
+services:
+  postgres:
+    image: postgres:17-alpine
+    env:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: reviewtrace
+    ports: ["5432:5432"]
+    options: >-
+      --health-cmd pg_isready --health-interval 10s
+      --health-timeout 5s --health-retries 5
+```
+
+```bash
+export DATABASE_URL=postgres://postgres:postgres@localhost:5432/reviewtrace
+pnpm db:migrate
+DB_INTEGRATION=true pnpm test
+```
+
+Two details that will bite otherwise: the tests call `process.loadEnvFile(".env")`, so CI needs a
+`.env` containing at least `DATABASE_URL` (write it in a step, do not commit it); and this must be
+a throwaway database — the tests roll back, but `db:migrate` does not.
+
 The evidence script is the one that proves `VERIFIED` is reachable at all: it reads real lines from
 a public repository at a real commit, sends them back as evidence, and checks that matching content
 verifies, altered content mismatches, out-of-range lines and missing files stay unavailable, and a
@@ -506,5 +565,4 @@ in [`CLAUDE.md`](./CLAUDE.md), which applies to human and agent contributors ali
 
 ## License
 
-No license file has been added yet, so default copyright applies. One will be added before a
-tagged release.
+Licensed under the [Apache License 2.0](LICENSE).
