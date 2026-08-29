@@ -14,7 +14,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    // `mcp/` 는 Next.js 번들 밖의 별도 프로세스라 `src` 밖에 있다 — 시험은 함께 돈다.
+    include: ["src/**/*.test.ts", "mcp/**/*.test.mjs"],
   },
   resolve: {
     alias: {
