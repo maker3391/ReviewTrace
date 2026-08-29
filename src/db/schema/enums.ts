@@ -9,6 +9,8 @@ import {
   REVIEWER_TYPES,
   SCM_PROVIDERS,
   WORKSPACE_ROLES,
+  CODE_EVIDENCE_KINDS,
+  EVIDENCE_VERIFICATIONS,
 } from "@/types/review";
 
 /**
@@ -48,4 +50,16 @@ export const issueStatusEnum = pgEnum("issue_status", ISSUE_STATUSES);
 export const issueActivityTypeEnum = pgEnum(
   "issue_activity_type",
   ISSUE_ACTIVITY_TYPES,
+);
+
+/** Code Evidence 가 가리키는 시점(BEFORE · AFTER). */
+export const codeEvidenceKindEnum = pgEnum(
+  "code_evidence_kind",
+  CODE_EVIDENCE_KINDS,
+);
+
+/** Agent 가 보낸 Snapshot 을 GitHub 에서 확인한 결과. */
+export const evidenceVerificationEnum = pgEnum(
+  "evidence_verification",
+  EVIDENCE_VERIFICATIONS,
 );

@@ -12,6 +12,8 @@ import {
 } from "drizzle-orm/pg-core";
 
 import {
+  codeEvidenceKindEnum,
+  evidenceVerificationEnum,
   issueActivityTypeEnum,
   issueCategoryEnum,
   issueSeverityEnum,
@@ -184,6 +186,22 @@ export const reviewIssues = pgTable(
     category: issueCategoryEnum("category").notNull(),
     status: issueStatusEnum("status").notNull().default("OPEN"),
 
+    /**
+     * 왜 그렇게 됐는가.
+     *
+     * 🔴 `description`(무엇이 문제인가)과 **다른 질문에 답한다.** 증상만 쌓이면 같은
+     * 원인을 매번 새 Issue 로 다시 발견한다 — 재사용되는 Knowledge 는 원인 쪽이다.
+     */
+    rootCause: text("root_cause"),
+    /**
+     * 이 문제가 실제로 터지는 경로.
+     *
+     * SECURITY 면 공격 경로, 그 밖이면 실패 경로다. 한 칸으로 두는 이유는 **같은 질문**
+     * 이기 때문이다 — 「무엇을 어떻게 하면 이게 터지는가」. Category 로 이미 갈라져 있어
+     * 칸을 둘로 나눌 이유가 없다.
+     */
+    failurePath: text("failure_path"),
+
     /** 반복되는 문제의 정규화된 개념. Category·Tag 와 다르다(CLAUDE.md 3). */
     patternKey: text("pattern_key"),
 
@@ -276,6 +294,42 @@ export const issueActivities = pgTable(
     /** 어느 Commit 에서 벌어진 일인지. 「고쳤다」를 코드와 이을 수 있게 한다. */
     commitSha: text("commit_sha"),
 
+    /**
+     * ## Decision Record — 왜 `review_issues` 가 아니라 여기인가
+     *
+     * 한 Issue 는 **여러 번 고쳐진다**(CLAUDE.md 2).
+     *
+     * ```
+     * Codex DETECTED -> Claude FIX_ATTEMPTED -> Codex REVIEWED_AGAIN
+     *   -> Claude FIX_ATTEMPTED -> Codex RESOLVED
+     * ```
+     *
+     * 🔴 이 값들을 Issue 에 두면 **두 번째 시도가 첫 번째 시도의 판단을 덮어쓴다.**
+     * 그러면 「무엇을 먼저 해 봤고 왜 그것으로는 안 됐는가」가 사라진다 — 그것이야말로
+     * 다음 Review 에서 재사용되는 Knowledge 다. 그래서 판단은 **행위에 붙는다.**
+     *
+     * `review_issues.resolutionSummary` 는 그대로 남는다. 저것은 **최종 한 줄 요약**이고
+     * 이것은 **그 결론에 이른 각 판단**이다 — 겹치지 않는다.
+     *
+     * 대부분의 Activity(`COMMENT`·`REOPENED`)에는 전부 `NULL` 이다. 별도 표로 빼지 않는
+     * 이유는 **Activity 를 읽는 자리가 곧 판단을 읽는 자리**이기 때문이다 — 나눠 두면
+     * History 를 그릴 때마다 Join 이 하나 더 붙고, 얻는 것이 없다.
+     */
+    /** 무엇을 했는가. `review_issues.suggestion`(해 보라)과 다르다 — 이것은 「했다」다. */
+    solution: text("solution"),
+    /** 왜 그것을 골랐는가. */
+    decisionReason: text("decision_reason"),
+    /** 무엇을 함께 검토했고 왜 버렸는가. */
+    alternativesConsidered: text("alternatives_considered"),
+    /** 그 선택으로 무엇을 내주었는가. */
+    tradeOff: text("trade_off"),
+    /** 고쳐졌음을 어떻게 확인했는가. */
+    verification: text("verification"),
+    /** 다시 무너지는 것을 무엇이 막는가. */
+    regressionTest: text("regression_test"),
+    /** 그래도 남아 있는 위험. */
+    residualRisk: text("residual_risk"),
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -286,6 +340,77 @@ export const issueActivities = pgTable(
       table.reviewIssueId,
       table.createdAt,
     ),
+  ],
+);
+
+/**
+ * Issue 를 실제 코드에 붙들어 매는 근거(스펙 15).
+ *
+ * ```
+ * ReviewIssue --< IssueCodeEvidence >-- IssueActivity(선택)
+ * ```
+ *
+ * ## 왜 Column 이 아니라 표인가
+ *
+ * 한 Issue 에는 **BEFORE 와 AFTER 가 각각 여럿** 있을 수 있고(파일이 여러 개, 고침이
+ * 여러 번), AFTER 는 **어느 시도가 만든 것인지**까지 알아야 History 가 이어진다.
+ * Column 으로는 1:N 도 소속도 표현할 수 없다.
+ *
+ * ## 🔴 「Agent 가 보냈다」와 「GitHub 에 그렇게 있다」를 갈라 둔다
+ *
+ * `snapshot` 은 Agent 가 보낸 코드이고, `verification` 은 우리가 GitHub 에서 확인한
+ * 결과다. 둘을 한 칸으로 합치면 화면이 확인되지 않은 코드를 확인된 것처럼 그린다.
+ *
+ * 🔴 **Repository 전체를 복제하지 않는다**(CLAUDE.md 15). 저장하는 것은 Issue 가 가리키는
+ * **줄 범위**뿐이다.
+ */
+export const issueCodeEvidences = pgTable(
+  "issue_code_evidences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    reviewIssueId: uuid("review_issue_id")
+      .notNull()
+      .references(() => reviewIssues.id, { onDelete: "cascade" }),
+    /**
+     * 이 근거를 만든 행위. BEFORE 는 발견 행위, AFTER 는 그 고침 행위다.
+     *
+     * `NULL` 을 허용하는 이유는 **행위 없이 근거만 붙는 경우**(뒤늦게 Evidence 만 첨부)를
+     * 막을 이유가 없기 때문이다. 소유는 언제나 Issue 가 한다.
+     */
+    issueActivityId: uuid("issue_activity_id").references(
+      () => issueActivities.id,
+      { onDelete: "cascade" },
+    ),
+
+    kind: codeEvidenceKindEnum("kind").notNull(),
+
+    /** 🔴 Commit 은 **필수**다. 없으면 이 코드가 언제의 것인지 영원히 알 수 없다. */
+    commitSha: text("commit_sha").notNull(),
+    filePath: text("file_path").notNull(),
+    startLine: integer("start_line"),
+    endLine: integer("end_line"),
+
+    /** Agent 가 보낸 코드 조각. 저장소가 사라지거나 Private 여도 화면이 무언가는 보여 준다. */
+    snapshot: text("snapshot"),
+
+    verification: evidenceVerificationEnum("verification")
+      .notNull()
+      .default("UNVERIFIED"),
+    /** 확인을 **시도한** 시각. 결과가 `UNAVAILABLE` 이어도 찍힌다. */
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // Issue 상세가 BEFORE/AFTER 를 나눠 그린다.
+    index("issue_code_evidences_issue_idx").on(table.reviewIssueId, table.kind),
+    // 한 시도가 남긴 근거를 History 줄 옆에 붙인다.
+    index("issue_code_evidences_activity_idx").on(table.issueActivityId),
   ],
 );
 

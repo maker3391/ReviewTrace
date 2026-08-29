@@ -97,3 +97,34 @@ export const OPEN_ISSUE_STATUSES: readonly IssueStatus[] = [
   "IN_PROGRESS",
   "REOPENED",
 ];
+
+/**
+ * Code Evidence 가 가리키는 시점.
+ *
+ * 🔴 **BEFORE 는 Issue 의 것이고 AFTER 는 한 번의 고침의 것이다.** 그래서 Evidence 는
+ * Issue 와 Activity 를 **둘 다** 가리킨다 — 「무엇이 문제였나」와 「어느 시도가 무엇을
+ * 바꿨나」가 다른 질문이기 때문이다(CLAUDE.md 2).
+ */
+export const CODE_EVIDENCE_KINDS = ["BEFORE", "AFTER"] as const;
+export type CodeEvidenceKind = (typeof CODE_EVIDENCE_KINDS)[number];
+
+/**
+ * Agent 가 보낸 Code Snapshot 을 GitHub 에서 확인한 결과.
+ *
+ * 🔴 **Agent 가 보냈다는 것과 GitHub 에 그렇게 있다는 것은 다른 말이다.** 이 값이 그 둘을
+ * 갈라 놓는다 — 확인하지 못한 것을 확인한 것처럼 그리지 않기 위해서다.
+ *
+ * | 값 | 뜻 |
+ * |---|---|
+ * | `UNVERIFIED` | 아직 확인하지 않았다 |
+ * | `VERIFIED` | GitHub 의 해당 Commit·파일·줄 범위와 같았다 |
+ * | `MISMATCH` | GitHub 에 있긴 한데 내용이 달랐다 |
+ * | `UNAVAILABLE` | 볼 수 없었다 (Private · 없는 Commit/파일 · GitHub 응답 실패) |
+ */
+export const EVIDENCE_VERIFICATIONS = [
+  "UNVERIFIED",
+  "VERIFIED",
+  "MISMATCH",
+  "UNAVAILABLE",
+] as const;
+export type EvidenceVerification = (typeof EVIDENCE_VERIFICATIONS)[number];
