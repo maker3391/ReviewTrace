@@ -4,11 +4,12 @@ import { AcceptInvitationForm } from "@/features/invitations/components/AcceptIn
 import { invitationTokenSchema } from "@/features/invitations/schemas/invitation";
 import { findInvitationPreview } from "@/features/invitations/server/invitation-service";
 import { currentUser } from "@/lib/auth/session";
+import { readMessages } from "@/lib/ui/appearance";
 import { SignInWithGithubButton } from "@/features/auth/components/SignInWithGithubButton";
 
-export const metadata: Metadata = {
-  title: "초대",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await readMessages()).metaTitle.invite };
+}
 
 /**
  * 초대 수락 화면.
@@ -24,6 +25,7 @@ export default async function InvitePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  const t = (await readMessages()).invite;
   const parsed = invitationTokenSchema.safeParse(token);
 
   // 형식이 아니면 Database 를 보지도 않는다.
@@ -35,11 +37,9 @@ export default async function InvitePage({
     return (
       <div className="flex flex-col gap-2">
         <h1 className="text-base font-semibold tracking-tight">
-          사용할 수 없는 초대
+          {t.invalidTitle}
         </h1>
-        <p className="text-xs text-muted-foreground">
-          링크가 만료됐거나 이미 사용됐습니다. 초대한 사람에게 다시 요청하세요.
-        </p>
+        <p className="text-xs text-muted-foreground">{t.invalidBody}</p>
       </div>
     );
   }
@@ -50,23 +50,21 @@ export default async function InvitePage({
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-base font-semibold tracking-tight">
-          {preview.workspaceName} 초대
+          {t.title(preview.workspaceName)}
         </h1>
         <p className="mt-2 text-xs text-muted-foreground">
-          {preview.email} 로 초대받았습니다. 수락하면 이 Workspace 의 멤버가 됩니다.
+          {t.body(preview.email)}
         </p>
       </div>
 
       {user === null ? (
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-muted-foreground">
-            먼저 GitHub 으로 로그인하세요. 로그인하면 이 화면으로 돌아옵니다.
-          </p>
+          <p className="text-xs text-muted-foreground">{t.signInFirst}</p>
           {/* 로그인 뒤 이 초대 화면으로 되돌아온다 — 그래야 수락 버튼을 다시 찾지 않는다. */}
           <SignInWithGithubButton redirectTo={`/invite/${validToken}`} />
         </div>
       ) : (
-        <AcceptInvitationForm token={validToken} />
+        <AcceptInvitationForm token={validToken} label={t.accept} />
       )}
     </div>
   );
