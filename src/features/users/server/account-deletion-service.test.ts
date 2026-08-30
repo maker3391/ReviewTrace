@@ -94,10 +94,10 @@ describe("deleteAccount — 마지막 OWNER 판정", () => {
    */
   it("🔴 잠근 뒤 OWNER 로 «올라간» 나를 마지막 OWNER 로 본다", async () => {
     const fake = fakeExecutor([
-      account(),
       // 읽을 때는 MEMBER 였다.
       staleList("MEMBER"),
       lockedWorkspaces(),
+      account(),
       // 잠그고 보니 내가 OWNER 이고 남은 OWNER 는 없다.
       lockedMembers("OWNER", "MEMBER"),
     ]);
@@ -115,10 +115,10 @@ describe("deleteAccount — 마지막 OWNER 판정", () => {
    */
   it("🔴 잠근 뒤 MEMBER 로 «내려간» 나는 더 이상 마지막 OWNER 가 아니다", async () => {
     const fake = fakeExecutor([
-      account(),
       // 읽을 때는 OWNER 였다.
       staleList("OWNER"),
       lockedWorkspaces(),
+      account(),
       // 잠그고 보니 나는 MEMBER 다. 남은 OWNER 가 없어도 내가 막을 이유가 없다.
       lockedMembers("MEMBER", "MEMBER"),
       // 남는 Workspace 라 지우는 것은 초대·인증 Token·계정뿐이다.
@@ -140,9 +140,9 @@ describe("deleteAccount — 마지막 OWNER 판정", () => {
    */
   it("🔴 잠그는 사이에 내보내진 Workspace 는 판단 대상에서 빠진다", async () => {
     const fake = fakeExecutor([
-      account(),
       staleList("OWNER"),
       lockedWorkspaces(),
+      account(),
       // 내 행이 없다.
       selects([{ workspaceId: WORKSPACE, userId: OTHER, role: "OWNER" }]),
       deletes(),
@@ -158,20 +158,27 @@ describe("deleteAccount — 마지막 OWNER 판정", () => {
 });
 
 /**
- * # 🔴 Workspace 행을 «먼저» 잠근다 — phantom 소속을 막는 유일한 자리
+ * # 🔴 잠그는 순서는 `workspaces -> users -> workspace_members` 다
+ *
+ * ## 왜 Workspace 가 «먼저»인가
  *
  * `FOR UPDATE` 는 **잠글 때 이미 존재하는 행만** 잡는다. 소속 행만 잠그면 그 뒤에 INSERT
  * 되는 소속(초대 수락)은 어떤 잠금에도 걸리지 않는데, Workspace 를 지우면 CASCADE 가
  * **방금 들어온 사람의 소속과 그 Workspace 의 Knowledge 를 통째로** 지운다.
  *
- * 그래서 두 경로가 **같은 Workspace 행 하나**를 두고 줄을 서게 만들었다
- * (`acceptInvitation` 도 같은 잠금을 지나간다).
+ * ## 🔴 왜 `users` 가 «Workspace 다음»인가 — 실제로 난 deadlock
  *
- * 🔴 여기서 보는 것은 **그 문장을 그 순서로 보내는가**뿐이다. 실제로 잠기는지는
- * `account-deletion.integration.test.ts` 가 `pg_locks` 로 본다.
+ * 예전에는 존재 확인을 겸해 `users` 를 **가장 먼저** 잠갔다. 그런데 초대 수락은
+ * `workspaces` 를 먼저 잠그고 `accepted_by` 를 쓰면서 FK 로 `users` 를 잠근다 —
+ * 두 경로가 `users -> workspaces` 대 `workspaces -> users` 로 **엇갈렸다.**
+ * 같은 사용자로 동시에 돌리자 실제 PostgreSQL 이 `40P01 deadlock detected` 를 냈다.
+ *
+ * 🔴 그래서 여기서 붙드는 것은 「Workspace 가 먼저」만이 아니라 **세 문장의 순서 전체**다.
+ * 순서를 하나라도 바꾸면 이 시험이 빨개진다. 실제로 잠기는지·정말 줄을 서는지는
+ * `account-deletion.integration.test.ts` 가 실제 연결 둘로 본다.
  */
 describe("deleteAccount — 잠그는 순서", () => {
-  it("🔴 workspaces 를 FOR UPDATE 로, 소속보다 «먼저» 잠근다", async () => {
+  it("🔴 workspaces -> users -> workspace_members 순으로 잠근다", async () => {
     const order: string[] = [];
 
     function lockingSelect(rows: unknown[], label: string, expectSql?: string) {
@@ -200,7 +207,7 @@ describe("deleteAccount — 잠그는 순서", () => {
     }
 
     const scripted = [
-      lockingSelect([{ id: USER, email: "me@example.test" }], "lock-user"),
+      // 0. 잠글 대상을 고르는 조회 — 🔴 `for` 를 부르지 않는다(아무것도 잠그지 않는다).
       {
         from: () => ({
           innerJoin: () => ({
@@ -220,6 +227,11 @@ describe("deleteAccount — 잠그는 순서", () => {
         }),
       },
       lockingSelect([{ id: WORKSPACE }], "lock-workspaces", '"workspaces"."id"'),
+      lockingSelect(
+        [{ id: USER, email: "me@example.test" }],
+        "lock-user",
+        '"users"."id"',
+      ),
       lockingSelect(
         [
           { workspaceId: WORKSPACE, userId: USER, role: "MEMBER" as const },
@@ -241,8 +253,8 @@ describe("deleteAccount — 잠그는 순서", () => {
     await deleteAccount({ userId: USER }, executor);
 
     expect(order).toEqual([
-      "lock-user:update",
       "lock-workspaces:update",
+      "lock-user:update",
       "lock-members:update",
     ]);
   });

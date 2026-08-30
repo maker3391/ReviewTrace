@@ -58,6 +58,52 @@ function notAlreadyMember(workspaceId: string, email: string): SQL {
   )`;
 }
 
+/**
+ * Workspace 행을 잠근다 — **이 파일의 두 쓰기 경로가 가장 먼저 잡는 잠금이다.**
+ *
+ * 🔴 순서는 `@/db` 에 적힌 전역 규칙(`workspaces -> users -> 나머지`)을 따른다.
+ * 계정 삭제도 같은 순서로 잡으므로 세 경로가 **같은 Workspace 행 하나**를 두고 줄을 선다.
+ *
+ * @returns 잠근 Workspace 의 slug. 없으면 `null`.
+ */
+async function lockWorkspaceRow(
+  workspaceId: string,
+  executor: DbExecutor,
+): Promise<string | null> {
+  const rows = await executor
+    .select({ slug: workspaces.slug })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .for("update");
+
+  return rows[0]?.slug ?? null;
+}
+
+/**
+ * 계정 행을 잠근다 — **Workspace 다음, 초대 행을 건드리기 전이다.**
+ *
+ * 🔴 **이 문장이 없어도 잠금은 걸린다 — 그것이 문제였다.**
+ * `workspace_invitations.accepted_by = $user` 를 쓰면 FK 검사가 `users` 행에
+ * `FOR KEY SHARE` 를 건다. 즉 순서가 `초대 행 -> users` 가 되는데, 계정 삭제는
+ * `users` 를 쥔 채 그 사람의 이메일이 적힌 초대 행을 지우려 한다 — 고리가 닫힌다.
+ *
+ * 그래서 **초대 행보다 먼저** `users` 를 명시적으로 잠가 순서를 눈에 보이게 만든다.
+ * `FOR KEY SHARE` 는 FK 가 요구하는 것과 같은 세기라 수락끼리는 서로를 막지 않고,
+ * 계정 삭제의 `FOR UPDATE` 하고만 부딪힌다.
+ */
+async function lockAccountRow(
+  userId: string,
+  executor: DbExecutor,
+): Promise<boolean> {
+  const rows = await executor
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, userId))
+    .for("key share");
+
+  return rows.length > 0;
+}
+
 export interface CreatedInvitation {
   /** 🔴 **이 한 번만 존재한다.** 저장되지 않으므로 화면을 떠나면 다시 볼 수 없다. */
   token: string;
@@ -103,6 +149,21 @@ export interface CreatedInvitation {
  * 그 행을 되살리면 취소가 없던 일이 되고, 무엇보다 **취소 기록이 지워진다.**
  * 취소된 뒤의 재초대는 위 INSERT 가 그대로 성공해 **새 행**으로 선다.
  *
+ * # 🔴 `not exists` 만으로는 수락과의 경쟁을 막지 못한다
+ *
+ * `INSERT ... SELECT ... WHERE NOT EXISTS` 도 READ COMMITTED 의 **statement snapshot** 을
+ * 쓴다. 발행이 먼저 snapshot 을 잡고 부분 unique 충돌로 «기다리는» 사이에 수락이 commit 하면,
+ * 옛 초대 행이 index 밖으로 빠져 INSERT 가 성공한다 — `not exists` 는 이미 옛 snapshot 으로
+ * 평가된 뒤다. 실제 PostgreSQL 로 재현했다(`inserted=1, members=1, live_invitations=1`).
+ * 🔴 초대는 이메일을 대조하지 않는 bearer credential 이라, 그 새 Token 을 쥔 **다른 계정**이
+ * 이미 멤버가 된 사람의 자리로 들어온다.
+ *
+ * 🔴 **그래서 Workspace 행을 먼저 잠가 수락과 «줄을 세운다».** 수락도 같은 행을 잠그므로
+ * (`acceptInvitation`) 두 Transaction 이 겹치지 않고, 뒤에 온 쪽은 잠금이 풀린 뒤 **새
+ * snapshot** 으로 판정한다 — 수락이 먼저였다면 `not exists` 가 그때 소속을 보고 거절한다.
+ * 잠금 순서는 `@/db` 의 전역 규칙(`workspaces -> users -> 나머지`)과 같다.
+ *
+ * @throws {AppError} Workspace 가 없으면 `NOT_FOUND`.
  * @throws {AppError} 이미 그 Workspace 의 Member 인 이메일이면 `CONFLICT`.
  * @throws {AppError} 아직 살아 있는 초대가 그 주소로 이미 있으면 `CONFLICT`.
  */
@@ -114,6 +175,26 @@ export async function createInvitation(
   },
   executor: DbExecutor = db(),
 ): Promise<CreatedInvitation> {
+  /**
+   * 🔴 **Transaction 이 필요하다.** 잠금은 Transaction 이 끝나면 풀린다 — 감싸지 않으면
+   * 문장 하나마다 Transaction 이 열리고 닫혀, 잠금을 잡자마자 놓아 준다.
+   */
+  return executor.transaction((tx) => createInvitationLocked(input, tx));
+}
+
+async function createInvitationLocked(
+  input: {
+    workspaceId: string;
+    email: string;
+    invitedBy: string;
+  },
+  executor: DbExecutor,
+): Promise<CreatedInvitation> {
+  // 1. workspaces — 수락과 삭제가 잡는 것과 같은 행이다.
+  if ((await lockWorkspaceRow(input.workspaceId, executor)) === null) {
+    throw new AppError("RESOURCE_NOT_FOUND");
+  }
+
   /**
    * 🔴 **비교하기 전에 정규화한다.** Schema 가 이미 정규화하지만 그것은 **폼 경로 하나**의
    * 이야기다 — Application Service 는 Server Action 말고도 시험·다른 서버 경로에서 불린다.
@@ -348,15 +429,21 @@ export async function acceptInvitation(
      * Workspace 를 기다리고, 삭제 쪽은 Workspace 를 쥔 채 CASCADE 로 그 초대 행을 기다려
      * **deadlock** 이 된다. 두 경로가 Workspace 를 먼저 잡는 한 그 고리가 생기지 않는다.
      */
-    const locked = await tx
-      .select({ slug: workspaces.slug })
-      .from(workspaces)
-      .where(eq(workspaces.id, targetWorkspaceId))
-      .for("update");
-
-    const slug = locked[0]?.slug;
-    if (slug === undefined) {
+    const slug = await lockWorkspaceRow(targetWorkspaceId, tx);
+    if (slug === null) {
       throw new AppError("INVITATION_UNUSABLE");
+    }
+
+    /**
+     * 🔴 **그 다음이 `users` 다 — 초대 행을 건드리기 «전»에.**
+     *
+     * 아래 UPDATE 의 `accepted_by` 가 FK 검사로 이 행에 어차피 잠금을 건다. 여기서 미리
+     * 잡지 않으면 순서가 `초대 행 -> users` 가 되어, `users` 를 쥔 채 그 사람의 초대 행을
+     * 지우는 계정 삭제와 고리를 만든다(`@/db` 의 전역 잠금 순서).
+     */
+    if (!(await lockAccountRow(input.userId, tx))) {
+      // 세션은 있는데 계정이 사라졌다 — 초대의 문제가 아니다.
+      throw new AppError("ACCOUNT_NOT_FOUND");
     }
 
     /**

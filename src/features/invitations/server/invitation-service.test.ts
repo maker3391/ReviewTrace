@@ -57,6 +57,13 @@ async function rejection(promise: Promise<unknown>) {
 
 describe("createInvitation", () => {
   /**
+   * 🔴 **발행도 Workspace 행을 «먼저» 잠근다.** 수락과 같은 행을 잡아 둘을 줄 세우지
+   * 않으면 `not exists` 가 옛 snapshot 으로 평가돼, 이미 멤버가 된 사람 앞으로 살아 있는
+   * 링크가 하나 더 생긴다(실제 PostgreSQL 로 재현됐다).
+   */
+  const lockedWorkspace = () => selects([{ slug: "acme" }]);
+
+  /**
    * # 🔴 발행 문장은 «직접 적은 SQL» 이다 — 렌더해서 본다
    *
    * 「이미 멤버인가」 판정이 **INSERT 문장 안**으로 들어갔다(`not exists`). Drizzle 의
@@ -78,14 +85,14 @@ describe("createInvitation", () => {
    * 그대로 넣으면 이 시험이 실패한다. 직접 바꿔 보고 되돌렸다.
    */
   it("🔴 저장되는 것은 Hash 다 — 원문 Token 이 어느 Column 에도 없다", async () => {
-    const fake = fakeExecutor([executes([{ id: INVITATION }])]);
+    const fake = fakeExecutor([lockedWorkspace(), executes([{ id: INVITATION }])]);
 
     const invitation = await createInvitation(
       { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
       fake.executor,
     );
 
-    const sent = statement(fake.calls[0]);
+    const sent = statement(fake.calls[1]);
     expect(sent.params).toContain(hashInvitationToken(invitation.token));
     // 문장에도 파라미터에도 원문이 실려 있지 않다.
     expect(sent.sql).not.toContain(invitation.token);
@@ -110,14 +117,14 @@ describe("createInvitation", () => {
    * 판정이 **쓰는 문장 자체**에 실려 있는 것. 조건이 빠지면 이 시험이 빨개진다.
    */
   it("🔴 「이미 멤버가 아닐 것」이 INSERT 문장 자체에 실린다", async () => {
-    const fake = fakeExecutor([executes([{ id: INVITATION }])]);
+    const fake = fakeExecutor([lockedWorkspace(), executes([{ id: INVITATION }])]);
 
     await createInvitation(
       { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
       fake.executor,
     );
 
-    const sent = statement(fake.calls[0]);
+    const sent = statement(fake.calls[1]);
     expect(sent.sql).toContain("not exists");
     expect(sent.sql).toContain('"workspace_members"');
     expect(sent.sql).toContain('"users"."email"');
@@ -130,8 +137,13 @@ describe("createInvitation", () => {
    */
   it("🔴 회전 UPDATE 에도 「이미 멤버가 아닐 것」이 실린다", async () => {
     const captured: { where?: SQL } = {};
-    const executor = {
+    const executor: DbExecutor = {
+      select: () => ({
+        from: () => ({ where: () => ({ for: () => Promise.resolve([{ slug: "acme" }]) }) }),
+      }),
       execute: () => Promise.resolve({ rows: [] }),
+      transaction: <T>(run: (tx: DbExecutor) => Promise<T>): Promise<T> =>
+        run(executor),
       update: () => ({
         set: () => ({
           where: (condition: SQL) => {
@@ -155,6 +167,7 @@ describe("createInvitation", () => {
   it("🔴 이미 멤버인 이메일에는 초대가 발행되지 않는다", async () => {
     // 두 쓰기 문장이 «둘 다» 0행이다 — 그 뒤의 조회는 «메시지를 고르기 위한» 것뿐이다.
     const fake = fakeExecutor([
+      lockedWorkspace(),
       executes([]),
       updates([]),
       selects([{ userId: GUEST }]),
@@ -191,14 +204,14 @@ describe("createInvitation", () => {
    * **날것이 한 번도 실리지 않는 것**까지 본다.
    */
   it("🔴 「이미 멤버」 비교에도 저장에도 «정규화된» 이메일이 실린다", async () => {
-    const fake = fakeExecutor([executes([{ id: INVITATION }])]);
+    const fake = fakeExecutor([lockedWorkspace(), executes([{ id: INVITATION }])]);
 
     const invitation = await createInvitation(
       { workspaceId: WORKSPACE, email: "  Guest@Example.TEST ", invitedBy: OWNER },
       fake.executor,
     );
 
-    const sent = statement(fake.calls[0]);
+    const sent = statement(fake.calls[1]);
     // 저장하는 값과 비교하는 값이 같은 문장에 함께 실린다.
     expect(sent.params.filter((param) => param === "guest@example.test")).toHaveLength(2);
     // 날것이 실리면 그것은 어느 행도 잡지 못하는 조건이다.
@@ -208,7 +221,7 @@ describe("createInvitation", () => {
   });
 
   it("초대에는 유효 기간이 붙는다 — 링크가 영원히 살지 않는다", async () => {
-    const fake = fakeExecutor([executes([{ id: INVITATION }])]);
+    const fake = fakeExecutor([lockedWorkspace(), executes([{ id: INVITATION }])]);
 
     const invitation = await createInvitation(
       { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
@@ -217,7 +230,7 @@ describe("createInvitation", () => {
 
     expect(invitation.expiresAt.getTime()).toBeGreaterThan(Date.now());
 
-    const sent = statement(fake.calls[0]);
+    const sent = statement(fake.calls[1]);
     expect(
       sent.params.some(
         (param) =>
@@ -285,14 +298,14 @@ describe("createInvitation", () => {
    * 통째로 터진다 — 실제로 그렇게 터지는 것을 보고 이 모양으로 바꿨다.
    */
   it("🔴 INSERT 에 «대상 없는» on conflict do nothing 이 붙는다", async () => {
-    const fake = fakeExecutor([executes([{ id: INVITATION }])]);
+    const fake = fakeExecutor([lockedWorkspace(), executes([{ id: INVITATION }])]);
 
     await createInvitation(
       { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
       fake.executor,
     );
 
-    const sent = statement(fake.calls[0]).sql;
+    const sent = statement(fake.calls[1]).sql;
     expect(sent).toContain("on conflict do nothing");
     // 중재할 index 를 지목하지 않는다 — 그 index 가 없는 Database 에서 문장이 터진다.
     expect(sent).not.toContain("on conflict (");
@@ -300,7 +313,7 @@ describe("createInvitation", () => {
   });
 
   it("Database 가 받아 주면 그것으로 끝이다 — 회전 UPDATE 를 부르지 않는다", async () => {
-    const fake = fakeExecutor([executes([{ id: INVITATION }])]);
+    const fake = fakeExecutor([lockedWorkspace(), executes([{ id: INVITATION }])]);
 
     await createInvitation(
       { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
@@ -308,7 +321,7 @@ describe("createInvitation", () => {
     );
 
     // 🔴 흔한 경로는 Database 왕복 «한 번»이다 — 미리 조회하지 않는다.
-    expect(fake.calls.map((call) => call.kind)).toEqual(["execute"]);
+    expect(fake.calls.map((call) => call.kind)).toEqual(["select", "execute"]);
   });
 
   /**
@@ -319,7 +332,7 @@ describe("createInvitation", () => {
    * 그린다.** 받은 사람은 영영 수락하지 못한다.
    */
   it("🔴 살아 있는 초대가 이미 있으면 CONFLICT 다 — 저장되지 않은 Token 을 내주지 않는다", async () => {
-    const fake = fakeExecutor([executes([]), updates([]), selects([])]);
+    const fake = fakeExecutor([lockedWorkspace(), executes([]), updates([]), selects([])]);
 
     const error = await rejection(
       createInvitation(
@@ -344,8 +357,13 @@ describe("createInvitation", () => {
    */
   it("🔴 회전은 «만료된 그 Workspace 의 그 주소» 하나로 한정된다", async () => {
     const captured: { where?: SQL } = {};
-    const executor = {
+    const executor: DbExecutor = {
+      select: () => ({
+        from: () => ({ where: () => ({ for: () => Promise.resolve([{ slug: "acme" }]) }) }),
+      }),
       execute: () => Promise.resolve({ rows: [] }),
+      transaction: <T>(run: (tx: DbExecutor) => Promise<T>): Promise<T> =>
+        run(executor),
       update: () => ({
         set: () => ({
           where: (condition: SQL) => {
@@ -380,14 +398,14 @@ describe("createInvitation", () => {
 
   /** 회전 경로도 Hash 만 남긴다 — INSERT 쪽만 보면 이 자리가 비어도 초록이었다. */
   it("🔴 회전시킬 때도 원문 Token 을 저장하지 않는다", async () => {
-    const fake = fakeExecutor([executes([]), updates([{ id: INVITATION }])]);
+    const fake = fakeExecutor([lockedWorkspace(), executes([]), updates([{ id: INVITATION }])]);
 
     const invitation = await createInvitation(
       { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
       fake.executor,
     );
 
-    const rotated = fake.calls[1]?.values ?? {};
+    const rotated = fake.calls[2]?.values ?? {};
     expect(rotated.tokenHash).toBe(hashInvitationToken(invitation.token));
     expect(JSON.stringify(rotated)).not.toContain(invitation.token);
     // 회전한 행은 방금 발행된 초대다 — 기한이 되살아나야 만료 상태로 남지 않는다.
@@ -403,7 +421,7 @@ describe("createInvitation", () => {
     const driverError = Object.assign(new Error("connection terminated"), {
       code: "08006",
     });
-    const fake = fakeExecutor([failsWith("execute", driverError)]);
+    const fake = fakeExecutor([lockedWorkspace(), failsWith("execute", driverError)]);
 
     const error = await rejection(
       createInvitation(
@@ -441,11 +459,20 @@ describe("acceptInvitation", () => {
 
   const found = () => selects([{ workspaceId: WORKSPACE }]);
   const lockedWorkspace = () => selects([{ slug: "acme" }]);
+  /**
+   * 🔴 **계정 행도 잠근다 — 초대 행을 건드리기 «전»에.**
+   *
+   * 아래 UPDATE 의 `accepted_by` 가 FK 로 `users` 에 어차피 잠금을 건다. 미리 잡지
+   * 않으면 순서가 `초대 행 -> users` 가 되어, `users` 를 쥔 채 그 사람의 초대 행을
+   * 지우는 계정 삭제와 **deadlock** 이 된다(실제로 `40P01` 이 났다).
+   */
+  const lockedAccount = () => selects([{ id: GUEST }]);
 
   it("기존 소속은 건드리지 않고 MEMBER 행 하나만 더한다", async () => {
     const fake = fakeExecutor([
       found(),
       lockedWorkspace(),
+      lockedAccount(),
       claimed("MEMBER", future()),
       inserts([]),
     ]);
@@ -460,21 +487,34 @@ describe("acceptInvitation", () => {
     expect(fake.calls.map((call) => call.kind)).toEqual([
       "select",
       "select",
+      "select",
       "update",
       "insert",
     ]);
-    expect(fake.calls[3]?.values?.userId).toBe(GUEST);
-    expect(fake.calls[3]?.values?.workspaceId).toBe(WORKSPACE);
+    expect(fake.calls[4]?.values?.userId).toBe(GUEST);
+    expect(fake.calls[4]?.values?.workspaceId).toBe(WORKSPACE);
   });
 
   /**
-   * 🔴 **Workspace 를 잠그는 조회가 초대를 잡는 UPDATE «앞»에 있다.**
+   * # 🔴 잠그는 순서는 `workspaces -> users -> 초대 행` 이다
    *
-   * 이 순서가 뒤집히거나 잠금이 사라지면, 계정 삭제가 「나 혼자다」를 확인한 뒤 지우는
-   * 사이에 들어온 이 소속이 **Workspace 와 함께 CASCADE 로 사라진다.**
-   * 실제로 잠기는가는 `invitation-invariant.integration.test.ts` 가 `pg_locks` 로 본다.
+   * ## Workspace 가 초대 UPDATE 보다 «앞»인 이유
+   *
+   * 계정 삭제는 「나 혼자다」를 확인한 뒤 Workspace 를 통째로 지운다. 그 확인은 소속 행을
+   * 잠그지만 **그 뒤에 INSERT 되는 소속은 잡지 못한다** — 여기서 같은 Workspace 행을 먼저
+   * 잠가야 두 경로가 줄을 선다.
+   *
+   * ## 🔴 `users` 가 초대 UPDATE 보다 «앞»인 이유 — 실제로 난 deadlock
+   *
+   * `accepted_by = $user` 를 쓰면 FK 검사가 `users` 행에 잠금을 건다. 즉 명시적으로 잡지
+   * 않으면 순서가 **`초대 행 -> users`** 가 되는데, 계정 삭제는 `users` 를 쥔 채 그 사람의
+   * 이메일이 적힌 초대 행을 지운다 — 고리가 닫혀 실제 PostgreSQL 이
+   * `40P01 deadlock detected` 를 냈다. 그래서 **초대 행을 건드리기 전에** 명시적으로 잠근다.
+   *
+   * 실제로 잠기는가·정말 줄을 서는가는 `invitation-invariant.integration.test.ts` 와
+   * `account-deletion.integration.test.ts` 가 실제 연결 둘로 본다.
    */
-  it("🔴 Workspace 를 «먼저» 잠근 뒤에 초대를 소진한다", async () => {
+  it("🔴 workspaces -> users -> 초대 행 순으로 잠근다", async () => {
     const order: string[] = [];
     const executor = {
       select: () => ({
@@ -487,6 +527,11 @@ describe("acceptInvitation", () => {
                 return Promise.resolve([{ workspaceId: WORKSPACE }]);
               },
               for: (strength: string) => {
+                // 무엇을 잠갔는지는 조건절이 말해 준다.
+                if (rendered.includes('"users"."id"')) {
+                  order.push(`lock-user:${strength}`);
+                  return Promise.resolve([{ id: GUEST }]);
+                }
                 order.push(`lock-workspace:${strength}`);
                 expect(rendered).toContain('"workspaces"."id"');
                 return Promise.resolve([{ slug: "acme" }]);
@@ -526,6 +571,8 @@ describe("acceptInvitation", () => {
     expect(order).toEqual([
       "find-invitation",
       "lock-workspace:update",
+      // 🔴 FK 가 요구하는 것과 같은 세기다 — 수락끼리는 서로를 막지 않는다.
+      "lock-user:key share",
       "claim-invitation",
     ]);
   });
@@ -538,13 +585,14 @@ describe("acceptInvitation", () => {
     const fake = fakeExecutor([
       found(),
       lockedWorkspace(),
+      lockedAccount(),
       claimed("OWNER", future()),
       inserts([]),
     ]);
 
     await acceptInvitation({ token: "A".repeat(43), userId: GUEST }, fake.executor);
 
-    expect(fake.calls[3]?.values?.role).toBe("OWNER");
+    expect(fake.calls[4]?.values?.role).toBe("OWNER");
   });
 
   /**
@@ -558,9 +606,9 @@ describe("acceptInvitation", () => {
       // 🔴 Workspace 가 이미 사라졌다 — 계정 삭제가 먼저 끝난 경우다.
       fakeExecutor([found(), selects([])]),
       // 있지만 이미 수락됐거나 취소돼 UPDATE 가 아무 행도 잡지 못했다.
-      fakeExecutor([found(), lockedWorkspace(), updates([])]),
+      fakeExecutor([found(), lockedWorkspace(), lockedAccount(), updates([])]),
       // 잡았지만 만료됐다.
-      fakeExecutor([found(), lockedWorkspace(), claimed("MEMBER", past())]),
+      fakeExecutor([found(), lockedWorkspace(), lockedAccount(), claimed("MEMBER", past())]),
     ];
 
     const shown: string[] = [];
@@ -583,6 +631,7 @@ describe("acceptInvitation", () => {
     const fake = fakeExecutor([
       found(),
       lockedWorkspace(),
+      lockedAccount(),
       claimed("MEMBER", past()),
     ]);
 
@@ -591,6 +640,7 @@ describe("acceptInvitation", () => {
     );
 
     expect(fake.calls.map((call) => call.kind)).toEqual([
+      "select",
       "select",
       "select",
       "update",

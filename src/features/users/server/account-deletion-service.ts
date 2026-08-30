@@ -100,23 +100,21 @@ const NEUTRAL_SLUG_PREFIX = "w-";
 /** 중립 slug 가 이미 쓰이고 있을 때 다시 시도하는 횟수. */
 const MAX_SLUG_ATTEMPTS = 5;
 
-/**
- * 이 사람이 속한 Workspace 의 사실을 모은다.
- *
- * `lock` 이면 **Workspace 행과 소속 행을 그 순서로** `FOR UPDATE` 로 잠그고, 판정에 쓰는
- * 사실을 **전부 잠근 뒤의 값**으로 읽는다 — 실제로 지울 때만 쓴다.
- *
- * 🔴 **집계와 `FOR UPDATE` 를 함께 쓰지 못한다.** PostgreSQL 이 `FOR UPDATE is not
- * allowed with aggregate functions` 로 거절한다(`changeMemberRole` 에서 실제로 겪었다).
- * 그래서 잠글 때는 **행을 그대로 읽어** 세고, 잠글 필요가 없는 미리보기에서는 Database 가
- * `GROUP BY` 로 센다. 읽는 행은 「내가 속한 Workspace 의 멤버」뿐이라 표를 훑지 않는다.
- */
-async function readMembershipFacts(
+/** 잠그기 «전»에 읽은 내 소속 한 줄. 🔴 여기 담긴 `role` 은 낡을 수 있다. */
+interface MyWorkspaceRow {
+  workspaceId: string;
+  slug: string;
+  name: string;
+  personalOwnerId: string | null;
+  role: "OWNER" | "MEMBER";
+}
+
+/** 내가 속한 Workspace 를 읽는다. 🔴 아무것도 잠그지 않는다 — 잠글 «대상»을 고르는 조회다. */
+async function readMyWorkspaces(
   userId: string,
   executor: DbExecutor,
-  lock: boolean,
-): Promise<WorkspaceMembershipFacts[]> {
-  const mine = await executor
+): Promise<MyWorkspaceRow[]> {
+  return executor
     .select({
       workspaceId: workspaces.id,
       slug: workspaces.slug,
@@ -128,121 +126,188 @@ async function readMembershipFacts(
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
     .where(eq(workspaceMembers.userId, userId))
     .orderBy(workspaces.slug);
+}
+
+/**
+ * Workspace 행을 잠근다 — **가장 먼저 잡는 잠금이다**(`@/db` 의 전역 잠금 순서).
+ *
+ * 🔴 **소속 행을 잠그기 «전에» Workspace 행을 잠근다.**
+ *
+ * `FOR UPDATE` 는 **잠글 때 이미 존재하는 행만** 잡는다. 소속 행만 잠그면 그 뒤에
+ * INSERT 되는 소속(초대 수락)은 아무 잠금에도 걸리지 않는데, Workspace 를 지우면
+ * CASCADE 가 **방금 들어온 사람의 소속과 그 Workspace 의 Knowledge 를 통째로**
+ * 지운다 — 「나 혼자였다」는 판단이 이미 낡은 것이 된 뒤다.
+ *
+ * 그래서 두 경로가 **같은 Workspace 행 하나**를 두고 줄을 서게 만든다.
+ *
+ * ```
+ * 삭제  workspaces(잠금) -> users(잠금) -> 소속 읽기 -> 판단 -> DELETE
+ * 수락  workspaces(잠금) -> users(잠금) -> 초대 소진 -> 소속 INSERT   (invitation-service.ts)
+ * ```
+ *
+ * 수락이 먼저면 삭제는 여기서 기다렸다가 **새 멤버가 보이는 상태**로 센다.
+ * 삭제가 먼저면 수락은 잠금이 풀린 뒤 **사라진 Workspace** 를 보고 거절된다.
+ *
+ * 🔴 **이 보증은 「소속을 만드는 모든 경로가 이 잠금을 지나간다」에 달려 있다.**
+ * 지금 그 경로는 셋뿐이고 나머지 둘(`createWorkspace`·`ensurePersonalWorkspace`)은
+ * **자기가 방금 만든 Workspace** 에 넣으므로 남이 지울 대상이 아니다. 🔴 기존
+ * Workspace 에 소속을 넣는 경로를 새로 만들면 **여기도 함께 고쳐야 한다.**
+ *
+ * 🔴 **잠그는 순서를 `id` 로 고정한다.** 두 삭제가 같은 Workspace 집합을 서로 다른
+ * 순서로 잡으면 서로를 기다리다 deadlock 이 난다.
+ */
+async function lockMyWorkspaces(
+  mine: readonly MyWorkspaceRow[],
+  executor: DbExecutor,
+): Promise<string[]> {
+  if (mine.length === 0) {
+    return [];
+  }
+
+  const live = await executor
+    .select({ id: workspaces.id })
+    .from(workspaces)
+    .where(
+      inArray(
+        workspaces.id,
+        mine.map((row) => row.workspaceId),
+      ),
+    )
+    .orderBy(workspaces.id)
+    .for("update");
+
+  // 잠그는 사이에 사라진 Workspace 는 더 이상 판단 대상이 아니다.
+  return live.map((row) => row.id);
+}
+
+/**
+ * 계정 행을 잠근다 — **`workspaces` 다음, 나머지 전부보다 먼저**(`@/db` 의 전역 잠금 순서).
+ *
+ * 🔴 **존재 확인을 겸하지만 «먼저» 할 수 없다.** 예전에는 이 잠금이 Transaction 의 첫
+ * 문장이었고, 그래서 이 경로만 `users -> workspaces` 로 거꾸로 잠갔다 —
+ * 초대 수락(`workspaces -> users`)과 동시에 돌리면 실제로 `40P01` 이 났다.
+ * 존재 확인은 순서를 바꿀 이유가 되지 못한다. 없는 계정은 여기서도 그대로 0행이다.
+ *
+ * @returns 잠근 뒤에 읽은 계정. 없으면 `null`.
+ */
+async function lockAccountRow(
+  userId: string,
+  executor: DbExecutor,
+): Promise<{ id: string; email: string } | null> {
+  const rows = await executor
+    .select({ id: users.id, email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .for("update")
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+/**
+ * 잠근 뒤의 사실로 판정 재료를 만든다 — 소속 행을 잠그는 것이 **마지막**이다.
+ *
+ * 🔴 **집계와 `FOR UPDATE` 를 함께 쓰지 못한다.** PostgreSQL 이 `FOR UPDATE is not
+ * allowed with aggregate functions` 로 거절한다(`changeMemberRole` 에서 실제로 겪었다).
+ * 그래서 잠글 때는 **행을 그대로 읽어** 센다. 읽는 행은 「내가 속한 Workspace 의 멤버」뿐이라
+ * 표를 훑지 않는다.
+ */
+async function lockedMembershipFacts(
+  userId: string,
+  mine: readonly MyWorkspaceRow[],
+  liveIds: readonly string[],
+  executor: DbExecutor,
+): Promise<WorkspaceMembershipFacts[]> {
+  if (liveIds.length === 0) {
+    return [];
+  }
+
+  const counts = new Map<string, { members: number; owners: number }>();
+
+  /**
+   * 🔴 **다른 사람이 같은 순간 역할을 바꾸거나 자기 계정을 지우는 것을 막는다.**
+   * 두 OWNER 가 동시에 탈퇴하면 각자 「상대가 아직 OWNER 다」를 보고 둘 다 통과해
+   * OWNER 가 0명이 된다. 같은 행을 잠그므로 뒤에 온 쪽이 기다렸다가 다시 본다.
+   */
+  const locked = await executor
+    .select({
+      workspaceId: workspaceMembers.workspaceId,
+      userId: workspaceMembers.userId,
+      role: workspaceMembers.role,
+    })
+    .from(workspaceMembers)
+    .where(inArray(workspaceMembers.workspaceId, [...liveIds]))
+    .for("update");
+
+  for (const row of locked) {
+    if (row.userId === userId) {
+      continue;
+    }
+    const bucket = counts.get(row.workspaceId) ?? { members: 0, owners: 0 };
+    bucket.members += 1;
+    if (row.role === "OWNER") {
+      bucket.owners += 1;
+    }
+    counts.set(row.workspaceId, bucket);
+  }
+
+  /**
+   * 🔴 잠근 뒤에 **내 소속과 «내 역할»을 다시 읽는다.** 목록을 읽고 잠그는 사이에 누가
+   * 나를 내보냈다면 그 Workspace 는 더 이상 내 것이 아니고, **나를 OWNER 로 올렸다면
+   * 나는 이제 OWNER 다.**
+   *
+   * 🔴 **낡은 역할과 갓 센 OWNER 수를 섞으면 판정이 거짓이 된다.** A=MEMBER·B=OWNER 로
+   * 시작해 A 의 삭제가 첫 조회 «직후» 멈추고, 그 사이 B 가 A 를 OWNER 로 올린 뒤 자신을
+   * MEMBER 로 내리면 — 다시 셌을 때 `otherOwners = 0` 인데 역할은 옛 `MEMBER` 라
+   * `BLOCKED` 를 비껴가고, **OWNER 가 0명인 Workspace** 가 남는다.
+   * 두 값은 반드시 **같은 시점**(잠근 뒤)의 것이어야 한다.
+   *
+   * 🔴 미리보기(`findAccountDeletionImpact`)는 이 경로를 타지 않는다 — 그것은 화면에
+   * 보여 주는 추정치일 뿐 권한의 근거가 아니다.
+   */
+  const stillMine = new Map(
+    locked
+      .filter((row) => row.userId === userId)
+      .map((row) => [row.workspaceId, row.role] as const),
+  );
+
+  return mine.flatMap((row) => {
+    const role = stillMine.get(row.workspaceId);
+    if (role === undefined) {
+      return [];
+    }
+
+    return [
+      {
+        workspaceId: row.workspaceId,
+        slug: row.slug,
+        name: row.name,
+        isPersonal: row.personalOwnerId === userId,
+        role,
+        otherMembers: counts.get(row.workspaceId)?.members ?? 0,
+        otherOwners: counts.get(row.workspaceId)?.owners ?? 0,
+      },
+    ];
+  });
+}
+
+/**
+ * 미리보기가 쓰는 사실 — **아무것도 잠그지 않는다.**
+ *
+ * 잠글 필요가 없으므로 Database 가 `GROUP BY` 로 센다.
+ */
+async function unlockedMembershipFacts(
+  userId: string,
+  executor: DbExecutor,
+): Promise<WorkspaceMembershipFacts[]> {
+  const mine = await readMyWorkspaces(userId, executor);
 
   if (mine.length === 0) {
     return [];
   }
 
   const workspaceIds = mine.map((row) => row.workspaceId);
-
   const counts = new Map<string, { members: number; owners: number }>();
-
-  if (lock) {
-    /**
-     * 🔴 **소속 행을 잠그기 «전에» Workspace 행을 잠근다.**
-     *
-     * `FOR UPDATE` 는 **잠글 때 이미 존재하는 행만** 잡는다. 소속 행만 잠그면 그 뒤에
-     * INSERT 되는 소속(초대 수락)은 아무 잠금에도 걸리지 않는데, Workspace 를 지우면
-     * CASCADE 가 **방금 들어온 사람의 소속과 그 Workspace 의 Knowledge 를 통째로**
-     * 지운다 — 「나 혼자였다」는 판단이 이미 낡은 것이 된 뒤다.
-     *
-     * 그래서 두 경로가 **같은 Workspace 행 하나**를 두고 줄을 서게 만든다.
-     *
-     * ```
-     * 삭제  workspaces(잠금) -> 소속 읽기 -> 판단 -> DELETE
-     * 수락  workspaces(잠금) -> 초대 소진 -> 소속 INSERT     (invitation-service.ts)
-     * ```
-     *
-     * 수락이 먼저면 삭제는 여기서 기다렸다가 **새 멤버가 보이는 상태**로 센다.
-     * 삭제가 먼저면 수락은 잠금이 풀린 뒤 **사라진 Workspace** 를 보고 거절된다.
-     *
-     * 🔴 **이 보증은 「소속을 만드는 모든 경로가 이 잠금을 지나간다」에 달려 있다.**
-     * 지금 그 경로는 셋뿐이고 나머지 둘(`createWorkspace`·`ensurePersonalWorkspace`)은
-     * **자기가 방금 만든 Workspace** 에 넣으므로 남이 지울 대상이 아니다. 🔴 기존
-     * Workspace 에 소속을 넣는 경로를 새로 만들면 **여기도 함께 고쳐야 한다.**
-     *
-     * 🔴 **잠그는 순서를 `id` 로 고정한다.** 두 삭제가 같은 Workspace 집합을 서로 다른
-     * 순서로 잡으면 서로를 기다리다 deadlock 이 난다.
-     */
-    const live = await executor
-      .select({ id: workspaces.id })
-      .from(workspaces)
-      .where(inArray(workspaces.id, workspaceIds))
-      .orderBy(workspaces.id)
-      .for("update");
-
-    // 잠그는 사이에 사라진 Workspace 는 더 이상 판단 대상이 아니다.
-    const liveIds = live.map((row) => row.id);
-    if (liveIds.length === 0) {
-      return [];
-    }
-
-    /**
-     * 🔴 **다른 사람이 같은 순간 역할을 바꾸거나 자기 계정을 지우는 것을 막는다.**
-     * 두 OWNER 가 동시에 탈퇴하면 각자 「상대가 아직 OWNER 다」를 보고 둘 다 통과해
-     * OWNER 가 0명이 된다. 같은 행을 잠그므로 뒤에 온 쪽이 기다렸다가 다시 본다.
-     */
-    const locked = await executor
-      .select({
-        workspaceId: workspaceMembers.workspaceId,
-        userId: workspaceMembers.userId,
-        role: workspaceMembers.role,
-      })
-      .from(workspaceMembers)
-      .where(inArray(workspaceMembers.workspaceId, liveIds))
-      .for("update");
-
-    for (const row of locked) {
-      if (row.userId === userId) {
-        continue;
-      }
-      const bucket = counts.get(row.workspaceId) ?? { members: 0, owners: 0 };
-      bucket.members += 1;
-      if (row.role === "OWNER") {
-        bucket.owners += 1;
-      }
-      counts.set(row.workspaceId, bucket);
-    }
-
-    /**
-     * 🔴 잠근 뒤에 **내 소속과 «내 역할»을 다시 읽는다.** 목록을 읽고 잠그는 사이에 누가
-     * 나를 내보냈다면 그 Workspace 는 더 이상 내 것이 아니고, **나를 OWNER 로 올렸다면
-     * 나는 이제 OWNER 다.**
-     *
-     * 🔴 **낡은 역할과 갓 센 OWNER 수를 섞으면 판정이 거짓이 된다.** A=MEMBER·B=OWNER 로
-     * 시작해 A 의 삭제가 첫 조회 «직후» 멈추고, 그 사이 B 가 A 를 OWNER 로 올린 뒤 자신을
-     * MEMBER 로 내리면 — 다시 셌을 때 `otherOwners = 0` 인데 역할은 옛 `MEMBER` 라
-     * `BLOCKED` 를 비껴가고, **OWNER 가 0명인 Workspace** 가 남는다.
-     * 두 값은 반드시 **같은 시점**(잠근 뒤)의 것이어야 한다.
-     *
-     * 🔴 `lock=false` 인 미리보기는 이 경로를 타지 않는다 — 그것은 화면에 보여 주는
-     * 추정치일 뿐 권한의 근거가 아니다(`findAccountDeletionImpact`).
-     */
-    const stillMine = new Map(
-      locked
-        .filter((row) => row.userId === userId)
-        .map((row) => [row.workspaceId, row.role] as const),
-    );
-
-    return mine.flatMap((row) => {
-      const role = stillMine.get(row.workspaceId);
-      if (role === undefined) {
-        return [];
-      }
-
-      return [
-        {
-          workspaceId: row.workspaceId,
-          slug: row.slug,
-          name: row.name,
-          isPersonal: row.personalOwnerId === userId,
-          role,
-          otherMembers: counts.get(row.workspaceId)?.members ?? 0,
-          otherOwners: counts.get(row.workspaceId)?.owners ?? 0,
-        },
-      ];
-    });
-  }
 
   const grouped = await executor
     .select({
@@ -322,7 +387,7 @@ export async function findAccountDeletionImpact(
   userId: string,
   executor: DbExecutor = db(),
 ): Promise<AccountDeletionImpact> {
-  const facts = await readMembershipFacts(userId, executor, false);
+  const facts = await unlockedMembershipFacts(userId, executor);
   const plan = planAccountDeletion(facts);
 
   const losses = await countLosses(
@@ -402,6 +467,12 @@ async function rotateWorkspaceSlug(
  * 🔴 **한 Transaction 이다.** 중간에 실패하면 Workspace 도 소속도 그대로 남는다 —
  * 「Workspace 는 지워졌는데 계정은 살아 있는」 반쪽 상태를 만들지 않는다.
  *
+ * # 🔴 잠그는 순서는 `workspaces -> users -> workspace_members` 다
+ *
+ * 전역 규칙이고 근거는 `@/db` 에 적혀 있다. **여기서만 순서를 바꾸면 곧바로 deadlock 이다** —
+ * 초대 수락이 `workspaces -> users` 로 잠그기 때문이다. 존재 확인을 위해 `users` 를 먼저
+ * 잠갔던 것이 실제로 `40P01` 을 만들었다.
+ *
  * @throws {AppError} 계정이 없으면 `NOT_FOUND`, 마지막 OWNER 인 Workspace 가 있으면 `CONFLICT`.
  */
 export async function deleteAccount(
@@ -409,20 +480,26 @@ export async function deleteAccount(
   executor: DbExecutor = db(),
 ): Promise<void> {
   await executor.transaction(async (tx) => {
-    const found = await tx
-      .select({ id: users.id, email: users.email })
-      .from(users)
-      .where(eq(users.id, input.userId))
-      .for("update")
-      .limit(1);
+    // 0. 잠글 «대상»을 고른다. 🔴 이 조회는 아무것도 잠그지 않는다.
+    const mine = await readMyWorkspaces(input.userId, tx);
 
-    const account = found[0];
-    if (account === undefined) {
+    // 1. workspaces — 가장 먼저다.
+    const liveIds = await lockMyWorkspaces(mine, tx);
+
+    /**
+     * 2. users — Workspace 다음이다.
+     *
+     * 🔴 **존재 확인을 여기서 한다.** 계정이 없으면 잠글 행도 없어 0행이 돌아온다 —
+     * 「먼저 확인하고 그 다음에 잠근다」로 나눌 이유가 없고, 나누면 잠금 순서가 깨진다.
+     */
+    const account = await lockAccountRow(input.userId, tx);
+    if (account === null) {
       throw new AppError("ACCOUNT_NOT_FOUND");
     }
 
+    // 3. workspace_members — 판정에 쓰는 사실은 전부 «잠근 뒤»의 값이다.
     const plan: AccountDeletionPlan = planAccountDeletion(
-      await readMembershipFacts(input.userId, tx, true),
+      await lockedMembershipFacts(input.userId, mine, liveIds, tx),
     );
 
     if (!plan.deletable) {
