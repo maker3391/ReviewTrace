@@ -138,7 +138,7 @@ export const en: Messages = {
       },
     ],
 
-    agentChain: "Coding agent connection",
+    agentSupport: "Works with your coding agents",
 
     showcaseIssue: "State changes executed outside the transaction",
     showcaseDecision:

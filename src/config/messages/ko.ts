@@ -202,16 +202,20 @@ export const ko = {
     ],
 
     /**
-     * 왼쪽 단 맨 아래의 연결 관계(`LoginAgentChain`) 위에 붙는 label.
+     * 왼쪽 단 맨 아래 띠(`LoginAgentSupport`)의 왼쪽 label.
      *
-     * 🔴 **여기 있는 낱말은 이것 하나뿐이다.** `Claude Code` · `Codex` · `MCP` ·
-     * `ReviewTrace` 는 제품·프로토콜 이름이라 양쪽 언어에서 그대로다(이 파일 머리말) —
-     * 컴포넌트에 둔다.
+     * 🔴 **여기 있는 낱말은 이것 하나뿐이다.** `Claude Code` · `Codex` · `MCP` 는
+     * 제품·프로토콜 이름이라 양쪽 언어에서 그대로다(이 파일 머리말) — 컴포넌트에 둔다.
      *
-     * 🔴 **설명 문장을 만들지 않는다.** 화살표가 이미 관계를 말하므로, 이 label 은
-     * 「이 줄이 무엇에 관한 것인가」만 짚는다(CLAUDE.md 16).
+     * 🔴 **연결 «구조»를 설명하지 않는다.** 로그인 화면이 답할 것은 「쓰던 Agent 가
+     * 그대로 붙는가」까지다 — 어떤 경로로 닿는지는 로그인 뒤 Settings 와
+     * `docs/agent-integration.md` 가 안내한다(CLAUDE.md 16).
+     *
+     * 🔴 **짧게 유지한다.** 이 띠는 왼쪽에 label, 오른쪽에 Agent 이름을 두는 한 줄이라
+     * label 이 길어지면 1440 에서 두 줄로 접혀 오른쪽 카드의 머리 띠와 결이 갈린다 —
+     * 실제로 「…와 그대로 연결됩니다」로 적었을 때 접혔다.
      */
-    agentChain: "Coding Agent 연결",
+    agentSupport: "사용하는 Coding Agent와 연결",
 
     /**
      * 오른쪽 미리보기(`LoginShowcase`) 안에서 **문장인 것 둘**.

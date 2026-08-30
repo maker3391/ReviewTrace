@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 import { APP_CONFIG } from "@/config/app";
-import { LoginAgentChain } from "@/features/auth/components/LoginAgentChain";
+import { LoginAgentSupport } from "@/features/auth/components/LoginAgentSupport";
 import {
   LoginFeatureList,
   LoginShowcase,
@@ -75,12 +75,15 @@ export default async function LoginPage(props: PageProps<"/login">) {
 
           {/*
             🔴 **왼쪽 단의 «맨 아래»가 이 줄의 자리다.** 위의 셋이 「무엇을 해 주는가」를
-            말하고 나면 남는 물음이 「그래서 내 Agent 가 어떻게 닿는가」 하나다 —
-            그 순서로 읽히도록 features 뒤에 둔다. 위로 올리면 아직 무엇인지도 모르는
-            제품의 연결 방식을 먼저 읽게 되고, 오른쪽·가운데로 옮기면 그 단이 이미
-            맡은 말(무엇이 남는가 · 어떻게 시작하는가)과 섞인다.
+            말하고 나면 남는 물음이 「그래서 내 Agent 가 되는가」 하나다 — 그 순서로
+            읽히도록 features 뒤에 둔다. 위로 올리면 아직 무엇인지도 모르는 제품의
+            연결 대상을 먼저 읽게 되고, 오른쪽·가운데로 옮기면 그 단이 이미 맡은
+            말(무엇이 남는가 · 어떻게 시작하는가)과 섞인다.
+
+            🔴 **새 마디가 아니라 features 의 바닥이다.** 제목을 두지 않고 연결 «구조»도
+            그리지 않는다 — 로그인 화면이 답할 것은 「내 Agent 가 붙는가」까지다.
           */}
-          <LoginAgentChain label={t.agentChain} />
+          <LoginAgentSupport label={t.agentSupport} />
         </section>
 
         {/*
