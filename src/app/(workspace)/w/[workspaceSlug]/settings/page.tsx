@@ -61,7 +61,15 @@ export default async function WorkspaceSettingsPage({
         Section 머리글(워크스페이스 · API Key · Agent 연동 · 계정)이 화면의 구조다.
       */}
       <Section title={t.workspaceSection}>
-        <dl className="grid grid-cols-[8rem_1fr] gap-x-6 gap-y-2 pt-3 text-sm">
+        {/*
+          🔴 **둘째 트랙은 `minmax(0,1fr)` 다.** 그냥 `1fr` 이면 최소 폭이 «내용»이라,
+          slug 처럼 끊을 자리가 없는 문자열이 트랙을 밀어 좁은 화면에서 표가 컨테이너
+          밖으로 나간다 — 390px 에서 3px, 320px 에서 73px 넘쳤다(실측).
+          `ReviewDetailScreen` 의 같은 `dl` 은 처음부터 이 모양이라 넘치지 않는다.
+          라벨 트랙도 좁은 화면에서 한 단계 줄인다 — 8rem 을 320px 에 그대로 두면
+          값에 남는 폭이 절반 아래로 떨어진다.
+        */}
+        <dl className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-4 gap-y-2 pt-3 text-sm wrap-anywhere sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-x-6">
           <dt className="text-xs text-muted-foreground">{t.workspaceName}</dt>
           <dd className="font-medium">{workspace.name}</dd>
 
