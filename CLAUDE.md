@@ -109,6 +109,53 @@ pnpm build                    success (31 route)
 `0002` 는 `issue_tags` 의 PK 를 그 Column 이 만들어지기 **전에** 걸어 실제로 실패했다.
 손으로 순서를 고쳤고, 적용 전에 `BEGIN; … ROLLBACK;` 으로 한 번 돌려 봐야 이런 것이 잡힌다.
 
+🔴 **`0006` 은 기존 데이터가 있는 Database 에서 멈출 수 있다.** 살아 있는 초대를
+`(workspace_id, email)` 당 하나로 잠그는 부분 unique index 를 **정리 없이 곧바로** 만든다 —
+그 이전 코드는 같은 주소로 미수락 초대를 여러 개 허용했으므로, 그런 행이 남아 있는 배포에서는
+`23505` 로 실패하고 **뒤의 Migration 도 함께 멈춘다.**
+
+🔴 **이것은 새 Migration 으로 고칠 수 없다.** `drizzle-kit migrate` 는 journal 순서대로
+적용하다 **처음 실패한 곳에서 멈춘다** — `0009` 에 정리를 넣어도 `0006` 을 지나야 닿는다.
+🔴 **이미 적용된 `0006` 을 고쳐 쓰지도 않는다**(다른 배포는 그것을 이미 적용했다).
+그래서 이 자리는 **문서로 남기고 손으로 넘긴다.**
+
+🔴 **행을 지우지 않는다.** 초대 이력은 보존 대상이고, 살아 있던 초대를 「없던 일」로
+만드는 것과 「사람이 죽였다」로 기록하는 것은 다르다 — `revoked_at` 을 찍는 쪽이
+`api_keys.revoked_at`·`revokeInvitation` 과 같은 판단이다(CLAUDE.md 12).
+
+🔴 **다만 `revoked_at` 만으로는 `0006` 을 통과하지 못한다.** `0006` 의 predicate 는
+`accepted_at IS NULL` 하나여서 취소된 행도 여전히 index 안이다. **`0007` 이 그 index 를
+곧바로 DROP 하고 `revoked_at IS NULL` 을 더해 다시 만든다** — 즉 `0006` 이 만드는 모양은
+다음 Migration 을 넘기지 못하는 중간 상태다. 그러니 중복이 있는 배포는 **둘을 한 걸음으로**
+지나간다:
+
+```sql
+BEGIN;
+-- 1. 같은 주소의 살아 있는 초대 중 «가장 최근 것 하나»만 남기고 나머지를 취소로 기록한다.
+UPDATE workspace_invitations i
+   SET revoked_at = now()
+ WHERE i.accepted_at IS NULL
+   AND EXISTS (
+     SELECT 1 FROM workspace_invitations n
+      WHERE n.workspace_id = i.workspace_id
+        AND n.email       = i.email
+        AND n.accepted_at IS NULL
+        AND (n.created_at, n.id) > (i.created_at, i.id)
+   );
+
+-- 2. 0007 의 최종 모양으로 index 를 만든다. 0006 의 중간 모양은 만들지 않는다.
+ALTER TABLE workspace_invitations
+  ADD COLUMN IF NOT EXISTS revoked_at timestamp with time zone;
+CREATE UNIQUE INDEX workspace_invitations_live_email_unique
+    ON workspace_invitations (workspace_id, email)
+ WHERE accepted_at IS NULL AND revoked_at IS NULL;
+COMMIT;
+```
+
+그 뒤 `__drizzle_migrations` 에 `0006`·`0007` 을 적용된 것으로 기록하고 `0008` 부터
+`pnpm db:migrate` 를 잇는다. **`0007` 을 이미 지난 Database 라면 아무것도 할 것이 없다** —
+index 가 이미 중복을 막고 있다. 위험한 구간은 **`0006` 을 아직 적용하지 않은 배포**뿐이다.
+
 ### 가입·Workspace·초대 검증 (2026-08-28 실행)
 
 **실제 PostgreSQL 을 쓰는 시험 10건이 통과했다** — `DB_INTEGRATION=true pnpm test`.
