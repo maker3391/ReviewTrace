@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { db, type DbExecutor } from "@/db";
@@ -42,6 +43,7 @@ import {
   createWorkspace,
   listMembers,
 } from "@/features/workspaces/server/workspace-service";
+import { formatDate } from "@/lib/format/date";
 import { listMemberWorkspaces } from "@/lib/auth/workspace-context";
 import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
 
@@ -457,6 +459,60 @@ describe.skipIf(!enabled)("Dashboard Tenant 격리", () => {
         tx,
       );
       expect(owned.openIssues).toHaveLength(1);
+    });
+  });
+
+  /**
+   * 🔴 **회귀 — 「최근 해결」의 `resolvedAt` 이 문자열로 나왔다.**
+   *
+   * 조회가 `sql<Date>` 로 그 칸을 읽었는데 그것은 Drizzle 의 Column 변환 경로 «밖»이라
+   * Driver 가 준 문자열이 «검사되지 않은 채» `Date` 로 단언됐다. 화면이 `formatDate` 를
+   * 부르는 순간 `TypeError: value.getUTCFullYear is not a function` 으로 Project Overview
+   * 전체가 오류 화면이 됐다.
+   *
+   * 🔴 **`typecheck` 도 `build` 도 이것을 잡지 못한다** — 타입만 보면 맞기 때문이다.
+   * 그래서 이 시험은 **실제 Driver 가 돌려준 값의 «정체»** 를 본다. 해결 기록이 하나도
+   * 없으면 배열이 비어 아무것도 확인되지 않으므로, 반드시 해결된 Issue 를 하나 심는다.
+   */
+  it("🔴 「최근 해결」의 resolvedAt 이 문자열이 아니라 Date 다", async () => {
+    await inRollback(async (tx) => {
+      const alpha = await makeWorkspace(tx, "Alpha");
+      const project = await createProject(
+        {
+          workspaceId: alpha.workspaceId,
+          createdBy: alpha.userId,
+          input: { name: "SMIL", slug: "smil", description: "" },
+        },
+        tx,
+      );
+
+      const seeded = await seedReview(tx, {
+        workspaceId: alpha.workspaceId,
+        projectId: project.projectId,
+        title: "Transaction 안에서 외부 API 를 부른다",
+      });
+
+      await tx
+        .update(reviewIssues)
+        .set({
+          status: "RESOLVED",
+          resolvedAt: new Date(),
+          resolutionSummary: "외부 호출을 Transaction 밖으로 옮겼다",
+        })
+        .where(eq(reviewIssues.id, seeded.issueId));
+
+      const dashboard = await findProjectDashboard(
+        { workspaceId: alpha.workspaceId, projectId: project.projectId },
+        tx,
+      );
+
+      expect(dashboard.recentResolutions).toHaveLength(1);
+      const resolution = dashboard.recentResolutions[0];
+
+      // 🔴 `toBeInstanceOf` 여야 한다. 문자열도 「값이 있다」는 통과시킨다.
+      expect(resolution?.resolvedAt).toBeInstanceOf(Date);
+      // 화면이 실제로 하는 일 — 되돌리면 여기서 TypeError 가 난다.
+      expect(() => formatDate(resolution!.resolvedAt)).not.toThrow();
     });
   });
 });

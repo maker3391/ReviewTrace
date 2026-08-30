@@ -3,6 +3,7 @@ import "server-only";
 import { and, asc, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
+import { asDate } from "@/db/raw-value";
 import {
   knowledgePages,
   repositories,
@@ -210,7 +211,18 @@ export async function findProjectDashboard(
     recentReviews,
     repositories: repositoryRows,
     knowledgePages: knowledgeRows,
-    recentResolutions,
+    /*
+      🔴 원시 SQL 조각의 타입 단언을 실제 값으로 맞춘다(`db/raw-value.ts`).
+
+      `sql<Date>` 는 Drizzle 의 Column 변환 경로 «밖»이라 Driver 가 준 문자열이 그대로
+      온다. `pnpm build` 도 `typecheck` 도 잡지 못했다 — 잡은 것은 해결된 Issue 를 넣고
+      화면을 연 것이다(`TypeError: value.getUTCFullYear is not a function`).
+      해결 기록이 하나도 없는 Project 에서는 이 배열이 비어 있어 드러나지 않았다.
+    */
+    recentResolutions: recentResolutions.map((resolution) => ({
+      ...resolution,
+      resolvedAt: asDate(resolution.resolvedAt),
+    })),
   };
 }
 
