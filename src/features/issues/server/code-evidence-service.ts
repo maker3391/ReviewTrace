@@ -29,12 +29,24 @@ import type { EvidenceVerification } from "@/types/review";
  */
 
 /**
- * 한 요청에서 확인할 Evidence 수.
+ * 한 요청에서 **GitHub 에 물어볼** Evidence 수.
  *
- * GitHub 왕복이 요청 시간을 끌지 않게 하는 상한이다. 🔴 **상한에 걸려 못 본 것은
- * `UNVERIFIED` 로 남는다** — 그것이 사실이기 때문이다. 다만 **무엇이 남는지는
- * 정해져 있어야** 하므로 만든 순서대로 앞에서부터 본다(`orderBy(createdAt)`).
+ * GitHub 왕복이 요청 시간을 끌지 않게 하는 상한이다(확인 하나에 최대 4초).
+ * 무엇을 볼지는 정해져 있어야 하므로 만든 순서대로 앞에서부터 본다(`orderBy(createdAt, id)`).
  * 순서가 없으면 같은 요청을 두 번 보냈을 때 서로 다른 근거가 확인된다.
+ *
+ * # 🔴 상한에 걸린 것을 «조용히» 두지 않는다
+ *
+ * 입력 계약은 Issue 하나당 근거 20개, Review 하나당 Issue 500개를 허용한다. 그런데 이
+ * 상한을 넘은 행을 그냥 두면 **영원히 초기값 `UNVERIFIED` 에 머문다** — 어떤 경로도 그
+ * id 를 다시 큐에 넣지 않기 때문이다. 화면은 「아직 확인 중」과 「영영 확인되지 않는다」를
+ * 구분할 수 없고, 문서는 확인 못 한 것이 `UNAVAILABLE` 로 남는다고 적혀 있었다.
+ *
+ * 🔴 **상한을 20으로 올려 덮지 않는다.** 그러면 한 요청이 GitHub 왕복 20회를 끌고,
+ * 500개짜리 Review 에서는 어차피 다시 넘친다 — 숫자를 키워도 「조용히 남는 행」은 없어지지
+ * 않는다. 대신 **못 본 것을 못 봤다고 적는다**: 이 호출이 끝날 때 남아 있는 `UNVERIFIED`
+ * 는 전부 `UNAVAILABLE` 이 된다(`closeOutUnverified`). 「한도 초과」는 이미 `UNAVAILABLE`
+ * 의 뜻 안에 있다.
  */
 const MAX_VERIFY_PER_REQUEST = 10;
 
@@ -111,6 +123,10 @@ export async function insertCodeEvidence(
  * | `VERIFIED` | GitHub 의 그 Commit·파일·줄 범위와 같았다. Agent 가 안 보냈으면 GitHub 것을 채운다 |
  * | `MISMATCH` | GitHub 에 있는데 내용이 달랐다 |
  * | `UNAVAILABLE` | 볼 수 없었다 (Private · 없는 Commit/파일 · 한도 초과 · 응답 실패) |
+ *
+ * 🔴 **이 호출이 끝나면 `evidenceIds` 안에 `UNVERIFIED` 가 남지 않는다.** 상한을 넘었든,
+ * GitHub 이 아닌 Provider 든, 도중에 오류가 났든 — 못 본 것은 `UNAVAILABLE` 로 닫힌다
+ * (`MAX_VERIFY_PER_REQUEST` 주석). 그것들을 다시 확인해 줄 경로가 없기 때문이다.
  */
 export async function verifyCodeEvidence(
   workspaceId: string,
@@ -247,6 +263,46 @@ export async function verifyCodeEvidence(
     // 🔴 오류 객체를 그대로 넘기지 않는다 — 이 경로의 UPDATE 는 코드 Snapshot 을 바인딩하고,
     //    Drizzle 은 그 값을 message 에 싣는다(`describeErrorForLog`).
     console.error("[evidence] GitHub 확인에 실패했다:", describeErrorForLog(error));
+  }
+
+  await closeOutUnverified(workspaceId, evidenceIds, executor);
+}
+
+/**
+ * 이 요청에서 **끝내 보지 못한** 근거를 `UNAVAILABLE` 로 닫는다.
+ *
+ * 🔴 **이것이 「조용히 영원한 `UNVERIFIED`」를 없애는 자리다.** 상한을 넘은 행, GitHub 이
+ * 아닌 Provider, 도중에 오류가 나 건너뛴 행 — 셋 다 여기서 같은 결론을 받는다.
+ * 다시 확인해 줄 경로가 없으므로 「아직 안 봤다」가 아니라 **「보지 못했다」가 사실**이다.
+ *
+ * 🔴 **문장 하나다.** 확인한 행은 이미 `UNVERIFIED` 가 아니라 조건에서 저절로 빠진다 —
+ * 무엇을 봤는지 목록을 따로 들고 다니지 않는다.
+ *
+ * 🔴 **여기서도 던지지 않는다.** 확인은 저장 위에 얹는 것이고, 그 마무리가 요청을 깨서는
+ * 더더욱 안 된다.
+ */
+async function closeOutUnverified(
+  workspaceId: string,
+  evidenceIds: readonly string[],
+  executor: DbExecutor,
+): Promise<void> {
+  try {
+    await executor
+      .update(issueCodeEvidences)
+      .set({ verification: "UNAVAILABLE", verifiedAt: new Date() })
+      .where(
+        and(
+          // 🔴 id 만으로 찾지 않는다 — 위 조회와 같은 규칙이다.
+          eq(issueCodeEvidences.workspaceId, workspaceId),
+          inArray(issueCodeEvidences.id, [...evidenceIds]),
+          eq(issueCodeEvidences.verification, "UNVERIFIED"),
+        ),
+      );
+  } catch (error) {
+    console.error(
+      "[evidence] 확인하지 못한 근거를 닫지 못했다:",
+      describeErrorForLog(error),
+    );
   }
 }
 
