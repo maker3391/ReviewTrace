@@ -45,7 +45,7 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | **화면 접근 통제** — `proxy.ts`(렌더 전 관문) + `requireWorkspace`(소속 판정) | **있다** |
 | **Agent API 7종** (`POST /reviews` · `POST /reviews/{id}/issues` · `PATCH /issues/{id}` · `POST /issues/{id}/activities` · `GET /issues/{id}` · `GET /issues` · `GET /knowledge/context`) | **있다.** 실제 서버·실제 PostgreSQL 로 E2E 확인 (아래) |
 | **Decision Record** (`solution`·`decisionReason`·`alternativesConsidered`·`tradeOff`·`verification`·`regressionTest`·`residualRisk`) | **있다** — 🔴 Issue 가 아니라 **IssueActivity** 에 붙는다. 시도마다 따로 남아 덮어써지지 않는다 |
-| **Code Evidence** (`issue_code_evidences` · BEFORE/AFTER · GitHub 대조) | **있다** — 확인은 응답 뒤(`after()`)에 돈다. 확인 못 하면 `UNAVAILABLE` 로 남고 Snapshot 은 보존된다 |
+| **Code Evidence** (`issue_code_evidences` · BEFORE/AFTER · GitHub 대조) | **있다** — 확인은 응답 뒤(`after()`)에 돈다. 🔴 **한 요청에서 GitHub 에 묻는 것은 10개까지**이고, 그 상한을 넘었거나 GitHub 이 아닌 Provider 인 것은 **같은 호출 안에서 `UNAVAILABLE` 로 닫는다** — 다시 확인해 줄 경로가 없어 그대로 두면 영원히 `UNVERIFIED` 다. Snapshot 은 어느 경우에도 보존된다 |
 | **API Key** 발급·폐기·Bearer 검증 (`ci_` + 256bit 난수 · SHA-256 Hash 만 저장) | **있다** — 화면(`/w/{ws}/settings`)까지 |
 | Agent API Error Contract (`error.code`·`message`, Code↔Status 대응 한 곳) | 있다 |
 | **Project 계층** (`Workspace -> Project -> Repository -> ReviewSession -> ReviewIssue`) | **있다** — `projects` 표 · `UNIQUE(workspace_id, slug)` · `repositories.project_id` |
@@ -129,23 +129,31 @@ pnpm build                    success (31 route)
 다음 Migration 을 넘기지 못하는 중간 상태다. 그러니 중복이 있는 배포는 **둘을 한 걸음으로**
 지나간다:
 
+🔴 **Column 을 «먼저» 만든다.** `0006` 에서 멈춘 Database 에는 `revoked_at` 이 아직 없다 —
+그것은 `0007` 이 만드는 칸이다. 정리 UPDATE 를 앞에 두면 첫 문장이
+`42703 column "revoked_at" does not exist` 로 터져 **아무것도 정리되지 않는다.**
+
 ```sql
 BEGIN;
--- 1. 같은 주소의 살아 있는 초대 중 «가장 최근 것 하나»만 남기고 나머지를 취소로 기록한다.
+-- 1. 0007 이 더하는 Column 을 먼저 만든다. 아래 UPDATE 가 이 칸을 쓴다.
+ALTER TABLE workspace_invitations
+  ADD COLUMN IF NOT EXISTS revoked_at timestamp with time zone;
+
+-- 2. 같은 주소의 살아 있는 초대 중 «가장 최근 것 하나»만 남기고 나머지를 취소로 기록한다.
 UPDATE workspace_invitations i
    SET revoked_at = now()
  WHERE i.accepted_at IS NULL
+   AND i.revoked_at IS NULL
    AND EXISTS (
      SELECT 1 FROM workspace_invitations n
       WHERE n.workspace_id = i.workspace_id
         AND n.email       = i.email
         AND n.accepted_at IS NULL
+        AND n.revoked_at IS NULL
         AND (n.created_at, n.id) > (i.created_at, i.id)
    );
 
--- 2. 0007 의 최종 모양으로 index 를 만든다. 0006 의 중간 모양은 만들지 않는다.
-ALTER TABLE workspace_invitations
-  ADD COLUMN IF NOT EXISTS revoked_at timestamp with time zone;
+-- 3. 0007 의 최종 모양으로 index 를 만든다. 0006 의 중간 모양은 만들지 않는다.
 CREATE UNIQUE INDEX workspace_invitations_live_email_unique
     ON workspace_invitations (workspace_id, email)
  WHERE accepted_at IS NULL AND revoked_at IS NULL;
@@ -155,6 +163,56 @@ COMMIT;
 그 뒤 `__drizzle_migrations` 에 `0006`·`0007` 을 적용된 것으로 기록하고 `0008` 부터
 `pnpm db:migrate` 를 잇는다. **`0007` 을 이미 지난 Database 라면 아무것도 할 것이 없다** —
 index 가 이미 중복을 막고 있다. 위험한 구간은 **`0006` 을 아직 적용하지 않은 배포**뿐이다.
+
+### 전역 잠금 순서 · 동시성 검증 (2026-08-30 실행)
+
+🔴 **여러 표의 행을 한 Transaction 에서 잠그는 경로는 `workspaces -> users -> 나머지`
+순서로 잡는다.** 근거와 규칙은 `src/db/index.ts` 머리에 있다 — **정본은 거기 하나다.**
+
+무엇이 문제였는지: 계정 삭제가 존재 확인을 겸해 `users` 를 **가장 먼저** 잠갔고,
+초대 수락은 Workspace 를 먼저 잠근 뒤 `accepted_by` 를 쓰며 FK 로 `users` 를 잠갔다.
+순서가 `users -> workspaces` 대 `workspaces -> users` 로 엇갈려 고리가 닫혔다.
+
+- **실제 연결 셋으로 `40P01 deadlock detected` 를 재현했다** — `src/db/lock-order.integration.test.ts`.
+  🔴 이 파일만 「되돌리는 Transaction」을 쓰지 못한다. 다른 연결이 fixture 를 보려면
+  commit 돼 있어야 하고, deadlock 은 연결이 둘 이상일 때만 생긴다
+- 고친 뒤 같은 시험이 통과한다 — 수락은 삭제를 **기다리지도 않고** 끝난다
+- **초대 발행도 같은 Workspace 행을 먼저 잠근다.** `INSERT ... SELECT ... WHERE NOT EXISTS`
+  는 statement snapshot 으로 평가되므로, 수락이 commit 되는 순간 옛 초대 행이 부분 index
+  밖으로 빠져 **이미 멤버가 된 사람 앞으로 살아 있는 Token 이 하나 더 발행됐다.**
+  같은 행을 잠가 둘을 줄 세우면 뒤에 온 쪽이 **새 snapshot** 으로 판정한다
+- `changeMemberRole` 은 `workspace_members` **한 표만** 잠근다 — 이 순서와 무관하다
+
+🔴 **되돌림 확인(직접 돌려 보고 되돌렸다)**:
+
+| 무엇을 되돌렸나 | 무엇이 빨개졌나 |
+|---|---|
+| `deleteAccount` 의 `users` 잠금을 맨 앞으로 + `acceptInvitation` 의 `users` 잠금 삭제 | 실제 `40P01 deadlock detected` (`delete from workspace_invitations` 문장에서) |
+| `deleteAccount` 의 `users` 잠금만 맨 앞으로 | 수락이 삭제를 기다리다 `ACCOUNT_NOT_FOUND` |
+| `createInvitation` 의 `lockWorkspaceRow` 삭제 | 발행이 **성공해** 살아 있는 Token 이 하나 더 생긴다 |
+| `ingestReview` 의 선행 재전송 판정 삭제 | 재전송 경로에 `insert` 가 섞여 나간다 |
+| `verifyCodeEvidence` 의 `closeOutUnverified` 호출 삭제 | 상한을 넘은 근거가 `UNVERIFIED` 로 남는다 |
+
+🔴 **시험이 만든 행은 남지 않는다.** 버티는 연결은 `finally` 에서 놓고(잠금이 남으면 정리
+DELETE 가 통째로 멈춘다 — 실제로 겪었다), 마지막 시험이 `dl-%` 로 다시 조회해 0행을 확인한다.
+
+#### 실행하지 않은 것
+
+- **부하·동시성을 «수»로 재지 않았다.** 두 경로가 한 번씩 부딪히는 것을 결정적으로 재현했을
+  뿐, 수십 개가 동시에 들어올 때의 처리량은 재지 않았다
+- Agent API E2E(`scripts/agent-api-e2e.sh`)는 **이번에 돌리지 않았다** — dev 서버가 필요하다
+
+### 0006 복구 절차 실측 (2026-08-30 실행)
+
+위 SQL 을 실제 PostgreSQL 에서 **`BEGIN … ROLLBACK` 안에서 돌려 확인했다.** 0005 상태를
+흉내 내(`revoked_at` 을 떨어뜨리고 index 를 지운 뒤) 같은 주소의 살아 있는 초대 셋을 넣었다.
+
+- **`0006` 을 그대로 적용하면 `23505` 로 멈춘다** — 문서가 적어 둔 그대로다
+- 🔴 **옛 절차는 실행조차 되지 않았다.** `UPDATE` 가 먼저라
+  `42703 column "revoked_at" does not exist` 로 첫 문장에서 터졌다
+- **고친 절차는 끝까지 돈다** — 행 셋이 그대로 남고 가장 최근 것 하나만 살아 있으며,
+  `accepted_at IS NULL AND revoked_at IS NULL` predicate 의 index 가 만들어진다
+- 확인 뒤 전부 ROLLBACK 했다. 적용 전후 `workspace_invitations` 0행 · index 1개로 같다
 
 ### 가입·Workspace·초대 검증 (2026-08-28 실행)
 
@@ -1098,6 +1156,10 @@ Session 열쇠로 막을 수 없다. 그래서 나눴다.
 - 헤더를 보내지 않으면 Dedup 하지 않는다. 「같은 Commit 을 두 번 Review 했다」는 정상이고,
   우리가 마음대로 접으면 두 번째 결과가 사라진다
 - 재전송이면 **`200`**, 새로 저장했으면 **`201`** 이다
+- 🔴 **`200` 이면 아무것도 새로 쓰지 않았다.** 그래서 재전송 판정을 **Project 확보·Repository
+  갱신보다 «먼저»** 한다 — 순서가 반대면 재전송에 다른 `project.slug` 를 실어 보냈을 때
+  Project 가 새로 생기고 Repository metadata 가 바뀐 채로 `200` 이 나간다.
+  열쇠의 Unique 범위가 Repository 안이라, 그 앞에는 **찾기만 하고 갱신하지 않는** 조회를 둔다
 - 이미 아는 Issue 를 다시 보고받으면 행을 새로 만들지 않고 **`REVIEWED_AGAIN`** Activity 를 남긴다.
   「이번 Review 도 이 문제를 봤다」가 History 에 있어야 반복 여부를 셀 수 있다
 
