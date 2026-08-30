@@ -47,6 +47,56 @@ export interface RepositoryUpsertInput {
   htmlUrl: string | null;
 }
 
+/**
+ * 같은 신원 규칙으로 Repository 를 **찾기만** 한다 — 만들지도, 갱신하지도 않는다.
+ *
+ * ## 🔴 왜 «찾기만 하는» 자리가 따로 필요한가
+ *
+ * `Idempotency-Key` 의 Unique 범위가 Repository 안이라, 재전송인지 알려면 Repository 를
+ * 먼저 알아야 한다. 그런데 `resolveIngestRepository` 는 찾는 김에 **이름·branch·URL 을
+ * 갱신하고 없으면 만든다** — 그것을 먼저 부르면 재전송으로 판정되기 «전»에 이미 쓰기가
+ * 일어나, 「200 이면 아무것도 새로 쓰지 않았다」가 거짓이 된다(`review-ingest-service.ts`).
+ *
+ * 신원을 고르는 규칙은 `resolveIngestRepository` 와 **글자 그대로 같다** — 숫자 id 가 먼저고
+ * 그 다음이 이름이다. 규칙이 갈라지면 재전송 판정이 엉뚱한 Repository 를 보게 된다.
+ *
+ * 🔴 **advisory lock 을 잡지 않는다.** 여기서 만드는 것이 없으므로 직렬화할 구간도 없다.
+ * 못 찾으면 `null` 이고, 그때는 `resolveIngestRepository` 가 잠금을 잡고 정식으로 만든다.
+ */
+export async function findIngestRepository(
+  tx: DbExecutor,
+  workspaceId: string,
+  input: RepositoryUpsertInput,
+): Promise<string | null> {
+  if (input.externalRepositoryId !== null) {
+    const byId = await findByExternalId(
+      tx,
+      workspaceId,
+      input.provider,
+      input.externalRepositoryId,
+    );
+
+    if (byId !== null) {
+      return byId;
+    }
+  }
+
+  const existing = await findByFullName(
+    tx,
+    workspaceId,
+    input.provider,
+    input.fullName,
+  );
+
+  // 🔴 재사용 조건도 같다 — 이름이 같아도 다른 숫자 id 가 박힌 행은 다른 저장소다.
+  const reusable =
+    existing !== null &&
+    (input.externalRepositoryId === null ||
+      existing.externalRepositoryId.startsWith(FALLBACK_PREFIX));
+
+  return existing !== null && reusable ? existing.id : null;
+}
+
 export async function resolveIngestRepository(
   tx: DbExecutor,
   workspaceId: string,

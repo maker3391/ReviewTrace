@@ -17,7 +17,10 @@ import type {
 } from "@/features/reviews/schemas/review-ingest";
 import { insertCodeEvidence } from "@/features/issues/server/code-evidence-service";
 import { resolveIngestProject } from "@/features/projects/server/project-service";
-import { resolveIngestRepository } from "@/features/repositories/server/repository-upsert";
+import {
+  findIngestRepository,
+  resolveIngestRepository,
+} from "@/features/repositories/server/repository-upsert";
 import {
   normalizeTagList,
   type NormalizedTag,
@@ -34,7 +37,7 @@ import type {
  * Agent Review 저장(스펙 30).
  *
  * ```
- * Repository Upsert -> [Idempotency 확인] -> ReviewSession INSERT
+ * [Idempotency 확인] -> Project 확보 -> Repository Upsert -> ReviewSession INSERT
  *   -> ReviewIssue Batch INSERT -> Tag 조회/생성 -> IssueTag Batch INSERT
  *   -> Activity Batch INSERT -> Commit
  * ```
@@ -125,7 +128,39 @@ export async function ingestReview(
 
   return executor.transaction(async (tx) => {
     /**
-     * 0. Project 확인 / 생성.
+     * 0. 같은 요청을 이미 저장했는가 — 🔴 **아무것도 쓰기 «전»에** 묻는다.
+     *
+     * 예전에는 Project 생성과 Repository 갱신이 먼저였다. 정상 return 이라 Transaction 이
+     * commit 되므로, 재전송에 다른 `project.slug` 나 다른 `defaultBranch` 를 실어 보내면
+     * 응답은 `200/idempotentReplay=true` 인데 **Project 가 새로 생기고 Repository
+     * metadata 가 바뀌었다** — 「200 이면 아무것도 새로 쓰지 않았다」가 거짓이었다.
+     *
+     * 🔴 열쇠의 Unique 범위가 Repository 안이라 판정에 `repositoryId` 가 필요하다.
+     * 그래서 **찾기만 하고 갱신하지 않는** 조회를 앞에 둔다(`findIngestRepository`).
+     * 못 찾으면 그 Repository 의 Session 도 있을 수 없으니 그대로 아래로 내려간다.
+     */
+    if (idempotencyKey !== null) {
+      const knownRepositoryId = await findIngestRepository(
+        tx,
+        workspaceId,
+        payload.repository,
+      );
+
+      if (knownRepositoryId !== null) {
+        const replay = await findSessionByIdempotencyKey(
+          tx,
+          workspaceId,
+          knownRepositoryId,
+          idempotencyKey,
+        );
+        if (replay !== null) {
+          return replay;
+        }
+      }
+    }
+
+    /**
+     * 1. Project 확인 / 생성.
      *
      * 🔴 Repository 보다 «먼저» 한다 — Repository 가 Project 에 속하기 때문이다(스펙 1).
      * Transaction 안에서 돌므로, 뒤가 실패하면 여기서 만든 Project 도 남지 않는다.
@@ -135,7 +170,7 @@ export async function ingestReview(
       tx,
     );
 
-    // 1. Repository 확인 / Upsert(`repository-upsert.ts`).
+    // 2. Repository 확인 / Upsert(`repository-upsert.ts`).
     //    이름은 GitHub 에서 바뀐다 — 매 Review 마다 최신 표기로 맞춘다.
     const repositoryId = await resolveIngestRepository(
       tx,
@@ -144,7 +179,13 @@ export async function ingestReview(
       payload.repository,
     );
 
-    // 2. 같은 요청을 이미 저장했는가.
+    /**
+     * 3. 다시 한 번 재전송 확인.
+     *
+     * 위 0번은 Repository 를 못 찾았을 때 판정을 미룬다 — 첫 Review 와 그 재전송이
+     * 겹치면 그 경로로 들어온다. 여기서는 Repository 가 확정됐으므로 열쇠로 정확히 본다.
+     * 🔴 이 조회를 지우면 그 경우에 Session 이 하나 더 생긴다.
+     */
     if (idempotencyKey !== null) {
       const replay = await findSessionByIdempotencyKey(
         tx,
@@ -157,7 +198,7 @@ export async function ingestReview(
       }
     }
 
-    // 3. ReviewSession.
+    // 4. ReviewSession.
     //    🔴 `onConflictDoNothing` 이다 — 같은 Key 두 요청이 동시에 여기 닿으면 진 쪽은
     //    예외로 Transaction 을 깨는 대신 「이미 있다」로 받아 아래에서 다시 읽는다.
     const sessionRows = await tx
@@ -208,7 +249,7 @@ export async function ingestReview(
       return replay;
     }
 
-    // 4~8. Issue · Tag · Activity · Evidence.
+    // 5~9. Issue · Tag · Activity · Evidence.
     const inserted = await insertSessionIssues(tx, {
       workspaceId,
       repositoryId,
