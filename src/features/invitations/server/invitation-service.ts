@@ -105,6 +105,14 @@ async function lockAccountRow(
 }
 
 export interface CreatedInvitation {
+  /**
+   * 발행된 초대 행의 id.
+   *
+   * 🔴 **Token 이 아니다.** 화면이 「방금 낸 그 초대가 «아직 살아 있는가»」를 묻는 데만
+   * 쓴다 — 취소된 초대의 링크를 계속 그리지 않으려면 그 판정이 필요한데, 그것을 Token
+   * 으로 하면 죽은 Token 이 화면 상태에 한 벌 더 남는다.
+   */
+  id: string;
   /** 🔴 **이 한 번만 존재한다.** 저장되지 않으므로 화면을 떠나면 다시 볼 수 없다. */
   token: string;
   email: string;
@@ -249,8 +257,9 @@ async function createInvitationLocked(
     returning "id"
   `);
 
-  if (inserted.rows.length > 0) {
-    return { token, email, expiresAt };
+  const insertedId = inserted.rows[0]?.id;
+  if (typeof insertedId === "string") {
+    return { id: insertedId, token, email, expiresAt };
   }
 
   /**
@@ -294,8 +303,9 @@ async function createInvitationLocked(
     )
     .returning({ id: workspaceInvitations.id });
 
-  if (rotated.length > 0) {
-    return { token, email, expiresAt };
+  const rotatedId = rotated[0]?.id;
+  if (rotatedId !== undefined) {
+    return { id: rotatedId, token, email, expiresAt };
   }
 
   /**

@@ -9,6 +9,10 @@ import {
   inviteMemberSchema,
   type InviteMemberInput,
 } from "@/features/invitations/schemas/invitation";
+import {
+  visibleInviteUrl,
+  type IssuedInvite,
+} from "@/features/invitations/utils/invite-link";
 import { useLocalizedForm } from "@/lib/validation/use-localized-form";
 
 /**
@@ -18,6 +22,16 @@ import { useLocalizedForm } from "@/lib/validation/use-localized-form";
  * 검증 규칙은 Schema 에 있다 — 여기에 `if` 로 다시 적지 않는다.
  *
  * 🔴 **발행된 링크는 이 화면에서 한 번만 보인다.** 서버에 원문이 없으므로 새로고침하면 사라진다.
+ *
+ * ## 🔴 링크는 «살아 있는 동안만» 보인다
+ *
+ * 링크는 Client state 라 **`revalidatePath` 가 지우지 못한다.** 바로 아래 목록에서 그
+ * 초대를 취소하면 서버는 목록을 다시 그리는데 이 패널만 남아, **이미 죽은 Token 을
+ * 「지금 복사하세요」로 권했다.**
+ *
+ * 그래서 서버가 다시 그리는 **살아 있는 초대 id 목록**을 받아, 방금 낸 초대가 거기
+ * 없으면 스스로 지운다. 🔴 **Token 을 비교하지 않는다** — 죽은 Token 을 판정에 쓰려고
+ * 화면에 한 벌 더 두는 꼴이 된다.
  */
 /** 🔴 이 폼이 실제로 그리는 낱말만 받는다(CLAUDE.md 11). */
 export interface InviteMemberLabels {
@@ -30,12 +44,22 @@ export interface InviteMemberLabels {
 export function InviteMemberForm({
   workspaceSlug,
   labels,
+  liveInvitationIds,
 }: {
   workspaceSlug: string;
   labels: InviteMemberLabels;
+  /** 지금 살아 있는(수락도 취소도 되지 않은) 초대의 id. 서버가 매번 다시 넘긴다. */
+  liveInvitationIds: readonly string[];
 }) {
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [issued, setIssued] = useState<IssuedInvite | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+
+  /**
+   * 🔴 **정본은 서버가 그린 목록이다.** 여기 남은 것이 아직 유효한지는 우리가 기억하는
+   * 것이 아니라 그 목록이 답한다 — 취소는 다른 컴포넌트에서 일어나고, 그 뒤 이 화면은
+   * 새 `liveInvitationIds` 로 다시 그려진다.
+   */
+  const inviteUrl = visibleInviteUrl(issued, liveInvitationIds);
 
   const form = useLocalizedForm<InviteMemberInput>(inviteMemberSchema, {
     defaultValues: { email: "" },
@@ -43,7 +67,7 @@ export function InviteMemberForm({
 
   async function onSubmit(values: InviteMemberInput) {
     setFailure(null);
-    setInviteUrl(null);
+    setIssued(null);
 
     const formData = new FormData();
     formData.set("email", values.email);
@@ -56,7 +80,13 @@ export function InviteMemberForm({
       return;
     }
 
-    setInviteUrl(new URL(result.data.inviteUrl, window.location.origin).toString());
+    setIssued({
+      id: result.data.invitationId,
+      url: new URL(
+        result.data.inviteUrl,
+        window.location.origin,
+      ).toString(),
+    });
     form.reset();
   }
 

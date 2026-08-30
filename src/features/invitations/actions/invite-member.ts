@@ -28,6 +28,14 @@ import { parseActionInput } from "@/lib/action/parse-action-input";
  * Server Action 은 주소만 알면 누구나 부를 수 있다.
  */
 export interface InviteMemberResult {
+  /**
+   * 🔴 화면이 「이 링크가 아직 유효한가」를 판정하는 데 쓴다.
+   *
+   * 링크는 Client state 라 **`revalidatePath` 가 지우지 못한다.** 옆에서 그 초대를
+   * 취소해도 패널이 그대로 남아, 이미 죽은 Token 을 「지금 복사하세요」로 권했다.
+   * 서버가 다시 그리는 «살아 있는 초대» 목록과 이 id 를 맞대어 스스로 사라지게 한다.
+   */
+  invitationId: string;
   /** 🔴 발행 직후 **한 번만** 존재한다. 저장되지 않으므로 화면을 떠나면 다시 볼 수 없다. */
   inviteUrl: string;
   email: string;
@@ -62,6 +70,7 @@ export async function inviteMemberAction(
     revalidatePath(`/w/${workspaceSlug}/members`);
 
     return actionOk({
+      invitationId: invitation.id,
       // 상대 경로로 돌려준다 — 화면이 자기 origin 을 붙인다. 서버가 Host 를 지어내지 않는다.
       inviteUrl: `/invite/${invitation.token}`,
       email: invitation.email,

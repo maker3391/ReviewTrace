@@ -102,6 +102,11 @@ export default async function WorkspaceMembersPage({
             <div className="pt-3">
               <InviteMemberForm
                 workspaceSlug={workspace.slug}
+                /*
+                  🔴 화면에 필요한 것은 **id 뿐**이다(CLAUDE.md 11·19). 이메일·만료
+                  시각까지 넘기면 RSC payload 에 한 벌 더 실린다.
+                */
+                liveInvitationIds={pending.map((invitation) => invitation.id)}
                 labels={{
                   emailLabel: t.inviteEmailLabel,
                   submit: t.invite,
