@@ -42,6 +42,22 @@ export const ko = {
   common: {
     /** Section 머리의 「더 보기」. */
     viewAll: "전체 보기",
+
+    /**
+     * 표 아래 이동 줄(`components/organisms/TablePagination.tsx`).
+     *
+     * 🔴 **목록마다 다시 적지 않는다.** 「전체 N건 중 x–y」처럼 문장으로 늘여 쓰던 것을
+     * 걷어낸 자리다 — 총 건수는 숫자 하나면 되고, 지금 어디인지는 칠해진 쪽 번호가 말한다.
+     */
+    pagination: {
+      total: (total: number) => `${total}건`,
+      previous: "이전 페이지",
+      next: "다음 페이지",
+      /** 화면에는 숫자만 보인다. 이 낱말은 `aria-label` 로만 쓰인다. */
+      pageSize: "쪽당 표시 개수",
+      page: (page: number) => `${page}페이지`,
+      navigation: "페이지 이동",
+    },
   },
 
   /**

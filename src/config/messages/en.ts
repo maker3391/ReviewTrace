@@ -13,6 +13,15 @@ import type { Messages } from "@/config/messages/ko";
 export const en: Messages = {
   common: {
     viewAll: "View all",
+
+    pagination: {
+      total: (total: number) => `${total} total`,
+      previous: "Previous page",
+      next: "Next page",
+      pageSize: "Rows per page",
+      page: (page: number) => `Page ${page}`,
+      navigation: "Pagination",
+    },
   },
 
   /** 🔴 값은 그대로다. 여기 있는 것은 화면에 보이는 글자뿐이다(`ko.ts` 머리말). */
