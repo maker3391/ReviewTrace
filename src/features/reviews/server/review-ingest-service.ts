@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, or } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
 import {
@@ -629,6 +629,50 @@ async function linkTags(
   await tx.insert(issueTags).values(links).onConflictDoNothing();
 }
 
+/**
+ * 저장해 둔 Payload 에서 **그 요청이 지목했던 Issue 의 신원**만 뽑는다.
+ *
+ * 🔴 `source`·`externalId` 가 둘 다 있는 것만 신원이 된다(`externalKeyOf`).
+ * 하나만 온 Issue 는 언제나 새 행이 되므로 `review_session_id` 쪽에서 잡힌다.
+ *
+ * 🔴 **JSONB 를 신뢰하지 않고 좁게 읽는다.** 저장한 값은 Zod 를 통과한 Payload 지만,
+ * 이 Column 의 타입은 `unknown` 이고 옛 행·다른 경로가 닿을 수 있다 — 모양이 다르면
+ * 조용히 빈 결과로 떨어져 아래 조회가 `review_session_id` 만으로 돈다(예전 동작).
+ */
+function storedIssueIdentities(rawPayload: unknown): {
+  keys: Set<string>;
+  externalIds: string[];
+} {
+  const keys = new Set<string>();
+  const externalIds: string[] = [];
+
+  const issues =
+    typeof rawPayload === "object" && rawPayload !== null
+      ? (rawPayload as { issues?: unknown }).issues
+      : undefined;
+
+  if (!Array.isArray(issues)) {
+    return { keys, externalIds };
+  }
+
+  for (const issue of issues) {
+    if (typeof issue !== "object" || issue === null) {
+      continue;
+    }
+    const { source, externalId } = issue as {
+      source?: unknown;
+      externalId?: unknown;
+    };
+    if (typeof source !== "string" || typeof externalId !== "string") {
+      continue;
+    }
+    keys.add(externalKeyOf({ source, externalId }));
+    externalIds.push(externalId);
+  }
+
+  return { keys, externalIds };
+}
+
 async function findSessionByIdempotencyKey(
   tx: DbExecutor,
   workspaceId: string,
@@ -636,7 +680,8 @@ async function findSessionByIdempotencyKey(
   idempotencyKey: string,
 ): Promise<IngestedReview | null> {
   const rows = await tx
-    .select({ id: reviewSessions.id })
+    // 🔴 `rawPayload` 는 「이 요청이 무엇을 담고 있었는가」의 유일한 기록이다. 아래 참조.
+    .select({ id: reviewSessions.id, rawPayload: reviewSessions.rawPayload })
     .from(reviewSessions)
     .where(
       and(
@@ -653,32 +698,88 @@ async function findSessionByIdempotencyKey(
     return null;
   }
 
-  const issues = await tx
+  /**
+   * 🔴 **그 Review 가 «본» Issue 는 그 Session 이 «만든» Issue 보다 넓다.**
+   *
+   * 이미 아는 문제를 다시 보고받으면 행을 새로 만들지 않는다 — 그 행은 **처음 만든
+   * Session 에 그대로 남고**, 이번 Session 에는 `REVIEWED_AGAIN` Activity 만 붙는다.
+   * 그래서 `review_session_id` 하나로 좁히면 **재전송 응답에서 그 Issue 가 통째로
+   * 사라진다**: 처음 보낼 때는 `201` 과 함께 id 를 받았는데, Timeout 뒤 같은 열쇠로
+   * 다시 보내면 `200 · issues: []` 가 온다. `Idempotency-Key` 의 존재 이유가 「재시도가
+   * 안전하다」인데, 재시도한 Agent 만 id 를 잃어 `FIX_ATTEMPTED` 를 붙이려면 `GET /issues`
+   * 를 따로 불러야 했다. 이 함수의 주석이 약속한 「제목·심각도·상태를 그대로 되돌려
+   * 준다」와도 어긋난다.
+   *
+   * ## 무엇을 기준으로 「그 Review 가 본 것」을 정했는가
+   *
+   * | 후보 | 왜 안 골랐나 |
+   * |---|---|
+   * | `issue_activities` 로 잇기 | Activity 에 `review_session_id` 가 **없다.** 넣으려면 Schema 변경이고, 이미 `raw_payload` 에 있는 사실을 한 벌 더 저장하게 된다 |
+   * | **지금 들어온** Payload 로 찾기 | 같은 열쇠에 다른 본문을 실어 보내면 응답이 그 «새» 본문을 따라간다 — 200 은 「저장된 것」을 말해야 한다 |
+   * | 저장된 `raw_payload` **(고름)** | 그 요청이 무엇을 담고 있었는지의 정본이다. 첫 응답과 **같은 집합**이 나온다 |
+   *
+   * 그래서 조건이 둘이다 — **이 Session 이 만든 행** 또는 **그 Payload 가 지목한 신원**.
+   *
+   * 🔴 Workspace·Repository 를 «겹쳐서» 건다(CLAUDE.md 10). `source + externalId` 의
+   * unique 범위가 Repository 안이라, Repository 를 빼면 같은 Workspace 의 **다른
+   * 저장소** 행이 같은 `externalId` 로 딸려 온다.
+   */
+  const identities = storedIssueIdentities(session.rawPayload);
+
+  const rowsInScope = await tx
     .select({
       id: reviewIssues.id,
       title: reviewIssues.title,
       severity: reviewIssues.severity,
       category: reviewIssues.category,
       status: reviewIssues.status,
+      reviewSessionId: reviewIssues.reviewSessionId,
+      source: reviewIssues.source,
+      externalId: reviewIssues.externalId,
     })
     .from(reviewIssues)
     .where(
       and(
-        /*
-          🔴 재전송 응답은 **Issue 제목·심각도·상태를 그대로 되돌려 준다.**
-          `reviewSessionId` 하나로 좁히면 「그 Session 이 이 Key 의 것이다」에만 기대는
-          셈인데, 그 보증은 위 조회가 갖고 있고 이 문장은 갖고 있지 않다.
-          두 문장에 나뉜 조건은 한쪽만 고쳐질 수 있다 — 그래서 여기에도 함께 건다.
-        */
         eq(reviewIssues.workspaceId, workspaceId),
-        eq(reviewIssues.reviewSessionId, session.id),
+        eq(reviewIssues.repositoryId, repositoryId),
+        or(
+          eq(reviewIssues.reviewSessionId, session.id),
+          identities.externalIds.length === 0
+            ? undefined
+            : inArray(reviewIssues.externalId, identities.externalIds),
+        ),
       ),
-    );
+    )
+    /**
+     * 🔴 **재전송은 «같은» 응답이어야 한다.** 순서를 정하지 않으면 같은 열쇠로 두 번
+     * 물었을 때 배열 순서가 달라진다. 한 Review 의 행들은 같은 Transaction 에서 들어가
+     * `first_detected_at` 이 전부 같으므로 `id` 로 못 박는다(`code-evidence-service.ts`
+     * 의 `orderBy` 와 같은 이유다).
+     */
+    .orderBy(asc(reviewIssues.firstDetectedAt), asc(reviewIssues.id));
+
+  /**
+   * 🔴 `externalId` 만으로는 신원이 아니다 — `source` 까지 같아야 같은 문제다.
+   * SQL 로 쌍을 통째로 거는 대신 `inArray` 로 좁히고 여기서 맞춰 보는 것은
+   * `findExistingIssues` 와 같은 방식이다 — 두 자리가 다른 규칙을 갖지 않게 한다.
+   */
+  const issues = rowsInScope.filter(
+    (row) =>
+      row.reviewSessionId === session.id ||
+      identities.keys.has(externalKeyOf(row)),
+  );
 
   return {
     repositoryId,
     reviewSessionId: session.id,
-    issues: issues.map((issue) => ({ ...issue, alreadyKnown: true })),
+    issues: issues.map((issue) => ({
+      id: issue.id,
+      title: issue.title,
+      severity: issue.severity,
+      category: issue.category,
+      status: issue.status,
+      alreadyKnown: true,
+    })),
     idempotentReplay: true,
     // 재전송은 아무것도 새로 쓰지 않았다 — 확인할 새 근거도 없다.
     evidenceIds: [],
