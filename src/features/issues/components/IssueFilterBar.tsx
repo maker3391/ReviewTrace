@@ -116,8 +116,17 @@ export function IssueFilterBar({
   });
 
   function navigate(next: IssueFilterForm) {
-    // Filter 가 바뀌면 1페이지부터 본다 — 3페이지에서 조건을 바꾸면 빈 화면이 나온다.
-    const queryString = issueFilterToQueryString({ ...next, page: 1 });
+    /*
+      Filter 가 바뀌면 1페이지부터 본다 — 3페이지에서 조건을 바꾸면 빈 화면이 나온다.
+
+      🔴 **`pageSize` 는 함께 되돌리지 않는다.** 그것은 조회 조건이 아니라 「어떻게
+      보는가」라, 검색어를 바꿀 때마다 25개로 되돌아가면 고른 것이 자꾸 풀린다.
+    */
+    const queryString = issueFilterToQueryString({
+      ...next,
+      page: 1,
+      pageSize: filter.pageSize,
+    });
     startTransition(() => {
       router.replace(
         queryString === "" ? basePath : (`${basePath}?${queryString}` as Route),
@@ -198,15 +207,15 @@ export function IssueFilterBar({
         size="sm"
         variant="ghost"
         onClick={() => {
-          reset({
+          const cleared = {
             q: "",
             severity: FILTER_ALL,
             category: FILTER_ALL,
             status: FILTER_ALL,
-          });
-          startTransition(() => {
-            router.replace(basePath, { scroll: false });
-          });
+          } as const;
+          reset(cleared);
+          // 초기화도 같은 길로 간다 — 쪽 크기는 남고 쪽 번호만 처음으로 돌아간다.
+          navigate(cleared);
         }}
       >
         {labels.reset}

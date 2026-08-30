@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, count, eq, sql } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
 import {
@@ -21,6 +21,11 @@ import type {
 import { asCount, asNullableDate } from "@/db/raw-value";
 import { isUniqueViolation } from "@/db/unique-violation";
 import { AppError } from "@/lib/errors";
+import {
+  paginate,
+  type PageRequest,
+  type PageResult,
+} from "@/lib/pagination";
 import { normalizeSlug } from "@/lib/workspace/slug";
 
 /**
@@ -100,6 +105,42 @@ export async function listProjectSummaries(
   workspaceId: string,
   executor: DbExecutor = db(),
 ): Promise<ProjectSummary[]> {
+  // 상한 없이 전부 — Workspace Dashboard 는 Project 를 하나도 빠뜨리지 않고 보여 준다.
+  return selectProjectSummaries(workspaceId, executor, null, 0);
+}
+
+/**
+ * Projects 화면이 쓰는 한 쪽.
+ *
+ * 🔴 **세는 질의에는 집계 Subquery 를 붙이지 않는다.** 세는 것은 `projects` 행 수뿐이다 —
+ * 붙이면 쪽을 넘길 때마다 Repository·Review·Issue 집계가 한 번씩 더 돈다.
+ */
+export async function findProjectSummaryPage(
+  workspaceId: string,
+  request: PageRequest,
+  executor: DbExecutor = db(),
+): Promise<PageResult<ProjectSummary>> {
+  return paginate(request, {
+    count: async () => {
+      const rows = await executor
+        .select({ value: count() })
+        .from(projects)
+        .where(eq(projects.workspaceId, workspaceId));
+
+      return rows[0]?.value ?? 0;
+    },
+    rows: (limit, offset) =>
+      selectProjectSummaries(workspaceId, executor, limit, offset),
+  });
+}
+
+async function selectProjectSummaries(
+  workspaceId: string,
+  executor: DbExecutor,
+  /** `null` 이면 상한을 걸지 않는다. */
+  limit: number | null,
+  offset: number,
+): Promise<ProjectSummary[]> {
   const repositoryStats = executor
     .select({
       projectId: repositories.projectId,
@@ -141,7 +182,7 @@ export async function listProjectSummaries(
     .groupBy(repositories.projectId)
     .as("issue_stats");
 
-  const rows = await executor
+  const query = executor
     .select({
       projectId: projects.id,
       slug: projects.slug,
@@ -160,7 +201,13 @@ export async function listProjectSummaries(
     .leftJoin(reviewStats, eq(reviewStats.projectId, projects.id))
     .leftJoin(issueStats, eq(issueStats.projectId, projects.id))
     .where(eq(projects.workspaceId, workspaceId))
-    .orderBy(asc(projects.name));
+    // 이름이 같은 Project 는 없지만, 쪽을 넘길 때의 순서는 id 로 못박아 둔다.
+    .orderBy(asc(projects.name), asc(projects.id))
+    .$dynamic();
+
+  const rows = await (limit === null
+    ? query
+    : query.limit(limit).offset(offset));
 
   /**
    * 🔴 원시 SQL 조각의 타입 단언을 여기서 실제 값으로 맞춘다(`db/raw-value.ts`).

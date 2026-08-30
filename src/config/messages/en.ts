@@ -311,8 +311,6 @@ export const en: Messages = {
     colLocation: "Location",
     colStatus: "Status",
     colDetected: "Detected",
-    pagination: (total: number, from: number, to: number) =>
-      `${from}–${to} of ${total}`,
   },
 
   reviews: {
@@ -323,7 +321,6 @@ export const en: Messages = {
     colReviewer: "Reviewer",
     colRepository: "Repository",
     colTarget: "Target",
-    colBranchCommit: "Branch · Commit",
     colIssues: "Issues",
     colDate: "Date",
   },

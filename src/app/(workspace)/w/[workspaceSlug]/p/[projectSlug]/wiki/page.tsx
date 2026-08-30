@@ -3,6 +3,7 @@ import type { Route } from "next";
 
 import { KnowledgeScreen } from "@/features/knowledge/components/KnowledgeScreen";
 import { requireProject } from "@/lib/auth/require-project";
+import type { RawSearchParams } from "@/lib/pagination";
 import { readMessages } from "@/lib/ui/appearance";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,8 +18,10 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function ProjectKnowledgePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceSlug: string; projectSlug: string }>;
+  searchParams: Promise<RawSearchParams>;
 }) {
   const { workspaceSlug, projectSlug } = await params;
   const { workspace, project } = await requireProject(workspaceSlug, projectSlug);
@@ -33,6 +36,7 @@ export default async function ProjectKnowledgePage({
       basePath={`/w/${workspace.slug}/p/${project.slug}/wiki` as Route}
       heading={t.projectHeading}
       description={t.projectDescription(project.name)}
+      searchParams={searchParams}
     />
   );
 }

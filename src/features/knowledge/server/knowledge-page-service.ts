@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
 import { knowledgePages, users } from "@/db/schema";
@@ -10,6 +10,11 @@ import {
   type KnowledgePageInput,
 } from "@/features/knowledge/schemas/knowledge-page";
 import { AppError } from "@/lib/errors";
+import {
+  paginate,
+  type PageRequest,
+  type PageResult,
+} from "@/lib/pagination";
 
 /**
  * Wiki 문서의 Application Service(스펙 9).
@@ -70,7 +75,38 @@ export async function listKnowledgePages(
   scope: KnowledgeScope,
   executor: DbExecutor = db(),
 ): Promise<KnowledgePageListItem[]> {
-  return executor
+  // 상한 없이 전부. 쪽을 나누는 것은 목록 «화면» 의 일이다(`findKnowledgePageList`).
+  return selectKnowledgePages(scope, executor, null, 0);
+}
+
+/** Wiki 목록 화면이 쓰는 한 쪽. */
+export async function findKnowledgePageList(
+  scope: KnowledgeScope,
+  request: PageRequest,
+  executor: DbExecutor = db(),
+): Promise<PageResult<KnowledgePageListItem>> {
+  return paginate(request, {
+    count: async () => {
+      const rows = await executor
+        .select({ value: count() })
+        .from(knowledgePages)
+        .where(scopeCondition(scope));
+
+      return rows[0]?.value ?? 0;
+    },
+    rows: (limit, offset) =>
+      selectKnowledgePages(scope, executor, limit, offset),
+  });
+}
+
+async function selectKnowledgePages(
+  scope: KnowledgeScope,
+  executor: DbExecutor,
+  /** `null` 이면 상한을 걸지 않는다. */
+  limit: number | null,
+  offset: number,
+): Promise<KnowledgePageListItem[]> {
+  const query = executor
     .select({
       slug: knowledgePages.slug,
       title: knowledgePages.title,
@@ -82,7 +118,11 @@ export async function listKnowledgePages(
     //    목록에서 사라지면 안 된다(`ON DELETE SET NULL`).
     .leftJoin(users, eq(users.id, knowledgePages.createdBy))
     .where(scopeCondition(scope))
-    .orderBy(desc(knowledgePages.updatedAt));
+    // 같은 시각에 고쳐진 문서가 쪽마다 뒤바뀌지 않게 slug 로 한 번 더 고정한다.
+    .orderBy(desc(knowledgePages.updatedAt), desc(knowledgePages.slug))
+    .$dynamic();
+
+  return limit === null ? query : query.limit(limit).offset(offset);
 }
 
 export async function findKnowledgePage(

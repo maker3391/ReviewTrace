@@ -1,8 +1,13 @@
 import "server-only";
 
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
+import {
+  paginate,
+  type PageRequest,
+  type PageResult,
+} from "@/lib/pagination";
 import {
   projects,
   repositories,
@@ -54,9 +59,53 @@ export async function listRepositoryStatuses(
   scope: ProjectScope,
   executor: DbExecutor = db(),
 ): Promise<RepositoryStatus[]> {
+  // 상한 없이 전부 — Dashboard 의 요약처럼 「이 Project 의 저장소 전부」가 필요한 자리다.
+  return selectRepositoryStatuses(scope, executor, null, 0);
+}
+
+/**
+ * Repository 목록 — 한 쪽씩.
+ *
+ * 🔴 **세는 질의에는 집계 Subquery 를 붙이지 않는다.** 세는 것은 `repositories` 행 수일
+ * 뿐이라 Review·Issue 를 접어 둘 이유가 없다 — 붙이면 쪽마다 쓸데없는 집계가 한 번 더 돈다.
+ */
+export async function findRepositoryStatusPage(
+  scope: ProjectScope,
+  request: PageRequest,
+  executor: DbExecutor = db(),
+): Promise<PageResult<RepositoryStatus>> {
+  return paginate(request, {
+    count: async () => {
+      const rows = await executor
+        .select({ value: count() })
+        .from(repositories)
+        .where(and(...scopeConditions(scope)));
+
+      return rows[0]?.value ?? 0;
+    },
+    rows: (limit, offset) =>
+      selectRepositoryStatuses(scope, executor, limit, offset),
+  });
+}
+
+/** 🔴 목록과 세는 질의가 **같은 조건**을 쓰게 한 곳에서 만든다. */
+function scopeConditions(scope: ProjectScope) {
+  return [
+    eq(repositories.workspaceId, scope.workspaceId),
+    eq(repositories.projectId, scope.projectId),
+  ];
+}
+
+async function selectRepositoryStatuses(
+  scope: ProjectScope,
+  executor: DbExecutor,
+  /** `null` 이면 상한을 걸지 않는다. */
+  limit: number | null,
+  offset: number,
+): Promise<RepositoryStatus[]> {
   const stats = repositoryStats(scope, executor);
 
-  const rows = await executor
+  const query = executor
     .select({
       id: repositories.id,
       fullName: repositories.fullName,
@@ -68,13 +117,14 @@ export async function listRepositoryStatuses(
     .from(repositories)
     .leftJoin(stats.review, eq(stats.review.repositoryId, repositories.id))
     .leftJoin(stats.issue, eq(stats.issue.repositoryId, repositories.id))
-    .where(
-      and(
-        eq(repositories.workspaceId, scope.workspaceId),
-        eq(repositories.projectId, scope.projectId),
-      ),
-    )
-    .orderBy(asc(repositories.name));
+    .where(and(...scopeConditions(scope)))
+    // 이름이 같은 Repository 는 없지만, 쪽을 넘길 때의 순서는 id 로 못박아 둔다.
+    .orderBy(asc(repositories.name), asc(repositories.id))
+    .$dynamic();
+
+  const rows = await (limit === null
+    ? query
+    : query.limit(limit).offset(offset));
 
   // 🔴 원시 SQL 조각의 타입 단언을 실제 값으로 맞춘다(`db/raw-value.ts`).
   return rows.map(normalizeRepositoryStatus);

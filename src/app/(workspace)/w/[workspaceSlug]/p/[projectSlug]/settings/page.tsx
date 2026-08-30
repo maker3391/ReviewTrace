@@ -33,8 +33,11 @@ export default async function ProjectSettingsPage({
 
   return (
     <PageContainer className="gap-8">
-      <h1 className="text-lg font-semibold tracking-tight">{t.title}</h1>
-
+      {/*
+        🔴 **「프로젝트 설정」을 다시 적지 않는다.** 상단 Breadcrumb 이 Workspace / Project
+        를 말하고 사이드바가 「설정」을 칠하고 있다 — 아래 Section 머리글이 Project 이름이라
+        무엇을 고치는 화면인지도 이미 분명하다(CLAUDE.md 16).
+      */}
       <Section title={project.name}>
         <ProjectSettingsPanel
           workspaceSlug={workspace.slug}

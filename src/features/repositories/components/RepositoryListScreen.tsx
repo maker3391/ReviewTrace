@@ -13,11 +13,16 @@ import {
 import { FolderGit2 } from "lucide-react";
 
 import { PageContainer } from "@/components/molecules/PageContainer";
-import { PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
-import { listRepositoryStatuses } from "@/features/repositories/server/repository-query";
+import { TablePagination } from "@/components/organisms/TablePagination";
+import { findRepositoryStatusPage } from "@/features/repositories/server/repository-query";
 import type { ProjectContext } from "@/features/projects/types/project";
 import { formatDate } from "@/lib/format/date";
+import {
+  listPageHref,
+  parsePageRequest,
+  type RawSearchParams,
+} from "@/lib/pagination";
 import { readMessages } from "@/lib/ui/appearance";
 import { cn } from "@/lib/utils";
 
@@ -34,22 +39,30 @@ export async function RepositoryListScreen({
   workspaceId,
   project,
   basePath,
+  searchParams,
 }: {
   /** 🔴 소속 확인을 통과한 값. */
   workspaceId: string;
   project: ProjectContext;
   /** 상세로 들어가는 주소의 뿌리. */
   basePath: Route;
+  /** 쪽 상태는 URL 에 있다(CLAUDE.md 8). */
+  searchParams: Promise<RawSearchParams>;
 }) {
-  const [repositories, t] = await Promise.all([
-    listRepositoryStatuses({ workspaceId, projectId: project.projectId }),
-    readMessages().then((messages) => messages.repositories),
+  const request = parsePageRequest(await searchParams);
+  const [repositoryPage, messages] = await Promise.all([
+    findRepositoryStatusPage(
+      { workspaceId, projectId: project.projectId },
+      request,
+    ),
+    readMessages(),
   ]);
+  const repositories = repositoryPage.items;
+  const t = messages.repositories;
 
   return (
     <PageContainer width="wide">
-      <PageHeader title={t.title} />
-
+      {/* 🔴 사이드바가 「저장소」라고 말한 자리에 「저장소」를 한 번 더 적지 않는다. */}
       <Section variant="raised" bleed>
         {repositories.length === 0 ? (
           <SectionEmpty icon={<FolderGit2 className="size-4" />} title={t.empty}>
@@ -102,6 +115,21 @@ export async function RepositoryListScreen({
               ))}
             </TableBody>
           </Table>
+        )}
+
+        {repositoryPage.total > 0 && (
+          <TablePagination
+            total={repositoryPage.total}
+            page={repositoryPage.page}
+            pageSize={repositoryPage.pageSize}
+            pageHref={(page) =>
+              listPageHref(basePath, { ...request, page }) as Route
+            }
+            pageSizeHref={(pageSize) =>
+              listPageHref(basePath, { page: 1, pageSize }) as Route
+            }
+            labels={messages.common.pagination}
+          />
         )}
       </Section>
     </PageContainer>

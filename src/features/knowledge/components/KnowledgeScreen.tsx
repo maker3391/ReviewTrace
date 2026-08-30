@@ -16,8 +16,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { listKnowledgePages } from "@/features/knowledge/server/knowledge-page-service";
+import { TablePagination } from "@/components/organisms/TablePagination";
+import { findKnowledgePageList } from "@/features/knowledge/server/knowledge-page-service";
 import { formatDate } from "@/lib/format/date";
+import {
+  listPageHref,
+  parsePageRequest,
+  type RawSearchParams,
+} from "@/lib/pagination";
 import { readMessages } from "@/lib/ui/appearance";
 
 /**
@@ -34,17 +40,27 @@ export async function KnowledgeScreen({
   basePath,
   heading,
   description,
+  searchParams,
 }: {
   /** 🔴 소속 확인을 통과한 값만 들어온다. */
   scope: { workspaceId: string; projectId: string | null };
   basePath: Route;
+  /**
+   * 🔴 **여기 제목은 남긴다.** 「위키」를 되풀이하는 것이 아니라 **어느 위키인가**를
+   * 가른다 — 사이드바의 Workspace 층과 Project 층에 같은 이름의 항목이 있고, 아래
+   * `description` 이 「여기에 무엇을 적는가」를 잇는다(`config/messages/ko.ts`).
+   */
   heading: string;
   description: string;
+  searchParams: Promise<RawSearchParams>;
 }) {
-  const [pages, t] = await Promise.all([
-    listKnowledgePages(scope),
-    readMessages().then((messages) => messages.wiki),
+  const request = parsePageRequest(await searchParams);
+  const [wikiPage, messages] = await Promise.all([
+    findKnowledgePageList(scope, request),
+    readMessages(),
   ]);
+  const pages = wikiPage.items;
+  const t = messages.wiki;
 
   return (
     <PageContainer width="wide">
@@ -111,6 +127,21 @@ export async function KnowledgeScreen({
               ))}
             </TableBody>
           </Table>
+        )}
+
+        {wikiPage.total > 0 && (
+          <TablePagination
+            total={wikiPage.total}
+            page={wikiPage.page}
+            pageSize={wikiPage.pageSize}
+            pageHref={(page) =>
+              listPageHref(basePath, { ...request, page }) as Route
+            }
+            pageSizeHref={(pageSize) =>
+              listPageHref(basePath, { page: 1, pageSize }) as Route
+            }
+            labels={messages.common.pagination}
+          />
         )}
       </Section>
     </PageContainer>

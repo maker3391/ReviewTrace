@@ -424,8 +424,6 @@ export const ko = {
     colLocation: "위치",
     colStatus: "상태",
     colDetected: "발견",
-    pagination: (total: number, from: number, to: number) =>
-      `전체 ${total}건 중 ${from}–${to}`,
   },
 
   reviews: {
@@ -435,7 +433,6 @@ export const ko = {
     colReviewer: "리뷰어",
     colRepository: "저장소",
     colTarget: "대상",
-    colBranchCommit: "브랜치 · 커밋",
     colIssues: "이슈",
     colDate: "날짜",
   },

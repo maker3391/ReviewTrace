@@ -7,6 +7,7 @@ import {
   type IssueFilter,
 } from "@/features/issues/schemas/issue-filter";
 import { buildIssueListConditions } from "@/features/issues/server/issue-query";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 /**
  * 화면 Issue 목록의 검색어가 실제로 **무엇으로 바인딩되는가**.
@@ -50,6 +51,7 @@ function filterWith(q: string): IssueFilter {
     category: FILTER_ALL,
     status: FILTER_ALL,
     page: 1,
+    pageSize: DEFAULT_PAGE_SIZE,
   };
 }
 

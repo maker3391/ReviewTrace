@@ -11,10 +11,10 @@ import {
   ISSUE_COL,
   ISSUE_TABLE,
 } from "@/features/issues/components/issue-table-columns";
-import { ISSUE_PAGE_SIZE } from "@/features/issues/schemas/issue-filter";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 /** 첫 화면에서 실제로 채워지는 정도. 화면 전체를 스켈레톤으로 덮지 않기 위한 크기다. */
-const SKELETON_ROWS = Math.min(ISSUE_PAGE_SIZE, 8);
+const SKELETON_ROWS = Math.min(DEFAULT_PAGE_SIZE, 8);
 
 /** 실제 표와 **같은** 머리 낱말. 어긋나면 결과가 도착할 때 글자가 바뀐다. */
 export interface SkeletonLabels {

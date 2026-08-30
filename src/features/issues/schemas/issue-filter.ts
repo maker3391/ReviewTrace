@@ -1,6 +1,13 @@
 import { z } from "zod";
 
 import {
+  firstValue,
+  pageNumberSchema,
+  pageSizeSchema,
+  writePageParams,
+  type RawSearchParams,
+} from "@/lib/pagination";
+import {
   ISSUE_CATEGORIES,
   ISSUE_SEVERITIES,
   ISSUE_STATUSES,
@@ -8,8 +15,6 @@ import {
 
 /** Filter 를 걸지 않은 상태. Select 는 빈 값을 못 다루므로 명시 값을 쓴다. */
 export const FILTER_ALL = "ALL";
-
-export const ISSUE_PAGE_SIZE = 25;
 
 /**
  * Issue 목록의 Filter.
@@ -26,7 +31,13 @@ export const issueFilterSchema = z.object({
   severity: z.enum([FILTER_ALL, ...ISSUE_SEVERITIES]).catch(FILTER_ALL),
   category: z.enum([FILTER_ALL, ...ISSUE_CATEGORIES]).catch(FILTER_ALL),
   status: z.enum([FILTER_ALL, ...ISSUE_STATUSES]).catch(FILTER_ALL),
-  page: z.coerce.number().int().min(1).max(10_000).catch(1),
+  /*
+    🔴 **쪽 상태도 Filter 와 같은 자리에 산다.** 규칙은 목록마다 다시 적지 않고
+    `lib/pagination.ts` 한 곳에서 가져온다 — 어떤 목록만 `pageSize=7` 을 받아들이면
+    Query 상한이 목록마다 갈라진다.
+  */
+  page: pageNumberSchema,
+  pageSize: pageSizeSchema,
 });
 
 export type IssueFilter = z.infer<typeof issueFilterSchema>;
@@ -49,15 +60,8 @@ export const issueFilterFormSchema = z.object({
 
 export type IssueFilterForm = z.infer<typeof issueFilterFormSchema>;
 
-/** Next.js 가 넘겨주는 Search Params 의 원형. */
-export type RawSearchParams = Record<string, string | string[] | undefined>;
-
-function firstValue(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-  return value;
-}
+/** Next.js 가 넘겨주는 Search Params 의 원형. 🔴 목록마다 다시 정의하지 않는다. */
+export type { RawSearchParams };
 
 export function parseIssueFilter(raw: RawSearchParams): IssueFilter {
   return issueFilterSchema.parse({
@@ -66,6 +70,7 @@ export function parseIssueFilter(raw: RawSearchParams): IssueFilter {
     category: firstValue(raw.category),
     status: firstValue(raw.status),
     page: firstValue(raw.page),
+    pageSize: firstValue(raw.pageSize),
   });
 }
 
@@ -89,9 +94,7 @@ export function issueFilterToQueryString(filter: IssueFilter): string {
   if (filter.status !== FILTER_ALL) {
     params.set("status", filter.status);
   }
-  if (filter.page > 1) {
-    params.set("page", String(filter.page));
-  }
+  writePageParams(params, filter);
 
   return params.toString();
 }

@@ -1,9 +1,14 @@
 import "server-only";
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, sql, type SQL } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
 import { repositories, reviewIssues, reviewSessions } from "@/db/schema";
+import {
+  paginate,
+  type PageRequest,
+  type PageResult,
+} from "@/lib/pagination";
 import type {
   IssueCategory,
   IssueSeverity,
@@ -78,17 +83,25 @@ const issueCount = sql<number>`(
 )`;
 
 /**
- * Project 의 Review 목록.
+ * 「이 Project 의 Review」를 가리는 조건.
  *
- * Pagination 은 아직 없다. 실제로 넘칠 때 만든다(CLAUDE.md 18) — 지금은 상한만 둔다.
+ * 🔴 **한 곳에서 만든다.** 목록과 세는 질의가 조건을 따로 적으면 한쪽만 고쳐졌을 때
+ * 표에 12줄이 있는데 「38건」이라고 적히는 화면이 된다.
  */
-const LIST_LIMIT = 50;
+function projectScopeConditions(scope: ProjectScope): SQL[] {
+  return [
+    eq(reviewSessions.workspaceId, scope.workspaceId),
+    eq(repositories.projectId, scope.projectId),
+  ];
+}
 
-export async function listProjectReviews(
-  scope: ProjectScope,
-  executor: DbExecutor = db(),
-  limit: number = LIST_LIMIT,
-): Promise<ReviewListItem[]> {
+/** 목록 한 쪽을 읽는다. 🔴 Dashboard 의 「최근 N건」과 **같은 select** 를 쓴다. */
+function selectReviewList(
+  executor: DbExecutor,
+  conditions: SQL[],
+  limit: number,
+  offset: number,
+) {
   return executor
     .select({
       id: reviewSessions.id,
@@ -103,14 +116,59 @@ export async function listProjectReviews(
     })
     .from(reviewSessions)
     .innerJoin(repositories, eq(repositories.id, reviewSessions.repositoryId))
-    .where(
-      and(
-        eq(reviewSessions.workspaceId, scope.workspaceId),
-        eq(repositories.projectId, scope.projectId),
-      ),
-    )
-    .orderBy(desc(reviewSessions.createdAt))
-    .limit(limit);
+    .where(and(...conditions))
+    // 같은 시각의 행이 쪽마다 뒤바뀌지 않게 id 로 한 번 더 고정한다.
+    .orderBy(desc(reviewSessions.createdAt), desc(reviewSessions.id))
+    .limit(limit)
+    .offset(offset);
+}
+
+/**
+ * Project 의 Review 「최근 N건」.
+ *
+ * 🔴 **목록 «화면»이 쓰는 것이 아니다.** Dashboard 처럼 앞부분만 필요한 자리의 것이다 —
+ * 화면은 `findProjectReviewPage` 를 쓴다.
+ */
+const LIST_LIMIT = 50;
+
+export async function listProjectReviews(
+  scope: ProjectScope,
+  executor: DbExecutor = db(),
+  limit: number = LIST_LIMIT,
+): Promise<ReviewListItem[]> {
+  return selectReviewList(executor, projectScopeConditions(scope), limit, 0);
+}
+
+/**
+ * Project 의 Review 목록 — 한 쪽씩.
+ *
+ * 🔴 **전부 가져와 화면에서 자르지 않는다.** `LIMIT`/`OFFSET` 은 Database 가 하고,
+ * 총 건수도 Database 가 센다. 예전에는 상한 50건에서 **말없이 잘려** 51번째 Review 를
+ * 화면에서 볼 방법이 아예 없었다.
+ */
+export async function findProjectReviewPage(
+  scope: ProjectScope,
+  request: PageRequest,
+  executor: DbExecutor = db(),
+): Promise<PageResult<ReviewListItem>> {
+  const conditions = projectScopeConditions(scope);
+
+  return paginate(request, {
+    count: async () => {
+      const rows = await executor
+        .select({ value: count() })
+        .from(reviewSessions)
+        .innerJoin(
+          repositories,
+          eq(repositories.id, reviewSessions.repositoryId),
+        )
+        .where(and(...conditions));
+
+      return rows[0]?.value ?? 0;
+    },
+    rows: (limit, offset) =>
+      selectReviewList(executor, conditions, limit, offset),
+  });
 }
 
 /** 한 Repository 의 최근 Review. Repository 상세가 쓴다. */
@@ -120,29 +178,15 @@ export async function listRepositoryReviews(
   limit: number,
   executor: DbExecutor = db(),
 ): Promise<ReviewListItem[]> {
-  return executor
-    .select({
-      id: reviewSessions.id,
-      reviewerName: reviewSessions.reviewerName,
-      reviewerType: reviewSessions.reviewerType,
-      repositoryFullName: repositories.fullName,
-      targetType: reviewSessions.targetType,
-      branch: reviewSessions.branch,
-      commitSha: reviewSessions.commitSha,
-      issueCount,
-      createdAt: reviewSessions.createdAt,
-    })
-    .from(reviewSessions)
-    .innerJoin(repositories, eq(repositories.id, reviewSessions.repositoryId))
-    .where(
-      and(
-        eq(reviewSessions.repositoryId, repositoryId),
-        eq(reviewSessions.workspaceId, scope.workspaceId),
-        eq(repositories.projectId, scope.projectId),
-      ),
-    )
-    .orderBy(desc(reviewSessions.createdAt))
-    .limit(limit);
+  return selectReviewList(
+    executor,
+    [
+      eq(reviewSessions.repositoryId, repositoryId),
+      ...projectScopeConditions(scope),
+    ],
+    limit,
+    0,
+  );
 }
 
 /**

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { Boxes } from "lucide-react";
 
 import {
@@ -11,12 +12,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageContainer } from "@/components/molecules/PageContainer";
-import { PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
+import { TablePagination } from "@/components/organisms/TablePagination";
 import { projectSectionHref } from "@/config/navigation";
 import { CreateProjectButton } from "@/features/projects/components/CreateProjectButton";
-import { listProjectSummaries } from "@/features/projects/server/project-service";
+import { findProjectSummaryPage } from "@/features/projects/server/project-service";
 import { formatDate } from "@/lib/format/date";
+import {
+  listPageHref,
+  parsePageRequest,
+  type RawSearchParams,
+} from "@/lib/pagination";
 import { readMessages } from "@/lib/ui/appearance";
 
 /**
@@ -28,22 +34,34 @@ import { readMessages } from "@/lib/ui/appearance";
 export async function ProjectListScreen({
   workspaceId,
   workspaceSlug,
+  basePath,
+  searchParams,
 }: {
   /** 🔴 소속 확인을 통과한 값. URL 의 slug 를 그대로 넣지 않는다(CLAUDE.md 11). */
   workspaceId: string;
   workspaceSlug: string;
+  /** 이 목록 자신의 주소. 쪽을 옮길 때 쓴다. */
+  basePath: Route;
+  searchParams: Promise<RawSearchParams>;
 }) {
-  const [projects, t] = await Promise.all([
-    listProjectSummaries(workspaceId),
-    readMessages().then((messages) => messages.projects),
+  const request = parsePageRequest(await searchParams);
+  const [projectPage, messages] = await Promise.all([
+    findProjectSummaryPage(workspaceId, request),
+    readMessages(),
   ]);
+  const projects = projectPage.items;
+  const t = messages.projects;
 
   return (
     <PageContainer width="wide">
-      <PageHeader
-        title={t.title}
-        actions={<CreateProjectButton workspaceSlug={workspaceSlug} />}
-      />
+      {/*
+        🔴 **제목은 지우고 Action 만 남긴다.** 사이드바에서 「프로젝트」를 눌러 들어온
+        화면이라 같은 낱말을 한 번 더 찍을 이유가 없다 — 그러나 이 줄 자체는 남는다.
+        「만들기」가 표 위에서 갈 곳을 잃으면 화면이 목록만 덩그러니 남는다(CLAUDE.md 16).
+      */}
+      <div className="flex justify-end">
+        <CreateProjectButton workspaceSlug={workspaceSlug} />
+      </div>
 
       <Section variant="raised" bleed>
         {projects.length === 0 ? (
@@ -112,6 +130,21 @@ export async function ProjectListScreen({
               ))}
             </TableBody>
           </Table>
+        )}
+
+        {projectPage.total > 0 && (
+          <TablePagination
+            total={projectPage.total}
+            page={projectPage.page}
+            pageSize={projectPage.pageSize}
+            pageHref={(page) =>
+              listPageHref(basePath, { ...request, page }) as Route
+            }
+            pageSizeHref={(pageSize) =>
+              listPageHref(basePath, { page: 1, pageSize }) as Route
+            }
+            labels={messages.common.pagination}
+          />
         )}
       </Section>
     </PageContainer>

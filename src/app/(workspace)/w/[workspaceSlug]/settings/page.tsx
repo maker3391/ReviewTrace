@@ -56,8 +56,10 @@ export default async function WorkspaceSettingsPage({
 
   return (
     <PageContainer className="gap-8">
-      <h1 className="text-lg font-semibold tracking-tight">{t.title}</h1>
-
+      {/*
+        🔴 **맨 위에 「설정」을 다시 적지 않는다.** 사이드바가 이미 그 낱말이고, 아래
+        Section 머리글(워크스페이스 · API Key · Agent 연동 · 계정)이 화면의 구조다.
+      */}
       <Section title={t.workspaceSection}>
         <dl className="grid grid-cols-[8rem_1fr] gap-x-6 gap-y-2 pt-3 text-sm">
           <dt className="text-xs text-muted-foreground">{t.workspaceName}</dt>

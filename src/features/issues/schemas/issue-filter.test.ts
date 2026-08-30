@@ -6,6 +6,7 @@ import {
   issueFilterToQueryString,
   parseIssueFilter,
 } from "@/features/issues/schemas/issue-filter";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { parseOptions } from "@/lib/validation/zod-error-map";
 
 describe("parseIssueFilter", () => {
@@ -16,6 +17,7 @@ describe("parseIssueFilter", () => {
       category: FILTER_ALL,
       status: FILTER_ALL,
       page: 1,
+      pageSize: DEFAULT_PAGE_SIZE,
     });
   });
 
@@ -27,6 +29,7 @@ describe("parseIssueFilter", () => {
         category: "CONCURRENCY",
         status: "OPEN",
         page: "3",
+        pageSize: "50",
       }),
     ).toEqual({
       q: "race condition",
@@ -34,6 +37,7 @@ describe("parseIssueFilter", () => {
       category: "CONCURRENCY",
       status: "OPEN",
       page: 3,
+      pageSize: 50,
     });
   });
 
@@ -44,6 +48,8 @@ describe("parseIssueFilter", () => {
         category: "42",
         status: "",
         page: "-7",
+        // 🔴 고를 수 있는 값이 아닌 쪽 크기는 그대로 쓰지 않는다 — 상한이 뚫린다.
+        pageSize: "100000",
       }),
     ).toEqual({
       q: "",
@@ -51,6 +57,7 @@ describe("parseIssueFilter", () => {
       category: FILTER_ALL,
       status: FILTER_ALL,
       page: 1,
+      pageSize: DEFAULT_PAGE_SIZE,
     });
   });
 
@@ -70,6 +77,7 @@ describe("issueFilterToQueryString", () => {
         category: FILTER_ALL,
         status: FILTER_ALL,
         page: 1,
+        pageSize: DEFAULT_PAGE_SIZE,
       }),
     ).toBe("");
   });
@@ -81,6 +89,7 @@ describe("issueFilterToQueryString", () => {
       category: FILTER_ALL,
       status: "OPEN",
       page: 2,
+      pageSize: 100,
     } as const;
 
     const queryString = issueFilterToQueryString(filter);

@@ -16,11 +16,15 @@ import {
   ISSUE_COL,
   ISSUE_TABLE,
 } from "@/features/issues/components/issue-table-columns";
+import { TablePagination } from "@/components/organisms/TablePagination";
 import {
   findIssues,
   type IssueQueryScope,
 } from "@/features/issues/server/issue-query";
-import type { IssueFilter } from "@/features/issues/schemas/issue-filter";
+import {
+  issueFilterToQueryString,
+  type IssueFilter,
+} from "@/features/issues/schemas/issue-filter";
 import { formatDate } from "@/lib/format/date";
 import { readMessages } from "@/lib/ui/appearance";
 import { cn } from "@/lib/utils";
@@ -42,16 +46,26 @@ export async function IssueTable({
   /** 상세로 들어가는 주소의 뿌리. 조회 조건이 아니다. */
   basePath: Route;
 }) {
-  const [page, messages] = await Promise.all([
+  const [result, messages] = await Promise.all([
     findIssues(scope, filter),
     readMessages(),
   ]);
   const t = messages.issues;
   const label = messages.enums;
 
-  if (page.items.length === 0) {
+  if (result.items.length === 0) {
     return <EmptyState title={t.empty} description={t.emptyHint} />;
   }
+
+  /**
+   * 쪽을 옮겨도 **Filter 는 그대로 실린다.** 주소를 손으로 이어 붙이지 않고 Filter 를
+   * Query String 으로 되돌리는 함수를 다시 쓴다 — 그러지 않으면 3쪽으로 가는 순간
+   * 검색어가 사라진다(CLAUDE.md 8).
+   */
+  const hrefFor = (next: IssueFilter): Route => {
+    const queryString = issueFilterToQueryString(next);
+    return queryString === "" ? basePath : (`${basePath}?${queryString}` as Route);
+  };
 
   return (
     <div className="flex flex-col">
@@ -69,7 +83,7 @@ export async function IssueTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {page.items.map((issue) => (
+          {result.items.map((issue) => (
             <TableRow key={issue.id}>
               <TableCell>
                 <SeverityBadge severity={issue.severity} />
@@ -143,13 +157,19 @@ export async function IssueTable({
         </TableBody>
       </Table>
 
-      <p className="px-4 py-3 text-xs text-muted-foreground">
-        {t.pagination(
-          page.total,
-          (page.page - 1) * page.pageSize + 1,
-          (page.page - 1) * page.pageSize + page.items.length,
-        )}
-      </p>
+      {/*
+        🔴 표 아래에 「전체 N건 중 x–y」를 «문장»으로 적지 않는다. 총 건수는 숫자 하나로
+        족하고 지금 어디인지는 칠해진 쪽 번호가 말한다(`organisms/TablePagination.tsx`).
+      */}
+      <TablePagination
+        total={result.total}
+        page={result.page}
+        pageSize={result.pageSize}
+        pageHref={(page) => hrefFor({ ...filter, page })}
+        // 쪽 크기를 바꾸면 첫 쪽으로 — 25개씩의 7쪽은 100개씩에서 없는 자리다.
+        pageSizeHref={(pageSize) => hrefFor({ ...filter, page: 1, pageSize })}
+        labels={messages.common.pagination}
+      />
     </div>
   );
 }

@@ -51,8 +51,10 @@ export default async function WorkspaceMembersPage({
 
   return (
     <PageContainer className="gap-8">
-      <h1 className="text-lg font-semibold tracking-tight">{t.title}</h1>
-
+      {/*
+        🔴 **맨 위에 「멤버」를 다시 적지 않는다.** 사이드바에서 그 낱말을 눌러 들어온
+        화면이다 — 제목이 없어야 첫 표가 곧바로 선다(CLAUDE.md 16).
+      */}
       {/*
         🔴 제목 바로 아래 Section 에 같은 낱말을 한 번 더 적지 않는다 — 열 이름
         (이름 · 역할)만으로 무엇의 표인지 읽힌다(CLAUDE.md 16).

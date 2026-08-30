@@ -3,6 +3,7 @@ import type { Route } from "next";
 
 import { KnowledgeScreen } from "@/features/knowledge/components/KnowledgeScreen";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
+import type { RawSearchParams } from "@/lib/pagination";
 import { readMessages } from "@/lib/ui/appearance";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,8 +18,10 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function WorkspaceKnowledgePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>;
+  searchParams: Promise<RawSearchParams>;
 }) {
   const { workspaceSlug } = await params;
   const { workspace } = await requireWorkspace(workspaceSlug);
@@ -30,6 +33,7 @@ export default async function WorkspaceKnowledgePage({
       basePath={`/w/${workspace.slug}/wiki` as Route}
       heading={t.workspaceHeading}
       description={t.workspaceDescription}
+      searchParams={searchParams}
     />
   );
 }

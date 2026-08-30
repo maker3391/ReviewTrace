@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import type { Route } from "next";
 
 import { ProjectListScreen } from "@/features/projects/components/ProjectListScreen";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
+import type { RawSearchParams } from "@/lib/pagination";
 import { readMessages } from "@/lib/ui/appearance";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,8 +16,10 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function WorkspaceProjectsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>;
+  searchParams: Promise<RawSearchParams>;
 }) {
   const { workspaceSlug } = await params;
   const { workspace } = await requireWorkspace(workspaceSlug);
@@ -24,6 +28,8 @@ export default async function WorkspaceProjectsPage({
     <ProjectListScreen
       workspaceId={workspace.workspaceId}
       workspaceSlug={workspace.slug}
+      basePath={`/w/${workspace.slug}/projects` as Route}
+      searchParams={searchParams}
     />
   );
 }

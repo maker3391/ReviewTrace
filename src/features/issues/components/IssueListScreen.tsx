@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import type { Route } from "next";
 
 import { PageContainer } from "@/components/molecules/PageContainer";
-import { PageHeader } from "@/components/molecules/PageHeader";
 import { IssueFilterBar } from "@/features/issues/components/IssueFilterBar";
 import { IssueTable } from "@/features/issues/components/IssueTable";
 import { IssueTableSkeleton } from "@/features/issues/components/IssueTableSkeleton";
@@ -46,8 +45,11 @@ export async function IssueListScreen({
 
   return (
     <PageContainer width="wide">
-      <PageHeader title={t.title} />
-
+      {/*
+        🔴 **제목을 다시 적지 않는다.** 사이드바에서 「이슈」를 눌러 들어온 화면이라
+        맨 위의 「이슈」는 정보를 하나도 더하지 않는다 — 그 자리를 비우면 Filter 줄이
+        곧바로 서서 화면이 바로 일을 시작한다(CLAUDE.md 16).
+      */}
       <IssueFilterBar
         basePath={basePath}
         filter={filter}

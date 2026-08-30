@@ -6,12 +6,12 @@ import { db, type DbExecutor } from "@/db";
 import { repositories, reviewIssues } from "@/db/schema";
 import {
   FILTER_ALL,
-  ISSUE_PAGE_SIZE,
   type IssueFilter,
 } from "@/features/issues/schemas/issue-filter";
 import { escapeLikePattern } from "@/features/issues/server/issue-agent-query";
 import type { IssueListPage } from "@/features/issues/types/issue-list";
 import { AppError } from "@/lib/errors";
+import { paginate } from "@/lib/pagination";
 
 /**
  * Issue 목록 조회.
@@ -87,48 +87,57 @@ export async function findIssues(
   executor: DbExecutor = db(),
 ): Promise<IssueListPage> {
   const where = and(...buildIssueListConditions(scope, filter));
-  const offset = (filter.page - 1) * ISSUE_PAGE_SIZE;
 
   try {
-    // 화면이 그리는 Column 만 고른다. `select *` 로 불필요한 본문까지 끌어오지 않는다.
-    const rows = await executor
-      .select({
-        id: reviewIssues.id,
-        title: reviewIssues.title,
-        severity: reviewIssues.severity,
-        category: reviewIssues.category,
-        status: reviewIssues.status,
-        patternKey: reviewIssues.patternKey,
-        filePath: reviewIssues.filePath,
-        startLine: reviewIssues.startLine,
-        endLine: reviewIssues.endLine,
-        repositoryFullName: repositories.fullName,
-        firstDetectedAt: reviewIssues.firstDetectedAt,
-      })
-      .from(reviewIssues)
-      .innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
-      .where(where)
-      // 같은 시각의 행이 페이지마다 뒤바뀌지 않게 id 로 한 번 더 고정한다.
-      .orderBy(desc(reviewIssues.firstDetectedAt), desc(reviewIssues.id))
-      .limit(ISSUE_PAGE_SIZE)
-      .offset(offset);
+    /*
+      🔴 **세고 → 쪽을 바로잡고 → 그 쪽만 읽는다**(`lib/pagination.ts`). 마지막 쪽의
+      Issue 가 해결돼 사라지면 `?page=5` 가 범위를 넘어 «빈 표»가 나오는데, 그것은
+      「결과 없음」과 구분되지 않는다 — 그럴 때는 마지막 쪽으로 끌어당겨 그린다.
+    */
+    return await paginate(filter, {
+      count: async () => {
+        /**
+         * 🔴 세는 질의에도 **같은 Join 과 같은 조건**을 건다. Join 을 빠뜨리면 `project_id`
+         * 조건을 걸 수 없어 전체 건수가 Workspace 전체로 부풀고, 목록과 숫자가 어긋난다.
+         */
+        const rows = await executor
+          .select({ value: count() })
+          .from(reviewIssues)
+          .innerJoin(
+            repositories,
+            eq(repositories.id, reviewIssues.repositoryId),
+          )
+          .where(where);
 
-    /**
-     * 🔴 세는 질의에도 **같은 Join 과 같은 조건**을 건다. Join 을 빠뜨리면 `project_id`
-     * 조건을 걸 수 없어 전체 건수가 Workspace 전체로 부풀고, 목록과 숫자가 어긋난다.
-     */
-    const totalRows = await executor
-      .select({ value: count() })
-      .from(reviewIssues)
-      .innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
-      .where(where);
-
-    return {
-      items: rows,
-      total: totalRows[0]?.value ?? 0,
-      page: filter.page,
-      pageSize: ISSUE_PAGE_SIZE,
-    };
+        return rows[0]?.value ?? 0;
+      },
+      // 화면이 그리는 Column 만 고른다. `select *` 로 불필요한 본문까지 끌어오지 않는다.
+      rows: (limit, offset) =>
+        executor
+          .select({
+            id: reviewIssues.id,
+            title: reviewIssues.title,
+            severity: reviewIssues.severity,
+            category: reviewIssues.category,
+            status: reviewIssues.status,
+            patternKey: reviewIssues.patternKey,
+            filePath: reviewIssues.filePath,
+            startLine: reviewIssues.startLine,
+            endLine: reviewIssues.endLine,
+            repositoryFullName: repositories.fullName,
+            firstDetectedAt: reviewIssues.firstDetectedAt,
+          })
+          .from(reviewIssues)
+          .innerJoin(
+            repositories,
+            eq(repositories.id, reviewIssues.repositoryId),
+          )
+          .where(where)
+          // 같은 시각의 행이 페이지마다 뒤바뀌지 않게 id 로 한 번 더 고정한다.
+          .orderBy(desc(reviewIssues.firstDetectedAt), desc(reviewIssues.id))
+          .limit(limit)
+          .offset(offset),
+    });
   } catch (cause) {
     // Driver 오류 message 에는 접속 문자열·쿼리가 실려 온다. 밖으로 흘리지 않는다.
     throw new AppError("UNEXPECTED", { cause });
