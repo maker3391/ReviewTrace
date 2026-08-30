@@ -3,6 +3,7 @@ import "server-only";
 import { and, asc, desc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
+import { asCount, asDate } from "@/db/raw-value";
 import { repositories, reviewIssues } from "@/db/schema";
 import {
   listKnowledgeExcerpts,
@@ -175,10 +176,10 @@ export async function findKnowledgeContext(
 
   const [
     wiki,
-    frequentPatterns,
+    patternRows,
     recentHighSeverityIssues,
     unresolvedIssues,
-    pastResolutions,
+    resolutionRows,
   ] = await Promise.all([
       /**
        * 사람이 적은 Wiki(스펙 10).
@@ -267,9 +268,30 @@ export async function findKnowledgeContext(
       projectResolved: query.projectSlug === null ? null : true,
     },
     wiki,
-    frequentPatterns,
+    /**
+     * 🔴 **원시 SQL 조각이 돌려준 값을 그대로 내보내지 않는다**(`src/db/raw-value.ts`).
+     *
+     * Drizzle 은 **Column 을 통해 조회할 때만** Driver 값을 변환한다. `max(...)` 나
+     * 직접 적은 식은 그 경로 밖이라 `sql<Date>` 가 **검사되지 않는 단언**으로 남고,
+     * node-postgres 는 timestamp 파서가 꺼져 있어 **문자열**을 준다.
+     *
+     * 🔴 **그러면 한 응답 안에서 날짜 형식이 갈린다.** `recentHighSeverityIssues` 의
+     * `firstDetectedAt` 은 Column 경로라 `2026-08-30T10:00:00.000Z` 로 나가는데,
+     * 여기를 그대로 두면 `2026-08-30 10:00:00+00` 이 나간다 — 같은 계약 안의 같은
+     * 종류 값이 Agent 마다 다르게 해석된다(CLAUDE.md 13).
+     */
+    frequentPatterns: patternRows.map((row) => ({
+      ...row,
+      occurrences: asCount(row.occurrences),
+      resolvedCount: asCount(row.resolvedCount),
+      lastDetectedAt: asDate(row.lastDetectedAt),
+    })),
     recentHighSeverityIssues,
     unresolvedIssues,
-    pastResolutions,
+    // `resolvedAt` 은 위 질의가 `IS NOT NULL` 로 걸러 온 열이다.
+    pastResolutions: resolutionRows.map((row) => ({
+      ...row,
+      resolvedAt: asDate(row.resolvedAt),
+    })),
   };
 }
