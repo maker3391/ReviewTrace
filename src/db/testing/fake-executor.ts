@@ -32,15 +32,25 @@
  * 조용히 `undefined` 를 돌려주면 시험이 엉뚱한 이유로 통과한다.
  */
 
+import type { SQLWrapper } from "drizzle-orm";
+
 import type { DbExecutor } from "@/db";
 
-export type FakeOpKind = "select" | "insert" | "update" | "delete";
+export type FakeOpKind = "select" | "insert" | "update" | "delete" | "execute";
 
 /** 실제로 일어난 Database 호출 하나. */
 export interface FakeCall {
   kind: FakeOpKind;
   /** `insert(...).values(v)` 의 `v`, `update(...).set(v)` 의 `v`. 없으면 `undefined`. */
   values?: Record<string, unknown>;
+  /**
+   * `execute(sql\`...\`)` 로 보낸 문장 그대로.
+   *
+   * 🔴 **직접 적은 SQL 은 `values` 로 들여다볼 수 없다.** 그 문장이 무엇을 저장하고 무엇을
+   * 조건으로 거는지는 `new PgDialect().sqlToQuery(call.query)` 로 렌더해서 본다 —
+   * 그러지 않으면 조건이 통째로 빠져도 시험이 초록이다.
+   */
+  query?: SQLWrapper;
 }
 
 /** 미리 적어 두는 단계 하나 — 이 종류의 호출이 오면 이 행들을 돌려준다. */
@@ -65,6 +75,16 @@ export const updates = (rows: unknown[] = []): FakeStep => ({
 });
 export const deletes = (rows: unknown[] = []): FakeStep => ({
   kind: "delete",
+  rows,
+});
+/**
+ * 직접 적은 SQL 한 문장(`executor.execute(sql\`...\`)`).
+ *
+ * 🔴 결과 모양이 다른 것에 주의한다 — Driver 가 돌려주는 `{ rows }` 다. 제품 코드가
+ * `.rows` 를 읽으므로 Fake 도 같은 모양으로 돌려준다.
+ */
+export const executes = (rows: unknown[] = []): FakeStep => ({
+  kind: "execute",
   rows,
 });
 
@@ -92,11 +112,11 @@ export interface FakeExecutorHandle {
  * 정해지고, 그 값은 이 chain 이 만들어질 때 이미 뽑혀 있다.
  */
 function buildChain(
-  settle: () => Promise<unknown[]>,
+  settle: () => Promise<unknown>,
   onValues: (values: Record<string, unknown>) => void,
 ): unknown {
-  let pending: Promise<unknown[]> | null = null;
-  const resolve = (): Promise<unknown[]> => (pending ??= settle());
+  let pending: Promise<unknown> | null = null;
+  const resolve = (): Promise<unknown> => (pending ??= settle());
 
   const chain: unknown = new Proxy(
     {},
@@ -107,15 +127,15 @@ function buildChain(
           return undefined;
         }
         if (property === "then") {
-          return (...args: Parameters<Promise<unknown[]>["then"]>) =>
+          return (...args: Parameters<Promise<unknown>["then"]>) =>
             resolve().then(...args);
         }
         if (property === "catch") {
-          return (...args: Parameters<Promise<unknown[]>["catch"]>) =>
+          return (...args: Parameters<Promise<unknown>["catch"]>) =>
             resolve().catch(...args);
         }
         if (property === "finally") {
-          return (...args: Parameters<Promise<unknown[]>["finally"]>) =>
+          return (...args: Parameters<Promise<unknown>["finally"]>) =>
             resolve().finally(...args);
         }
 
@@ -139,7 +159,7 @@ export function fakeExecutor(script: FakeStep[]): FakeExecutorHandle {
   const steps = [...script];
   const calls: FakeCall[] = [];
 
-  function start(kind: FakeOpKind): unknown {
+  function start(kind: FakeOpKind, query?: SQLWrapper): unknown {
     const step = steps.shift();
     if (step === undefined) {
       throw new Error(
@@ -153,13 +173,17 @@ export function fakeExecutor(script: FakeStep[]): FakeExecutorHandle {
     }
 
     const call: FakeCall = { kind };
+    if (query !== undefined) {
+      call.query = query;
+    }
     calls.push(call);
 
     return buildChain(
       () =>
         "throws" in step && step.throws !== undefined
           ? Promise.reject(step.throws)
-          : Promise.resolve(step.rows),
+          : // Driver 가 돌려주는 모양이 다르다 — `execute` 만 `{ rows }` 다.
+            Promise.resolve(kind === "execute" ? { rows: step.rows } : step.rows),
       (values) => {
         call.values = values;
       },
@@ -171,6 +195,7 @@ export function fakeExecutor(script: FakeStep[]): FakeExecutorHandle {
     insert: () => start("insert"),
     update: () => start("update"),
     delete: () => start("delete"),
+    execute: (query: SQLWrapper) => start("execute", query),
     /**
      * 🔴 **Transaction 을 흉내 내지 않는다.** 되돌림도 격리도 없다 — 안쪽 코드를 그대로
      * 부르고 던져진 것을 그대로 올려보낼 뿐이다. 「실패하면 함께 되돌아간다」는 Fake 로

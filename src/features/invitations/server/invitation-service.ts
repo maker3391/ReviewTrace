@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, isNull, lte, sql, type SQL } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
 import {
@@ -31,6 +31,32 @@ import { normalizeEmail } from "@/lib/validation/email";
 
 /** 기본 유효 기간. 링크가 영원히 사는 것을 막는다. */
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * 「이 주소는 아직 이 Workspace 의 멤버가 아니다」 — **쓰는 문장에 그대로 붙이는 조건.**
+ *
+ * 🔴 **따로 조회해서 확인하면 막지 못한다.** PostgreSQL 의 기본 격리 수준(READ COMMITTED)
+ * 에서 SELECT 는 **그 문장이 시작한 시점의 스냅샷**을 본다 — 조회와 INSERT 사이에 다른
+ * Transaction 이 소속을 만들고 commit 하면 이쪽 조회는 그것을 보지 못한다.
+ * Transaction 으로 감싸도 같다.
+ *
+ * 그 틈으로 들어오는 것이 단순한 중복 초대가 아니라는 것이 요점이다 — 초대는 **이메일을
+ * 대조하지 않는 bearer credential** 이다(`acceptInvitation` 은 Token Hash 와 상태만 본다).
+ * 새로 발행된 Token 을 쥔 **다른 계정**이 그 Workspace 에 들어온다.
+ *
+ * 🔴 그래서 판정을 **쓰는 문장 자체**에 싣는다. UPDATE 와 INSERT 는 스냅샷이 아니라 «지금»
+ * 의 행을 보고, 충돌하면 상대가 commit 할 때까지 기다렸다가 조건을 **다시** 본다 —
+ * `revokeInvitation`·`acceptInvitation` 이 조건을 UPDATE 에 붙여 둔 것과 같은 방식이다.
+ */
+function notAlreadyMember(workspaceId: string, email: string): SQL {
+  return sql`not exists (
+    select 1
+      from ${workspaceMembers}
+      join ${users} on ${users.id} = ${workspaceMembers.userId}
+     where ${workspaceMembers.workspaceId} = ${workspaceId}::uuid
+       and ${users.email} = ${email}
+  )`;
+}
 
 export interface CreatedInvitation {
   /** 🔴 **이 한 번만 존재한다.** 저장되지 않으므로 화면을 떠나면 다시 볼 수 없다. */
@@ -98,38 +124,24 @@ export async function createInvitation(
    */
   const email = normalizeEmail(input.email);
 
-  /**
-   * 이미 Member 인 사람을 초대하지 않는다(스펙 10).
-   *
-   * 소속 자체는 PK 가 막아 주므로 이것은 **안내를 위한 확인**이다 — 수락하고 나서야
-   * 「이미 멤버」를 알게 되는 것보다 발행 시점에 말해 주는 쪽이 낫다.
-   *
-   * 🔴 **`lower(users.email)` 을 쓰지 않는다.** `users.email` 은 저장 시점에 이미 정규화된
-   * 값이고(`lib/auth/github-profile.ts`), Column 에 함수를 씌우면 `users_email_unique`
-   * 를 타지 못한다(CLAUDE.md 10).
-   */
-  const alreadyMember = await executor
-    .select({ userId: workspaceMembers.userId })
-    .from(workspaceMembers)
-    .innerJoin(users, eq(users.id, workspaceMembers.userId))
-    .where(
-      and(
-        eq(workspaceMembers.workspaceId, input.workspaceId),
-        eq(users.email, email),
-      ),
-    )
-    .limit(1);
-
-  if (alreadyMember.length > 0) {
-    throw new AppError("WORKSPACE_MEMBER_ALREADY");
-  }
-
   const { token, tokenHash } = generateInvitationToken();
   const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
+  const notMember = notAlreadyMember(input.workspaceId, email);
 
   /**
-   * 넣어 «본다». 🔴 이 자리에서 중복을 거절하는 것은 응용 코드가 아니라
-   * `workspace_invitations_live_email_unique` 다.
+   * 넣어 «본다». 🔴 이 자리에서 거절하는 것은 응용 코드가 아니라 두 가지다 —
+   * 중복 초대는 `workspace_invitations_live_email_unique`, **이미 멤버인 사람**은
+   * 이 문장 안의 `not exists` 다(`notAlreadyMember`).
+   *
+   * 🔴 **「조회해 보고 없으면 INSERT」로 나누지 않는다.** 나누는 순간 두 문장 사이가
+   * 열리고, 그 사이에 기존 초대가 수락되면 옛 행이 부분 index 밖으로 빠져 **새 Token 이
+   * 발행된다** — 이미 멤버가 된 사람 앞으로 살아 있는 링크가 하나 더 생긴다.
+   * 판정을 문장 안에 실으면 그 틈 자체가 없다.
+   *
+   * 🔴 **`values(...)` 대신 `select ... where` 를 쓴다.** Drizzle 의 `values` 는
+   * 조건을 붙일 자리가 없고, `insert ... select` 는 Column 을 **전부** 나열하게 만들어
+   * 기본값(`id`·`created_at`)까지 손으로 만들어야 한다 — 그래서 이 문장만 SQL 을 직접 적는다.
+   * Column 목록을 적어 두었으므로 표에 Column 이 늘어도 이 문장은 그대로 선다.
    *
    * 🔴 **`on conflict do nothing` 에 대상을 «적지 않는다».** 적는 순간 PostgreSQL 이 중재할
    * index 를 계획 단계에서 찾아야 하고, 그 index 가 아직 없는 Database 에서는 문장 자체가
@@ -142,20 +154,21 @@ export async function createInvitation(
    * Transaction 안에서 불렸을 때 그 Transaction 을 통째로 **abort 상태로 만든다.**
    * 행이 비어서 돌아오는 쪽이 다루기도 안전하기도 하다.
    */
-  const inserted = await executor
-    .insert(workspaceInvitations)
-    .values({
-      workspaceId: input.workspaceId,
-      email,
-      role: "MEMBER",
-      tokenHash,
-      expiresAt,
-      invitedBy: input.invitedBy,
-    })
-    .onConflictDoNothing()
-    .returning({ id: workspaceInvitations.id });
+  const inserted = await executor.execute<{ id: string }>(sql`
+    insert into ${workspaceInvitations}
+      ("workspace_id", "email", "role", "token_hash", "expires_at", "invited_by")
+    select ${input.workspaceId}::uuid,
+           ${email}::text,
+           'MEMBER'::workspace_role,
+           ${tokenHash}::text,
+           ${expiresAt}::timestamptz,
+           ${input.invitedBy}::uuid
+     where ${notMember}
+    on conflict do nothing
+    returning "id"
+  `);
 
-  if (inserted.length > 0) {
+  if (inserted.rows.length > 0) {
     return { token, email, expiresAt };
   }
 
@@ -190,15 +203,44 @@ export async function createInvitation(
          */
         isNull(workspaceInvitations.revokedAt),
         lte(workspaceInvitations.expiresAt, sql`now()`),
+        /**
+         * 🔴 **여기에도 같은 조건이 붙는다.** 만료된 초대가 남아 있는 사이에 그 사람이
+         * 다른 초대로 멤버가 됐다면, 이 회전은 **이미 멤버인 사람에게 새 Token 을
+         * 발행하는 것**이 된다 — 위 INSERT 만 막아 두면 그 뒷문이 열려 있다.
+         */
+        notMember,
       ),
     )
     .returning({ id: workspaceInvitations.id });
 
-  if (rotated.length === 0) {
-    throw new AppError("INVITATION_ALREADY_PENDING");
+  if (rotated.length > 0) {
+    return { token, email, expiresAt };
   }
 
-  return { token, email, expiresAt };
+  /**
+   * 두 문장이 **둘 다** 행을 잡지 못했다. 막힌 이유가 「이미 멤버」인지 「살아 있는 초대」인지
+   * 는 **화면에 보여 줄 말을 고르기 위해서만** 본다 — 🔴 판정은 이미 위 두 문장이 끝냈다.
+   * 이 조회가 낡은 값을 보더라도 초대가 새로 발행되는 일은 없다.
+   *
+   * 🔴 **`lower(users.email)` 을 쓰지 않는다.** `users.email` 은 저장 시점에 이미 정규화된
+   * 값이고(`lib/auth/github-profile.ts`), Column 에 함수를 씌우면 `users_email_unique`
+   * 를 타지 못한다(CLAUDE.md 10).
+   */
+  const member = await executor
+    .select({ userId: workspaceMembers.userId })
+    .from(workspaceMembers)
+    .innerJoin(users, eq(users.id, workspaceMembers.userId))
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, input.workspaceId),
+        eq(users.email, email),
+      ),
+    )
+    .limit(1);
+
+  throw new AppError(
+    member.length > 0 ? "WORKSPACE_MEMBER_ALREADY" : "INVITATION_ALREADY_PENDING",
+  );
 }
 
 export interface InvitationPreview {
@@ -276,6 +318,48 @@ export async function acceptInvitation(
 
   return executor.transaction(async (tx) => {
     /**
+     * 어느 Workspace 로의 초대인지 **먼저** 알아낸다. 잠글 대상을 알기 위한 조회일 뿐
+     * **자격 판정이 아니다** — 만료·수락·취소 판정은 아래 조건부 UPDATE 가 한다.
+     * 초대가 Workspace 를 옮겨 다니는 경로는 없으므로 이 값은 잠근 뒤에도 그대로다.
+     */
+    const target = await tx
+      .select({ workspaceId: workspaceInvitations.workspaceId })
+      .from(workspaceInvitations)
+      .where(eq(workspaceInvitations.tokenHash, tokenHash))
+      .limit(1);
+
+    const targetWorkspaceId = target[0]?.workspaceId;
+    if (targetWorkspaceId === undefined) {
+      throw new AppError("INVITATION_UNUSABLE");
+    }
+
+    /**
+     * 🔴 **Workspace 행을 잠근다 — 소속을 만들기 «전»에.**
+     *
+     * 계정 삭제는 「이 Workspace 에 나 말고 아무도 없다」를 확인한 뒤 Workspace 를 통째로
+     * 지운다(`account-deletion-service.ts`). 그 확인은 소속 행을 `FOR UPDATE` 로 잠그지만,
+     * **그 뒤에 INSERT 되는 소속은 어떤 잠금에도 걸리지 않는다** — 여기서 아무것도 잠그지
+     * 않으면 방금 들어온 멤버가 Workspace 와 함께 CASCADE 로 지워진다.
+     *
+     * 두 경로가 **같은 Workspace 행**을 잠그므로 줄이 선다. 삭제가 먼저 끝났다면 이 조회는
+     * **0행**이고, 그 초대는 더 이상 갈 곳이 없다.
+     *
+     * 🔴 **잠금은 초대 행보다 «먼저» 잡는다.** 순서를 뒤집으면 — 이쪽이 초대 행을 쥔 채
+     * Workspace 를 기다리고, 삭제 쪽은 Workspace 를 쥔 채 CASCADE 로 그 초대 행을 기다려
+     * **deadlock** 이 된다. 두 경로가 Workspace 를 먼저 잡는 한 그 고리가 생기지 않는다.
+     */
+    const locked = await tx
+      .select({ slug: workspaces.slug })
+      .from(workspaces)
+      .where(eq(workspaces.id, targetWorkspaceId))
+      .for("update");
+
+    const slug = locked[0]?.slug;
+    if (slug === undefined) {
+      throw new AppError("INVITATION_UNUSABLE");
+    }
+
+    /**
      * 🔴 **잡는 것과 확인하는 것을 한 문장으로 한다.**
      *
      * 「찾아서 확인하고 그 다음에 UPDATE」로 나누면 두 요청이 같은 초대를 함께 통과한다.
@@ -315,17 +399,6 @@ export async function acceptInvitation(
 
     if (invitation.expiresAt.getTime() <= Date.now()) {
       // 만료된 초대를 방금 소진해 버렸으므로 Transaction 을 통째로 되돌린다.
-      throw new AppError("INVITATION_UNUSABLE");
-    }
-
-    const workspace = await tx
-      .select({ slug: workspaces.slug })
-      .from(workspaces)
-      .where(eq(workspaces.id, invitation.workspaceId))
-      .limit(1);
-
-    const slug = workspace[0]?.slug;
-    if (slug === undefined) {
       throw new AppError("INVITATION_UNUSABLE");
     }
 

@@ -5,7 +5,12 @@ import { and, eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { db, type DbExecutor } from "@/db";
-import { users, workspaceInvitations, workspaces } from "@/db/schema";
+import {
+  users,
+  workspaceInvitations,
+  workspaceMembers,
+  workspaces,
+} from "@/db/schema";
 import { loadIntegrationDbEnv } from "@/db/testing/integration-env";
 import {
   createInvitation,
@@ -599,6 +604,193 @@ describe.skipIf(!enabled)("살아 있는 초대는 (Workspace, Email) 당 하나
       );
       await rawInsert();
       expect(await liveRows(tx, workspace, GUEST)).toHaveLength(2);
+    });
+  });
+});
+
+/**
+ * 실제 PostgreSQL 로 보는 **「이미 멤버인 사람에게는 초대가 서지 않는다」**.
+ *
+ * # 🔴 왜 «따로 조회해서» 확인하면 안 되는가
+ *
+ * 확인이 `SELECT` 한 문장, 발행이 그 다음 `INSERT` 로 나뉘어 있었다. PostgreSQL 의 기본
+ * 격리 수준(READ COMMITTED)에서 SELECT 는 **그 문장이 시작한 시점의 스냅샷**을 보므로,
+ * 그 사이 다른 Transaction 이 소속을 만들고 commit 해도 이쪽은 보지 못한다. 그러면 옛
+ * 초대 행이 부분 index 밖으로 빠져 INSERT 가 성공하고, **이미 멤버인 사람 앞으로 살아
+ * 있는 링크가 하나 더 선다.** 🔴 초대는 이메일을 대조하지 않는 bearer credential 이라
+ * (`acceptInvitation` 은 Token Hash 와 상태만 본다) 그 Token 을 쥔 **다른 계정**이 들어온다.
+ *
+ * 🔴 **동시 실행 두 개를 실제로 부딪혀 보지는 않았다.** 되돌려지는 Transaction 하나
+ * 안에서는 두 번째 연결이 이쪽 행을 볼 수 없어 그 경쟁을 재현할 수 없다. 여기서 붙드는
+ * 것은 **판정이 쓰는 문장 자체에 실려 있고 실제 Database 가 그것을 그대로 지킨다**는
+ * 사실이다 — 그 조건이 문장 안에 있으면 스냅샷 문제 자체가 성립하지 않는다.
+ */
+describe.skipIf(!enabled)("이미 멤버인 주소에는 초대가 서지 않는다", () => {
+  /** 그 Workspace 의 멤버 한 사람. 이메일이 초대 대상과 같은 주소다. */
+  async function joinAsMember(
+    tx: DbExecutor,
+    workspaceId: string,
+    email: string,
+  ): Promise<void> {
+    const rows = await tx
+      .insert(users)
+      .values({ email, name: "Guest" })
+      .returning({ id: users.id });
+
+    const userId = rows[0]?.id;
+    if (userId === undefined) {
+      throw new Error("시험용 멤버를 만들지 못했다");
+    }
+
+    await tx
+      .insert(workspaceMembers)
+      .values({ workspaceId, userId, role: "MEMBER" });
+  }
+
+  it("🔴 이미 멤버면 CONFLICT 이고 초대 행이 «하나도» 생기지 않는다", async () => {
+    await withLiveEmailIndex(async (tx) => {
+      const owner = await createOwner(tx);
+      const workspace = await createWorkspace(tx, owner);
+      await joinAsMember(tx, workspace, GUEST);
+
+      const error = await rejection(
+        createInvitation(
+          { workspaceId: workspace, email: GUEST, invitedBy: owner },
+          tx,
+        ),
+      );
+
+      expect(isAppError(error) && error.code).toBe("CONFLICT");
+      // 🔴 Token 을 내주지 않았을 뿐 아니라 행 자체가 없다.
+      expect(await liveRows(tx, workspace, GUEST)).toHaveLength(0);
+    });
+  });
+
+  /**
+   * 🔴 **대소문자·공백만 다른 주소로 이미 멤버인 사람을 다시 초대할 수 없다.**
+   *
+   * `users.email` 은 저장 시점에 이미 정규 형태다(`lib/auth/github-profile.ts`).
+   * 비교하는 값을 정규화하지 않으면 이 조건이 어느 행도 잡지 못해 **이미 멤버인 사람에게
+   * 초대가 다시 발행된다** — 실제로 그렇게 깨져 있던 자리다.
+   */
+  it("🔴 대소문자·공백만 다른 주소로도 이미 멤버인 사람을 다시 초대할 수 없다", async () => {
+    await withLiveEmailIndex(async (tx) => {
+      const owner = await createOwner(tx);
+      const workspace = await createWorkspace(tx, owner);
+      await joinAsMember(tx, workspace, GUEST);
+
+      const error = await rejection(
+        createInvitation(
+          { workspaceId: workspace, email: " Guest@Example.TEST ", invitedBy: owner },
+          tx,
+        ),
+      );
+
+      expect(isAppError(error) && error.code).toBe("CONFLICT");
+      expect(await liveRows(tx, workspace, GUEST)).toHaveLength(0);
+    });
+  });
+
+  /**
+   * 🔴 **회전에도 같은 조건이 붙어야 한다.**
+   *
+   * 만료된 초대가 남아 있는 사이에 그 사람이 다른 경로로 멤버가 됐다면, 회전은
+   * **이미 멤버인 사람에게 새 Token 을 발행하는 일**이 된다 — INSERT 만 막아 두면
+   * 그 뒷문이 그대로 열려 있다. 실제로 옛 Token 이 그대로 남는지까지 본다.
+   */
+  it("🔴 만료된 초대가 있어도 이미 멤버면 회전하지 않는다 — 옛 Token 이 그대로다", async () => {
+    await withLiveEmailIndex(async (tx) => {
+      const owner = await createOwner(tx);
+      const workspace = await createWorkspace(tx, owner);
+
+      const first = await createInvitation(
+        { workspaceId: workspace, email: GUEST, invitedBy: owner },
+        tx,
+      );
+
+      // 기한을 과거로 밀어 「만료된 살아 있는 초대」를 만든다.
+      const expired = new Date(Date.now() - 60_000);
+      await tx
+        .update(workspaceInvitations)
+        .set({ expiresAt: expired })
+        .where(eq(workspaceInvitations.workspaceId, workspace));
+
+      // 그 사이 그 사람이 멤버가 됐다.
+      await joinAsMember(tx, workspace, GUEST);
+
+      const error = await rejection(
+        createInvitation(
+          { workspaceId: workspace, email: GUEST, invitedBy: owner },
+          tx,
+        ),
+      );
+
+      expect(isAppError(error) && error.code).toBe("CONFLICT");
+
+      const rows = await liveRows(tx, workspace, GUEST);
+      expect(rows).toHaveLength(1);
+      // 🔴 회전하지 않았다 — Token 도 기한도 옛것 그대로다.
+      expect(rows[0]?.tokenHash).toBe(hashInvitationToken(first.token));
+      expect(rows[0]?.expiresAt.getTime()).toBe(expired.getTime());
+    });
+  });
+
+  /** 멤버가 아니면 그대로 발행된다 — 조건이 «아무도 막지 않는» 것이 아님을 함께 붙든다. */
+  it("멤버가 아닌 주소에는 그대로 발행된다", async () => {
+    await withLiveEmailIndex(async (tx) => {
+      const owner = await createOwner(tx);
+      const workspace = await createWorkspace(tx, owner);
+      // 같은 주소의 사용자가 «다른» Workspace 의 멤버인 것은 아무것도 막지 않는다.
+      const otherWorkspace = await createWorkspace(tx, owner);
+      await joinAsMember(tx, otherWorkspace, GUEST);
+
+      const invitation = await createInvitation(
+        { workspaceId: workspace, email: GUEST, invitedBy: owner },
+        tx,
+      );
+
+      const rows = await liveRows(tx, workspace, GUEST);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.tokenHash).toBe(hashInvitationToken(invitation.token));
+    });
+  });
+
+  /**
+   * 🔴 직접 적은 SQL 이 **표의 Column 을 옳게 채우는가.**
+   *
+   * `values(...)` 를 버리고 `insert ... select` 로 바꿨으므로 Column 순서를 손으로 적었다.
+   * 한 칸이라도 어긋나면 엉뚱한 Column 에 값이 들어가는데, 타입이 우연히 맞으면
+   * **Database 도 조용히 받아 준다.** 저장된 행을 그대로 읽어 대조한다.
+   */
+  it("🔴 직접 적은 INSERT 가 모든 Column 을 제자리에 넣는다", async () => {
+    await withLiveEmailIndex(async (tx) => {
+      const owner = await createOwner(tx);
+      const workspace = await createWorkspace(tx, owner);
+
+      const invitation = await createInvitation(
+        { workspaceId: workspace, email: " Guest@Example.TEST ", invitedBy: owner },
+        tx,
+      );
+
+      const rows = await tx
+        .select()
+        .from(workspaceInvitations)
+        .where(eq(workspaceInvitations.workspaceId, workspace));
+
+      const row = rows[0];
+      expect(rows).toHaveLength(1);
+      expect(row?.email).toBe("guest@example.test");
+      expect(row?.role).toBe("MEMBER");
+      expect(row?.tokenHash).toBe(hashInvitationToken(invitation.token));
+      expect(row?.expiresAt.getTime()).toBe(invitation.expiresAt.getTime());
+      expect(row?.invitedBy).toBe(owner);
+      // 기본값이 붙는 칸은 Database 가 채운다.
+      expect(row?.id).toMatch(/^[0-9a-f-]{36}$/);
+      expect(row?.createdAt).toBeInstanceOf(Date);
+      // 새 초대는 소진되지도 취소되지도 않았다.
+      expect(row?.acceptedAt).toBeNull();
+      expect(row?.revokedAt).toBeNull();
+      expect(row?.acceptedBy).toBeNull();
     });
   });
 });

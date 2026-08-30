@@ -5,11 +5,13 @@ import { getTableConfig, PgDialect } from "drizzle-orm/pg-core";
 import type { DbExecutor } from "@/db";
 import { workspaceInvitations } from "@/db/schema";
 import {
+  executes,
   failsWith,
   fakeExecutor,
   inserts,
   selects,
   updates,
+  type FakeCall,
 } from "@/db/testing/fake-executor";
 import {
   acceptInvitation,
@@ -55,25 +57,108 @@ async function rejection(promise: Promise<unknown>) {
 
 describe("createInvitation", () => {
   /**
+   * # 🔴 발행 문장은 «직접 적은 SQL» 이다 — 렌더해서 본다
+   *
+   * 「이미 멤버인가」 판정이 **INSERT 문장 안**으로 들어갔다(`not exists`). Drizzle 의
+   * `values(...)` 에는 조건을 붙일 자리가 없어 그 문장만 SQL 을 직접 적는다.
+   *
+   * 🔴 그래서 `fake.calls[i].values` 로는 아무것도 볼 수 없다. 무엇을 저장하고 무엇을
+   * 조건으로 거는지는 **렌더된 문장과 파라미터**로 본다 — 그러지 않으면 조건이 통째로
+   * 빠져도 시험이 초록이다.
+   */
+  function statement(call: FakeCall | undefined) {
+    if (call?.query === undefined) {
+      throw new Error("직접 적은 SQL 문장이 아니다");
+    }
+    return new PgDialect().sqlToQuery(call.query.getSQL());
+  }
+
+  /**
    * 🔴 되돌림 확인(2026-08-29): `invitation-token.ts` 의 `tokenHash` 자리에 `token` 을
    * 그대로 넣으면 이 시험이 실패한다. 직접 바꿔 보고 되돌렸다.
    */
   it("🔴 저장되는 것은 Hash 다 — 원문 Token 이 어느 Column 에도 없다", async () => {
-    const fake = fakeExecutor([selects([]), inserts([{ id: INVITATION }])]);
+    const fake = fakeExecutor([executes([{ id: INVITATION }])]);
 
     const invitation = await createInvitation(
       { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
       fake.executor,
     );
 
-    const stored = fake.calls[1]?.values ?? {};
-    expect(stored.tokenHash).toBe(hashInvitationToken(invitation.token));
-    // 어느 Column 에도 원문이 실려 있지 않다.
-    expect(JSON.stringify(stored)).not.toContain(invitation.token);
+    const sent = statement(fake.calls[0]);
+    expect(sent.params).toContain(hashInvitationToken(invitation.token));
+    // 문장에도 파라미터에도 원문이 실려 있지 않다.
+    expect(sent.sql).not.toContain(invitation.token);
+    expect(sent.params).not.toContain(invitation.token);
   });
 
-  it("이미 멤버인 이메일은 초대를 «발행조차» 하지 않는다", async () => {
-    const fake = fakeExecutor([selects([{ userId: GUEST }])]);
+  /**
+   * # 🔴 「이미 멤버인가」를 «따로 조회해서» 판단하지 않는다
+   *
+   * ## 무엇이 깨져 있었는가
+   *
+   * 확인이 `SELECT` 한 문장, 발행이 그 다음 `INSERT` 로 나뉘어 있었다. PostgreSQL 의 기본
+   * 격리 수준(READ COMMITTED)에서 SELECT 는 **그 문장이 시작한 시점의 스냅샷**을 보므로,
+   * 그 사이에 기존 초대가 수락돼 소속이 생겨도 이쪽은 보지 못한다. 그러면 옛 초대 행이
+   * 부분 index 밖으로 빠져 **INSERT 가 성공한다** — 이미 멤버인 사람 앞으로 살아 있는
+   * 링크가 하나 더 생긴다. 🔴 초대는 이메일을 대조하지 않는 bearer credential 이라
+   * (`acceptInvitation` 은 Token Hash 와 상태만 본다) 그 Token 을 쥔 **다른 계정**이
+   * 그대로 들어온다.
+   *
+   * ## 무엇을 붙들어 두는가
+   *
+   * 판정이 **쓰는 문장 자체**에 실려 있는 것. 조건이 빠지면 이 시험이 빨개진다.
+   */
+  it("🔴 「이미 멤버가 아닐 것」이 INSERT 문장 자체에 실린다", async () => {
+    const fake = fakeExecutor([executes([{ id: INVITATION }])]);
+
+    await createInvitation(
+      { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
+      fake.executor,
+    );
+
+    const sent = statement(fake.calls[0]);
+    expect(sent.sql).toContain("not exists");
+    expect(sent.sql).toContain('"workspace_members"');
+    expect(sent.sql).toContain('"users"."email"');
+  });
+
+  /**
+   * 🔴 **회전 UPDATE 에도 같은 조건이 붙는다.** 만료된 초대가 남아 있는 사이에 그 사람이
+   * 다른 초대로 멤버가 됐다면, 회전은 **이미 멤버인 사람에게 새 Token 을 발행하는 일**이
+   * 된다 — INSERT 만 막아 두면 그 뒷문이 열려 있다.
+   */
+  it("🔴 회전 UPDATE 에도 「이미 멤버가 아닐 것」이 실린다", async () => {
+    const captured: { where?: SQL } = {};
+    const executor = {
+      execute: () => Promise.resolve({ rows: [] }),
+      update: () => ({
+        set: () => ({
+          where: (condition: SQL) => {
+            captured.where = condition;
+            return { returning: () => Promise.resolve([{ id: INVITATION }]) };
+          },
+        }),
+      }),
+    } as unknown as DbExecutor;
+
+    await createInvitation(
+      { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
+      executor,
+    );
+
+    const rendered = new PgDialect().sqlToQuery(captured.where as SQL).sql;
+    expect(rendered).toContain("not exists");
+    expect(rendered).toContain('"workspace_members"');
+  });
+
+  it("🔴 이미 멤버인 이메일에는 초대가 발행되지 않는다", async () => {
+    // 두 쓰기 문장이 «둘 다» 0행이다 — 그 뒤의 조회는 «메시지를 고르기 위한» 것뿐이다.
+    const fake = fakeExecutor([
+      executes([]),
+      updates([]),
+      selects([{ userId: GUEST }]),
+    ]);
 
     const error = await rejection(
       createInvitation(
@@ -83,7 +168,7 @@ describe("createInvitation", () => {
     );
 
     expect(isAppError(error) && error.code).toBe("CONFLICT");
-    expect(fake.calls).toHaveLength(1);
+    expect(fake.remaining()).toBe(0);
   });
 
   /**
@@ -91,107 +176,39 @@ describe("createInvitation", () => {
    *
    * ## 무엇이 깨져 있었는가
    *
-   * 「이미 멤버」 확인이 `eq(users.email, input.email)` 로 **받은 값을 날것 그대로**
-   * 비교했다. `users.email` 은 정규 형태로 저장되므로(`lib/auth/github-profile.ts`),
-   * `Guest@Example.com` 이 내려오면 이 조건이 어느 행도 잡지 못하고 **이미 멤버인
-   * 사람에게 초대가 다시 발행된다.**
+   * 「이미 멤버」 확인이 **받은 값을 날것 그대로** 비교했다. `users.email` 은 정규 형태로
+   * 저장되므로(`lib/auth/github-profile.ts`), `Guest@Example.com` 이 내려오면 이 조건이
+   * 어느 행도 잡지 못하고 **이미 멤버인 사람에게 초대가 다시 발행된다.**
    *
    * Schema(`inviteMemberSchema`)가 정규화하니 괜찮다고 볼 수 없다 — 그것은 **폼 경로
    * 하나**이고, Application Service 는 그 밖에서도 불린다(CLAUDE.md 11 「최종 판단은
    * 서버가 한다」).
    *
-   * ## 왜 조건절을 «렌더»해서 보는가
+   * ## 왜 파라미터를 직접 보는가
    *
-   * `fakeExecutor` 는 `where` 를 해석하지 않는다. 그래서 저장된 값만 보면
-   * 「비교는 여전히 날것으로 하고 저장만 정규화」한 코드가 그대로 통과한다 —
-   * 정작 버그가 있던 자리가 비교 쪽이다. 조건에 실린 **파라미터**를 직접 본다.
+   * 저장된 값만 보면 「비교는 여전히 날것으로 하고 저장만 정규화」한 코드가 그대로
+   * 통과한다 — 정작 버그가 있던 자리가 비교 쪽이다. 같은 문장 안에 둘 다 실려 있으므로
+   * **날것이 한 번도 실리지 않는 것**까지 본다.
    */
-  function parameters(condition: SQL | undefined): unknown[] {
-    if (condition === undefined) {
-      throw new Error("조건절이 붙지 않았다");
-    }
-    return new PgDialect().sqlToQuery(condition).params;
-  }
-
-  /**
-   * 🔴 **조건절을 «흉내라도» 평가한다.** 무조건 멤버 행을 돌려주는 Fake 로는
-   * 「어떤 값으로 비교하든 CONFLICT」가 되어 시험이 항상 초록이다 — 정작 버그가 있던
-   * 자리를 지나친다. 그래서 `users.email` 자리에 실린 파라미터가 **저장된 값과 같을 때만**
-   * 행을 돌려준다. Database 가 하는 일의 이 조건 하나만 흉내 낸 것이다.
-   */
-  function memberLookupExecutor(storedEmail: string) {
-    const captured: { where?: SQL } = {};
-
-    const executor = {
-      select: () => ({
-        from: () => ({
-          innerJoin: () => ({
-            where: (condition: SQL) => {
-              captured.where = condition;
-              const matched = parameters(condition).includes(storedEmail);
-              return {
-                limit: () => Promise.resolve(matched ? [{ userId: GUEST }] : []),
-              };
-            },
-          }),
-        }),
-      }),
-      insert: () => ({
-        values: () => ({
-          onConflictDoNothing: () => ({
-            returning: () => Promise.resolve([{ id: INVITATION }]),
-          }),
-        }),
-      }),
-    } as unknown as DbExecutor;
-
-    return { executor, captured };
-  }
-
-  it("🔴 「이미 멤버」 비교에 «정규화된» 이메일이 실린다", async () => {
-    // 아무도 멤버가 아닌 Workspace — 발행까지 간다.
-    const { executor, captured } = memberLookupExecutor("nobody@example.test");
-
-    await createInvitation(
-      { workspaceId: WORKSPACE, email: "  Guest@Example.TEST ", invitedBy: OWNER },
-      executor,
-    );
-
-    expect(parameters(captured.where)).toContain("guest@example.test");
-    // 날것이 조건에 실리면 그것은 어느 행도 잡지 못하는 조건이다.
-    expect(parameters(captured.where)).not.toContain("  Guest@Example.TEST ");
-  });
-
-  it("🔴 대소문자만 다른 주소로는 이미 멤버인 사람을 다시 초대할 수 없다", async () => {
-    // 저장된 값은 정규 형태다(`lib/auth/github-profile.ts`).
-    const { executor } = memberLookupExecutor("guest@example.test");
-
-    const error = await rejection(
-      createInvitation(
-        { workspaceId: WORKSPACE, email: " Guest@Example.TEST ", invitedBy: OWNER },
-        executor,
-      ),
-    );
-
-    expect(isAppError(error) && error.code).toBe("CONFLICT");
-  });
-
-  /** 비교와 저장이 갈리면 같은 버그가 되돌아온다 — 둘 다 정규 형태다. */
-  it("🔴 저장되는 이메일도 정규 형태다", async () => {
-    const fake = fakeExecutor([selects([]), inserts([{ id: INVITATION }])]);
+  it("🔴 「이미 멤버」 비교에도 저장에도 «정규화된» 이메일이 실린다", async () => {
+    const fake = fakeExecutor([executes([{ id: INVITATION }])]);
 
     const invitation = await createInvitation(
-      { workspaceId: WORKSPACE, email: " Guest@Example.TEST ", invitedBy: OWNER },
+      { workspaceId: WORKSPACE, email: "  Guest@Example.TEST ", invitedBy: OWNER },
       fake.executor,
     );
 
-    expect(fake.calls[1]?.values?.email).toBe("guest@example.test");
+    const sent = statement(fake.calls[0]);
+    // 저장하는 값과 비교하는 값이 같은 문장에 함께 실린다.
+    expect(sent.params.filter((param) => param === "guest@example.test")).toHaveLength(2);
+    // 날것이 실리면 그것은 어느 행도 잡지 못하는 조건이다.
+    expect(sent.params).not.toContain("  Guest@Example.TEST ");
     // 화면이 「누구에게 보냈는가」로 그리는 값도 저장된 것과 같다.
     expect(invitation.email).toBe("guest@example.test");
   });
 
   it("초대에는 유효 기간이 붙는다 — 링크가 영원히 살지 않는다", async () => {
-    const fake = fakeExecutor([selects([]), inserts([{ id: INVITATION }])]);
+    const fake = fakeExecutor([executes([{ id: INVITATION }])]);
 
     const invitation = await createInvitation(
       { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
@@ -199,9 +216,18 @@ describe("createInvitation", () => {
     );
 
     expect(invitation.expiresAt.getTime()).toBeGreaterThan(Date.now());
-    expect(fake.calls[1]?.values?.expiresAt).toEqual(invitation.expiresAt);
+
+    const sent = statement(fake.calls[0]);
+    expect(
+      sent.params.some(
+        (param) =>
+          param instanceof Date &&
+          param.getTime() === invitation.expiresAt.getTime(),
+      ),
+    ).toBe(true);
     // 초대는 MEMBER 로만 들어간다 — 발행자가 역할을 고르지 못한다.
-    expect(fake.calls[1]?.values?.role).toBe("MEMBER");
+    expect(sent.sql).toContain("'MEMBER'::workspace_role");
+    expect(sent.sql).not.toContain("'OWNER'");
   });
 
   /*
@@ -229,12 +255,11 @@ describe("createInvitation", () => {
     );
     const indexConfig = liveIndex?.config as unknown as {
       unique: boolean;
-      columns: { name?: string }[];
       where?: SQL;
+      columns: { name: string }[];
     };
 
     expect(indexConfig).toBeDefined();
-    // unique 가 아니거나 Column 이 다르면 아무것도 막지 못한다.
     expect(indexConfig.unique).toBe(true);
     expect(indexConfig.columns.map((column) => column.name)).toEqual([
       "workspace_id",
@@ -242,16 +267,10 @@ describe("createInvitation", () => {
     ]);
 
     const predicate = new PgDialect().sqlToQuery(indexConfig.where as SQL).sql;
-    // 🔴 수락된 행은 index 밖이다 — 그래야 나갔던 사람을 다시 초대할 수 있다.
+    // 🔴 수락된 행을 막으면 나갔던 사람을 다시 초대할 수 없다 — index 밖이어야 한다.
     expect(predicate).toContain('"accepted_at" is null');
-    /*
-      🔴 **취소된 행도 index 밖이다.** 이 조건이 빠지면 취소된 행이 index 안에 남아
-      **자기가 재초대를 막는다** — 「새어 나간 링크를 죽인다」가 「이 주소를 영구 차단한다」가
-      되어 버린다. 실제로 막히는지는 통합시험이 본다.
-    */
+    // 🔴 취소된 행도 마찬가지다. 취소가 「영영 초대 못 함」이 되어서는 안 된다.
     expect(predicate).toContain('"revoked_at" is null');
-    // 🔴 시간이 흐르면 저절로 뜻이 바뀌는 조건은 제약이 아니다(predicate 는 IMMUTABLE 이어야 한다).
-    expect(predicate).not.toContain("expires_at");
   });
 
   /**
@@ -266,42 +285,30 @@ describe("createInvitation", () => {
    * 통째로 터진다 — 실제로 그렇게 터지는 것을 보고 이 모양으로 바꿨다.
    */
   it("🔴 INSERT 에 «대상 없는» on conflict do nothing 이 붙는다", async () => {
-    const seen: { called: boolean; args: unknown[] } = { called: false, args: [] };
-    const executor = {
-      select: () => ({
-        from: () => ({
-          innerJoin: () => ({ where: () => ({ limit: () => Promise.resolve([]) }) }),
-        }),
-      }),
-      insert: () => ({
-        values: () => ({
-          onConflictDoNothing: (...args: unknown[]) => {
-            seen.called = true;
-            seen.args = args;
-            return { returning: () => Promise.resolve([{ id: INVITATION }]) };
-          },
-        }),
-      }),
-    } as unknown as DbExecutor;
-
-    await createInvitation(
-      { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
-      executor,
-    );
-
-    expect(seen.called).toBe(true);
-    expect(seen.args.filter((arg) => arg !== undefined)).toEqual([]);
-  });
-
-  it("Database 가 받아 주면 그것으로 끝이다 — 회전 UPDATE 를 부르지 않는다", async () => {
-    const fake = fakeExecutor([selects([]), inserts([{ id: INVITATION }])]);
+    const fake = fakeExecutor([executes([{ id: INVITATION }])]);
 
     await createInvitation(
       { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
       fake.executor,
     );
 
-    expect(fake.calls.map((call) => call.kind)).toEqual(["select", "insert"]);
+    const sent = statement(fake.calls[0]).sql;
+    expect(sent).toContain("on conflict do nothing");
+    // 중재할 index 를 지목하지 않는다 — 그 index 가 없는 Database 에서 문장이 터진다.
+    expect(sent).not.toContain("on conflict (");
+    expect(sent).not.toContain("on conflict on constraint");
+  });
+
+  it("Database 가 받아 주면 그것으로 끝이다 — 회전 UPDATE 를 부르지 않는다", async () => {
+    const fake = fakeExecutor([executes([{ id: INVITATION }])]);
+
+    await createInvitation(
+      { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
+      fake.executor,
+    );
+
+    // 🔴 흔한 경로는 Database 왕복 «한 번»이다 — 미리 조회하지 않는다.
+    expect(fake.calls.map((call) => call.kind)).toEqual(["execute"]);
   });
 
   /**
@@ -312,7 +319,7 @@ describe("createInvitation", () => {
    * 그린다.** 받은 사람은 영영 수락하지 못한다.
    */
   it("🔴 살아 있는 초대가 이미 있으면 CONFLICT 다 — 저장되지 않은 Token 을 내주지 않는다", async () => {
-    const fake = fakeExecutor([selects([]), inserts([]), updates([])]);
+    const fake = fakeExecutor([executes([]), updates([]), selects([])]);
 
     const error = await rejection(
       createInvitation(
@@ -338,16 +345,7 @@ describe("createInvitation", () => {
   it("🔴 회전은 «만료된 그 Workspace 의 그 주소» 하나로 한정된다", async () => {
     const captured: { where?: SQL } = {};
     const executor = {
-      select: () => ({
-        from: () => ({
-          innerJoin: () => ({ where: () => ({ limit: () => Promise.resolve([]) }) }),
-        }),
-      }),
-      insert: () => ({
-        values: () => ({
-          onConflictDoNothing: () => ({ returning: () => Promise.resolve([]) }),
-        }),
-      }),
+      execute: () => Promise.resolve({ rows: [] }),
       update: () => ({
         set: () => ({
           where: (condition: SQL) => {
@@ -382,18 +380,14 @@ describe("createInvitation", () => {
 
   /** 회전 경로도 Hash 만 남긴다 — INSERT 쪽만 보면 이 자리가 비어도 초록이었다. */
   it("🔴 회전시킬 때도 원문 Token 을 저장하지 않는다", async () => {
-    const fake = fakeExecutor([
-      selects([]),
-      inserts([]),
-      updates([{ id: INVITATION }]),
-    ]);
+    const fake = fakeExecutor([executes([]), updates([{ id: INVITATION }])]);
 
     const invitation = await createInvitation(
       { workspaceId: WORKSPACE, email: "guest@example.test", invitedBy: OWNER },
       fake.executor,
     );
 
-    const rotated = fake.calls[2]?.values ?? {};
+    const rotated = fake.calls[1]?.values ?? {};
     expect(rotated.tokenHash).toBe(hashInvitationToken(invitation.token));
     expect(JSON.stringify(rotated)).not.toContain(invitation.token);
     // 회전한 행은 방금 발행된 초대다 — 기한이 되살아나야 만료 상태로 남지 않는다.
@@ -409,7 +403,7 @@ describe("createInvitation", () => {
     const driverError = Object.assign(new Error("connection terminated"), {
       code: "08006",
     });
-    const fake = fakeExecutor([selects([]), failsWith("insert", driverError)]);
+    const fake = fakeExecutor([failsWith("execute", driverError)]);
 
     const error = await rejection(
       createInvitation(
@@ -424,17 +418,35 @@ describe("createInvitation", () => {
 });
 
 describe("acceptInvitation", () => {
+  /**
+   * Database 를 부르는 순서.
+   *
+   * ```
+   * 1 select   초대 -> 어느 Workspace 인가        (잠글 대상을 알기 위한 것)
+   * 2 select   그 Workspace 행을 FOR UPDATE 로 잠근다
+   * 3 update   초대를 조건부로 소진한다           (자격 판정은 여기서 한다)
+   * 4 insert   소속 한 줄
+   * ```
+   *
+   * 🔴 **2 가 3 보다 «먼저»여야 한다.** 계정 삭제는 「이 Workspace 에 나 말고 아무도
+   * 없다」를 소속 행 잠금으로 확인한 뒤 Workspace 를 통째로 지우는데, 그 잠금은
+   * **그 뒤에 INSERT 되는 소속을 잡지 못한다** — 여기서 같은 Workspace 행을 먼저 잠가야
+   * 두 경로가 줄을 선다. 순서를 뒤집으면 초대 행을 쥔 채 Workspace 를 기다리게 되어
+   * 삭제 쪽의 CASCADE 와 **deadlock** 이 된다.
+   */
+  const claimed = (role: "MEMBER" | "OWNER", expiresAt: Date) =>
+    updates([
+      { workspaceId: WORKSPACE, email: "guest@example.test", role, expiresAt },
+    ]);
+
+  const found = () => selects([{ workspaceId: WORKSPACE }]);
+  const lockedWorkspace = () => selects([{ slug: "acme" }]);
+
   it("기존 소속은 건드리지 않고 MEMBER 행 하나만 더한다", async () => {
     const fake = fakeExecutor([
-      updates([
-        {
-          workspaceId: WORKSPACE,
-          email: "guest@example.test",
-          role: "MEMBER",
-          expiresAt: future(),
-        },
-      ]),
-      selects([{ slug: "acme" }]),
+      found(),
+      lockedWorkspace(),
+      claimed("MEMBER", future()),
       inserts([]),
     ]);
 
@@ -446,12 +458,76 @@ describe("acceptInvitation", () => {
     expect(slug).toBe("acme");
     // 더해진 것은 초대받은 Workspace 의 소속 하나뿐이다.
     expect(fake.calls.map((call) => call.kind)).toEqual([
-      "update",
       "select",
+      "select",
+      "update",
       "insert",
     ]);
-    expect(fake.calls[2]?.values?.userId).toBe(GUEST);
-    expect(fake.calls[2]?.values?.workspaceId).toBe(WORKSPACE);
+    expect(fake.calls[3]?.values?.userId).toBe(GUEST);
+    expect(fake.calls[3]?.values?.workspaceId).toBe(WORKSPACE);
+  });
+
+  /**
+   * 🔴 **Workspace 를 잠그는 조회가 초대를 잡는 UPDATE «앞»에 있다.**
+   *
+   * 이 순서가 뒤집히거나 잠금이 사라지면, 계정 삭제가 「나 혼자다」를 확인한 뒤 지우는
+   * 사이에 들어온 이 소속이 **Workspace 와 함께 CASCADE 로 사라진다.**
+   * 실제로 잠기는가는 `invitation-invariant.integration.test.ts` 가 `pg_locks` 로 본다.
+   */
+  it("🔴 Workspace 를 «먼저» 잠근 뒤에 초대를 소진한다", async () => {
+    const order: string[] = [];
+    const executor = {
+      select: () => ({
+        from: () => ({
+          where: (condition: SQL) => {
+            const rendered = new PgDialect().sqlToQuery(condition).sql;
+            const chain = {
+              limit: () => {
+                order.push("find-invitation");
+                return Promise.resolve([{ workspaceId: WORKSPACE }]);
+              },
+              for: (strength: string) => {
+                order.push(`lock-workspace:${strength}`);
+                expect(rendered).toContain('"workspaces"."id"');
+                return Promise.resolve([{ slug: "acme" }]);
+              },
+            };
+            return chain;
+          },
+        }),
+      }),
+      update: () => ({
+        set: () => ({
+          where: () => {
+            order.push("claim-invitation");
+            return {
+              returning: () =>
+                Promise.resolve([
+                  {
+                    workspaceId: WORKSPACE,
+                    email: "guest@example.test",
+                    role: "MEMBER",
+                    expiresAt: future(),
+                  },
+                ]),
+            };
+          },
+        }),
+      }),
+      insert: () => ({
+        values: () => ({ onConflictDoNothing: () => Promise.resolve([]) }),
+      }),
+      transaction: <T>(run: (tx: DbExecutor) => Promise<T>): Promise<T> =>
+        run(executor as unknown as DbExecutor),
+    } as unknown as DbExecutor;
+
+    await acceptInvitation({ token: "A".repeat(43), userId: GUEST }, executor);
+
+    expect(order).toEqual([
+      "find-invitation",
+      "lock-workspace:update",
+      "claim-invitation",
+    ]);
   });
 
   /**
@@ -460,21 +536,15 @@ describe("acceptInvitation", () => {
    */
   it("🔴 역할은 초대에 적힌 값에서 온다 — 수락하는 쪽이 고르지 못한다", async () => {
     const fake = fakeExecutor([
-      updates([
-        {
-          workspaceId: WORKSPACE,
-          email: "guest@example.test",
-          role: "OWNER",
-          expiresAt: future(),
-        },
-      ]),
-      selects([{ slug: "acme" }]),
+      found(),
+      lockedWorkspace(),
+      claimed("OWNER", future()),
       inserts([]),
     ]);
 
     await acceptInvitation({ token: "A".repeat(43), userId: GUEST }, fake.executor);
 
-    expect(fake.calls[2]?.values?.role).toBe("OWNER");
+    expect(fake.calls[3]?.values?.role).toBe("OWNER");
   });
 
   /**
@@ -483,31 +553,14 @@ describe("acceptInvitation", () => {
    */
   it("🔴 없는 초대·이미 수락된 초대·만료된 초대가 «구분되지 않는다»", async () => {
     const cases = [
-      // 없거나 이미 수락돼 UPDATE 가 아무 행도 잡지 못했다.
-      fakeExecutor([updates([])]),
+      // 그런 Token 의 초대 자체가 없다.
+      fakeExecutor([selects([])]),
+      // 🔴 Workspace 가 이미 사라졌다 — 계정 삭제가 먼저 끝난 경우다.
+      fakeExecutor([found(), selects([])]),
+      // 있지만 이미 수락됐거나 취소돼 UPDATE 가 아무 행도 잡지 못했다.
+      fakeExecutor([found(), lockedWorkspace(), updates([])]),
       // 잡았지만 만료됐다.
-      fakeExecutor([
-        updates([
-          {
-            workspaceId: WORKSPACE,
-            email: "guest@example.test",
-            role: "MEMBER",
-            expiresAt: past(),
-          },
-        ]),
-      ]),
-      // 잡았지만 Workspace 가 사라졌다.
-      fakeExecutor([
-        updates([
-          {
-            workspaceId: WORKSPACE,
-            email: "guest@example.test",
-            role: "MEMBER",
-            expiresAt: future(),
-          },
-        ]),
-        selects([]),
-      ]),
+      fakeExecutor([found(), lockedWorkspace(), claimed("MEMBER", past())]),
     ];
 
     const shown: string[] = [];
@@ -528,21 +581,20 @@ describe("acceptInvitation", () => {
    */
   it("🔴 만료된 초대는 소속을 더하지 않는다", async () => {
     const fake = fakeExecutor([
-      updates([
-        {
-          workspaceId: WORKSPACE,
-          email: "guest@example.test",
-          role: "MEMBER",
-          expiresAt: past(),
-        },
-      ]),
+      found(),
+      lockedWorkspace(),
+      claimed("MEMBER", past()),
     ]);
 
     await rejection(
       acceptInvitation({ token: "A".repeat(43), userId: GUEST }, fake.executor),
     );
 
-    expect(fake.calls.map((call) => call.kind)).toEqual(["update"]);
+    expect(fake.calls.map((call) => call.kind)).toEqual([
+      "select",
+      "select",
+      "update",
+    ]);
   });
 
   /**
@@ -557,6 +609,14 @@ describe("acceptInvitation", () => {
   it("🔴 초대를 잡는 UPDATE 에 «취소되지 않았을 것» 조건이 붙는다", async () => {
     const captured: { where?: SQL } = {};
     const executor = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: () => Promise.resolve([{ workspaceId: WORKSPACE }]),
+            for: () => Promise.resolve([{ slug: "acme" }]),
+          }),
+        }),
+      }),
       update: () => ({
         set: () => ({
           where: (condition: SQL) => {
