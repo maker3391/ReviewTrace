@@ -103,7 +103,8 @@ const MAX_SLUG_ATTEMPTS = 5;
 /**
  * 이 사람이 속한 Workspace 의 사실을 모은다.
  *
- * `lock` 이면 소속 행을 `FOR UPDATE` 로 잠근다 — 실제로 지울 때만 쓴다.
+ * `lock` 이면 **Workspace 행과 소속 행을 그 순서로** `FOR UPDATE` 로 잠그고, 판정에 쓰는
+ * 사실을 **전부 잠근 뒤의 값**으로 읽는다 — 실제로 지울 때만 쓴다.
  *
  * 🔴 **집계와 `FOR UPDATE` 를 함께 쓰지 못한다.** PostgreSQL 이 `FOR UPDATE is not
  * allowed with aggregate functions` 로 거절한다(`changeMemberRole` 에서 실제로 겪었다).
@@ -138,6 +139,45 @@ async function readMembershipFacts(
 
   if (lock) {
     /**
+     * 🔴 **소속 행을 잠그기 «전에» Workspace 행을 잠근다.**
+     *
+     * `FOR UPDATE` 는 **잠글 때 이미 존재하는 행만** 잡는다. 소속 행만 잠그면 그 뒤에
+     * INSERT 되는 소속(초대 수락)은 아무 잠금에도 걸리지 않는데, Workspace 를 지우면
+     * CASCADE 가 **방금 들어온 사람의 소속과 그 Workspace 의 Knowledge 를 통째로**
+     * 지운다 — 「나 혼자였다」는 판단이 이미 낡은 것이 된 뒤다.
+     *
+     * 그래서 두 경로가 **같은 Workspace 행 하나**를 두고 줄을 서게 만든다.
+     *
+     * ```
+     * 삭제  workspaces(잠금) -> 소속 읽기 -> 판단 -> DELETE
+     * 수락  workspaces(잠금) -> 초대 소진 -> 소속 INSERT     (invitation-service.ts)
+     * ```
+     *
+     * 수락이 먼저면 삭제는 여기서 기다렸다가 **새 멤버가 보이는 상태**로 센다.
+     * 삭제가 먼저면 수락은 잠금이 풀린 뒤 **사라진 Workspace** 를 보고 거절된다.
+     *
+     * 🔴 **이 보증은 「소속을 만드는 모든 경로가 이 잠금을 지나간다」에 달려 있다.**
+     * 지금 그 경로는 셋뿐이고 나머지 둘(`createWorkspace`·`ensurePersonalWorkspace`)은
+     * **자기가 방금 만든 Workspace** 에 넣으므로 남이 지울 대상이 아니다. 🔴 기존
+     * Workspace 에 소속을 넣는 경로를 새로 만들면 **여기도 함께 고쳐야 한다.**
+     *
+     * 🔴 **잠그는 순서를 `id` 로 고정한다.** 두 삭제가 같은 Workspace 집합을 서로 다른
+     * 순서로 잡으면 서로를 기다리다 deadlock 이 난다.
+     */
+    const live = await executor
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(inArray(workspaces.id, workspaceIds))
+      .orderBy(workspaces.id)
+      .for("update");
+
+    // 잠그는 사이에 사라진 Workspace 는 더 이상 판단 대상이 아니다.
+    const liveIds = live.map((row) => row.id);
+    if (liveIds.length === 0) {
+      return [];
+    }
+
+    /**
      * 🔴 **다른 사람이 같은 순간 역할을 바꾸거나 자기 계정을 지우는 것을 막는다.**
      * 두 OWNER 가 동시에 탈퇴하면 각자 「상대가 아직 OWNER 다」를 보고 둘 다 통과해
      * OWNER 가 0명이 된다. 같은 행을 잠그므로 뒤에 온 쪽이 기다렸다가 다시 본다.
@@ -149,7 +189,7 @@ async function readMembershipFacts(
         role: workspaceMembers.role,
       })
       .from(workspaceMembers)
-      .where(inArray(workspaceMembers.workspaceId, workspaceIds))
+      .where(inArray(workspaceMembers.workspaceId, liveIds))
       .for("update");
 
     for (const row of locked) {
@@ -165,26 +205,43 @@ async function readMembershipFacts(
     }
 
     /**
-     * 🔴 잠근 뒤에 **내 소속을 다시 확인한다.** 목록을 읽고 잠그는 사이에 누가 나를
-     * 내보냈다면 그 Workspace 는 더 이상 내 것이 아니다 — 그것을 지우면 안 된다.
+     * 🔴 잠근 뒤에 **내 소속과 «내 역할»을 다시 읽는다.** 목록을 읽고 잠그는 사이에 누가
+     * 나를 내보냈다면 그 Workspace 는 더 이상 내 것이 아니고, **나를 OWNER 로 올렸다면
+     * 나는 이제 OWNER 다.**
+     *
+     * 🔴 **낡은 역할과 갓 센 OWNER 수를 섞으면 판정이 거짓이 된다.** A=MEMBER·B=OWNER 로
+     * 시작해 A 의 삭제가 첫 조회 «직후» 멈추고, 그 사이 B 가 A 를 OWNER 로 올린 뒤 자신을
+     * MEMBER 로 내리면 — 다시 셌을 때 `otherOwners = 0` 인데 역할은 옛 `MEMBER` 라
+     * `BLOCKED` 를 비껴가고, **OWNER 가 0명인 Workspace** 가 남는다.
+     * 두 값은 반드시 **같은 시점**(잠근 뒤)의 것이어야 한다.
+     *
+     * 🔴 `lock=false` 인 미리보기는 이 경로를 타지 않는다 — 그것은 화면에 보여 주는
+     * 추정치일 뿐 권한의 근거가 아니다(`findAccountDeletionImpact`).
      */
-    const stillMine = new Set(
+    const stillMine = new Map(
       locked
         .filter((row) => row.userId === userId)
-        .map((row) => row.workspaceId),
+        .map((row) => [row.workspaceId, row.role] as const),
     );
 
-    return mine
-      .filter((row) => stillMine.has(row.workspaceId))
-      .map((row) => ({
-        workspaceId: row.workspaceId,
-        slug: row.slug,
-        name: row.name,
-        isPersonal: row.personalOwnerId === userId,
-        role: row.role,
-        otherMembers: counts.get(row.workspaceId)?.members ?? 0,
-        otherOwners: counts.get(row.workspaceId)?.owners ?? 0,
-      }));
+    return mine.flatMap((row) => {
+      const role = stillMine.get(row.workspaceId);
+      if (role === undefined) {
+        return [];
+      }
+
+      return [
+        {
+          workspaceId: row.workspaceId,
+          slug: row.slug,
+          name: row.name,
+          isPersonal: row.personalOwnerId === userId,
+          role,
+          otherMembers: counts.get(row.workspaceId)?.members ?? 0,
+          otherOwners: counts.get(row.workspaceId)?.owners ?? 0,
+        },
+      ];
+    });
   }
 
   const grouped = await executor
