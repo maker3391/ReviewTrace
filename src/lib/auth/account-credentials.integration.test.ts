@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { beforeAll, describe, expect, it } from "vitest";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import type { Adapter, AdapterAccount } from "next-auth/adapters";
 
@@ -232,6 +235,139 @@ describe.skipIf(!enabled)("GitHub OAuth Credential 저장 정책", () => {
       expect(row?.access_token).toBeNull();
       expect(row?.refresh_token).toBeNull();
       expect(row?.id_token).toBeNull();
+    });
+  });
+});
+
+/**
+ * 🔴 **코드 수정만으로는 «이미 저장된» Credential 이 사라지지 않는다.**
+ *
+ * `withoutStoredCredentials` 는 앞으로의 `linkAccount` 입력에만 걸린다. 재로그인은 OAuth
+ * 계정 행이 이미 있으면 `linkAccount` 를 다시 부르지 않으므로(위 시험이 그 경로를 본다),
+ * 그 코드가 나가기 «전»에 로그인한 사람의 평문 Token 은 표에 **영원히 남는다.**
+ * 안 가지고 있는 것은 샐 수 없다 — 남아 있는 것을 지우는 것이 Migration 의 몫이다.
+ *
+ * # 🔴 Migration SQL 을 시험에 옮겨 적지 않는다
+ *
+ * 옮겨 적으면 **시험은 자기가 적은 문장을 확인할 뿐**이고, 정작 적용될 파일이 잘못돼 있어도
+ * 초록이다. 파일에서 읽어 그대로 실행한다.
+ */
+describe.skipIf(!enabled)("이미 저장된 OAuth Credential 정리 Migration", () => {
+  const MIGRATION = "0008_strip_stored_oauth_credentials.sql";
+
+  function migrationSql(): string {
+    return readFileSync(
+      join(process.cwd(), "src/db/migrations", MIGRATION),
+      "utf8",
+    );
+  }
+
+  it("🔴 남아 있던 access_token·refresh_token 을 비운다", async () => {
+    await inRollback(async (tx) => {
+      const userId = await createUser(tx);
+      const providerAccountId = unique("gh");
+
+      // 🔴 걷어내는 Adapter 를 «지나지 않고» 넣는다 — 옛 코드가 남긴 행의 재현이다.
+      await tx.insert(accounts).values({
+        userId,
+        type: "oauth",
+        provider: "github",
+        providerAccountId,
+        access_token: "gho_legacy_access_value",
+        refresh_token: "ghr_legacy_refresh_value",
+        expires_at: 1_900_000_000,
+        token_type: "bearer",
+        scope: "read:user,user:email",
+      });
+
+      const before = await findAccount(tx, providerAccountId);
+      expect(before?.access_token).toBe("gho_legacy_access_value");
+      expect(before?.refresh_token).toBe("ghr_legacy_refresh_value");
+
+      await tx.execute(sql.raw(migrationSql()));
+
+      const after = await findAccount(tx, providerAccountId);
+      expect(after?.access_token).toBeNull();
+      expect(after?.refresh_token).toBeNull();
+    });
+  });
+
+  /**
+   * 🔴 **신원 칸을 건드리면 재로그인이 사용자를 찾지 못한다**(`getUserByAccount`).
+   * 이력 칸(`scope`·`token_type`·`expires_at`)은 Credential 이 아니므로 그대로 둔다.
+   */
+  it("🔴 신원 칸과 이력 칸은 그대로 남는다 — 행도 지우지 않는다", async () => {
+    await inRollback(async (tx) => {
+      const userId = await createUser(tx);
+      const providerAccountId = unique("gh");
+
+      await tx.insert(accounts).values({
+        userId,
+        type: "oauth",
+        provider: "github",
+        providerAccountId,
+        access_token: "gho_legacy_access_value",
+        expires_at: 1_900_000_000,
+        token_type: "bearer",
+        scope: "read:user,user:email",
+      });
+
+      await tx.execute(sql.raw(migrationSql()));
+
+      const row = await findAccount(tx, providerAccountId);
+      expect(row).toBeDefined();
+      expect(row?.provider).toBe("github");
+      expect(row?.providerAccountId).toBe(providerAccountId);
+      expect(row?.userId).toBe(userId);
+      expect(row?.type).toBe("oauth");
+      expect(row?.scope).toBe("read:user,user:email");
+      expect(row?.token_type).toBe("bearer");
+      expect(row?.expires_at).toBe(1_900_000_000);
+
+      // 재로그인 경로가 여전히 이 사용자를 찾는다.
+      const found = await adapterOn(tx).getUserByAccount?.({
+        provider: "github",
+        providerAccountId,
+      });
+      expect(found?.id).toBe(userId);
+    });
+  });
+
+  /**
+   * 🔴 **provider 를 좁히지 않는다.** 걷어내는 코드(`CREDENTIAL_FIELDS`)가 provider 를 보지
+   * 않고 모든 `linkAccount` 에 걸리므로, Migration 만 GitHub 으로 좁히면 두 자리의 범위가
+   * 갈린다 — 다른 provider 가 붙는 순간 그쪽 Credential 만 조용히 남는다.
+   */
+  it("🔴 GitHub 이 아닌 provider 의 Credential 도 함께 비운다", async () => {
+    await inRollback(async (tx) => {
+      const userId = await createUser(tx);
+      const providerAccountId = unique("other");
+
+      await tx.insert(accounts).values({
+        userId,
+        type: "oauth",
+        provider: "some-other-provider",
+        providerAccountId,
+        access_token: "other_access_value",
+        refresh_token: "other_refresh_value",
+      });
+
+      await tx.execute(sql.raw(migrationSql()));
+
+      const rows = await tx
+        .select()
+        .from(accounts)
+        .where(
+          and(
+            eq(accounts.provider, "some-other-provider"),
+            eq(accounts.providerAccountId, providerAccountId),
+          ),
+        );
+
+      expect(rows[0]?.access_token).toBeNull();
+      expect(rows[0]?.refresh_token).toBeNull();
+      // 신원은 그대로다.
+      expect(rows[0]?.provider).toBe("some-other-provider");
     });
   });
 });

@@ -57,6 +57,13 @@
       "when": 1787978690402,
       "tag": "0007_invitation_revoke",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787979290402,
+      "tag": "0008_strip_stored_oauth_credentials",
+      "breakpoints": true
     }
   ]
 }
