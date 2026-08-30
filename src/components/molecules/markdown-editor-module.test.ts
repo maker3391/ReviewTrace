@@ -11,7 +11,17 @@ import { describe, expect, it } from "vitest";
  * (vitest 의 환경은 `node` 다 — `document` 가 아예 없다.)
  */
 describe("MarkdownEditor 모듈", () => {
-  it("DOM 이 없는 곳에서도 불러올 수 있다", async () => {
+  /**
+   * 🔴 **timeout 을 이 시험에만 늘린 이유** — 여기서 재는 것은 «속도»가 아니라 «DOM 없이 열리는가»다.
+   *
+   * 이 한 줄의 `import` 가 CodeMirror 여섯 패키지와 그 의존을 처음으로 컴파일한다. 혼자 돌면
+   * 2초 안팎이지만 다른 시험·dev 서버·build 와 CPU 를 나눠 쓰면 7초를 넘는다 — 실제로 그렇게
+   * 여러 번 빨개졌고, 그때마다 «제품이 아니라 그날의 부하»가 원인이었다.
+   *
+   * 🔴 **전역 `testTimeout` 을 올리지 않았다.** 그러면 진짜로 느려진 다른 시험까지 함께 가려진다.
+   * 늦는 이유가 분명한 이 한 건에만 여유를 준다.
+   */
+  it("DOM 이 없는 곳에서도 불러올 수 있다", { timeout: 30_000 }, async () => {
     expect(globalThis.document).toBeUndefined();
 
     const loaded = await import("@/components/molecules/MarkdownEditor");
