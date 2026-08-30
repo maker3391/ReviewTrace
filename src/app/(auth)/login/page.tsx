@@ -158,18 +158,42 @@ export default async function LoginPage(props: PageProps<"/login">) {
         </div>
       </div>
 
-      <footer className="mt-14 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-border/60 pt-6 text-xs text-muted-foreground lg:justify-start">
+      {/*
+        🔴 **Footer 는 이 페이지에서 «가장 낮은» 층이다.** divider 한 줄과 muted 글자뿐이고
+        메뉴도 설명도 두지 않는다 — 여기가 무거워지면 CTA 아래에 두 번째 화면이 생긴다.
+
+        ## 🔴 `All rights reserved.` 를 지웠다
+
+        이 저장소는 **Apache-2.0** 이다(루트 `LICENSE` · `package.json` 의 `license` ·
+        GitHub 이 인식한 값 셋이 일치한다). 「모든 권리를 유보한다」는 그 라이선스와
+        **반대로 읽히는 문구**라, 오픈소스 저장소의 푸터에 남겨 둘 이유가 없다.
+        대신 **실제 `LICENSE` 파일로 가는 링크**를 둔다 — 문구가 아니라 파일이 정본이다.
+
+        🔴 **License 링크는 `/blob/HEAD/LICENSE` 다.** 기본 브랜치 이름(`develop`)을 URL 에
+        박으면 나중에 기본 브랜치가 바뀌는 순간 404 가 된다. `HEAD` 는 GitHub 이 그때의
+        기본 브랜치로 풀어 준다.
+      */}
+      <footer className="mt-14 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 border-t border-border/60 pt-6 text-xs text-muted-foreground lg:justify-start">
         <span>
-          © {new Date().getFullYear()} {APP_CONFIG.name}. {t.rights}
+          © {new Date().getFullYear()} {APP_CONFIG.name}
         </span>
         <span aria-hidden="true">·</span>
         <a
           href="https://github.com/maker3391/ReviewTrace"
           target="_blank"
           rel="noreferrer noopener"
-          className="underline-offset-4 hover:text-foreground hover:underline"
+          className="rounded-sm underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           GitHub
+        </a>
+        <span aria-hidden="true">·</span>
+        <a
+          href="https://github.com/maker3391/ReviewTrace/blob/HEAD/LICENSE"
+          target="_blank"
+          rel="noreferrer noopener"
+          className="rounded-sm underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          {t.license}
         </a>
       </footer>
     </div>

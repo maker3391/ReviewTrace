@@ -147,13 +147,13 @@ export const en: Messages = {
       },
     ],
 
-    agentSupport: "Works with your coding agents",
+    agentSupport: "Coding agent integration",
 
     showcaseIssue: "State changes executed outside the transaction",
     showcaseDecision:
       "Resolution and Activity are committed in the same transaction, preventing partially persisted state.",
 
-    rights: "All rights reserved.",
+    license: "License",
     docs: "Docs",
   },
 

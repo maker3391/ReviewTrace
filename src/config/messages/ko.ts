@@ -230,8 +230,12 @@ export const ko = {
      * 🔴 **짧게 유지한다.** 이 띠는 왼쪽에 label, 오른쪽에 Agent 이름을 두는 한 줄이라
      * label 이 길어지면 1440 에서 두 줄로 접혀 오른쪽 카드의 머리 띠와 결이 갈린다 —
      * 실제로 「…와 그대로 연결됩니다」로 적었을 때 접혔다.
+     *
+     * 🔴 **「연결」이 아니라 「연동」이다.** 「사용하는 Coding Agent와 연결」은 ReviewTrace 가
+     * Agent 에 «접속»하거나 연결을 «수행»한다는 뜻으로 읽힌다 — 실제로는 사용자가 자기
+     * Agent 에 MCP Server 를 등록하는 것이고, 우리가 하는 일은 그것을 받아 주는 것까지다.
      */
-    agentSupport: "사용하는 Coding Agent와 연결",
+    agentSupport: "Coding Agent 연동",
 
     /**
      * 오른쪽 미리보기(`LoginShowcase`) 안에서 **문장인 것 둘**.
@@ -256,8 +260,16 @@ export const ko = {
      * 채우려고 slogan·계정 안내·OAuth 설명을 다시 넣지 않는다(CLAUDE.md 16).
      */
 
-    /** 푸터. */
-    rights: "All rights reserved.",
+    /**
+     * 푸터. `© 2026 ReviewTrace · GitHub · License` 셋뿐이다.
+     *
+     * 🔴 **`All rights reserved.` 를 적지 않는다.** 이 저장소는 Apache-2.0 이라
+     * 「모든 권리를 유보한다」는 문구가 실제 라이선스와 반대로 읽힌다 — 링크가
+     * 가리키는 `LICENSE` 파일이 정본이고, 푸터는 그 자리를 알려 주기만 한다.
+     *
+     * 🔴 **`GitHub` 은 옮기지 않는다**(이 파일 머리말 — 고유명사).
+     */
+    license: "라이선스",
     docs: "Docs",
   },
 
