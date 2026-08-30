@@ -15,10 +15,10 @@ import { PageContainer } from "@/components/molecules/PageContainer";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { TablePagination } from "@/components/organisms/TablePagination";
 import {
+  describeTarget,
   REVIEW_COL,
   REVIEW_TABLE,
 } from "@/features/reviews/components/review-table-columns";
-import type { ReviewListItem } from "@/features/reviews/server/review-query";
 import { findProjectReviewPage } from "@/features/reviews/server/review-query";
 import type { ProjectContext } from "@/features/projects/types/project";
 import { formatDate } from "@/lib/format/date";
@@ -176,50 +176,4 @@ export async function ReviewListScreen({
       </Section>
     </PageContainer>
   );
-}
-
-/**
- * 「무엇을 봤는가」 한 칸.
- *
- * 🔴 **`targetType` 에 없는 값을 지어내지 않는다.** 값은 `PULL_REQUEST`·`COMMIT`·`BRANCH`·
- * `REPOSITORY`·`MANUAL` 다섯뿐이고(`types/review.ts`), `branch`·`commitSha` 는 **둘 다
- * Nullable** 이다(`db/schema/review.ts`). 그래서 종류만으로 무엇을 그릴지 정하지 않고
- * **실제로 있는 값 중 가장 구체적인 것**을 앞줄에 세운다.
- *
- * ```
- * branch 있음          feature/auth-…      Commit · a81f3c2
- * branch 없음·SHA 있음  a81f3c2             Commit
- * 둘 다 없음            —                   Manual
- * ```
- *
- * 종류는 언제나 아랫줄에 남으므로 **행 높이가 데이터에 따라 들쭉날쭉해지지 않는다.**
- *
- * 🔴 **목록에는 짧은 SHA 만 쓴다.** 40자는 끊을 자리가 없어 어떤 폭에서도 칸을 밀어낸다 —
- * 전체 값은 Review 상세에 있다(`ReviewDetailScreen`).
- */
-function describeTarget(
-  review: Pick<ReviewListItem, "branch" | "commitSha">,
-  typeLabel: string,
-): { primary: string; secondary: string; full: string | undefined } {
-  const shortSha =
-    review.commitSha === null ? null : review.commitSha.slice(0, 7);
-
-  if (review.branch !== null) {
-    return {
-      primary: review.branch,
-      secondary: shortSha === null ? typeLabel : `${typeLabel} · ${shortSha}`,
-      full: review.branch,
-    };
-  }
-
-  if (shortSha !== null) {
-    return {
-      primary: shortSha,
-      secondary: typeLabel,
-      // 상세로 가기 전에도 전체 SHA 를 확인할 수 있게 한다.
-      full: review.commitSha ?? undefined,
-    };
-  }
-
-  return { primary: "—", secondary: typeLabel, full: undefined };
 }

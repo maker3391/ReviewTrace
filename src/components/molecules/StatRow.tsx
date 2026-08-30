@@ -23,6 +23,15 @@ export interface Stat {
   label: string;
   /** 🔴 값이 없는 것과 0 은 다르다. 없으면 `—` 다 — 0 으로 그리면 거짓말이 된다. */
   value: number | string | null;
+  /**
+   * 값에 붙는 단위(`%` 등).
+   *
+   * 🔴 **단위를 값 문자열에 이어 붙이지 마라.** `` `${rate}%` `` 로 만들면 값이 `string` 이
+   * 되어 아래 규칙에 걸려 **한 단계 작게** 그려진다 — 비교해야 할 지표가 KPI 줄에서 가장
+   * 작아진다(Project Overview 의 「해결률」이 실제로 그랬다). 숫자는 숫자로 넘기고 단위는
+   * 여기로 넘긴다. 값이 없을 때(`—`)는 단위도 그리지 않는다.
+   */
+  unit?: string;
   /** 관찰 구간 등. 없으면 적지 않는다. */
   hint?: string;
   /** 의미가 있을 때만. 장식으로 넣지 않는다. */
@@ -67,7 +76,18 @@ export function StatRow({ stats }: { stats: readonly Stat[] }) {
               {stat.value === null ? (
                 <span className="text-muted-foreground/60">—</span>
               ) : (
-                stat.value
+                <>
+                  {stat.value}
+                  {/*
+                    단위는 값의 일부가 아니라 값을 «읽는 법»이다 — 한 단계 작고 흐리게
+                    두어 숫자가 먼저 읽히게 한다.
+                  */}
+                  {stat.unit !== undefined && (
+                    <span className="ml-0.5 text-base font-medium text-muted-foreground">
+                      {stat.unit}
+                    </span>
+                  )}
+                </>
               )}
             </dd>
             {stat.hint !== undefined && (

@@ -25,6 +25,7 @@ export function Section({
   action,
   actions,
   variant = "plain",
+  emphasis = false,
   bleed = false,
   children,
 }: {
@@ -34,6 +35,17 @@ export function Section({
   /** 버튼처럼 링크가 아닌 것. `action` 과 함께 쓰지 않는다. */
   actions?: ReactNode;
   variant?: "plain" | "raised";
+  /**
+   * 이 화면에서 **먼저 봐야 하는** 영역.
+   *
+   * 🔴 **다른 디자인을 입히는 스위치가 아니다.** 테두리 · 그림자 · 제목 크기를 **각각 한
+   * 단계씩만** 올린다 — 색을 더하지 않고, 배경도 바꾸지 않는다. 여섯 카드가 전부 같은
+   * 무게라 스크롤할 때 무엇을 먼저 볼지가 드러나지 않던 자리를 위한 것이다
+   * (Project Overview 의 「미해결 이슈」).
+   *
+   * 🔴 **한 화면에 두 개 이상 쓰지 마라.** 전부 강조하면 아무것도 강조되지 않는다.
+   */
+  emphasis?: boolean;
   /**
    * 내용이 표(Table)처럼 **가장자리까지 차는** 경우.
    * 안쪽 여백을 지워 표의 첫 칸이 카드 모서리에 맞물리게 한다.
@@ -52,7 +64,12 @@ export function Section({
         )}
       >
         <div className="min-w-0">
-          <h2 className="text-[13px] font-semibold tracking-tight text-foreground">
+          <h2
+            className={cn(
+              "font-semibold tracking-tight text-foreground",
+              emphasis ? "text-sm" : "text-[13px]",
+            )}
+          >
             {title}
           </h2>
           {description !== undefined && (
@@ -73,7 +90,14 @@ export function Section({
 
   if (variant === "raised") {
     return (
-      <section className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-[0_1px_2px_0_oklch(0_0_0/0.04),0_1px_3px_0_oklch(0_0_0/0.03)]">
+      <section
+        className={cn(
+          "overflow-hidden rounded-xl bg-card",
+          emphasis
+            ? "border border-border shadow-[0_1px_2px_0_oklch(0_0_0/0.05),0_2px_6px_-1px_oklch(0_0_0/0.06)]"
+            : "border border-border/80 shadow-[0_1px_2px_0_oklch(0_0_0/0.04),0_1px_3px_0_oklch(0_0_0/0.03)]",
+        )}
+      >
         {header}
         <div className={cn(bleed ? "" : "px-5 py-4")}>{children}</div>
       </section>

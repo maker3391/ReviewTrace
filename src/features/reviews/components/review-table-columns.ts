@@ -102,3 +102,57 @@ export const REVIEW_COL = {
    */
   date: "w-[6.5rem] hidden text-right sm:table-cell md:hidden lg:table-cell",
 } as const;
+
+/**
+ * 「무엇을 봤는가」 한 칸.
+ *
+ * 🔴 **`targetType` 에 없는 값을 지어내지 않는다.** 값은 `PULL_REQUEST`·`COMMIT`·`BRANCH`·
+ * `REPOSITORY`·`MANUAL` 다섯뿐이고(`types/review.ts`), `branch`·`commitSha` 는 **둘 다
+ * Nullable** 이다(`db/schema/review.ts`). 그래서 종류만으로 무엇을 그릴지 정하지 않고
+ * **실제로 있는 값 중 가장 구체적인 것**을 앞줄에 세운다.
+ *
+ * ```
+ * branch 있음          feature/auth-…      Commit · a81f3c2
+ * branch 없음·SHA 있음  a81f3c2             Commit
+ * 둘 다 없음            —                   Manual
+ * ```
+ *
+ * 종류는 언제나 아랫줄에 남으므로 **행 높이가 데이터에 따라 들쭉날쭉해지지 않는다.**
+ *
+ * 🔴 **목록에는 짧은 SHA 만 쓴다.** 40자는 끊을 자리가 없어 어떤 폭에서도 칸을 밀어낸다 —
+ * 전체 값은 Review 상세에 있다(`ReviewDetailScreen`).
+ *
+ * 🔴 **Review 목록과 Project Overview 가 이 함수를 «함께» 쓴다.** 예전에는 Overview 가
+ * `TYPE · branch · sha` 를 한 줄로 이어 붙여 그렸는데, 그 문자열에는 끊을 자리가 없어
+ * 대상 칸이 **어느 폭에서나 770px** 로 굳었다 — 저장소 칸이 94px 로 뭉개지고 표가 1440
+ * 에서도 61px 가로로 넘쳤다. 같은 뜻의 칸을 두 곳에서 다르게 그리면 한쪽만 고쳐진다.
+ *
+ * 🔴 **`server-only` 모듈에서 타입을 끌어오지 않는다.** 필요한 것은 두 칸뿐이라 구조로
+ * 받는다 — 이 파일이 조회 계층에 묶이지 않는다.
+ */
+export function describeTarget(
+  review: { branch: string | null; commitSha: string | null },
+  typeLabel: string,
+): { primary: string; secondary: string; full: string | undefined } {
+  const shortSha =
+    review.commitSha === null ? null : review.commitSha.slice(0, 7);
+
+  if (review.branch !== null) {
+    return {
+      primary: review.branch,
+      secondary: shortSha === null ? typeLabel : `${typeLabel} · ${shortSha}`,
+      full: review.branch,
+    };
+  }
+
+  if (shortSha !== null) {
+    return {
+      primary: shortSha,
+      secondary: typeLabel,
+      // 상세로 가기 전에도 전체 SHA 를 확인할 수 있게 한다.
+      full: review.commitSha ?? undefined,
+    };
+  }
+
+  return { primary: "—", secondary: typeLabel, full: undefined };
+}
