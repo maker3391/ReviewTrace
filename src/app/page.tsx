@@ -11,6 +11,10 @@ import {
 } from "@/lib/auth/workspace-context";
 import { readLastWorkspaceSlug } from "@/lib/workspace/last-workspace";
 import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
+import {
+  PerformanceTrace,
+  runWithPerformanceTrace,
+} from "@/lib/performance/timing";
 
 /** 검색 엔진과 사람이 함께 사용하는 공식 공개 대표 URL이다. */
 export const metadata = LANDING_METADATA;
@@ -27,10 +31,15 @@ export const metadata = LANDING_METADATA;
  * 곧장 보내지 않고 **소속을 다시 확인**한다 — 내보내진 뒤에도 그 주소가 열리면 안 된다.
  */
 export default async function LandingPage(props: PageProps<"/">) {
-  const user = await currentUser();
+  const trace = new PerformanceTrace("workspace.redirect");
+  const timed = <T,>(name: string, task: () => Promise<T>) =>
+    runWithPerformanceTrace(trace, () => trace.time(name, task));
+
+  const user = await timed("redirect.auth", currentUser);
 
   if (user === null) {
     const { error } = await props.searchParams;
+    trace.log();
 
     return (
       <AuthShell>
@@ -39,18 +48,27 @@ export default async function LandingPage(props: PageProps<"/">) {
     );
   }
 
-  const remembered = await readLastWorkspaceSlug();
+  const remembered = await timed(
+    "redirect.last_workspace_cookie",
+    readLastWorkspaceSlug,
+  );
   if (remembered !== null) {
-    const membership = await findMembership(user.id, remembered);
+    const membership = await timed("redirect.membership", () =>
+      findMembership(user.id, remembered),
+    );
     if (membership !== null) {
+      trace.log();
       redirect(sectionHref(membership.slug, DEFAULT_SECTION));
     }
   }
 
-  const workspaces = await listMemberWorkspaces(user.id);
+  const workspaces = await timed("redirect.workspace_list", () =>
+    listMemberWorkspaces(user.id),
+  );
   // 목록은 Personal 이 맨 앞이다(`listMemberWorkspaces`).
   const first = workspaces[0];
   if (first !== undefined) {
+    trace.log();
     redirect(sectionHref(first.slug, DEFAULT_SECTION));
   }
 
@@ -61,19 +79,25 @@ export default async function LandingPage(props: PageProps<"/">) {
    * Database 가 잠깐 끊겼다면 「User 는 있는데 Workspace 가 없는」 반쪽 상태가 남는다.
    * 그 사람에게 빈 화면을 보여 주는 대신 여기서 메운다 — 같은 함수라 두 번 만들지 않는다.
    */
-  await ensurePersonalWorkspace({
-    userId: user.id,
-    displayName: user.name,
-    slugSource: null,
-  });
+  await timed("redirect.workspace_ensure", () =>
+    ensurePersonalWorkspace({
+      userId: user.id,
+      displayName: user.name,
+      slugSource: null,
+    }),
+  );
 
-  const healed = await listMemberWorkspaces(user.id);
+  const healed = await timed("redirect.workspace_list_after_heal", () =>
+    listMemberWorkspaces(user.id),
+  );
   const target = healed[0];
 
   if (target === undefined) {
+    trace.log();
     // 방금 만든 것을 곧바로 못 읽는 상황이다. 주소를 추측해서 보내지 않는다.
     throw new Error("Personal Workspace 를 만든 뒤 다시 읽지 못했다");
   }
 
+  trace.log();
   redirect(sectionHref(target.slug, DEFAULT_SECTION));
 }

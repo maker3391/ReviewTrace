@@ -16,6 +16,7 @@ import {
 } from "@/features/issues/server/pattern-query";
 import { listProjectSummaries } from "@/features/projects/server/project-service";
 import type { ProjectSummary } from "@/features/projects/types/project";
+import type { PerformanceTrace } from "@/lib/performance/timing";
 import {
  OPEN_ISSUE_STATUSES,
  type IssueCategory,
@@ -110,13 +111,18 @@ export interface WorkspaceDashboard {
 export async function findWorkspaceDashboard(
  workspaceId: string,
  executor: DbExecutor = db(),
+ trace?: PerformanceTrace,
 ): Promise<WorkspaceDashboard> {
  const openIssue = inArray(reviewIssues.status, OPEN_ISSUE_STATUSES);
+ const timed = <T,>(name: string, task: () => Promise<T>) =>
+ trace === undefined ? task() : trace.time(name, task);
 
  const [kpi, projectRows, needsAttention, frequentPatterns, recentActivity] =
  await Promise.all([
- findKpi(workspaceId, executor),
+ findKpi(workspaceId, executor, trace),
+ timed("dashboard.db.projects", () =>
  listProjectSummaries(workspaceId, executor),
+ ),
 
  /**
  * 먼저 볼 Issue.
@@ -127,7 +133,7 @@ export async function findWorkspaceDashboard(
  *
  * 같은 등급 안에서는 **오래된 것부터**다. 오래 열려 있다는 것 자체가 신호다.
  */
- executor
+ timed("dashboard.db.needs_attention", () => executor
 .select({
  id: reviewIssues.id,
  title: reviewIssues.title,
@@ -143,11 +149,16 @@ export async function findWorkspaceDashboard(
 .innerJoin(projects, eq(projects.id, repositories.projectId))
 .where(and(eq(reviewIssues.workspaceId, workspaceId), openIssue))
 .orderBy(asc(reviewIssues.severity), asc(reviewIssues.firstDetectedAt))
-.limit(SECTION_LIMIT),
+.limit(SECTION_LIMIT)),
 
- findFrequentPatterns({ scope: { workspaceId }, limit: SECTION_LIMIT }, executor),
+ timed("dashboard.db.patterns", () =>
+ findFrequentPatterns(
+ { scope: { workspaceId }, limit: SECTION_LIMIT },
+ executor,
+ ),
+ ),
 
- findRecentActivity(workspaceId, executor),
+ findRecentActivity(workspaceId, executor, trace),
  ]);
 
  return {
@@ -168,27 +179,30 @@ export async function findWorkspaceDashboard(
 async function findKpi(
  workspaceId: string,
  executor: DbExecutor,
+ trace?: PerformanceTrace,
 ): Promise<DashboardKpi> {
  const openIssue = inArray(reviewIssues.status, OPEN_ISSUE_STATUSES);
+ const timed = <T,>(name: string, task: () => Promise<T>) =>
+ trace === undefined ? task() : trace.time(name, task);
 
  const [issueRows, reviewRows] = await Promise.all([
- executor
+ timed("dashboard.db.kpi_issues", () => executor
 .select({
  recentIssuesFound: sql<number>`count(*) filter (where ${reviewIssues.firstDetectedAt} >= ${RECENT_WINDOW})::int`,
  recentResolvedIssues: sql<number>`count(*) filter (where ${reviewIssues.resolvedAt} >= ${RECENT_WINDOW})::int`,
  openIssues: sql<number>`count(*) filter (where ${openIssue})::int`,
  })
 .from(reviewIssues)
-.where(eq(reviewIssues.workspaceId, workspaceId)),
+.where(eq(reviewIssues.workspaceId, workspaceId))),
 
- executor
+ timed("dashboard.db.kpi_reviews", () => executor
 .select({ recentReviews: sql<number>`count(*)::int` })
 .from(reviewSessions)
 .where(
  and(
  eq(reviewSessions.workspaceId, workspaceId),
  gte(reviewSessions.createdAt, RECENT_WINDOW),
-),
+)),
 ),
  ]);
 
@@ -212,9 +226,12 @@ async function findKpi(
 async function findRecentActivity(
  workspaceId: string,
  executor: DbExecutor,
+ trace?: PerformanceTrace,
 ): Promise<ActivityEntry[]> {
+ const timed = <T,>(name: string, task: () => Promise<T>) =>
+ trace === undefined ? task() : trace.time(name, task);
  const [reviews, resolutions] = await Promise.all([
- executor
+ timed("dashboard.db.activity_reviews", () => executor
 .select({
  id: reviewSessions.id,
  at: reviewSessions.createdAt,
@@ -239,9 +256,9 @@ async function findRecentActivity(
 .innerJoin(projects, eq(projects.id, repositories.projectId))
 .where(eq(reviewSessions.workspaceId, workspaceId))
 .orderBy(desc(reviewSessions.createdAt))
-.limit(SECTION_LIMIT),
+.limit(SECTION_LIMIT)),
 
- executor
+ timed("dashboard.db.activity_resolutions", () => executor
 .select({
  id: issueActivities.id,
  at: issueActivities.createdAt,
@@ -262,7 +279,7 @@ async function findRecentActivity(
 ),
 )
 .orderBy(desc(issueActivities.createdAt))
-.limit(SECTION_LIMIT),
+.limit(SECTION_LIMIT)),
  ]);
 
  const entries: ActivityEntry[] = [

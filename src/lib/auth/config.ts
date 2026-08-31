@@ -1,7 +1,7 @@
 import "server-only";
 
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import type { NextAuthConfig, Session } from "next-auth";
+import { customFetch, type NextAuthConfig, type Session } from "next-auth";
 import GitHub from "next-auth/providers/github";
 
 import { db } from "@/db";
@@ -10,6 +10,8 @@ import { LOGIN_PATH } from "@/config/routes";
 import { withoutStoredCredentials } from "@/lib/auth/account-credentials";
 import { githubProfileToUser } from "@/lib/auth/github-profile";
 import { authEnv } from "@/lib/env";
+import { withAuthPerformance } from "@/lib/performance/auth-adapter";
+import { measurePerformance } from "@/lib/performance/timing";
 import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
 
 /**
@@ -49,6 +51,29 @@ function readGithubLogin(profile: unknown): string | null {
 
 export function buildAuthConfig(): NextAuthConfig {
  const env = authEnv();
+ const github = GitHub({
+ clientId: env.GITHUB_CLIENT_ID,
+ clientSecret: env.GITHUB_CLIENT_SECRET,
+ // 🔴 Email 이 `users` 로 들어오는 유일한 입구다 — 규칙은 `github-profile.ts` 에 있다.
+ profile: (profile) =>
+ measurePerformance("auth.callback.profile", () =>
+ githubProfileToUser(profile),
+ ),
+ [customFetch]: (...args: Parameters<typeof fetch>) =>
+ measurePerformance("auth.github.token_exchange", () => fetch(...args)),
+ });
+
+ if (typeof github.userinfo === "object" && github.userinfo.request !== undefined) {
+ const userinfo = github.userinfo;
+ const request = userinfo.request;
+ github.userinfo = {
+...userinfo,
+ request: (context: Parameters<typeof request>[0]) =>
+ measurePerformance("auth.github.profile", () =>
+ request.call(userinfo, context),
+ ),
+ };
+ }
 
  return {
  /**
@@ -60,14 +85,14 @@ export function buildAuthConfig(): NextAuthConfig {
  * 코드가 없으므로 **암호화가 아니라 저장하지 않는 쪽**을 골랐다
  * (근거와 조사 내용은 `account-credentials.ts` 에 있다).
  */
- adapter: withoutStoredCredentials(
+ adapter: withAuthPerformance(withoutStoredCredentials(
  DrizzleAdapter(db(), {
  usersTable: users,
  accountsTable: accounts,
  sessionsTable: sessions,
  verificationTokensTable: verificationTokens,
  }),
-),
+)),
 
  session: { strategy: "database" },
 
@@ -79,14 +104,7 @@ export function buildAuthConfig(): NextAuthConfig {
  */
  trustHost: true,
 
- providers: [
- GitHub({
- clientId: env.GITHUB_CLIENT_ID,
- clientSecret: env.GITHUB_CLIENT_SECRET,
- // 🔴 Email 이 `users` 로 들어오는 유일한 입구다 — 규칙은 `github-profile.ts` 에 있다.
- profile: githubProfileToUser,
- }),
- ],
+ providers: [github],
 
  /**
  * 기본 로그인·오류 화면을 쓰지 않는다.
@@ -110,8 +128,8 @@ export function buildAuthConfig(): NextAuthConfig {
  * 🔴 **GitHub Access Token 은 `accounts` 표에만 있다.** `session.accessToken` 같은 칸을
  * 만들지 않는다 — 여기에 한 줄 더하는 순간 브라우저까지 나간다(스펙 4).
  */
- session({ session, user }): Session {
- return {
+ async session({ session, user }): Promise<Session> {
+ return measurePerformance("auth.callback.session", () => ({
  // Database 세션의 만료는 Date 로 온다. 계약은 ISO 문자열이다.
  expires: session.expires.toISOString(),
  user: {
@@ -119,7 +137,7 @@ export function buildAuthConfig(): NextAuthConfig {
  name: user.name ?? null,
  image: user.image ?? null,
  },
- };
+ }));
  },
  },
 
@@ -138,12 +156,15 @@ export function buildAuthConfig(): NextAuthConfig {
  if (typeof user.id !== "string") {
  return;
  }
+ const userId = user.id;
 
- await ensurePersonalWorkspace({
- userId: user.id,
+ await measurePerformance("auth.workspace.ensure", () =>
+ ensurePersonalWorkspace({
+ userId,
  displayName: user.name ?? null,
  slugSource: readGithubLogin(profile),
- });
+ }),
+ );
  },
  },
  };

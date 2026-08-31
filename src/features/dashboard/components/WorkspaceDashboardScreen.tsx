@@ -20,6 +20,7 @@ import { projectSectionHref, sectionHref } from "@/config/navigation";
 import { findWorkspaceDashboard } from "@/features/dashboard/server/workspace-dashboard-query";
 import { CreateProjectButton } from "@/features/projects/components/CreateProjectButton";
 import { formatAgeInDays, formatDate } from "@/lib/format/date";
+import type { PerformanceTrace } from "@/lib/performance/timing";
 import { readLocale, readMessages } from "@/lib/ui/appearance";
 
 /**
@@ -38,17 +39,25 @@ export async function WorkspaceDashboardScreen({
  workspaceId,
  workspaceSlug,
  workspaceName,
+ performanceTrace,
 }: {
  /** 🔴 소속 확인을 통과한 값. URL 의 slug 를 그대로 넣지 않는다. */
  workspaceId: string;
  workspaceSlug: string;
  workspaceName: string;
+ /** 임시 운영 계측. Client 경계로는 넘기지 않는다. */
+ performanceTrace?: PerformanceTrace;
 }) {
  const [dashboard, locale, messages] = await Promise.all([
- findWorkspaceDashboard(workspaceId),
+ performanceTrace === undefined
+ ? findWorkspaceDashboard(workspaceId)
+ : performanceTrace.time("dashboard.data.total", () =>
+ findWorkspaceDashboard(workspaceId, undefined, performanceTrace),
+ ),
  readLocale(),
  readMessages(),
  ]);
+ performanceTrace?.log();
  const t = messages.workspaceDashboard;
  const label = messages.enums;
  // 🔴 「며칠째인가」의 기준 시각을 한 번만 정한다. 줄마다 now() 를 부르면 값이 갈린다.
