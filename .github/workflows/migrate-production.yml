@@ -1,0 +1,61 @@
+# 운영 Database 에 Migration 을 적용한다. **사람이 눌러야 돈다.**
+#
+# 🔴 **push 로 돌지 않는다.** Vercel 은 push 마다 배포하고 여러 instance 를 띄우므로,
+# 배포에 Migration 을 엮으면 같은 Migration 을 여러 프로세스가 «동시에» 시작한다.
+# 🔴 **애플리케이션이 요청 중에 Migration 을 돌리지 않는다** — 그 구조는 첫 요청이
+# 스키마를 바꾸는 것이라, 실패하면 사용자에게 그대로 드러난다.
+#
+# 순서는 이렇게 잡는다:
+#
+#   1) 이 워크플로를 눌러 Migration 을 적용한다
+#   2) 초록을 확인한다
+#   3) 그 다음에 Vercel 로 배포되게 한다(merge/push)
+#
+# 🔴 **더하는 Migration 을 먼저, 지우는 Migration 을 나중에** 두면 배포 순서가 어긋나도
+# 옛 코드가 계속 돈다(CLAUDE.md 0장 — 이름 변경을 두 Migration 으로 나눈 이유).
+name: Migrate production database
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: '적용하려면 "migrate" 라고 입력한다'
+        required: true
+        type: string
+
+jobs:
+  migrate:
+    name: drizzle-kit migrate
+    runs-on: ubuntu-latest
+    # 🔴 GitHub Environment 의 승인·Secret 을 쓴다. Secret 을 저장소 전체에 두지 않는다.
+    environment: production
+
+    steps:
+      - name: Check confirmation
+        if: inputs.confirm != 'migrate'
+        run: |
+          echo "confirm 입력이 'migrate' 가 아니다. 중단한다." >&2
+          exit 1
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 🔴 **runtime 과 다른 연결이다.** 애플리케이션은 Supabase 의 pooler 로 붙지만
+      # Migration 은 DDL 이라 세션이 유지되는 연결이 필요하다 —
+      # `MIGRATION_DATABASE_URL` 에 direct(또는 session pooler) 주소를 둔다.
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+        run: pnpm db:migrate
