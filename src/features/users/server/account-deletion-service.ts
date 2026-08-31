@@ -237,6 +237,14 @@ async function lockedMembershipFacts(
  })
 .from(workspaceMembers)
 .where(inArray(workspaceMembers.workspaceId, [...liveIds]))
+ /*
+ * 🔴 **PK 순서 `(workspace_id, user_id)` 로 잠근다.** 여기는 Workspace 를 «여럿»
+ * 가로지르므로 첫 열이 실제로 갈린다. 순서를 적지 않으면 Planner 가 고른 scan 순서가
+ * 곧 잠금 순서가 되고, 같은 표를 잠그는 다른 경로(`removeMember` · `changeMemberRole` ·
+ * `deleteWorkspace`)와 엇갈리면 고리가 닫힌다 — reviewer 가 실제 병렬 연결로 `40P01` 을
+ * 재현했다. 근거와 규칙은 `@/db` 에 있다.
+ */
+.orderBy(workspaceMembers.workspaceId, workspaceMembers.userId)
 .for("update");
 
  for (const row of locked) {

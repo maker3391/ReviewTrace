@@ -14,6 +14,7 @@ import { InviteMemberForm } from "@/features/invitations/components/InviteMember
 import { RevokeInvitationButton } from "@/features/invitations/components/RevokeInvitationButton";
 import { listPendingInvitations } from "@/features/invitations/server/invitation-service";
 import { MemberRoleSelect } from "@/features/workspaces/components/MemberRoleSelect";
+import { RemoveMemberButton } from "@/features/workspaces/components/RemoveMemberButton";
 import { listMembers } from "@/features/workspaces/server/workspace-service";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
 import { readMessages } from "@/lib/ui/appearance";
@@ -38,7 +39,7 @@ export default async function WorkspaceMembersPage({
  params: Promise<{ workspaceSlug: string }>;
 }) {
  const { workspaceSlug } = await params;
- const { workspace } = await requireWorkspace(workspaceSlug);
+ const { user, workspace } = await requireWorkspace(workspaceSlug);
  const messages = await readMessages();
  const t = messages.members;
  const roleOptions = messages.enums.role;
@@ -65,6 +66,8 @@ export default async function WorkspaceMembersPage({
  <TableRow>
  <TableHead>{t.columnName}</TableHead>
  <TableHead className="w-32">{t.columnRole}</TableHead>
+ {/* 🔴 Action 열에는 이름표를 두지 않는다 — 버튼이 곧 이름이다. */}
+ {isOwner && <TableHead className="w-24" />}
  </TableRow>
  </TableHeader>
  <TableBody>
@@ -90,6 +93,29 @@ export default async function WorkspaceMembersPage({
  roleOptions={roleOptions}
  />
  </TableCell>
+ {isOwner && (
+ <TableCell className="text-right">
+ {/*
+ 🔴 **자기 자신과 Personal Workspace 의 주인에게는 버튼을 그리지 않는다.**
+ 전자는 「나가기」라는 다른 일이고, 후자는 빼면 자기 자리에 못 들어간다.
+ 여기서 감추는 것은 편의일 뿐 — 서버가 같은 판정을 다시 한다
+ (`workspace-service.ts` 의 `removeMember`).
+ */}
+ {member.userId !== user.id && !member.isPersonalOwner && (
+ <RemoveMemberButton
+ workspaceSlug={workspace.slug}
+ userId={member.userId}
+ name={member.name ?? t.noName}
+ labels={{
+ remove: t.remove,
+ cancel: t.cancel,
+ confirmTitle: t.removeConfirmTitle,
+ confirmDescription: t.removeConfirmDescription,
+ }}
+ />
+)}
+ </TableCell>
+)}
  </TableRow>
 ))}
  </TableBody>

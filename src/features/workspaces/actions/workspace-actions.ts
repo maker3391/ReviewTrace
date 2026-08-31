@@ -5,12 +5,15 @@ import { revalidatePath } from "next/cache";
 import {
  changeMemberRoleSchema,
  createWorkspaceSchema,
+ removeMemberSchema,
  type ChangeMemberRoleInput,
  type CreateWorkspaceInput,
+ type RemoveMemberInput,
 } from "@/features/workspaces/schemas/workspace";
 import {
  changeMemberRole,
  createWorkspace,
+ removeMember,
 } from "@/features/workspaces/server/workspace-service";
 import { deleteWorkspace } from "@/features/workspaces/server/workspace-deletion-service";
 import { actionFromError } from "@/lib/action/action-error";
@@ -99,6 +102,52 @@ export async function changeMemberRoleAction(
  } catch (error) {
  return actionFromError(error);
  }
+}
+
+/**
+ * 멤버 내보내기.
+ *
+ * 🔴 **OWNER 만 할 수 있다.** `requireOwner` 는 **화면 경계**이고, 「자기 자신인가」
+ * 「그 사람이 멤버인가」「Personal Workspace 의 주인인가」까지 포함한 최종 판정은
+ * Application Service 가 Transaction 안에서 **다시** 한다(`workspace-service.ts`) —
+ * 판정과 삭제 사이에 틈이 없어야 한다.
+ *
+ * 🔴 **내보낼 Workspace 를 인자로 «고르게» 두지 않는다.** `workspaceSlug` 는 Context
+ * 표시이고 실제 `workspaceId` 는 소속 확인(`requireWorkspace`)이 돌려준 값이다.
+ * 내보내는 사람(`actorUserId`)도 세션에서 온 값이지 Client 가 보낸 값이 아니다 —
+ * 그래서 **UI 를 건너뛰고 이 Action 을 직접 불러도 남의 Workspace 에 닿지 못한다.**
+ */
+export async function removeMemberAction(
+  workspaceSlug: string,
+  input: RemoveMemberInput,
+): Promise<ActionResult> {
+  const parsed = await parseActionInput(removeMemberSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
+  }
+
+  try {
+    const { user, workspace } = await requireWorkspace(workspaceSlug);
+    requireOwner(workspace);
+
+    await removeMember({
+      workspaceId: workspace.workspaceId,
+      actorUserId: user.id,
+      targetUserId: parsed.data.userId,
+    });
+
+    revalidatePath(`/w/${workspaceSlug}/members`);
+    /*
+     * 🔴 설정 화면도 함께 되살린다 — 삭제 영향(「나를 뺀 멤버 수」)이 거기 있어서,
+     * 마지막 멤버를 내보낸 뒤에도 「멤버가 남아 있어 지울 수 없다」가 그대로 떠 있으면
+     * 사용자는 자기가 방금 연 길을 보지 못한다.
+     */
+    revalidatePath(`/w/${workspaceSlug}/settings`);
+
+    return actionOk();
+  } catch (error) {
+    return actionFromError(error);
+  }
 }
 
 /**

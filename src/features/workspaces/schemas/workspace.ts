@@ -29,3 +29,16 @@ export const changeMemberRoleSchema = z.object({
 });
 
 export type ChangeMemberRoleInput = z.infer<typeof changeMemberRoleSchema>;
+
+/**
+ * 멤버 내보내기의 입력.
+ *
+ * 🔴 **`workspaceId` 자리를 두지 않는다.** 어느 Workspace 인지는 주소(slug)로 확인한
+ * 소속이 정하고, Client 가 보낸 값을 권한 근거로 쓰지 않는다(CLAUDE.md 11).
+ * 여기 들어오는 것은 **누구를** 내보내는가 하나뿐이다.
+ */
+export const removeMemberSchema = z.object({
+  userId: z.uuid(),
+});
+
+export type RemoveMemberInput = z.infer<typeof removeMemberSchema>;

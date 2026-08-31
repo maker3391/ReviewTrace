@@ -248,10 +248,17 @@ export async function deleteWorkspace(
  * `FOR UPDATE is not allowed with aggregate functions` 로 거절한다
  * (`changeMemberRole` 에서 실제로 겪었다). 행을 그대로 읽어 센다.
  */
+ /*
+ * 🔴 **PK 순서 `(workspace_id, user_id)` 로 잠근다.** 순서를 적지 않으면 Planner 가
+ * 고른 scan 순서가 곧 잠금 순서가 되고, 같은 표를 잠그는 다른 경로(`removeMember` ·
+ * `changeMemberRole` · `deleteAccount`)와 엇갈리면 고리가 닫힌다 — reviewer 가 실제
+ * 병렬 연결로 `40P01` 을 재현했다. 근거와 규칙은 `@/db` 에 있다.
+ */
  const members = await tx
 .select({ userId: workspaceMembers.userId, role: workspaceMembers.role })
 .from(workspaceMembers)
 .where(eq(workspaceMembers.workspaceId, input.workspaceId))
+.orderBy(workspaceMembers.workspaceId, workspaceMembers.userId)
 .for("update");
 
  const mine = members.find((row) => row.userId === input.userId);

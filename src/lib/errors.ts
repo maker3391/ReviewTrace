@@ -112,6 +112,18 @@ const REASON_CODE = {
  /** 역할을 바꾸려는데 그 사람이 마지막 OWNER 다. */
  WORKSPACE_LAST_OWNER: "CONFLICT",
  PERSONAL_WORKSPACE_ROLE_FIXED: "CONFLICT",
+ /**
+  * 자기 자신을 내보내려 했다.
+  * 🔴 **「나가기」와 다른 말이다** — 나가기는 아직 없는 기능이고, 있었더라도 사용자가
+  * 다음에 할 일이 다르다(`member-removal-plan.ts`).
+  */
+ WORKSPACE_SELF_REMOVE: "CONFLICT",
+ /**
+  * Personal Workspace 의 주인을 내보내려 했다.
+  * 🔴 조건이 아니라 **영구히** 내보낼 수 없다 — 빼면 그 사람이 자기 자리에 못 들어가고
+  * `personal_owner_id` unique 때문에 다시 만들어지지도 않는다.
+  */
+ PERSONAL_WORKSPACE_OWNER_FIXED: "CONFLICT",
  /** 지우려는 Workspace 가 없거나 내 것이 아니다. 🔴 둘을 구분하지 않는다. */
  WORKSPACE_NOT_FOUND: "NOT_FOUND",
  /**

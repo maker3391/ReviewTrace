@@ -675,6 +675,16 @@ export const ko = {
  */
  revokeConfirmDescription:
  "이미 보낸 링크는 더 이상 수락할 수 없습니다. 같은 이메일로 다시 초대할 수 있습니다.",
+ /** 🔴 「삭제」가 아니다 — 사라지는 것은 사람이 아니라 이 Workspace 의 소속뿐이다. */
+ remove: "내보내기",
+ removeConfirmTitle: "이 멤버를 내보낼까요?",
+ /**
+  * 🔴 **실제로 일어나는 일만 적는다.** 계정도, 그 사람이 다른 Workspace 에 갖고 있는
+  * 소속도, 그가 남긴 기록도 그대로다 — 사라지는 것은 이 Workspace 에 대한 접근 권한뿐이고
+  * 다시 초대할 수 있다.
+  */
+ removeConfirmDescription:
+ "이 워크스페이스에 더 이상 접근할 수 없습니다. 계정과 남긴 기록은 그대로이고, 다시 초대할 수 있습니다.",
  },
 
  invite: {
@@ -924,6 +934,10 @@ export const ko = {
  "마지막 OWNER입니다. 다른 멤버를 OWNER로 올린 뒤에 바꿔 주세요.",
  PERSONAL_WORKSPACE_ROLE_FIXED:
  "Personal Workspace의 주인은 역할을 바꿀 수 없습니다.",
+ /** 🔴 「나가기」를 알려 주지 않는다 — 아직 없는 기능이다. */
+ WORKSPACE_SELF_REMOVE: "자기 자신은 내보낼 수 없습니다.",
+ PERSONAL_WORKSPACE_OWNER_FIXED:
+ "개인 워크스페이스의 주인은 내보낼 수 없습니다.",
  WORKSPACE_NOT_FOUND: "워크스페이스를 찾을 수 없습니다.",
  WORKSPACE_OWNER_REQUIRED: "워크스페이스를 찾을 수 없습니다.",
  PERSONAL_WORKSPACE_UNDELETABLE:

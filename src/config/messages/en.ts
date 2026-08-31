@@ -494,6 +494,10 @@ export const en: Messages = {
     revokeConfirmTitle: "Revoke this invitation?",
     revokeConfirmDescription:
       "The link already sent can no longer be accepted. You can invite the same email again.",
+    remove: "Remove",
+    removeConfirmTitle: "Remove this member?",
+    removeConfirmDescription:
+      "They lose access to this workspace. Their account and everything they left behind stay, and you can invite them again.",
   },
 
   invite: {
@@ -687,6 +691,9 @@ export const en: Messages = {
       "This is the last OWNER. Promote another member to OWNER first.",
     PERSONAL_WORKSPACE_ROLE_FIXED:
       "The owner of a Personal Workspace cannot change role.",
+    WORKSPACE_SELF_REMOVE: "You cannot remove yourself.",
+    PERSONAL_WORKSPACE_OWNER_FIXED:
+      "The owner of a personal workspace cannot be removed.",
     WORKSPACE_NOT_FOUND: "Workspace not found.",
     WORKSPACE_OWNER_REQUIRED: "Workspace not found.",
     PERSONAL_WORKSPACE_UNDELETABLE:

@@ -59,9 +59,16 @@ describe("changeMemberRole — 잠기지 않게 막는다", () => {
  * 🔴 되돌림 확인(2026-08-29): `if (others.length === 0)` 블록을 지우면 이 시험이 실패한다.
  */
  it("🔴 다른 OWNER 가 없으면 강등하지 않는다 — Workspace 가 잠긴다", async () => {
+ /*
+ * 🔴 **잠금 문장이 하나로 합쳐졌다**(2026-08-31). 예전에는 「다른 OWNER 를 세는
+ * select」와 「대상을 바꾸는 update」가 두 걸음이었는데, 그 사이에 순서가 없어
+ * `removeMember` 와 엇갈리면 실제로 `40P01 deadlock detected` 가 났다. 지금은 대상
+ * 행과 OWNER 행을 **한 문장**으로 잠그므로, 이 시험이 넘겨주는 행에도 **대상이 함께
+ * 들어 있어야 한다** — 그 문장이 둘을 같이 읽기 때문이다.
+ */
  const fake = fakeExecutor([
  selects([{ personalOwnerId: null }]),
- selects([]),
+ selects([{ userId: ME, role: "OWNER" }]),
  ]);
 
  const error = await rejection(
@@ -78,7 +85,10 @@ describe("changeMemberRole — 잠기지 않게 막는다", () => {
  it("다른 OWNER 가 있으면 강등한다", async () => {
  const fake = fakeExecutor([
  selects([{ personalOwnerId: null }]),
- selects([{ userId: OTHER }]),
+ selects([
+ { userId: ME, role: "OWNER" },
+ { userId: OTHER, role: "OWNER" },
+ ]),
  updates([{ userId: ME }]),
  ]);
 
@@ -90,9 +100,15 @@ describe("changeMemberRole — 잠기지 않게 막는다", () => {
  expect(fake.calls[2]?.values?.role).toBe("MEMBER");
  });
 
+ /**
+ * 🔴 잠금 문장은 이제 **올릴 때도** 돈다(순서를 한 곳에서 정하려면 그래야 한다).
+ * 그러나 «세는» 일은 여전히 강등에만 있다 — 잠긴 행에 다른 OWNER 가 하나도 없어도
+ * 올리는 것은 통과한다.
+ */
  it("OWNER 로 «올리는» 것은 OWNER 수를 세지 않는다 — 잠길 일이 없다", async () => {
  const fake = fakeExecutor([
  selects([{ personalOwnerId: null }]),
+ selects([{ userId: OTHER, role: "MEMBER" }]),
  updates([{ userId: OTHER }]),
  ]);
 
@@ -101,15 +117,15 @@ describe("changeMemberRole — 잠기지 않게 막는다", () => {
  fake.executor,
 );
 
- expect(fake.calls).toHaveLength(2);
- expect(fake.calls[1]?.values?.role).toBe("OWNER");
+ expect(fake.calls).toHaveLength(3);
+ expect(fake.calls[2]?.values?.role).toBe("OWNER");
  });
 
+ /** 🔴 잠근 행에 대상이 없으면 **UPDATE 까지 가지 않고** 거절한다. */
  it("바꿀 멤버가 없으면 NOT_FOUND 다", async () => {
  const fake = fakeExecutor([
  selects([{ personalOwnerId: null }]),
- selects([{ userId: OTHER }]),
- updates([]),
+ selects([{ userId: OTHER, role: "OWNER" }]),
  ]);
 
  const error = await rejection(
