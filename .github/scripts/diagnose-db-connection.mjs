@@ -2,16 +2,19 @@
  * Migration 이 실패했을 때 «왜» 실패했는지 한 줄로 드러낸다.
  *
  * 🔴 **drizzle-kit 은 PostgreSQL 오류를 삼킨다.** 스피너("applying migrations...")와
- * exit code 1 만 남아서, 비밀번호가 틀린 것인지 SQL 이 깨진 것인지 로그로 구분할 수 없다.
- * 실제로 두 경우의 출력이 글자 단위로 같다.
+ * exit code 1 만 남아, 비밀번호가 틀린 것인지 SQL 이 깨진 것인지 로그로 구분할 수 없다 —
+ * 두 경우의 출력이 글자 단위로 같다.
  *
  * 🔴 **Database 를 바꾸지 않는다.** `select 1` 하나뿐이고 DDL 도 트랜잭션도 없다.
  * 🔴 **비밀번호와 URL 전문을 찍지 않는다.** host · port · user · database 와
  *    오류의 code · message 만 낸다 — 그 여섯이면 원인이 갈린다.
  *
+ * 🔴 **`.mjs` 다.** 이 저장소의 ESLint 는 `require()` 를 금지한다
+ *    (`@typescript-eslint/no-require-imports`) — `.cjs` 로 두었다가 CI 에서 걸렸다.
+ *
  * 🔴 이 파일은 **워크플로 전용**이다. 애플리케이션이 부르지 않는다.
  */
-const { Client } = require("pg");
+import { Client } from "pg";
 
 const raw = process.env.DATABASE_URL ?? "";
 
@@ -20,7 +23,7 @@ if (raw === "") {
   process.exit(1);
 }
 
-/** 접속 대상만 뽑는다. 🔴 `password` 와 query string 은 건드리지 않는다. */
+/** 접속 대상만 뽑는다. 🔴 `password` 는 읽지도 않는다. */
 function describeTarget(value) {
   try {
     const url = new URL(value);
@@ -50,18 +53,16 @@ console.log(`database: ${target.database}`);
 
 const client = new Client({ connectionString: raw });
 
-client
-  .connect()
-  .then(() => client.query("select 1"))
-  .then(async () => {
-    await client.end();
-    console.log("");
-    console.log("연결은 된다 — 실패 원인은 연결이 아니라 SQL·권한 쪽이다.");
-  })
-  .catch((error) => {
-    console.log("");
-    console.log("연결 실패");
-    console.log(`  code   : ${error.code ?? "(없음)"}`);
-    console.log(`  message: ${error.message}`);
-    process.exit(1);
-  });
+try {
+  await client.connect();
+  await client.query("select 1");
+  await client.end();
+  console.log("");
+  console.log("연결은 된다 — 실패 원인은 연결이 아니라 SQL·권한 쪽이다.");
+} catch (error) {
+  console.log("");
+  console.log("연결 실패");
+  console.log(`  code   : ${error.code ?? "(없음)"}`);
+  console.log(`  message: ${error.message}`);
+  // 🔴 여기서 프로세스를 죽이지 않는다. 「job 을 실패로 만드는 일」은 마지막 step 의 몫이다.
+}

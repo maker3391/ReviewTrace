@@ -64,25 +64,39 @@ jobs:
       #    (db.[project-id].supabase.co / postgres  vs
       #     aws-[region].pooler.supabase.com / postgres.[project-id]).
       # 자세한 것은 docs/deployment.md 를 보라.
+      # 🔴 **여기서 job 을 끝내지 않는다.** 기본값이면 실패하는 순간 job 이 멈춰,
+      # 바로 아래 진단이 돌 기회를 얻지 못한다. `continue-on-error` 로 «계속 가되»
+      # 마지막 step 이 실패를 다시 세운다 — 진단 로그를 얻으면서 결과는 빨갛게 남는다.
+      #
+      # 🔴 `continue-on-error: true` 면 이 step 의 `conclusion` 은 «success» 로 기록된다.
+      #    실제로 깨졌는지는 `outcome` 이 갖고 있다 — 아래 두 step 이 `outcome` 을 본다.
       - name: Apply migrations
-        # 아래 진단 step 이 "이 step 이 실패했는가"를 정확히 가리키게 하는 이름표다.
         id: migrate
+        continue-on-error: true
         env:
           DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
         run: pnpm db:migrate
 
       # 🔴 **drizzle-kit 은 실패 이유를 삼킨다.** 스피너 한 줄("applying migrations...")만 남고
       # PostgreSQL 이 준 메시지가 사라진다 — 비밀번호가 틀렸을 때도 SQL 이 깨졌을 때도 «같은
-      # 출력»이라, 로그만으로는 둘을 구분할 수 없다. 그래서 실패했을 때만 연결을 확인한다.
+      # 출력»이라 로그만으로 둘을 구분할 수 없다. 그래서 실패했을 때만 연결을 확인한다.
       #
-      # 🔴 조건을 `failure()` 하나로 두지 않는다. `steps.migrate.conclusion` 까지 함께 보면
-      #    **어느 step 이 실패해서 도는지**가 조건에 드러나고, 앞으로 step 을 더해도 이 진단이
-      #    엉뚱한 실패에 딸려 돌지 않는다. `!cancelled()` 는 취소된 실행에서 돌지 않게 한다.
-      # 🔴 **성공하면 돌지 않는다** — `conclusion == 'failure'` 가 그것을 보장한다.
+      # 🔴 **`failure()` 에 기대지 않는다.** 위 step 이 `continue-on-error` 라 job 은 아직
+      #    실패 상태가 아니고, `failure()` 는 거짓이다. 판정의 정본은 `outcome` 하나다.
+      # 🔴 **성공하면 돌지 않는다** — `outcome == 'failure'` 가 그것을 보장한다.
       # 🔴 **DDL 을 돌리지 않는다.** `select 1` 뿐이라 Database 를 한 칸도 바꾸지 않는다.
       # 🔴 **비밀번호와 URL 전문을 찍지 않는다.** host·port·user·database 와 code·message 뿐이다.
       - name: Diagnose connection (only when migrate failed)
-        if: ${{ !cancelled() && steps.migrate.conclusion == 'failure' }}
+        if: steps.migrate.outcome == 'failure'
         env:
           DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
-        run: node .github/scripts/diagnose-db-connection.cjs
+        run: node .github/scripts/diagnose-db-connection.mjs
+
+      # 🔴 **진단을 얻었다고 실패를 덮지 않는다.** `continue-on-error` 는 «순서를 얻으려는»
+      # 장치일 뿐이고, Migration 이 깨졌다는 사실은 그대로 남아야 한다 — 초록으로 끝나면
+      # 다음 사람이 「적용됐다」고 읽는다.
+      - name: Fail the job because migration failed
+        if: steps.migrate.outcome == 'failure'
+        run: |
+          echo "Migration 이 실패했다. 위 'Diagnose connection' 로그를 보라." >&2
+          exit 1
