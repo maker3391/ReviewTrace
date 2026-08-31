@@ -1,0 +1,40 @@
+# Migration 이 «어느 문장에서» 깨지는지 찾는다. **읽기와 되돌리는 재생뿐이다.**
+#
+# 🔴 **Database 를 바꾸지 않는다.** 재생은 BEGIN 으로 열고 끝에서 반드시 ROLLBACK 하며,
+# Migration 이력(`drizzle` 스키마)은 읽기만 한다. 그래서 확인 입력을 요구하지 않는다 —
+# 실수로 눌러도 잃을 것이 없다.
+#
+# 🔴 **이것은 Migrate 워크플로를 대신하지 않는다.** 원인을 찾은 뒤 실제 적용은
+# `migrate-production.yml` 로 한다.
+name: Diagnose migration
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    name: 어디서 깨지는가
+    runs-on: ubuntu-latest
+    # Migration 용 연결(Session mode)을 그대로 쓴다.
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Diagnose
+        env:
+          DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+        run: node .github/scripts/diagnose-migration.mjs
