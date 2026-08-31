@@ -27,8 +27,20 @@ export const THEMES = ["light", "dark", "system"] as const;
 
 export type Theme = (typeof THEMES)[number];
 
-/** 고른 적이 없으면 OS 를 따른다. */
-export const DEFAULT_THEME: Theme = "system";
+/**
+ * 🔴 **고른 적이 없으면 어둡다.** OS 를 따르지 않는다.
+ *
+ * ReviewTrace 는 개발자가 편집기 옆에 띄워 두고 보는 화면이다 — 그 옆이 어두운 것이
+ * 기본값이므로, 아무것도 고르지 않은 사람에게 밝은 화면을 주면 그 사람이 매번 고쳐야 한다.
+ *
+ * 🔴 **`system` 을 없앤 것이 아니다.** 셋 중 고를 수 있고, 고른 사람은 그대로 따른다 —
+ * 바뀐 것은 **아무도 고르지 않았을 때 무엇을 주는가** 하나뿐이다.
+ *
+ * 🔴 **깜빡임이 오히려 줄었다.** `system` 이 기본일 때는 서버가 OS 를 알 수 없어 class 를
+ * 비워 보내고 `SYSTEM_THEME_SCRIPT` 가 첫 페인트 직전에 채웠다. 이제 서버가 처음부터
+ * `dark` 를 붙여 보내므로 그 스크립트 자체가 나가지 않는다(`app/layout.tsx`).
+ */
+export const DEFAULT_THEME: Theme = "dark";
 
 /** 1년. 다음에 와도 고른 대로 열린다. */
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
@@ -40,7 +52,7 @@ export function isTheme(value: string | undefined): value is Theme {
   return value !== undefined && (THEMES as readonly string[]).includes(value);
 }
 
-/** 쿠키 값을 상태로 읽는다. 값이 없거나 이상하면 **system** 이 기본이다. */
+/** 쿠키 값을 상태로 읽는다. 값이 없거나 이상하면 **dark** 가 기본이다. */
 export function parseTheme(value: string | undefined): Theme {
   return isTheme(value) ? value : DEFAULT_THEME;
 }
