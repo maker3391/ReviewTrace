@@ -1,13 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, inArray, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Client } from "pg";
 
-import { db, type DbExecutor } from "@/db";
-import {
-  users,
-  workspaceInvitations,
-  workspaceMembers,
-  workspaces,
-} from "@/db/schema";
+import { db, type Database } from "@/db";
+import * as schema from "@/db/schema";
 import { loadIntegrationDbEnv } from "@/db/testing/integration-env";
 import {
   acceptInvitation,
@@ -15,6 +12,8 @@ import {
 } from "@/features/invitations/server/invitation-service";
 import { deleteAccount } from "@/features/users/server/account-deletion-service";
 import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
+
+const { users, workspaceInvitations, workspaceMembers, workspaces } = schema;
 
 /**
  * 실제 PostgreSQL · **실제 연결 여럿**으로 전역 잠금 순서(`@/db`)를 잰다.
@@ -47,6 +46,14 @@ import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
  * 예전에는 계정 삭제가 `users` 를 **먼저** 잠갔다. 그러면 두 경로가
  * `users -> workspaces` 대 `workspaces -> users` 로 엇갈려 고리가 닫힌다 —
  * 실제로 `40P01 deadlock detected` 가 났다.
+ *
+ * # 🔴 이 시험의 어려운 부분은 «경쟁»이 아니라 «배리어»다
+ *
+ * 경쟁을 재현하려면 **상대가 정해진 자리에서 멈춘 것을 확인한 뒤** 다음 요청을 들여보내야
+ * 한다. 그 확인이 부정확하면 시험은 **결함이 살아 있어도 초록**이 되거나(거짓 초록),
+ * **아무 문제가 없는데 빨개진다**(거짓 빨강). 이 파일이 실제로 그 두 번째로 간헐 실패했고,
+ * 원인은 제품이 아니라 **배리어가 「대기 «수»」라는 간접 지표를 셌다는 것**이다.
+ * 아래 `lockWaitOf` 의 주석이 그 근거와 대안을 적어 두었다.
  */
 const enabled = process.env.DB_INTEGRATION === "true";
 
@@ -97,10 +104,7 @@ async function signUp(label: string): Promise<{ id: string; email: string }> {
   return { id, email };
 }
 
-async function makeWorkspace(
-  ownerId: string,
-  label: string,
-): Promise<string> {
+async function makeWorkspace(ownerId: string, label: string): Promise<string> {
   const rows = await db()
     .insert(workspaces)
     .values({ slug: unique("dl-"), name: label, createdBy: ownerId })
@@ -119,126 +123,304 @@ async function makeWorkspace(
   return id;
 }
 
-/** 몇 밀리초에 한 번 조건을 다시 본다. */
-async function until(
-  condition: () => Promise<boolean>,
-  what: string,
-  timeoutMs = 10_000,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (await condition()) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 20));
+/* ------------------------------------------------------------------------- *
+ * 경쟁에 참여하는 연결
+ * ------------------------------------------------------------------------- */
+
+/**
+ * 경쟁에 참여하는 **전용 연결** 하나.
+ *
+ * 🔴 **`db()` 의 공용 Pool 을 쓰지 않는다.** Pool 은 어느 요청이 어느 물리 연결로 나갈지
+ * 알려 주지 않는다 — 「지금 이 `deleteAccount` 가 «어느» backend 에서 돌고 있는가」를
+ * 모르면 그 backend 가 막혔는지 물어볼 수도 없다. 그래서 참여자마다 `Client` 를 하나씩
+ * 잡고 **그 자리에서 `pg_backend_pid()` 를 읽어 못 박는다.**
+ *
+ * 제품 함수들은 전부 `executor` 를 인자로 받으므로(`deleteAccount`·`acceptInvitation`·
+ * `createInvitation`) **제품 코드를 고치지 않고** 이 연결 위에서 그대로 돌릴 수 있다.
+ */
+interface Participant {
+  readonly label: string;
+  /** 🔴 이 연결의 backend pid. 배리어가 «이 pid 만» 본다. */
+  readonly pid: number;
+  /** 제품 함수에 그대로 넘기는 executor. */
+  readonly db: Database;
+  readonly client: Client;
+}
+
+async function connect(label: string): Promise<Participant> {
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL,
+    /**
+     * 사람이 `pg_stat_activity` 를 눈으로 볼 때를 위한 **이름표일 뿐이다.**
+     * 🔴 배리어는 이 값을 보지 않는다 — 판정 근거는 pid 하나다.
+     */
+    application_name: `lock-order:${label}`,
+  });
+  await client.connect();
+
+  const pid = (
+    await client.query<{ pid: number }>("select pg_backend_pid() as pid")
+  ).rows[0]?.pid;
+
+  if (pid === undefined) {
+    await client.end();
+    throw new Error(`${label} 연결의 backend pid 를 읽지 못했다`);
   }
-  throw new Error(`기다리던 상태가 오지 않았다: ${what}`);
+
+  return { label, pid, db: drizzle(client, { schema }), client };
 }
 
 /**
- * 잠금을 기다리고 있는 backend 수 — **이 시험이 만든 연결만** 센다.
+ * 🔴 **`finally` 에서 반드시 부른다.** 열린 Transaction 이 남으면 뒤따르는 정리 DELETE 가
+ * 통째로 멈춘다(실제로 겪었다). 놓는 것 자체가 실패해도 시험을 빨갛게 만들지 않는다 —
+ * 그것은 시험의 결론이 아니다.
+ */
+async function disconnect(...parts: readonly Participant[]): Promise<void> {
+  for (const part of parts) {
+    try {
+      // 열려 있으면 되돌리고, 없으면 PostgreSQL 이 경고만 하고 넘어간다.
+      await part.client.query("rollback");
+    } catch {
+      // 이미 끊긴 연결이다.
+    }
+    try {
+      await part.client.end();
+    } catch {
+      // 같은 이유다.
+    }
+  }
+}
+
+/* ------------------------------------------------------------------------- *
+ * 배리어 — 「«그» 연결이 지금 실제로 막혀 있는가」
+ * ------------------------------------------------------------------------- */
+
+/** 관찰 주기. 🔴 **타이밍을 «맞추는» 값이 아니라 다시 «물어보는» 간격이다.** */
+const POLL_INTERVAL_MS = 20;
+
+/** 배리어가 포기하는 시각. 🔴 flaky 를 덮으려고 늘리지 마라 — 늘릴수록 원인이 숨는다. */
+const BARRIER_TIMEOUT_MS = 10_000;
+
+function nextPoll(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+}
+
+/** 막혀 있는 backend 가 알려 주는 것. */
+interface LockWait {
+  /** `transactionid` · `tuple` · `relation` … 무엇을 기다리는가. */
+  waitEvent: string | null;
+  /** 지금 이 backend 를 막고 있는 backend 들. */
+  blockers: number[];
+  /** 🔴 **어느 문장에서** 멈췄는가. */
+  query: string;
+}
+
+/** 배리어가 풀리지 않았을 때 사람에게 보여 줄, 그 backend 의 «지금» 모습. */
+interface BackendState {
+  state: string | null;
+  waitEventType: string | null;
+  waitEvent: string | null;
+  blockers: number[];
+  query: string;
+}
+
+/** `db().execute` 가 요구하는 모양. 관찰 결과를 담을 뿐 뜻은 위 타입들이 갖는다. */
+type Row<T> = T & Record<string, unknown>;
+
+/** pid 목록을 SQL 배열로. 🔴 값이 Database 에서 온 정수임을 여기서 못 박는다. */
+function pidArray(pids: readonly number[]) {
+  for (const pid of pids) {
+    if (!Number.isInteger(pid)) {
+      throw new Error(`backend pid 가 정수가 아니다: ${String(pid)}`);
+    }
+  }
+  return sql.raw(`array[${pids.join(", ")}]::int[]`);
+}
+
+/**
+ * **「pid 가 지금 잠금을 기다리고 있고, 그 blocker 중에 «우리 연결»이 있는가」** — 아니면 `null`.
+ *
+ * # 🔴 옛 방식이 왜 flaky 했는가 (실측)
+ *
+ * 배리어가 「**대기 «수»**」를 셌다. 처음에는 `pg_locks` 로 Database **전역**의 대기를 셌고,
+ * 그 다음에는 `pg_blocking_pids` 로 **blocker 가 막고 있는 backend 수**를 셌다.
+ * 두 번째도 여전히 «간접 지표»다 — **누가 기다리는지는 묻지 않고 몇이 기다리는지만 묻는다.**
+ *
+ * 이 파일의 둘째 시험은 blocker 가 **`lock table workspace_members in exclusive mode`**
+ * 로 **표 전체**를 잠갔다. 그러면 `workspace_members` 에 INSERT 하는 **다른 시험 파일의
+ * 연결이 그대로 그 blocker 뒤에 줄을 서고**, 옛 배리어는 그것을 «내 경쟁자»로 세었다.
+ * vitest 는 파일을 병렬 워커로 돌리므로 이 일은 언제든 일어난다.
+ *
+ * 실제 PostgreSQL 로 재현해 숫자를 찍어 봤다 — 이 시험의 참여자는 **하나도 시작하지 않은
+ * 상태**에서, 상관없는 연결 둘이 소속을 하나씩 INSERT 하자:
+ *
+ * ```
+ * blocker 가 표를 잠근 직후        waiters() = 0
+ * 남의 연결 하나가 막힌 뒤          waiters() = 1   <- 옛 배리어 `>= 1` 이 여기서 풀린다
+ * 남의 연결 둘이 막힌 뒤            waiters() = 2   <- 옛 배리어 `>= 2` 도 여기서 풀린다
+ * ```
+ *
+ * 즉 **수락이 아직 초대를 소진하지도 않았는데 발행이 들어갔다.** 그러면 발행은 아직 살아
+ * 있는 옛 초대와 부딪혀 `INVITATION_ALREADY_PENDING` 으로 거절되고, 시험은
+ * `WORKSPACE_MEMBER_ALREADY` 를 기대하다 **빨개진다.** 제품은 멀쩡한데 시험이 진 것이다.
+ *
+ * # 🔴 그래서 «수»를 세지 않는다
+ *
+ * 배리어가 묻는 것은 이제 하나다 — **「내가 방금 실행한 그 연결이, 내 다른 연결 때문에,
+ * 지금 잠금을 기다리고 있는가」.** 셋 다 직접 관찰이다:
+ *
+ * ```
+ * a.pid = <내 참여자의 pid>          어느 연결인지  — Pool 이 아니라 전용 Client 라 확정된다
+ * a.state = 'active'                 지금 문장을 돌리는 중인가
+ * a.wait_event_type = 'Lock'         그 문장이 «잠금»을 기다리는가 (I/O·Client 대기가 아니다)
+ * pg_blocking_pids(a.pid) && 내것들   막고 있는 것이 «내 연결»인가
+ * ```
+ *
+ * 🔴 **남의 대기가 섞일 자리가 없다.** 옛 방식은 「blocker 를 기다리는 아무나」를 셌지만,
+ * 이것은 「**이** pid 가 막혔는가」를 묻는다 — 다른 파일이 무엇을 하든 이 답은 바뀌지 않는다.
+ * 남의 연결이 같은 잠금을 함께 기다려도 우리 pid 의 `state`·`wait_event_type` 은 그대로다.
+ *
+ * `query` 까지 함께 읽어 두면 **「어느 문장에서 멈췄는가」**를 시험이 직접 확인할 수 있다 —
+ * 「막히기는 했는데 엉뚱한 자리였다」는 거짓 초록을 여기서 걸러 낸다.
+ */
+async function lockWaitOf(
+  pid: number,
+  blockedBy: readonly number[],
+): Promise<LockWait | null> {
+  const result = await db().execute<Row<LockWait>>(sql`
+    select a.wait_event              as "waitEvent",
+           pg_blocking_pids(a.pid)   as "blockers",
+           a.query                   as "query"
+      from pg_stat_activity a
+     where a.pid = ${pid}
+       and a.state = 'active'
+       and a.wait_event_type = 'Lock'
+       and pg_blocking_pids(a.pid) && ${pidArray(blockedBy)}
+  `);
+
+  return result.rows[0] ?? null;
+}
+
+/** 배리어가 풀리지 않았을 때 **왜 안 풀렸는지** 그대로 적어 준다. */
+async function describeBackend(pid: number): Promise<string> {
+  const result = await db().execute<Row<BackendState>>(sql`
+    select a.state                   as "state",
+           a.wait_event_type         as "waitEventType",
+           a.wait_event              as "waitEvent",
+           pg_blocking_pids(a.pid)   as "blockers",
+           a.query                   as "query"
+      from pg_stat_activity a
+     where a.pid = ${pid}
+  `);
+
+  const row = result.rows[0];
+  if (row === undefined) {
+    return `pid ${pid} 은 pg_stat_activity 에 없다 (연결이 이미 끊겼다)`;
+  }
+
+  return (
+    `pid ${pid}: state=${row.state ?? "-"} ` +
+    `wait=${row.waitEventType ?? "-"}/${row.waitEvent ?? "-"} ` +
+    `blockers=[${row.blockers.join(",")}] query=${row.query}`
+  );
+}
+
+/**
+ * `who` 가 `blockedBy` 중 하나 때문에 **실제로 잠금을 기다리는 상태**가 될 때까지 기다린다.
  *
  * 🔴 **고정 대기(sleep)로 순서를 «믿지» 않는다.** 기계가 바쁘면 그 순서가 뒤집히고,
- * 뒤집힌 시험은 결함이 살아 있어도 초록이 된다. 「누가 기다리기 시작했다」는 사실을
- * Database 에 직접 묻는다.
- *
- * ## 🔴 전에는 Database «전역»을 셌고, 그래서 간헐적으로 거짓 초록이 났다
- *
- * 옛 주석은 「이 파일의 시험들은 한 파일 안에서 차례로 도므로 서로의 대기를 섞어 세지
- * 않는다」고 적어 두었다. **파일 «안»에서는 맞지만 파일 «사이»에서는 틀리다** — vitest 는
- * 시험 파일을 병렬 워커로 돌린다. 다른 파일이 같은 표를 만지다 잠깐 막히면 그 대기가
- * 함께 세어져, 이 시험이 기다리던 «자기» 경쟁이 아직 시작되지 않았는데도 배리어가
- * 먼저 풀린다. 그러면 경쟁이 재현되지 않은 채 통과한다.
- *
- * 실제로 전체 통합 실행에서 이 파일이 간헐적으로 실패했다 — 원인은 제품이 아니라
- * **이 세는 방식**이었다.
- *
- * 🔴 **assertion 을 약하게 만들지 않고 «세는 범위»를 좁혔다.** `pg_blocking_pids` 로
- * **이 시험의 blocker 가 막고 있는 backend 만** 센다 — 「누가 무엇을 기다리는가」가 아니라
- * 「누가 «내» 잠금을 기다리는가」다. 다른 파일이 무엇을 하든 이 숫자는 흔들리지 않는다.
+ * 뒤집힌 시험은 결함이 살아 있어도 초록이 된다. 「막혔다」는 사실을 Database 에 직접 묻는다.
  */
-/** 지금 잠금을 쥐고 버티는 연결의 backend pid. `holdingLock` 이 채운다. */
-let blockerPid: number | null = null;
+async function untilLockWait(
+  who: Participant,
+  blockedBy: readonly Participant[],
+  what: string,
+): Promise<LockWait> {
+  const pids = blockedBy.map((part) => part.pid);
+  const deadline = Date.now() + BARRIER_TIMEOUT_MS;
 
-async function waiters(): Promise<number> {
-  if (blockerPid === null) {
-    return 0;
+  for (;;) {
+    const wait = await lockWaitOf(who.pid, pids);
+    if (wait !== null) {
+      return wait;
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `${what} — ${who.label} 이 막히지 않았다. ${await describeBackend(who.pid)}`,
+      );
+    }
+    await nextPoll();
   }
-  /*
-    🔴 **직접 막힌 것만 세면 부족하다.** 이 시험의 경쟁은 사슬이다 —
-    blocker 가 표를 잠그고, 수락이 그것을 기다리고, 발행은 **수락이 쥔 행**을 기다린다.
-    `pg_blocking_pids` 는 «직접» 막는 backend 만 돌려주므로 발행은 blocker 가 아니라
-    수락에 매달려 있고, 직접 관계만 세면 그 둘째가 영영 보이지 않는다.
-    그래서 blocker 에서 시작해 **막힘의 사슬을 따라 내려가며** 센다.
-  */
-  const result = await db().execute<{ n: number }>(
-    sql`with recursive tree(pid) as (
-          select ${blockerPid}::int
-          union
-          select a.pid
-            from pg_stat_activity a, tree t
-           where t.pid = any(pg_blocking_pids(a.pid))
-        )
-        select count(*)::int - 1 as n from tree`,
-  );
-  return result.rows[0]?.n ?? 0;
 }
 
 /**
- * 한 연결이 잠금을 쥐고 버티는 동안 `body` 를 돌린다.
+ * `who` 가 잠금 대기에 **들어가는 순간**을 지켜본다 — 「기다린 적이 있는가」를 재는 쪽이다.
  *
- * 🔴 이것은 «제품 경로»가 아니라 **시간을 못 박는 도구**다. 이것이 있어야 상대 경로가
- * 정해진 자리에서 «반드시» 멈추고, 그 상태에서 다른 요청을 들여보낼 수 있다.
- *
- * 🔴 **`finally` 에서 반드시 놓는다.** 시험이 도중에 던져도 잠금이 남지 않는다 —
- * 남으면 뒤따르는 정리 DELETE 가 통째로 멈춘다(실제로 겪었다).
+ * 🔴 **본 적이 없으면 영원히 결말이 나지 않는다.** 「아직 못 봤다」를 「기다린 적 없다」로
+ * 바꿔 돌려주면, 관찰이 늦은 것뿐인데 시험이 초록이 된다. 결말은 «봤을 때»만 낸다 —
+ * 못 본 채로 끝나는 판정은 **상대 Promise 가 끝났다는 사실**이 내린다.
  */
-async function holdingLock(
-  acquire: (tx: DbExecutor) => Promise<unknown>,
-  body: (release: () => void) => Promise<void>,
-): Promise<void> {
-  let release: () => void = () => {};
-  const released = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  let ready: () => void = () => {};
-  const isReady = new Promise<void>((resolve) => {
-    ready = resolve;
+function watchLockWait(
+  who: Participant,
+  blockedBy: readonly Participant[],
+): { seen: Promise<LockWait>; stop: () => void } {
+  const pids = blockedBy.map((part) => part.pid);
+  let stopped = false;
+
+  const seen = new Promise<LockWait>((resolve, reject) => {
+    const poll = async (): Promise<void> => {
+      while (!stopped) {
+        const wait = await lockWaitOf(who.pid, pids);
+        if (wait !== null) {
+          resolve(wait);
+          return;
+        }
+        await nextPoll();
+      }
+    };
+
+    poll().catch((error: unknown) => {
+      if (!stopped) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
   });
 
-  const blocker = db().transaction(async (tx) => {
-    await acquire(tx);
-    // 🔴 잠금을 «쥔 뒤» 그 연결의 pid 를 남긴다 — `waiters()` 가 이것을 기준으로 센다.
-    const pid = await tx.execute<{ pid: number }>(
-      sql`select pg_backend_pid() as pid`,
-    );
-    blockerPid = pid.rows[0]?.pid ?? null;
-    ready();
-    await released;
-  });
+  // 관찰을 그만둔 뒤 늦게 도착하는 오류가 unhandled 로 남지 않게 한다.
+  seen.catch(() => undefined);
 
-  try {
-    // 잠금을 못 잡고 죽는 경우까지 본다 — 그러면 여기서 곧바로 터진다.
-    await Promise.race([
-      isReady,
-      blocker.then(() => {
-        throw new Error("버티는 연결이 잠금을 잡지 못했다");
-      }),
-    ]);
-    await body(release);
-  } finally {
-    release();
-    await blocker.catch(() => undefined);
-    blockerPid = null;
-  }
+  return {
+    seen,
+    stop: () => {
+      stopped = true;
+    },
+  };
 }
 
+/**
+ * `40P01 deadlock detected` 인가.
+ *
+ * 🔴 **겉만 보면 안 된다.** Drizzle 은 Driver 오류를 `DrizzleQueryError` 로 **감싸서** 던지고
+ * 원본은 `cause` 에 들어간다 — 겉 객체에는 `code` 가 없다. 예전에는 겉만 봤고, 그래서
+ * 되돌림 확인에서 **진짜 deadlock 이 났는데도 이 함수가 `false` 를 돌려줬다**(시험은
+ * 뒤따르는 다른 assertion 덕에 빨개졌을 뿐, 정작 deadlock 을 보는 두 줄은 통과했다).
+ * 원인 사슬을 따라 내려가 확인한다.
+ */
 function isDeadlock(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    (error as { code?: unknown }).code === "40P01"
-  );
+  let current: unknown = error;
+
+  // 사슬이 스스로를 가리켜도 멈추도록 깊이를 제한한다.
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (typeof current !== "object" || current === null) {
+      return false;
+    }
+    if ((current as { code?: unknown }).code === "40P01") {
+      return true;
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
+
+  return false;
 }
 
 describe.skipIf(!enabled)("전역 잠금 순서 — 실제 연결 여럿", () => {
@@ -258,10 +440,13 @@ describe.skipIf(!enabled)("전역 잠금 순서 — 실제 연결 여럿", () =>
    * ## 어떻게 재는가
    *
    * ```
-   * 연결 0   삭제가 잠글 Workspace 행을 미리 쥔다   (시간을 못 박는 도구)
-   * 연결 1   계정 삭제 — Workspace 잠금 앞에서 멈춘다
-   * 연결 2   초대 수락 — 순서가 옳으면 «여기서 끝난다»
+   * blocker    삭제가 «가장 먼저» 잠글 Workspace 행을 미리 쥔다   (시간을 못 박는 도구)
+   * deleter    계정 삭제 — Workspace 잠금 앞에서 멈춘다
+   * accepter   초대 수락 — 순서가 옳으면 «여기서 끝난다»
    * ```
+   *
+   * 🔴 **blocker 가 잠그는 것은 «이 시험이 만든 Workspace 행 하나»뿐이다.** 표를 잠그지
+   * 않으므로 다른 시험 파일이 이 잠금 뒤에 줄을 설 일이 없다.
    *
    * 🔴 **되돌림 확인**: `deleteAccount` 의 `lockAccountRow` 를 `lockMyWorkspaces` 앞으로
    * 되돌리고 `acceptInvitation` 의 `lockAccountRow` 를 지우면, 이 시험이 실제로
@@ -292,55 +477,74 @@ describe.skipIf(!enabled)("전역 잠금 순서 — 실제 연결 여럿", () =>
       db(),
     );
 
+    const blocker = await connect("blocker");
+    const deleter = await connect("deleter");
+    const accepter = await connect("accepter");
+
     let deletionError: unknown = null;
     let acceptanceResult: unknown = null;
     let acceptedBeforeRelease = false;
 
-    await holdingLock(
-      (tx) =>
-        tx
-          .select({ id: workspaces.id })
-          .from(workspaces)
-          .where(eq(workspaces.id, personalId))
-          .for("update"),
-      async (release) => {
-        // 연결 1 — 계정 삭제. Workspace 잠금 앞에서 멈춘다.
-        const deletion = deleteAccount({ userId: me.id }).then(
-          () => null,
-          (error: unknown) => error,
-        );
+    try {
+      // blocker — 삭제가 가장 먼저 잡을 «그 행»을 미리 쥔다.
+      await blocker.client.query("begin");
+      await blocker.client.query(
+        'select "id" from "workspaces" where "id" = $1 for update',
+        [personalId],
+      );
 
-        await until(
-          async () => (await waiters()) >= 1,
-          "계정 삭제가 Workspace 잠금을 기다리는 상태",
-        );
+      // deleter — 계정 삭제. Workspace 잠금 앞에서 멈춘다.
+      const deletion = deleteAccount({ userId: me.id }, deleter.db).then(
+        () => null,
+        (error: unknown) => error,
+      );
 
-        // 연결 2 — 초대 수락. 🔴 여기서 `users` 를 기다리기 시작하면 고리가 닫힌다.
-        const acceptance = acceptInvitation({
-          token: invitation.token,
-          userId: me.id,
-        }).then(
-          (slug) => slug as unknown,
-          (error: unknown) => error,
-        );
+      const stopped = await untilLockWait(
+        deleter,
+        [blocker],
+        "계정 삭제가 Workspace 잠금 앞에서 멈춘 상태",
+      );
 
-        /*
-          🔴 잠금 순서가 옳으면 **수락은 여기서 이미 끝난다** — 계정 삭제가 `users` 를 아직
-          잡지 않았기 때문이다. 그래서 버티던 연결을 놓기 «전»에 수락이 끝나는지 본다.
-        */
+      /*
+        🔴 **막힌 «자리»까지 확인한다.** 「막히기는 했다」만 보면, 엉뚱한 문장에서 멈춘
+        것을 우리가 기다리던 상태로 착각한 채 다음 요청을 들여보내게 된다.
+      */
+      expect(stopped.query).toMatch(/"workspaces"[\s\S]*for update/i);
+
+      // accepter — 초대 수락. 🔴 여기서 `users` 를 기다리기 시작하면 고리가 닫힌다.
+      const acceptance = acceptInvitation(
+        { token: invitation.token, userId: me.id },
+        accepter.db,
+      ).then(
+        (slug) => slug as unknown,
+        (error: unknown) => error,
+      );
+
+      /*
+        🔴 잠금 순서가 옳으면 **수락은 여기서 이미 끝난다** — 계정 삭제가 `users` 를 아직
+        잡지 않았기 때문이다. 그래서 blocker 를 놓기 «전»에 수락이 끝나는지 본다.
+
+        🔴 **시계로 재지 않는다.** 예전에는 「2초 안에 끝나면 기다리지 않은 것」으로 쳤는데,
+        그것은 기계가 바쁘면 그대로 거짓 빨강이 된다. 대신 **수락이 잠금 대기에 들어가는
+        순간을 직접 지켜본다** — 둘 중 먼저 일어난 쪽이 답이다.
+      */
+      const watch = watchLockWait(accepter, [deleter, blocker]);
+      try {
         acceptedBeforeRelease = await Promise.race([
           acceptance.then(() => true),
-          new Promise<boolean>((resolve) =>
-            setTimeout(() => resolve(false), 2_000),
-          ),
+          watch.seen.then(() => false),
         ]);
+      } finally {
+        watch.stop();
+      }
 
-        release();
+      await blocker.client.query("rollback");
 
-        deletionError = await deletion;
-        acceptanceResult = await acceptance;
-      },
-    );
+      deletionError = await deletion;
+      acceptanceResult = await acceptance;
+    } finally {
+      await disconnect(blocker, deleter, accepter);
+    }
 
     // 🔴 어느 쪽도 deadlock 으로 죽지 않았다.
     expect(isDeadlock(deletionError)).toBe(false);
@@ -387,18 +591,30 @@ describe.skipIf(!enabled)("전역 잠금 순서 — 실제 연결 여럿", () =>
    * 🔴 초대는 이메일을 대조하지 않는 **bearer credential** 이다. 그 새 Token 을 주운
    * 다른 계정이 그대로 그 Workspace 에 들어온다.
    *
-   * ## 어떻게 재는가 — 멈춰 세우는 «자리»가 요점이다
+   * ## 어떻게 재는가 — 🔴 잠금을 «하나도 더» 걸지 않는다
    *
-   * 수락이 초대 행을 소진하기 **전**에 멈추면 발행은 commit 된 옛 행과 부딪혀 곧바로
-   * 거절당하고, 그러면 문제의 경쟁이 재현되지 않는다. **소속 INSERT 앞**에서 멈춰야
-   * 「초대 행은 이미 갱신됐지만 아직 commit 되지 않은」 상태가 만들어진다.
+   * 필요한 상태는 하나다 — **「수락이 초대 행을 소진했지만 아직 commit 되지 않았다」.**
+   *
+   * 예전에는 그 상태를 만들려고 `lock table workspace_members in exclusive mode` 로
+   * **표 전체**를 잠갔다. 그것이 이 파일 flaky 의 원인이었다(`lockWaitOf` 주석) — 게다가
+   * 병렬로 도는 **다른 시험 파일들의 소속 INSERT 를 통째로 세워 둔다**(그 표에 쓰는 통합시험
+   * 파일이 여섯이다).
+   *
+   * 🔴 **잠금 대신 «commit 시점»을 쥔다.** 수락을 이 하네스가 연 Transaction 안에서 부르면
+   * 제품 경로는 그대로 다 돌고(초대 행 UPDATE · 소속 INSERT · 잠금 전부 그대로), **COMMIT 만**
+   * 우리가 쥐게 된다. Drizzle 은 열린 Transaction 안의 `transaction()` 을 SAVEPOINT 로 잇고
+   * SAVEPOINT 는 잠금을 놓지 않으므로, 경쟁이 보는 상태는 전과 같다.
    *
    * ```
-   * 연결 0   소속 표를 EXCLUSIVE 로 잠근다        (평범한 SELECT 는 막지 않는다)
-   * 연결 1   수락 — 초대를 소진하고 소속 INSERT 앞에서 멈춘다
-   * 연결 2   발행 — 같은 Workspace 를 잠그려다 멈춘다
-   * 놓음 -> 수락 commit -> 발행이 «새 snapshot» 으로 판정 -> 이미 멤버다
+   * accepter   수락 — 다 돌았지만 COMMIT 전에서 «결정적으로» 멈춘다  (배리어가 필요 없다)
+   * issuer     발행 — 수락이 쥔 것 앞에서 멈춘다                     (배리어가 이것만 본다)
+   * COMMIT -> 발행이 «새 snapshot» 으로 판정 -> 이미 멤버다
    * ```
+   *
+   * 🔴 **발행이 «어느» 문장에서 멈추는지는 굳이 고정하지 않는다.** 지금 구현에서는
+   * `lockWorkspaceRow` 의 `for update` 이고, 그것을 되돌리면 부분 unique index 충돌이다 —
+   * 둘 다 「수락 뒤에 줄을 섰다」는 같은 뜻이다. 한쪽으로 못 박으면 되돌림 확인이
+   * 「배리어가 안 풀렸다」는 엉뚱한 실패로 바뀐다.
    *
    * 🔴 **되돌림 확인**: `createInvitation` 의 `lockWorkspaceRow` 를 지우면 발행이 옛
    * snapshot 으로 INSERT 에 성공해 이 시험이 실패한다. 직접 돌려 보고 되돌렸다.
@@ -413,47 +629,49 @@ describe.skipIf(!enabled)("전역 잠금 순서 — 실제 연결 여럿", () =>
       db(),
     );
 
+    const accepter = await connect("accepter");
+    const issuer = await connect("issuer");
+
     let acceptanceResult: unknown = null;
     let issuanceResult: unknown = null;
 
-    await holdingLock(
-      (tx) => tx.execute(sql`lock table workspace_members in exclusive mode`),
-      async (release) => {
-        // 연결 1 — 수락. 초대를 소진한 뒤 소속 INSERT 앞에서 멈춘다.
-        const acceptance = acceptInvitation({
-          token: first.token,
-          userId: guest.id,
-        }).then(
+    try {
+      /*
+        🔴 `pending` 을 «객체에 담아» 돌려준다. 그대로 돌려주면 Drizzle 이 commit 하기
+        «전»에 await 되어(Promise 가 펼쳐진다) 발행이 영원히 풀리지 않는다.
+      */
+      const { pending } = await accepter.db.transaction(async (tx) => {
+        acceptanceResult = await acceptInvitation(
+          { token: first.token, userId: guest.id },
+          tx,
+        ).then(
           (slug) => slug as unknown,
           (error: unknown) => error,
         );
 
-        await until(
-          async () => (await waiters()) >= 1,
-          "수락이 소속 INSERT 앞에서 멈춘 상태",
-        );
-
-        // 연결 2 — 발행. 🔴 여기가 갈리는 자리다.
+        // issuer — 발행. 🔴 여기가 갈리는 자리다.
         const issuance = createInvitation(
           { workspaceId, email: guest.email, invitedBy: host.id },
-          db(),
+          issuer.db,
         ).then(
           (invitation) => invitation as unknown,
           (error: unknown) => error,
         );
 
-        // 발행도 «기다리는 상태»가 된 것을 확인하고 나서 놓는다.
-        await until(
-          async () => (await waiters()) >= 2,
-          "발행이 자리를 잡고 기다리는 상태",
+        // 발행이 «수락 때문에» 실제로 막힌 것을 확인하고 나서야 commit 한다.
+        await untilLockWait(
+          issuer,
+          [accepter],
+          "발행이 수락 뒤에서 자리를 잡고 기다리는 상태",
         );
 
-        release();
+        return { pending: issuance };
+      });
 
-        acceptanceResult = await acceptance;
-        issuanceResult = await issuance;
-      },
-    );
+      issuanceResult = await pending;
+    } finally {
+      await disconnect(accepter, issuer);
+    }
 
     // 수락은 성공한다.
     expect(typeof acceptanceResult).toBe("string");
