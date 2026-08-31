@@ -21,7 +21,8 @@
     "config.mjs",
     "git.mjs",
     "tools.mjs",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20.11"
