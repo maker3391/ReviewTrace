@@ -53,12 +53,20 @@ export function ProjectSettingsPanel({
  workspaceSlug,
  project,
  impact,
+ canEdit,
  canDelete,
  labels,
 }: {
  workspaceSlug: string;
  project: { slug: string; name: string; description: string | null };
  impact: ProjectDeletionImpact;
+ /**
+ * 🔴 **수정 폼을 그릴지 말지.** Workspace OWNER 만 참이다 — `canDelete` 와 같은 문법이다.
+ *
+ * 🔴 **거짓이어도 화면이 비지 않는다.** 폼 대신 지금 값을 «읽기 전용»으로 그린다 —
+ * 아무것도 없는 설정 화면은 「권한이 없다」가 아니라 「고장났다」로 읽힌다.
+ */
+ canEdit: boolean;
  /**
  * 🔴 **삭제 자리를 그릴지 말지.** Workspace OWNER 만 참이다.
  *
@@ -118,6 +126,13 @@ export function ProjectSettingsPanel({
 
  return (
  <div className="flex flex-col gap-6">
+ {/*
+ 🔴 **수정도 OWNER 만이다.** 고칠 수 없는 사람에게 입력칸을 그리면 「고칠 수 있다」로
+ 읽히고, 눌러 본 뒤에야 거절당한다.
+ 🔴 **이것은 편의일 뿐 경계가 아니다** — 서버(`updateProjectAction`)가 같은 판정을
+ 다시 한다.
+ */}
+ {canEdit ? (
  <form onSubmit={form.handleSubmit(onSave)} className="flex flex-col gap-3 pt-3">
  <div className="flex flex-col gap-1">
  <label className="text-xs font-medium" htmlFor="project-settings-name">
@@ -181,6 +196,26 @@ export function ProjectSettingsPanel({
  </Button>
  </div>
  </form>
+) : (
+ /* 🔴 폼이 없다고 값까지 감추지 않는다 — 무엇으로 설정돼 있는지는 멤버도 본다. */
+ <dl className="flex flex-col gap-3 pt-3">
+ <div className="flex flex-col gap-1">
+ <dt className="text-xs font-medium">{labels.name}</dt>
+ <dd className="text-sm">{project.name}</dd>
+ </div>
+
+ <div className="flex flex-col gap-1">
+ <dt className="text-xs font-medium">{labels.slug}</dt>
+ <dd className="font-mono text-sm">{project.slug}</dd>
+ </div>
+
+ <div className="flex flex-col gap-1">
+ <dt className="text-xs font-medium">{labels.description}</dt>
+ {/* 🔴 값이 없는 것과 빈 값은 다르다 — 없으면 «—» 다. */}
+ <dd className="text-sm">{project.description ?? "—"}</dd>
+ </div>
+ </dl>
+)}
 
  {/*
  🔴 **비-OWNER 에게는 이 자리 «자체»를 그리지 않는다.** 버튼만 비활성으로 두면

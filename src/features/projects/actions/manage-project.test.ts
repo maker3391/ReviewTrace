@@ -24,6 +24,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const requireProject = vi.fn();
 const requireOwner = vi.fn();
 const deleteProject = vi.fn();
+const updateProject = vi.fn();
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
@@ -37,10 +38,10 @@ vi.mock("@/lib/auth/require-workspace", () => ({
 
 vi.mock("@/features/projects/server/project-service", () => ({
  deleteProject: (...args: unknown[]) => deleteProject(...args),
- updateProject: vi.fn(),
+ updateProject: (...args: unknown[]) => updateProject(...args),
 }));
 
-const { deleteProjectAction } = await import(
+const { deleteProjectAction, updateProjectAction } = await import(
  "@/features/projects/actions/manage-project"
 );
 
@@ -52,7 +53,11 @@ beforeEach(() => {
  requireProject.mockResolvedValue({ workspace: WORKSPACE, project: PROJECT });
  requireOwner.mockReturnValue(undefined);
  deleteProject.mockResolvedValue(undefined);
+ updateProject.mockResolvedValue({ slug: "smil" });
 });
+
+/** 화면이 보내는 모양 그대로다 — Schema 를 흉내 내지 않고 진짜 값을 통과시킨다. */
+const INPUT = { name: "SMIL", slug: "smil", description: "" };
 
 describe("deleteProjectAction — 파괴 권한", () => {
  it("🔴 OWNER 검증을 «지우기 전에» 부른다", async () => {
@@ -87,6 +92,85 @@ describe("deleteProjectAction — 파괴 권한", () => {
  expect(deleteProject).toHaveBeenCalledWith({
  workspaceId: WORKSPACE.workspaceId,
  projectId: PROJECT.projectId,
+ });
+ });
+});
+
+/**
+ * 🔴 **Project «수정» 도 OWNER 만이다 — 삭제와 같은 자리, 같은 방식.**
+ *
+ * `updateProjectAction` 은 `requireProject` 만 불렀다. 그래서 **MEMBER 도 이름·slug·설명을
+ * 바꿀 수 있었다.** slug 는 주소다 — MEMBER 하나가 바꾸면 밖에 나가 있던 링크가 통째로
+ * 끊긴다. 삭제만큼 파괴적이지 않다고 해서 조회 권한으로 되는 일이 아니다.
+ *
+ * 🔴 **화면 숨김은 시험 대상이 아니다.** 여기서 붙드는 것은 「Action 을 «직접» 불러도
+ * 막히는가」다 — 아래 시험은 폼을 거치지 않고 Server Action 을 그대로 부른다.
+ */
+describe("updateProjectAction — 변경 권한", () => {
+ it("🔴 OWNER 검증을 «저장하기 전에» 부른다", async () => {
+ const result = await updateProjectAction(
+ { workspaceSlug: "acme", projectSlug: "smil" },
+ INPUT,
+);
+
+ expect(result.ok).toBe(true);
+ expect(requireOwner).toHaveBeenCalledWith(WORKSPACE);
+ expect(updateProject).toHaveBeenCalledTimes(1);
+
+ // 🔴 순서가 뒤집히면 「고친 뒤에 권한을 본다」가 된다.
+ const ownerCall = requireOwner.mock.invocationCallOrder[0] ?? 0;
+ const updateCall = updateProject.mock.invocationCallOrder[0] ?? 0;
+ expect(ownerCall).toBeLessThan(updateCall);
+ });
+
+ /**
+ * 🔴 `requireOwner` 는 `notFound()` 를 던진다 — 그 자리를 흉내 낸다.
+ * 던지는 예외의 «종류»가 아니라 **수정이 일어나지 않는다**는 사실을 붙든다.
+ */
+ it("🔴 OWNER 가 아니면 수정이 «일어나지 않는다»", async () => {
+ requireOwner.mockImplementation(() => {
+ throw new Error("NEXT_NOT_FOUND");
+ });
+
+ const result = await updateProjectAction(
+ { workspaceSlug: "acme", projectSlug: "smil" },
+ INPUT,
+);
+
+ expect(updateProject).not.toHaveBeenCalled();
+ expect(result.ok).toBe(false);
+ });
+
+ /**
+ * 🔴 **다른 Workspace 의 Project 는 여기까지 오지도 못한다.**
+ * 소속·소재 판정이 막으면(`requireProject` 가 `notFound()`) OWNER 판정을 보기도 전에
+ * 끝난다 — 그래서 「남의 Workspace 것을 OWNER 라서 고쳤다」가 성립하지 않는다.
+ */
+ it("남의 Workspace 의 Project 는 소속 확인에서 끝난다", async () => {
+ requireProject.mockImplementation(() => {
+ throw new Error("NEXT_NOT_FOUND");
+ });
+
+ const result = await updateProjectAction(
+ { workspaceSlug: "other", projectSlug: "smil" },
+ INPUT,
+);
+
+ expect(requireOwner).not.toHaveBeenCalled();
+ expect(updateProject).not.toHaveBeenCalled();
+ expect(result.ok).toBe(false);
+ });
+
+ it("Workspace·Project 는 «주소가 아니라» 소속 확인이 돌려준 값을 쓴다", async () => {
+ await updateProjectAction(
+ { workspaceSlug: "acme", projectSlug: "smil" },
+ INPUT,
+);
+
+ expect(updateProject).toHaveBeenCalledWith({
+ workspaceId: WORKSPACE.workspaceId,
+ projectId: PROJECT.projectId,
+ input: INPUT,
  });
  });
 });

@@ -45,6 +45,21 @@ export async function updateProjectAction(
  target.projectSlug,
 );
 
+ /*
+ 🔴 **수정도 OWNER 만이다 — 삭제와 «같은» 판정을 같은 helper 로 한다.**
+ `requireProject` 가 보는 것은 「그 Workspace 의 멤버인가」와 「그 Workspace 안의
+ Project 인가」까지다 — 그것만으로는 **MEMBER 도 이름·slug·설명을 바꿀 수 있었다.**
+ slug 는 주소다. 바꾸면 밖에 나가 있던 링크가 통째로 끊긴다 — 조회 권한과 변경
+ 권한은 다른 판정이다.
+
+ 🔴 **화면에서 폼을 감추는 것으로 대신하지 않는다.** Server Action 은 주소만 알면
+ 누구나 부를 수 있다 — 판정의 정본은 여기다.
+
+ 🔴 `requireOwner` 는 `notFound()` 를 던진다. `403` 이 아니다 — 403 은 「그 Project 가
+ 존재한다」를 알려 주므로, 없는 것과 권한 없는 것을 구분해 주지 않는다.
+ */
+ requireOwner(workspace);
+
  const updated = await updateProject({
  workspaceId: workspace.workspaceId,
  projectId: project.projectId,
