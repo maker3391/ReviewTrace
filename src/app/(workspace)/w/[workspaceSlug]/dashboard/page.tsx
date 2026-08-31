@@ -1,14 +1,8 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 
 import { WorkspaceDashboardScreen } from "@/features/dashboard/components/WorkspaceDashboardScreen";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
-import {
- PerformanceTrace,
- runWithPerformanceTrace,
-} from "@/lib/performance/timing";
 import { readMessages } from "@/lib/ui/appearance";
-import { PERFORMANCE_TRACE_HEADER } from "@/proxy";
 
 export async function generateMetadata(): Promise<Metadata> {
  return { title: (await readMessages()).metaTitle.dashboard };
@@ -28,22 +22,13 @@ export default async function WorkspaceDashboardPage({
  params: Promise<{ workspaceSlug: string }>;
 }) {
  const { workspaceSlug } = await params;
- const traceId = (await headers()).get(PERFORMANCE_TRACE_HEADER);
- const trace =
- traceId === null ? undefined : new PerformanceTrace("dashboard.page", traceId);
- const { workspace } =
- trace === undefined
- ? await requireWorkspace(workspaceSlug)
- : await runWithPerformanceTrace(trace, () =>
- trace.time("dashboard.auth", () => requireWorkspace(workspaceSlug)),
- );
+ const { workspace } = await requireWorkspace(workspaceSlug);
 
  return (
  <WorkspaceDashboardScreen
  workspaceId={workspace.workspaceId}
  workspaceSlug={workspace.slug}
  workspaceName={workspace.name}
- performanceTrace={trace}
  />
 );
 }

@@ -37,8 +37,6 @@ import {
  */
 /** 현재 경로를 Layout 에 알리는 헤더. 읽는 쪽은 `app/(workspace)/.../layout.tsx` 다. */
 export const CURRENT_PATH_HEADER = "x-current-path";
-/** 임시 성능 계측 로그에서 같은 요청의 Layout·Page를 묶는 무작위 ID. */
-export const PERFORMANCE_TRACE_HEADER = "x-reviewtrace-performance-trace";
 
 const SESSION_COOKIE_NAMES = [
  "authjs.session-token",
@@ -68,13 +66,6 @@ export function proxy(request: NextRequest): NextResponse {
  */
  const requestHeaders = new Headers(request.headers);
  requestHeaders.set(CURRENT_PATH_HEADER, pathname);
- if (
- pathname === "/" ||
- pathname === "/api/auth/callback/github" ||
- /^\/w\/[^/]+\/dashboard$/.test(pathname)
- ) {
- requestHeaders.set(PERFORMANCE_TRACE_HEADER, crypto.randomUUID());
- }
 
  const response = NextResponse.next({ request: { headers: requestHeaders } });
 

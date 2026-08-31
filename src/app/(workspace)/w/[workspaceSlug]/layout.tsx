@@ -9,19 +9,12 @@ import { listMemberWorkspaces } from "@/lib/auth/workspace-context";
 import { cookies, headers } from "next/headers";
 
 import { readProjectSlugFromPath } from "@/config/routes";
-import {
- PerformanceTrace,
- runWithPerformanceTrace,
-} from "@/lib/performance/timing";
 import { readMessages } from "@/lib/ui/appearance";
 import {
  parseSidebarCollapsed,
  SIDEBAR_COLLAPSED_COOKIE,
 } from "@/lib/ui/sidebar-state";
-import {
- CURRENT_PATH_HEADER,
- PERFORMANCE_TRACE_HEADER,
-} from "@/proxy";
+import { CURRENT_PATH_HEADER } from "@/proxy";
 
 /** Tenant 내부 화면은 인증 여부와 무관하게 검색 색인 대상이 아니다. */
 export const metadata: Metadata = {
@@ -51,16 +44,7 @@ export default async function WorkspaceLayout({
  params: Promise<{ workspaceSlug: string }>;
 }) {
  const { workspaceSlug } = await params;
- const traceId = (await headers()).get(PERFORMANCE_TRACE_HEADER);
- const trace =
- traceId === null ? null : new PerformanceTrace("dashboard.layout", traceId);
- const timed = <T,>(name: string, task: () => Promise<T>) =>
- trace === null
- ? task()
- : runWithPerformanceTrace(trace, () => trace.time(name, task));
- const { user, workspace } = await timed("dashboard.layout.auth", () =>
- requireWorkspace(workspaceSlug),
- );
+ const { user, workspace } = await requireWorkspace(workspaceSlug);
 
  /**
  * 사이드바가 쓰는 두 목록.
@@ -70,10 +54,8 @@ export default async function WorkspaceLayout({
  * 매번 Join 이 붙는다.
  */
  const [workspaces, projects, t] = await Promise.all([
- timed("dashboard.layout.workspaces", () => listMemberWorkspaces(user.id)),
- timed("dashboard.layout.projects", () =>
+ listMemberWorkspaces(user.id),
  listProjectOptions(workspace.workspaceId),
- ),
  readMessages(),
  ]);
 
@@ -100,8 +82,6 @@ export default async function WorkspaceLayout({
  projectSlug === null
  ? null
  : (projects.find((item) => item.slug === projectSlug) ?? null);
-
- trace?.log();
 
  return (
  <div className="flex min-h-0 flex-1 flex-col">
