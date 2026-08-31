@@ -60,6 +60,7 @@ Claude 사용법이나 일반적인 코딩 상식을 적는 곳이 아니다.
 | **API Key 발급·폐기 화면**(`/w/{ws}/settings`, OWNER 전용 · 원문 1회 표시) | **있다** |
 | **Workspace 만들기**(Switcher) · **멤버 역할 변경**(마지막 OWNER 강등 차단) | **있다** |
 | **Project 수정·삭제**(`/w/{ws}/p/{p}/settings` · 삭제 영향 건수 표시 후 이름 확인) | **있다** |
+| **Workspace 삭제**(`/w/{ws}/settings` · 영향 건수 8종 표시 후 이름 확인) | **있다** — 🔴 **Personal Workspace 는 지울 수 없다**(화면에 자리 자체가 없고 서버가 다시 막는다). 🔴 **다른 멤버가 «한 명이라도» 있으면 거절**하고 멤버를 함께 지우지 않는다 — 내보내기는 사람이 먼저 한다. 판정은 순수 함수 하나(`workspace-deletion-plan.ts`)를 화면과 Transaction 이 **같이** 쓴다. 🔴 **하위 표를 손으로 지우지 않는다** — `workspaces` 를 참조하는 FK 11개가 전부 `ON DELETE CASCADE` 라 한 문장으로 끝나고 고아가 남지 않는다(실제 catalog 확인). 잠금은 `workspaces -> workspace_members` 이고 `users` 를 잠그지 않는다 |
 | **Repository 를 Project 사이에서 이동** | **있다** — Review·Issue 가 함께 따라간다 |
 | ReviewIssue 의 **화면 CRUD**(상태 변경·Activity 추가) | **있다** — Agent API 와 **같은 Application Service** 를 쓴다 |
 | Wiki 의 Markdown **렌더링** | **있다** — `MarkdownView` 한 곳. 🔴 raw HTML 을 렌더하지 않아 sanitize 가 따로 필요 없다. `rehype-highlight` 로 코드블록을 강조하되 **theme CSS 를 import 하지 않고** `hljs-*` class 에 우리 토큰만 얹는다 |
@@ -549,6 +550,22 @@ Settings 가 390px 에서 **124px** 넘치는 것을 잡았다(발급 버튼이 
   초대 취소(`revoked_at`) · 계정 삭제. 「Agent API 계약은 바뀌지 않았다」는 **단위·통합 시험까지만
   확인된 상태**다. 🔴 **「단위·통합이 초록이니 Agent API 도 괜찮다」로 읽지 마라** — 그 53건만이
   실제 HTTP 왕복과 DB 대조를 한다
+- **Workspace 삭제 담당이 확인하지 못한 것** (2026-08-31):
+  - 🔴 **브라우저로 «한 번도» 보지 않았다.** Settings 화면의 삭제 자리·확인 Dialog·이름
+    입력·삭제 뒤 이동을 **눌러 보지 않았다** — Chrome 136+ 가 기본 프로필에서 디버그
+    포트를 무시하고 별도 프로필은 로그인 제공자가 막는다. 🔴 **세션 쿠키를 위조하지
+    않았다.** 확인한 것은 타입·빌드·Application Service·실제 PostgreSQL 까지다
+  - **Server Action 왕복을 눌러 보지 않았다.** `deleteWorkspaceAction` 은
+    `requireOwner` 와 Application Service 계층까지만 확인했다 — `revalidatePath` 뒤
+    Switcher 목록이 실제로 다시 그려지는지, `router.replace("/")` 가 남은 Workspace 로
+    가는지는 확인되지 않았다
+  - **동시 삭제·삭제와 초대 수락의 경쟁을 실제로 부딪혀 보지 않았다.** 같은 Workspace 행을
+    먼저 잠가 설계했고 시험은 **순차로** 돌렸다 — 되돌아가는 Transaction 안에서는 두 연결을
+    동시에 굴릴 수 없다
+  - 🔴 **「다른 Workspace 를 건드리지 않는다」의 되돌림은 돌리지 않았다.** 그것을 되돌리려면
+    `where` 없는 `DELETE FROM workspaces` 를 실제 Database 에 보내야 한다 — 되돌아가는
+    Transaction 안이어도 사장님의 실제 행에 그 문장을 던지지 않았다. 대신 **조회 경로**의
+    같은 조건을 지워 집계 시험이 실제로 빨개지는 것을 확인했다
 - 위를 「될 것이다」로 적지 마라. 확인한 사람이 이 표를 고쳐라
 
 🔴 **없는 것을 있는 것처럼 쓰지 마라.** 실행하지 않은 검증을 통과했다고 적지 않는다. 확인하지 않은 동작을 정상이라고 추측하지 않는다.

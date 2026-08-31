@@ -380,6 +380,31 @@ export const en: Messages = {
     apiKeysSection: "API Keys",
     integrationSection: "Agent Integration",
     accountSection: "Account",
+    dangerSection: "Delete workspace",
+  },
+
+  workspaceDelete: {
+    intro:
+      "Deleting a workspace removes every review record inside it, and cannot be undone.",
+    losses: "Deleted data",
+    statProjects: "Projects",
+    statRepositories: "Repositories",
+    statReviews: "Reviews",
+    statIssues: "Issues",
+    statPages: "Pages",
+    statKeys: "API Keys",
+    statInvitations: "Invitations",
+    statTags: "Tags",
+    blockedTitle: "Resolve this first",
+    blockedMembers:
+      "A workspace with other members cannot be deleted. Remove the members first.",
+    delete: "Delete workspace",
+    cancel: "Cancel",
+    dialogTitle: "Delete this workspace?",
+    dialogBody:
+      "Every project, review, issue, page, and API key in this workspace disappears. This cannot be undone.",
+    confirmPrefix: "Type ",
+    confirmSuffix: " to confirm.",
   },
 
   account: {
@@ -662,6 +687,12 @@ export const en: Messages = {
       "This is the last OWNER. Promote another member to OWNER first.",
     PERSONAL_WORKSPACE_ROLE_FIXED:
       "The owner of a Personal Workspace cannot change role.",
+    WORKSPACE_NOT_FOUND: "Workspace not found.",
+    WORKSPACE_OWNER_REQUIRED: "Workspace not found.",
+    PERSONAL_WORKSPACE_UNDELETABLE:
+      "A personal workspace cannot be deleted.",
+    WORKSPACE_HAS_MEMBERS:
+      "A workspace with other members cannot be deleted. Remove the members first.",
 
     ACCOUNT_NOT_FOUND: "Account not found.",
     ACCOUNT_LAST_OWNER:

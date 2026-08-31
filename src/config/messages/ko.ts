@@ -522,6 +522,38 @@ export const ko = {
     apiKeysSection: "API Key",
     integrationSection: "Agent 연동",
     accountSection: "계정",
+    dangerSection: "워크스페이스 삭제",
+  },
+
+  /**
+   * Workspace 삭제. 🔴 「무엇이 사라지는가」와 「왜 못 지우는가」를 말하는 낱말들이다.
+   *
+   * 🔴 **Personal Workspace 의 문구는 여기 없다.** 그 경우 삭제 UI 자체가 그려지지 않는다 —
+   * 지울 수 없는 버튼을 보여 주고 이유를 설명하는 것보다, 없는 편이 정확하다.
+   */
+  workspaceDelete: {
+    intro:
+      "워크스페이스를 삭제하면 그 안의 모든 리뷰 기록이 함께 사라지며 복구할 수 없습니다.",
+    losses: "삭제되는 데이터",
+    statProjects: "프로젝트",
+    statRepositories: "저장소",
+    statReviews: "리뷰",
+    statIssues: "이슈",
+    statPages: "문서",
+    statKeys: "API Key",
+    statInvitations: "초대",
+    statTags: "태그",
+    blockedTitle: "먼저 해결해야 합니다",
+    /** 🔴 정책이 정한 문구 그대로다. 오류 사전의 `WORKSPACE_HAS_MEMBERS` 와 같은 문장이다. */
+    blockedMembers:
+      "다른 멤버가 있는 Workspace는 삭제할 수 없습니다. 먼저 멤버를 내보내세요.",
+    delete: "워크스페이스 삭제",
+    cancel: "취소",
+    dialogTitle: "워크스페이스를 삭제할까요?",
+    dialogBody:
+      "이 워크스페이스의 프로젝트·리뷰·이슈·문서·API Key가 모두 사라집니다. 되돌릴 수 없습니다.",
+    confirmPrefix: "확인하려면 ",
+    confirmSuffix: "를 그대로 입력하세요.",
   },
 
   /** 계정 삭제. 🔴 「무엇이 사라지고 무엇이 남는가」를 말하는 낱말들이다. */
@@ -892,6 +924,13 @@ export const ko = {
       "마지막 OWNER입니다. 다른 멤버를 OWNER로 올린 뒤에 바꿔 주세요.",
     PERSONAL_WORKSPACE_ROLE_FIXED:
       "Personal Workspace의 주인은 역할을 바꿀 수 없습니다.",
+    WORKSPACE_NOT_FOUND: "워크스페이스를 찾을 수 없습니다.",
+    WORKSPACE_OWNER_REQUIRED: "워크스페이스를 찾을 수 없습니다.",
+    PERSONAL_WORKSPACE_UNDELETABLE:
+      "개인 워크스페이스는 삭제할 수 없습니다.",
+    /** 🔴 정책이 정한 문구 그대로다. 「무엇을 먼저 하면 되는지」가 문장 안에 있다. */
+    WORKSPACE_HAS_MEMBERS:
+      "다른 멤버가 있는 Workspace는 삭제할 수 없습니다. 먼저 멤버를 내보내세요.",
 
     ACCOUNT_NOT_FOUND: "계정을 찾을 수 없습니다.",
     ACCOUNT_LAST_OWNER:

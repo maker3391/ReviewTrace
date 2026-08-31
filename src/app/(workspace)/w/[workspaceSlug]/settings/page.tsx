@@ -9,6 +9,8 @@ import { listProjectOptions } from "@/features/projects/server/project-service";
 import { listWorkspaceMembers } from "@/features/invitations/server/invitation-service";
 import { DeleteAccountPanel } from "@/features/users/components/DeleteAccountPanel";
 import { findAccountDeletionImpact } from "@/features/users/server/account-deletion-service";
+import { DeleteWorkspacePanel } from "@/features/workspaces/components/DeleteWorkspacePanel";
+import { findWorkspaceDeletionImpact } from "@/features/workspaces/server/workspace-deletion-service";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
 import { readMessages } from "@/lib/ui/appearance";
 import { serverEnv } from "@/lib/env";
@@ -42,17 +44,40 @@ export default async function WorkspaceSettingsPage({
 
   const isOwner = workspace.role === "OWNER";
 
-  const [members, projects, apiKeys, accountImpact] = await Promise.all([
-    listWorkspaceMembers(workspace.workspaceId),
-    listProjectOptions(workspace.workspaceId),
-    // 🔴 OWNER 가 아니면 조회하지도 않는다. 화면에서 감추는 것으로 대신하지 않는다.
-    isOwner ? listApiKeys(workspace.workspaceId) : Promise.resolve([]),
-    /*
-      🔴 **이 Workspace 가 아니라 «이 사람»의 범위다.** 계정 삭제는 지금 보고 있는
-      Workspace 하나가 아니라 그가 속한 전부에 걸린다 — 그래서 조회도 `userId` 로 한다.
-    */
-    findAccountDeletionImpact(user.id),
-  ]);
+  const [members, projects, apiKeys, accountImpact, workspaceImpact] =
+    await Promise.all([
+      listWorkspaceMembers(workspace.workspaceId),
+      listProjectOptions(workspace.workspaceId),
+      // 🔴 OWNER 가 아니면 조회하지도 않는다. 화면에서 감추는 것으로 대신하지 않는다.
+      isOwner ? listApiKeys(workspace.workspaceId) : Promise.resolve([]),
+      /*
+        🔴 **이 Workspace 가 아니라 «이 사람»의 범위다.** 계정 삭제는 지금 보고 있는
+        Workspace 하나가 아니라 그가 속한 전부에 걸린다 — 그래서 조회도 `userId` 로 한다.
+      */
+      findAccountDeletionImpact(user.id),
+      /*
+        🔴 **OWNER 가 아니면 세지도 않는다.** 무엇이 얼마나 있는지는 그 자체로 정보다.
+      */
+      isOwner
+        ? findWorkspaceDeletionImpact({
+            workspaceId: workspace.workspaceId,
+            userId: user.id,
+          })
+        : Promise.resolve(null),
+    ]);
+
+  /**
+   * 🔴 **삭제 UI 를 그릴지 여기서 «다시» 판단하지 않는다.** 화면이 쓰는 것은 서버가
+   * 실제 삭제에 쓰는 것과 **같은 순수 함수**의 결과다(`workspace-deletion-plan.ts`) —
+   * 두 곳에 규칙을 적으면 화면이 지울 수 있다고 말한 것을 서버가 거절하게 된다.
+   *
+   * 🔴 **Personal Workspace 에서는 자리 자체가 없다.** 지울 수 없는 버튼과 그 이유를
+   * 놓아 두는 것보다 없는 편이 정확하다 — 그것은 조건이 아니라 영구한 사실이다.
+   */
+  const deletionImpact =
+    workspaceImpact !== null && workspaceImpact.block !== "PERSONAL"
+      ? workspaceImpact
+      : null;
 
   return (
     <PageContainer className="gap-8">
@@ -161,6 +186,22 @@ export default async function WorkspaceSettingsPage({
                 codex: messages.integration.codexNote,
               },
             }}
+          />
+        </Section>
+      )}
+
+      {deletionImpact !== null && (
+        <Section title={t.dangerSection}>
+          {/*
+            🔴 **집계는 실제 Database 에서 온 값이다.** 화면이 어림하지 않는다 — 무엇을
+            잃는지 틀리게 말하면 확인 절차 전체가 의미를 잃는다.
+          */}
+          <DeleteWorkspacePanel
+            workspaceSlug={workspace.slug}
+            workspaceName={workspace.name}
+            losses={deletionImpact.losses}
+            blockedByMembers={deletionImpact.block === "HAS_MEMBERS"}
+            labels={messages.workspaceDelete}
           />
         </Section>
       )}

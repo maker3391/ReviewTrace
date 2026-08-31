@@ -12,6 +12,7 @@ import {
   changeMemberRole,
   createWorkspace,
 } from "@/features/workspaces/server/workspace-service";
+import { deleteWorkspace } from "@/features/workspaces/server/workspace-deletion-service";
 import { actionFromError } from "@/lib/action/action-error";
 import {
   actionOk,
@@ -93,6 +94,43 @@ export async function changeMemberRoleAction(
     });
 
     revalidatePath(`/w/${workspaceSlug}/members`);
+
+    return actionOk();
+  } catch (error) {
+    return actionFromError(error);
+  }
+}
+
+/**
+ * Workspace 삭제.
+ *
+ * 🔴 **되돌릴 수 없고 그 안의 모든 Review Knowledge 가 함께 사라진다.** 화면이
+ * `findWorkspaceDeletionImpact` 로 무엇을 잃는지 먼저 보여 준 뒤에 부른다.
+ *
+ * 🔴 **여기서 막는 것으로 끝내지 않는다.** `requireOwner` 는 화면 경계이고, 「Personal 인가」
+ * 「멤버가 남았는가」까지 포함한 최종 판정은 Application Service 가 Transaction 안에서
+ * 다시 한다(`workspace-deletion-service.ts`) — 그래야 판정과 삭제 사이의 틈이 없다.
+ *
+ * 🔴 **지울 대상을 인자로 «고르게» 두지 않는다.** `workspaceSlug` 는 Context 표시이고
+ * 실제 `workspaceId` 는 소속 확인(`requireWorkspace`)이 돌려준 값이다(CLAUDE.md 11).
+ */
+export async function deleteWorkspaceAction(
+  workspaceSlug: string,
+): Promise<ActionResult> {
+  try {
+    const { user, workspace } = await requireWorkspace(workspaceSlug);
+    requireOwner(workspace);
+
+    await deleteWorkspace({
+      workspaceId: workspace.workspaceId,
+      userId: user.id,
+    });
+
+    /**
+     * Workspace 자체가 사라졌다 — 사이드바의 Switcher 목록까지 다시 그려야 한다.
+     * 🔴 지워진 Workspace 의 주소를 되살리지 않는다. 그 경로는 이제 404 다.
+     */
+    revalidatePath("/w", "layout");
 
     return actionOk();
   } catch (error) {

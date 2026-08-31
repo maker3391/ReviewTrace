@@ -112,6 +112,18 @@ const REASON_CODE = {
   /** 역할을 바꾸려는데 그 사람이 마지막 OWNER 다. */
   WORKSPACE_LAST_OWNER: "CONFLICT",
   PERSONAL_WORKSPACE_ROLE_FIXED: "CONFLICT",
+  /** 지우려는 Workspace 가 없거나 내 것이 아니다. 🔴 둘을 구분하지 않는다. */
+  WORKSPACE_NOT_FOUND: "NOT_FOUND",
+  /**
+   * Workspace 삭제를 OWNER 가 아닌 사람이 시도했다.
+   * 🔴 `FORBIDDEN` 이 아니라 `NOT_FOUND` 다 — `requireOwner` 가 `notFound()` 로 답하는
+   * 것과 같은 판단이다(CLAUDE.md 11).
+   */
+  WORKSPACE_OWNER_REQUIRED: "NOT_FOUND",
+  /** 🔴 Personal Workspace 는 조건이 아니라 **영구히** 지울 수 없다. */
+  PERSONAL_WORKSPACE_UNDELETABLE: "CONFLICT",
+  /** 다른 멤버가 남아 있다. 🔴 멤버를 함께 지우지 않는다 — 사람이 먼저 내보낸다. */
+  WORKSPACE_HAS_MEMBERS: "CONFLICT",
 
   ACCOUNT_NOT_FOUND: "NOT_FOUND",
   /** 계정을 지우려는데 다른 멤버가 있는 Workspace 의 마지막 OWNER 다. */
