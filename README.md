@@ -14,9 +14,9 @@ It connects to **Claude Code** and **Codex** over MCP.
 Run it against the hosted instance at **https://reviewtrace.app**, or host it yourself — the
 setup below covers both.
 
-> **Status:** pre-1.0, actively developed. A hosted instance runs at https://reviewtrace.app and
-> self-hosting is supported. The MCP server is not published to npm yet — until then you point your
-> client at a local checkout.
+> **Status:** pre-1.0, actively developed. A hosted instance runs at https://reviewtrace.app,
+> self-hosting is supported, and the MCP server ships on npm as
+> [`reviewtrace-mcp`](https://www.npmjs.com/package/reviewtrace-mcp).
 
 <!--
   DEMO SLOT — 15–20s GIF: Claude Code finds an issue -> records it in ReviewTrace ->
@@ -131,12 +131,14 @@ unless the agent names another one.
 
 ## Connect Claude Code
 
-The MCP server runs over stdio and is packaged as `reviewtrace-mcp`. Once it is published,
-`npx` fetches it on demand — no clone required.
+The MCP server runs over stdio and ships on npm as `reviewtrace-mcp`. `npx` fetches it on demand —
+no clone required.
 
-> **Not published yet.** Until `npm publish` runs, `npx -y reviewtrace-mcp` will not resolve.
-> To use it from a clone in the meantime, replace `npx -y reviewtrace-mcp` with
-> `node /absolute/path/to/ReviewTrace/mcp/server.mjs`.
+The examples below point at a local instance. Using the hosted one? Set
+`REVIEWTRACE_API_URL=https://reviewtrace.app` instead — everything else is the same.
+
+> Working on ReviewTrace itself? Point the client at your checkout instead:
+> replace `npx -y reviewtrace-mcp` with `node /absolute/path/to/ReviewTrace/mcp/server.mjs`.
 
 ```bash
 claude mcp add reviewtrace -s user \
@@ -554,10 +556,10 @@ server alive but serving 500s on some routes.
 - API key issue and revoke UI
 - Deleting a project or a workspace, with the impact counted before you confirm
 - A hosted instance at https://reviewtrace.app
+- The MCP server on npm as `reviewtrace-mcp`, installed with `npx -y reviewtrace-mcp`
 
 **In progress**
 
-- Publishing the MCP server as an installable package (so `npx` replaces the absolute path)
 - Exercising Codex write tools outside the interactive TUI (they need approval, by design)
 - Screenshots and a demo recording
 
