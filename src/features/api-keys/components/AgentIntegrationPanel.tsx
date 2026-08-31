@@ -132,7 +132,8 @@ export function AgentIntegrationPanel({
       </p>
 
       <p className="text-[13px] leading-relaxed text-muted-foreground">
-        {"<your-api-key>"} {labels.keyHint}{" "}
+        {"<your-api-key>"}
+        {labels.keyHint}
         <code className="font-mono text-xs">.env</code>
         {labels.keyHintTail}
       </p>

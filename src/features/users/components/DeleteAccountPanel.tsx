@@ -31,9 +31,6 @@ import { deleteAccountAction } from "@/features/users/actions/delete-account";
 export interface DeleteAccountLabels {
   intro: string;
   willDelete: string;
-  willKeep: string;
-  willKeepNone: string;
-  slugRotated: string;
   losses: string;
   statProjects: string;
   statIssues: string;
@@ -57,9 +54,13 @@ export interface DeleteAccountWorkspace {
   slugRotated?: boolean;
 }
 
+/**
+ * 🔴 **`preserved` 는 계약에 남기고 «그리지»만 않는다.** 남는 Workspace 와 그 slug
+ * 회전은 서버(`account-deletion-plan`)가 지금도 그대로 계산한다 — 화면에서 지운 것은
+ * 표시뿐이다. 계약에서 빼면 그 계산이 화면 사정으로 조용히 죽는다.
+ */
 export function DeleteAccountPanel({
   deleted,
-  preserved,
   blocked,
   losses,
   confirmValue,
@@ -133,28 +134,6 @@ export function DeleteAccountPanel({
                 <span className="font-mono text-[11px] text-muted-foreground">
                   {workspace.slug}
                 </span>
-              </span>
-            ))
-          )}
-        </dd>
-
-        <dt className="text-muted-foreground">{labels.willKeep}</dt>
-        <dd className="flex flex-col gap-0.5">
-          {preserved.length === 0 ? (
-            <span className="text-muted-foreground">{labels.willKeepNone}</span>
-          ) : (
-            preserved.map((workspace) => (
-              <span key={workspace.slug}>
-                <span className="font-medium">{workspace.name}</span>{" "}
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  {workspace.slug}
-                </span>
-                {workspace.slugRotated === true && (
-                  <span className="text-[11px] text-muted-foreground">
-                    {" "}
-                    · {labels.slugRotated}
-                  </span>
-                )}
               </span>
             ))
           )}

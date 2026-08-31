@@ -399,12 +399,9 @@ export const en: Messages = {
 
   account: {
     intro:
-      "Deleting your account removes your sign-in details and every session on every device. This cannot be undone.",
+      "Deleting your account removes your sign-in details and all sessions, and cannot be undone.",
     willDelete: "Deleted too",
-    willKeep: "Kept",
-    willKeepNone: "None",
-    slugRotated: "address changes",
-    losses: "Lost with them",
+    losses: "Deleted data",
     statProjects: "Projects",
     statIssues: "Issues",
     statPages: "Pages",
@@ -459,13 +456,13 @@ export const en: Messages = {
     step2: "2. Verify",
     copyCommand: (step: string) => `Copy the ${step} command`,
     claudeNote:
-      "Install it with -s user. A project-scoped .mcp.json lives inside a repository, " +
-      "is one careless commit away from leaking your key, and shadows the user-scope entry.",
+      "The configuration is stored in the user scope. Do not use a repository's .mcp.json.",
     codexNote:
-      "Hand-editing [mcp_servers.*] into ~/.codex/config.toml is not picked up — use the " +
-      "command above. Codex asks for approval once before it runs a tool that records anything.",
-    keyHint: "is where your key goes. 🔴 Do not put it in your project's",
-    keyHintTail: " — that file is inside a repository.",
+      "Register it with the command above instead of editing the config file by hand. " +
+      "Write operations require approval before they run.",
+    /** 🔴 Leading and trailing spaces are part of the sentence — see ko.ts. */
+    keyHint: " is where the key you created above goes. Do not store your API key in a repository's ",
+    keyHintTail: ".",
   },
 
   members: {

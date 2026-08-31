@@ -529,12 +529,9 @@ export const ko = {
   /** 계정 삭제. 🔴 「무엇이 사라지고 무엇이 남는가」를 말하는 낱말들이다. */
   account: {
     intro:
-      "계정을 삭제하면 로그인 정보와 모든 기기의 세션이 사라집니다. 되돌릴 수 없습니다.",
+      "계정을 삭제하면 로그인 정보와 모든 세션이 삭제되며 복구할 수 없습니다.",
     willDelete: "함께 삭제",
-    willKeep: "그대로 유지",
-    willKeepNone: "없음",
-    slugRotated: "주소가 바뀝니다",
-    losses: "사라지는 것",
+    losses: "삭제되는 데이터",
     statProjects: "프로젝트",
     statIssues: "이슈",
     statPages: "문서",
@@ -602,13 +599,16 @@ export const ko = {
     copyCommand: (step: string) => `${step} 명령 복사`,
     /** 🔴 남긴다 — 모르면 실제로 막히거나 키가 새는 자리다. 장식이 아니다. */
     claudeNote:
-      "-s user 로 넣습니다. 저장소 안의 .mcp.json 은 커밋 한 번으로 키가 새어 나가고, " +
-      "user 설정을 가려 연결이 끊깁니다.",
+      "설정은 user 범위에 저장됩니다. 저장소의 .mcp.json 은 사용하지 마세요.",
     codexNote:
-      "~/.codex/config.toml 에 [mcp_servers.*] 를 손으로 써 넣는 방식은 인식되지 않습니다 — " +
-      "위 명령을 쓰세요. 기록하는 Tool 은 Codex 가 실행 전에 한 번 승인을 묻습니다.",
-    keyHint: "자리에는 위에서 발급한 키를 넣습니다. 🔴 그 키를 저장소 안의",
-    keyHintTail: "에 넣지 않습니다 — 그 파일은 언젠가 커밋됩니다.",
+      "직접 설정 파일을 수정하지 말고 위 명령으로 등록하세요. " +
+      "쓰기 작업은 실행 전 승인이 필요합니다.",
+    /**
+     * 🔴 앞뒤 공백까지 문구의 일부다 — 화면은 `<your-api-key>` 와 `.env` 를
+     * 코드로 그리고 그 사이를 이 문자열로 잇는다. 언어마다 붙는 자리가 다르다.
+     */
+    keyHint: "에 위에서 발급한 키를 입력하세요. API Key 는 저장소의 ",
+    keyHintTail: "에 저장하지 마세요.",
   },
 
   members: {
