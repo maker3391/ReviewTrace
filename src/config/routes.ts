@@ -57,9 +57,13 @@ export const AGENT_API_PREFIX = "/api/v1";
  */
 const PUBLIC_ASSET_PATHS: readonly string[] = ["/logo.png", "/icon.png"];
 
+/** 검색 엔진이 세션 없이 읽어야 하는 App Router metadata route. */
+const PUBLIC_METADATA_PATHS: readonly string[] = ["/robots.txt", "/sitemap.xml"];
+
 const PUBLIC_EXACT_PATHS: readonly string[] = [
  LOGIN_PATH,
 ...PUBLIC_ASSET_PATHS,
+...PUBLIC_METADATA_PATHS,
 ];
 
 const PUBLIC_PREFIXES: readonly string[] = [

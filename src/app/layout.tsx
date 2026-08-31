@@ -40,11 +40,19 @@ const notoSansKr = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(APP_CONFIG.url),
   title: {
     default: APP_CONFIG.name,
     template: `%s · ${APP_CONFIG.name}`,
   },
   description: APP_CONFIG.description,
+  openGraph: {
+    type: "website",
+    url: "/",
+    siteName: APP_CONFIG.name,
+    title: APP_CONFIG.name,
+    description: APP_CONFIG.description,
+  },
 };
 
 /**

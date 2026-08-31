@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { DEFAULT_SECTION, sectionHref } from "@/config/navigation";
@@ -8,6 +9,11 @@ import {
 } from "@/lib/auth/workspace-context";
 import { readLastWorkspaceSlug } from "@/lib/workspace/last-workspace";
 import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
+
+/** 로그인 후에만 의미가 있는 진입점이다. 공개 검색 결과에는 로그인 화면만 노출한다. */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 /**
  * 로그인 뒤 어디로 갈지 정하는 자리.

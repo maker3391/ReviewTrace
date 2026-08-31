@@ -13,7 +13,21 @@ import { currentUser } from "@/lib/auth/session";
 import { readMessages } from "@/lib/ui/appearance";
 
 export async function generateMetadata(): Promise<Metadata> {
- return { title: (await readMessages()).metaTitle.login };
+ const title = (await readMessages()).metaTitle.login;
+
+ return {
+ title,
+ description: APP_CONFIG.description,
+ alternates: { canonical: "/login" },
+ robots: { index: true, follow: true },
+ openGraph: {
+ type: "website",
+ url: "/login",
+ siteName: APP_CONFIG.name,
+ title: `${title} · ${APP_CONFIG.name}`,
+ description: APP_CONFIG.description,
+ },
+ };
 }
 
 /**

@@ -9,6 +9,7 @@
  */
 export const APP_CONFIG = {
  name: "ReviewTrace",
+ url: "https://reviewtrace.app",
  /**
  * Tagline.
  *

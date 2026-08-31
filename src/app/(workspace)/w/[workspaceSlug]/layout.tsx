@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { AppHeader } from "@/components/organisms/AppHeader";
@@ -14,6 +15,11 @@ import {
  SIDEBAR_COLLAPSED_COOKIE,
 } from "@/lib/ui/sidebar-state";
 import { CURRENT_PATH_HEADER } from "@/proxy";
+
+/** Tenant 내부 화면은 인증 여부와 무관하게 검색 색인 대상이 아니다. */
+export const metadata: Metadata = {
+ robots: { index: false, follow: false },
+};
 
 /**
  * Workspace Shell.

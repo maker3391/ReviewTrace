@@ -64,6 +64,11 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/icon.png")).toBe(true);
   });
 
+  it("검색 메타데이터 route는 세션 없이 읽혀야 한다", () => {
+    expect(isPublicPath("/robots.txt")).toBe(true);
+    expect(isPublicPath("/sitemap.xml")).toBe(true);
+  });
+
   it("🔴 확장자가 같다고 공개가 되지 않는다 — 목록에 «적힌 이름»만이다", () => {
     expect(isPublicPath("/secret.png")).toBe(false);
     expect(isPublicPath("/w/acme/logo.png")).toBe(false);

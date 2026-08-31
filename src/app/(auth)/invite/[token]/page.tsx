@@ -8,7 +8,10 @@ import { readMessages } from "@/lib/ui/appearance";
 import { SignInWithGithubButton } from "@/features/auth/components/SignInWithGithubButton";
 
 export async function generateMetadata(): Promise<Metadata> {
-  return { title: (await readMessages()).metaTitle.invite };
+  return {
+    title: (await readMessages()).metaTitle.invite,
+    robots: { index: false, follow: false },
+  };
 }
 
 /**
