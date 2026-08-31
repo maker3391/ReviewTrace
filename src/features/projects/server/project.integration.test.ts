@@ -10,6 +10,7 @@ import {
   workspaceMembers,
 } from "@/db/schema";
 import { loadIntegrationDbEnv } from "@/db/testing/integration-env";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { findProjectDashboard } from "@/features/dashboard/server/project-dashboard-query";
 import { findWorkspaceDashboard } from "@/features/dashboard/server/workspace-dashboard-query";
 import { findIssues } from "@/features/issues/server/issue-query";
@@ -99,6 +100,9 @@ beforeAll(() => {
 });
 
 /** 시험 하나를 되돌리기 위한 표식. 실제 실패와 구분하려고 전용 타입을 쓴다. */
+/** 상세 조회는 이제 쪽을 받는다. 격리 시험이 보는 것은 «보이는가»뿐이라 첫 쪽이면 된다. */
+const FIRST_PAGE = { page: 1, pageSize: DEFAULT_PAGE_SIZE };
+
 class Rollback extends Error {}
 
 async function inRollback(
@@ -1070,14 +1074,16 @@ describe.skipIf(!enabled)("상세 조회의 Tenant 격리", () => {
       // 주인에게는 열린다 — 「항상 null」로 통과하지 않게 짝을 둔다.
       expect(await findIssueDetail(mine, seeded.issueId, tx)).not.toBeNull();
       expect(
-        await findReviewDetail(mine, seeded.reviewSessionId, tx),
+        await findReviewDetail(mine, seeded.reviewSessionId, FIRST_PAGE, tx),
       ).not.toBeNull();
       expect(
         await findRepositoryDetail(mine, seeded.repositoryId, tx),
       ).not.toBeNull();
 
       expect(await findIssueDetail(theirs, seeded.issueId, tx)).toBeNull();
-      expect(await findReviewDetail(theirs, seeded.reviewSessionId, tx)).toBeNull();
+      expect(
+        await findReviewDetail(theirs, seeded.reviewSessionId, FIRST_PAGE, tx),
+      ).toBeNull();
       expect(
         await findRepositoryDetail(theirs, seeded.repositoryId, tx),
       ).toBeNull();

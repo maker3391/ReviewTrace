@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/atoms/StatusBadge";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { MetaDot, PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
+import { TablePagination } from "@/components/organisms/TablePagination";
 import {
   NAME_CELL,
   Table,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import type { ReviewDetail } from "@/features/reviews/server/review-query";
 import { formatDate } from "@/lib/format/date";
+import { listPageHref, type PageRequest } from "@/lib/pagination";
 import { readMessages } from "@/lib/ui/appearance";
 
 /**
@@ -34,8 +36,14 @@ export async function ReviewDetailScreen({
   reviewsPath,
   issuesPath,
   repositoriesPath,
+  detailPath,
+  request,
 }: {
   review: ReviewDetail;
+  /** 이동 줄이 되돌아올 자기 주소. 쪽 번호만 바뀐다. */
+  detailPath: Route;
+  /** 지금 그리는 쪽·쪽당 개수. 이동 줄이 그대로 이어 쓴다. */
+  request: PageRequest;
   /** 목록으로 돌아가는 주소. 상세의 한 층 위다. */
   reviewsPath: Route;
   issuesPath: Route;
@@ -126,11 +134,12 @@ export async function ReviewDetailScreen({
 
       <Section
         title={t.foundIssues}
-        description={t.foundIssuesHint(review.issues.length)}
+        /* 🔴 «이 쪽에 몇 개」가 아니라 «이 Review 가 몇 건을 남겼나»다. */
+        description={t.foundIssuesHint(review.issues.total)}
         variant="raised"
         bleed
       >
-        {review.issues.length === 0 ? (
+        {review.issues.total === 0 ? (
           <SectionEmpty title={t.clean}>
             {t.cleanHint}
           </SectionEmpty>
@@ -151,7 +160,7 @@ export async function ReviewDetailScreen({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {review.issues.map((issue) => (
+              {review.issues.items.map((issue) => (
                 <TableRow key={issue.id}>
                   <TableCell>
                     <SeverityBadge severity={issue.severity} />
@@ -183,6 +192,26 @@ export async function ReviewDetailScreen({
               ))}
             </TableBody>
           </Table>
+        )}
+
+        {/*
+          🔴 **Agent API 는 한 Review 에 최대 500건을 받는다**(CLAUDE.md 13). 목록 화면
+          전부에 이동 줄을 넣으면서 이 자리만 빠져 있어 500행이 한 화면에 쏟아졌다.
+          🔴 한 쪽에 다 들어가면 그리지 않는다 — `TablePagination` 이 스스로 판단한다.
+        */}
+        {review.issues.total > 0 && (
+          <TablePagination
+            total={review.issues.total}
+            page={review.issues.page}
+            pageSize={review.issues.pageSize}
+            pageHref={(page) =>
+              listPageHref(detailPath, { ...request, page }) as Route
+            }
+            pageSizeHref={(pageSize) =>
+              listPageHref(detailPath, { page: 1, pageSize }) as Route
+            }
+            labels={messages.common.pagination}
+          />
         )}
       </Section>
     </PageContainer>

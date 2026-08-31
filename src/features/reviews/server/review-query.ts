@@ -3,6 +3,7 @@ import "server-only";
 import { and, count, desc, eq, sql, type SQL } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
+import { asCount } from "@/db/raw-value";
 import { repositories, reviewIssues, reviewSessions } from "@/db/schema";
 import {
   paginate,
@@ -60,7 +61,12 @@ export interface ReviewDetail extends ReviewListItem {
   summary: string | null;
   startedAt: Date;
   completedAt: Date | null;
-  issues: ReviewIssueRow[];
+  /**
+   * 🔴 **한 쪽만 담는다.** Agent API 는 한 Review 에 **최대 500건**을 받으므로
+   * (CLAUDE.md 13) 전부 그리면 행 500개가 한 화면에 쏟아진다 — 목록 화면 전부에
+   * 이동 줄을 넣으면서 이 자리만 빠져 있었다.
+   */
+  issues: PageResult<ReviewIssueRow>;
 }
 
 /**
@@ -198,6 +204,7 @@ export async function listRepositoryReviews(
 export async function findReviewDetail(
   scope: ProjectScope,
   reviewSessionId: string,
+  request: PageRequest,
   executor: DbExecutor = db(),
 ): Promise<ReviewDetail | null> {
   const rows = await executor
@@ -234,27 +241,48 @@ export async function findReviewDetail(
     return null;
   }
 
-  const issues = await executor
-    .select({
-      id: reviewIssues.id,
-      title: reviewIssues.title,
-      severity: reviewIssues.severity,
-      category: reviewIssues.category,
-      status: reviewIssues.status,
-      patternKey: reviewIssues.patternKey,
-      filePath: reviewIssues.filePath,
-      startLine: reviewIssues.startLine,
-      endLine: reviewIssues.endLine,
-    })
-    .from(reviewIssues)
-    .where(
-      and(
-        eq(reviewIssues.reviewSessionId, session.id),
-        // Session 을 이미 범위 안에서 찾았지만, 조건을 겹쳐 두는 편이 잊기 어렵다.
-        eq(reviewIssues.workspaceId, scope.workspaceId),
-      ),
-    )
-    .orderBy(reviewIssues.severity, desc(reviewIssues.firstDetectedAt));
+  const issues = await paginate(request, {
+    /*
+      🔴 **다시 세지 않는다.** 위 `issueCount` 가 **같은 조건**으로 이미 세어 왔고,
+      머리글의 「N건」이 그 값이다 — 따로 세면 두 숫자가 갈릴 수 있다.
+      🔴 `asCount` 를 통과시키는 이유는 그것이 원시 `sql<number>` 이기 때문이다
+      (`src/db/raw-value.ts` — 단언은 검사되지 않는다).
+    */
+    count: () => Promise.resolve(asCount(session.issueCount)),
+    rows: (limit, offset) =>
+      executor
+        .select({
+          id: reviewIssues.id,
+          title: reviewIssues.title,
+          severity: reviewIssues.severity,
+          category: reviewIssues.category,
+          status: reviewIssues.status,
+          patternKey: reviewIssues.patternKey,
+          filePath: reviewIssues.filePath,
+          startLine: reviewIssues.startLine,
+          endLine: reviewIssues.endLine,
+        })
+        .from(reviewIssues)
+        .where(
+          and(
+            eq(reviewIssues.reviewSessionId, session.id),
+            // Session 을 이미 범위 안에서 찾았지만, 조건을 겹쳐 두는 편이 잊기 어렵다.
+            eq(reviewIssues.workspaceId, scope.workspaceId),
+          ),
+        )
+        /*
+          🔴 **`id` 로 동점을 끊는다.** `severity` 와 시각이 같은 행이 여럿이면 순서가
+          질의마다 달라질 수 있고, 그러면 쪽을 넘길 때 **같은 행이 두 번 나오거나
+          아예 빠진다.** 이동 줄이 없을 때는 드러나지 않던 요구다.
+        */
+        .orderBy(
+          reviewIssues.severity,
+          desc(reviewIssues.firstDetectedAt),
+          reviewIssues.id,
+        )
+        .limit(limit)
+        .offset(offset),
+  });
 
   return { ...session, issues };
 }
