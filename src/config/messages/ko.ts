@@ -201,7 +201,7 @@ export const ko = {
     headlineAccent: "엔지니어링의 기억으로.",
     headlineTail: "",
     subhead:
-      "Coding Agent가 발견한 문제와 해결의 근거를 코드와 함께 보존해, 다음 리뷰에서도 이전의 판단을 이어갈 수 있게 합니다.",
+      "Coding Agent가 발견한 문제와 해결의 근거를 코드와 함께 보존해 다음 리뷰에서도 이전의 판단을 이어갈 수 있게 합니다.",
     features: [
       {
         title: "문제부터 해결까지",
@@ -213,7 +213,7 @@ export const ko = {
       },
       {
         title: "해결 뒤에도 남는 판단",
-        body: "선택한 방법과 대안, trade-off를 해결 이력과 함께 보존합니다.",
+        body: "선택한 방법과 대안 trade-off를 해결 이력과 함께 보존합니다.",
       },
     ],
 
