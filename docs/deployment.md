@@ -45,12 +45,36 @@ Supabase 는 **PostgreSQL 호스팅으로만** 쓴다. Auth·Storage·Realtime �
 Application  ──►  Drizzle ORM  ──►  node-postgres(pg)  ──►  Supabase PostgreSQL
 ```
 
-Supabase 는 주소를 여러 개 준다. **쓰임이 다르므로 섞지 않는다.**
+Supabase 는 연결 방식을 넷 준다. 🔴 **포트로 고르지 마라 — 이름으로 고른다.**
+`5432` 를 쓰는 것이 «둘»이고, 그 둘은 host 도 user 도 성격도 다르다.
 
-| 쓰임 | 어떤 주소 | 왜 |
+| 대시보드 이름 | host | port | user | IP | prepared stmt |
+|---|---|---|---|---|---|
+| **Direct connection** | `db.[project-id].supabase.co` | 5432 | `postgres` | **IPv6** (IPv4 는 유료 add-on) | 지원 |
+| **Shared Pooler (Supavisor) — Session mode** | `aws-[region].pooler.supabase.com` | 5432 | `postgres.[project-id]` | **IPv4** | 지원 |
+| **Shared Pooler (Supavisor) — Transaction mode** | `aws-[region].pooler.supabase.com` | **6543** | `postgres.[project-id]` | **IPv4** | **미지원** |
+| Dedicated Pooler (PgBouncer) | `db.[project-id].supabase.co` | 6543 | `postgres` | IPv6 · 유료 전용 | 미지원 |
+
+**이 프로젝트가 쓰는 것은 둘이다.**
+
+| 쓰임 | 고를 것 | 왜 |
 |---|---|---|
-| **애플리케이션 runtime** (Vercel) | **Transaction pooler** (포트 `6543`) | Vercel 은 요청마다 새 instance 가 뜰 수 있다. 매 instance 가 직접 연결을 잡으면 Postgres 의 연결 상한을 금방 넘는다 |
-| **Migration** (`pnpm db:migrate`) | **Direct** (포트 `5432`) 또는 **Session pooler** | DDL 은 세션이 유지돼야 한다. Transaction pooler 로 DDL 을 돌리지 마라 |
+| **애플리케이션 runtime** (Vercel) → `DATABASE_URL` | **Shared Pooler (Supavisor) — Transaction mode** | Vercel 은 instance 가 늘었다 줄었다 한다. 직접 연결을 instance 마다 잡으면 Postgres 의 연결 상한에 금방 닿는다 |
+| **Migration** (`pnpm db:migrate`) → `MIGRATION_DATABASE_URL` | **Shared Pooler (Supavisor) — Session mode** | DDL 은 세션이 유지돼야 한다. 그리고 **GitHub Actions 러너는 IPv4 전용**이다 |
+
+🔴 **Migration 에 Direct connection 을 쓰지 마라.** Direct 는 **IPv6** 이고 GitHub Actions
+러너는 IPv4 전용이라 **연결 자체가 되지 않는다**(IPv4 add-on 은 유료다). 세션이 필요하다는
+이유로 Direct 를 고르면 그 함정에 빠진다 — 필요한 것은 「Direct」가 아니라 **「Session mode」**다.
+
+🔴 **Transaction mode 를 Migration 에 쓰지 마라.** DDL 이 세션 경계를 넘지 못한다.
+
+**runtime 에 Transaction mode 를 써도 되는 근거**(이 저장소 코드로 확인했다):
+
+- `.prepare(` 가 `src/` 에 **0건**이고 `pg` 는 `name` 을 주지 않으면 named prepared statement 를
+  만들지 않는다 — Transaction mode 의 유일한 제약에 걸리지 않는다
+- advisory lock 이 `pg_advisory_xact_lock` 이라(`repository-upsert.ts`) **transaction 범위**다.
+  COMMIT 에서 풀리므로 pooler 가 연결을 돌려써도 새지 않는다. session 범위였다면 깨진다
+- `LISTEN`/`NOTIFY`·`SET SESSION` 이 **0건**이다
 
 🔴 **SSL 은 URL 로 켠다** — `?sslmode=require` 를 붙인다. 코드를 고칠 필요가 없다:
 `pg-connection-string@2.14.0` 이 연결 문자열의 `sslmode` 를 해석해 `pg` 에 넘긴다

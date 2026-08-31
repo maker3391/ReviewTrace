@@ -52,9 +52,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # 🔴 **runtime 과 다른 연결이다.** 애플리케이션은 Supabase 의 pooler 로 붙지만
-      # Migration 은 DDL 이라 세션이 유지되는 연결이 필요하다 —
-      # `MIGRATION_DATABASE_URL` 에 direct(또는 session pooler) 주소를 둔다.
+      # 🔴 **runtime 과 다른 연결이다.**
+      #
+      #   애플리케이션  Shared Pooler (Supavisor) — Transaction mode  (6543)
+      #   Migration     Shared Pooler (Supavisor) — Session mode      (5432)
+      #
+      # DDL 은 세션이 유지돼야 하므로 Transaction mode 로 돌리지 않는다.
+      # 🔴 **그렇다고 "Direct connection" 을 쓰지 마라** — 그것은 IPv6 이고
+      # GitHub Actions 러너는 IPv4 전용이라 연결 자체가 되지 않는다.
+      # 🔴 Direct 와 Session mode 는 **둘 다 포트 5432 지만 host 도 user 도 다르다**
+      #    (db.[project-id].supabase.co / postgres  vs
+      #     aws-[region].pooler.supabase.com / postgres.[project-id]).
+      # 자세한 것은 docs/deployment.md 를 보라.
       - name: Apply migrations
         env:
           DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
