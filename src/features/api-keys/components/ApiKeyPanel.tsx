@@ -80,7 +80,8 @@ export interface ApiKeyLabels {
   revoke: string;
   cancel: string;
   revokeConfirmTitle: string;
-  revokeConfirmDescription: string;
+  revokeConfirmAuthLoss: string;
+  revokeConfirmRecordKept: string;
   copy: string;
   copied: string;
   close: string;
@@ -317,13 +318,23 @@ export function ApiKeyPanel({
           }
         }}
         title={labels.revokeConfirmTitle}
+        /* 🔴 대상 이름은 사전이 아니라 실제 행의 값이다 — 무엇을 폐기하는지가 여기서 갈린다. */
         description={
+          <span className="font-medium text-foreground">
+            {revokeTarget?.name}
+          </span>
+        }
+        /*
+          🔴 **안내를 이름 뒤에 이어 붙이지 않는다.** `consequence` 는 대상과 성격이 다른
+          줄을 여백 한 단계 아래로 내리는 자리다(ConfirmDialog) — 이름 · 안내가 눈으로
+          갈린다. 두 줄은 «한» Description 안에 둔다: Radix 의 `aria-describedby` 가
+          가리키는 요소는 하나뿐이라, 밖으로 빼면 읽어 주는 도구가 그 줄을 읽지 않는다.
+        */
+        consequence={
           <>
-            <span className="font-medium text-foreground">
-              {revokeTarget?.name}
-            </span>
+            {labels.revokeConfirmAuthLoss}
             <br />
-            {labels.revokeConfirmDescription}
+            {labels.revokeConfirmRecordKept}
           </>
         }
         actionLabel={labels.revoke}

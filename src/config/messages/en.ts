@@ -443,9 +443,9 @@ export const en: Messages = {
     revoking: "Revoking",
     revoke: "Revoke",
     cancel: "Cancel",
-    revokeConfirmTitle: "Revoke this API key?",
-    revokeConfirmDescription:
-      "A revoked API key can no longer authenticate. Its record is kept.",
+    revokeConfirmTitle: "Revoke API key?",
+    revokeConfirmAuthLoss: "Once revoked, this key can no longer authenticate.",
+    revokeConfirmRecordKept: "Existing records are kept.",
     copy: "Copy",
     copied: "Copied",
     close: "Close",

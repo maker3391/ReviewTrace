@@ -575,14 +575,18 @@ export const ko = {
     revoking: "폐기 중",
     revoke: "폐기",
     cancel: "취소",
-    revokeConfirmTitle: "이 API Key 를 폐기할까요?",
+    /** 🔴 「이」를 붙이지 않는다 — 어느 Key 인지는 바로 아래 이름이 말한다. */
+    revokeConfirmTitle: "API Key 를 폐기할까요?",
     /**
      * 🔴 **「복구할 수 없다」고 적지 않는다.** 폐기는 행을 지우는 것이 아니라 `revokedAt`
      * 을 찍는 것이라(CLAUDE.md 12) 「이 키가 언제까지 무엇을 했는가」는 그대로 남는다 —
      * 사라지는 것은 **인증 자격**이다. 실제로 일어나는 일만 적는다.
+     *
+     * 🔴 **두 사실을 한 문장으로 잇지 않는다.** 잃는 것(인증)과 남는 것(기록)은 성격이
+     * 다른 사실이라, 이어 붙이면 뒤엣것이 앞엣것의 단서처럼 읽힌다. 줄을 나눠 둔다.
      */
-    revokeConfirmDescription:
-      "폐기한 API Key 는 더 이상 인증에 쓸 수 없습니다. 지금까지의 기록은 남습니다.",
+    revokeConfirmAuthLoss: "폐기하면 이 Key 로 더 이상 인증할 수 없습니다.",
+    revokeConfirmRecordKept: "기존 기록은 그대로 유지됩니다.",
     copy: "복사",
     copied: "복사됨",
     close: "닫기",
