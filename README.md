@@ -122,14 +122,18 @@ unless the agent names another one.
 
 ## Connect Claude Code
 
-The MCP server lives in this repository at `mcp/server.mjs` and runs over stdio. It is **not
-published to npm yet**, so point Claude Code at the absolute path of your clone.
+The MCP server runs over stdio and is packaged as `reviewtrace-mcp`. Once it is published,
+`npx` fetches it on demand — no clone required.
+
+> **Not published yet.** Until `npm publish` runs, `npx -y reviewtrace-mcp` will not resolve.
+> To use it from a clone in the meantime, replace `npx -y reviewtrace-mcp` with
+> `node /absolute/path/to/ReviewTrace/mcp/server.mjs`.
 
 ```bash
 claude mcp add reviewtrace -s user \
   -e "REVIEWTRACE_API_URL=http://localhost:3000" \
   -e "REVIEWTRACE_API_KEY=<your-api-key>" \
-  -- node /absolute/path/to/ReviewTrace/mcp/server.mjs
+  -- npx -y reviewtrace-mcp
 ```
 
 Verify:
@@ -155,7 +159,7 @@ Codex uses a different CLI shape. Use `codex mcp add` — hand-editing `[mcp_ser
 codex mcp add reviewtrace \
   --env "REVIEWTRACE_API_URL=http://localhost:3000" \
   --env "REVIEWTRACE_API_KEY=<your-api-key>" \
-  -- node /absolute/path/to/ReviewTrace/mcp/server.mjs
+  -- npx -y reviewtrace-mcp
 ```
 
 Verify:

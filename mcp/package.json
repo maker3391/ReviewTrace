@@ -1,0 +1,33 @@
+{
+  "name": "reviewtrace-mcp",
+  "version": "0.1.0",
+  "description": "ReviewTrace MCP server - record and recall code review knowledge from Claude Code, Codex, and other coding agents",
+  "keywords": ["mcp", "modelcontextprotocol", "code-review", "claude-code", "codex", "reviewtrace"],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maker3391/ReviewTrace.git",
+    "directory": "mcp"
+  },
+  "homepage": "https://github.com/maker3391/ReviewTrace#readme",
+  "bugs": "https://github.com/maker3391/ReviewTrace/issues",
+  "type": "module",
+  "bin": {
+    "reviewtrace-mcp": "./server.mjs"
+  },
+  "files": [
+    "server.mjs",
+    "client.mjs",
+    "config.mjs",
+    "git.mjs",
+    "tools.mjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
+  }
+}
