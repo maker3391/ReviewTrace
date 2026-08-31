@@ -41,7 +41,7 @@ Nothing to install ahead of time: `npx` fetches the package on first run.
 
 ```bash
 claude mcp add reviewtrace -s user \
-  -e "REVIEWTRACE_API_URL=https://review-trace.vercel.app" \
+  -e "REVIEWTRACE_API_URL=https://reviewtrace.app" \
   -e "REVIEWTRACE_API_KEY=ci_your_key" \
   -- npx -y reviewtrace-mcp
 ```
@@ -50,7 +50,7 @@ claude mcp add reviewtrace -s user \
 
 ```bash
 codex mcp add reviewtrace \
-  --env "REVIEWTRACE_API_URL=https://review-trace.vercel.app" \
+  --env "REVIEWTRACE_API_URL=https://reviewtrace.app" \
   --env "REVIEWTRACE_API_KEY=ci_your_key" \
   -- npx -y reviewtrace-mcp
 ```
@@ -65,7 +65,7 @@ pass the two variables as the process env.
 To check it by hand, run it directly:
 
 ```bash
-REVIEWTRACE_API_URL=https://review-trace.vercel.app \
+REVIEWTRACE_API_URL=https://reviewtrace.app \
 REVIEWTRACE_API_KEY=ci_your_key \
 npx -y reviewtrace-mcp
 ```
@@ -98,7 +98,7 @@ REVIEWTRACE_API_URL=http://localhost:3000
 Instead of environment variables you may write `~/.reviewtrace/config.json`:
 
 ```json
-{ "apiUrl": "https://review-trace.vercel.app", "apiKey": "ci_your_key" }
+{ "apiUrl": "https://reviewtrace.app", "apiKey": "ci_your_key" }
 ```
 
 Environment variables win over the file. Put the key in one of those two places — not in

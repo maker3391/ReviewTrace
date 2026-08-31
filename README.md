@@ -100,6 +100,10 @@ Create the OAuth App at **GitHub → Settings → Developer settings → OAuth A
 `http://localhost:3000/api/auth/callback/github`. The path is fixed by Auth.js; if you run on a
 different port, register that port too.
 
+> One OAuth App holds one callback URL, so production needs its own:
+> `https://reviewtrace.app/api/auth/callback/github`. Auth.js derives it from the request host
+> (`trustHost: true`) — nothing in the code hardcodes the domain.
+
 ```bash
 docker compose up -d   # PostgreSQL 17
 pnpm db:migrate        # apply migrations

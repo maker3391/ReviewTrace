@@ -1,5 +1,8 @@
 # 배포 · 운영 구성
 
+**공식 운영 주소는 `https://reviewtrace.app` 이다.** 문서·안내·MCP 예시가 사용자에게 보여 주는
+주소는 전부 이것 하나다 — 배포 플랫폼이 주는 주소(`*.vercel.app`)를 사용자에게 노출하지 않는다.
+
 ```
 Vercel (Next.js)  ──►  Supabase PostgreSQL
       ▲                        ▲
@@ -24,7 +27,7 @@ Vercel 이 Git 연동으로 스스로 빌드·배포한다 — 두 곳에서 배
 | `AUTH_SECRET` | **필수** | — | **32자 이상.** `openssl rand -base64 32` |
 | `GITHUB_CLIENT_ID` | **필수** | — | GitHub OAuth App |
 | `GITHUB_CLIENT_SECRET` | **필수** | — | GitHub OAuth App |
-| `APP_URL` | 사실상 필수 | `http://localhost:3000` | 🔴 **운영에서 반드시 덮어쓴다.** Settings 화면이 Agent 에게 알려 주는 API 주소가 이 값이다 — 기본값이 남으면 사용자의 Agent 가 자기 컴퓨터를 가리킨다 |
+| `APP_URL` | 사실상 필수 | `http://localhost:3000` | 운영은 **`https://reviewtrace.app`**. 🔴 **반드시 덮어쓴다** — Settings 화면이 Agent 에게 알려 주는 API 주소가 이 값이라, 기본값이 남으면 사용자의 Agent 가 자기 컴퓨터를 가리킨다 |
 | `GITHUB_API_TOKEN` | 선택 | 없음 | Code Evidence 를 GitHub 실제 코드와 대조할 때 쓴다. 없으면 그 확인만 못 한다 |
 | `GITHUB_API_URL` | 선택 | `https://api.github.com` | GitHub Enterprise 를 쓸 때만 |
 | `NODE_ENV` | 선택 | `development` | Vercel 이 알아서 `production` 을 넣는다 |

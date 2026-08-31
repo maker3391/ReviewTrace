@@ -47,7 +47,7 @@ export function loadConfig() {
   if (apiUrl === undefined) {
     throw new ConfigError(
       "ReviewTrace API URL 이 없다. MCP Client 설정의 env 에 REVIEWTRACE_API_URL 을 넣거나 " +
-        `${HOME_CONFIG} 에 {"apiUrl": "..."} 를 적어라. ReviewTrace 를 띄운 주소다(예: https://review-trace.vercel.app).`,
+        `${HOME_CONFIG} 에 {"apiUrl": "..."} 를 적어라. ReviewTrace 를 띄운 주소다(예: https://reviewtrace.app).`,
     );
   }
 
