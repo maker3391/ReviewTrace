@@ -44,18 +44,17 @@
  * 「쓰던 Agent 가 붙는가」까지이고, 경로 설명은 Settings 와 `docs/agent-integration.md`
  * 의 몫이다.
  *
- * ## 🔴 로고를 쓰지 않은 것은 «못 구해서»다 — 그 사실을 적어 둔다
+ * ## 🔴 마크는 붙이되 «아무 아이콘»으로 대신하지 않는다
  *
- * Agent 이름을 그림으로 알아보게 하려면 **공식 brand asset** 이어야 한다. 이 저장소와
- * `node_modules` 를 전수 확인한 결과 Anthropic·OpenAI·MCP 의 공식 자산은 **하나도 없고**,
- * 들어 있는 icon library 는 `lucide-react` 뿐인데 lucide 에는 brand logo 가 없다
- * (인라인 SVG 로 가진 것은 `GithubMark` 하나다).
+ * Agent 이름을 그림으로 알아보게 하려면 **그 제품의 마크**여야 한다. 🔴 아무 Lucide
+ * 아이콘(`Bot`·`Terminal`·`Plug` 따위)을 골라 그 자리에 세우지 않는다 — **그것이 그
+ * 제품의 표식인 것처럼** 읽혀, 없는 것을 있는 것처럼 그리는 일이 된다.
  *
- * 🔴 **그래서 typography 로 남긴다.** 아무 Lucide 아이콘(`Bot`·`Terminal`·`Plug` 따위)을
- * 골라 브랜드 로고 자리에 세우면 **그것이 그 제품의 표식인 것처럼** 읽힌다 — 없는 것을
- * 있는 것처럼 그리는 일이다. 인터넷에서 비공식 로고 파일을 내려받는 것도 하지 않는다
- * (출처·라이선스가 확인되지 않은 자산을 제품에 넣지 않는다).
- * 공식 자산이 저장소에 들어오면 그때 이 tile 안의 글자 앞에 얹으면 된다.
+ * 세 마크는 `AgentMarks` 한 파일에 모아 두었다. 🔴 **출처와 라이선스, 특히 Codex 마크가
+ * 공식 배포가 아니라는 사실이 그 파일 머리에 적혀 있다** — 읽고 나서 손대라.
+ *
+ * 🔴 **마크가 글자를 대신하지 않는다.** 이름을 지우고 마크만 남기면 모르는 사람은
+ * 무엇인지 알 수 없고, 마크가 뜨지 않는 순간(차단·로드 실패) 자리가 빈다.
  *
  * ## 🔴 사실만 적는다 · CTA 보다 세지 않는다
  *
@@ -75,8 +74,17 @@
  * 진한 solid · 카드 층 · 훨씬 큰 글자)와 시선을 다투지 못한다.
  */
 
+import {
+  ClaudeCodeMark,
+  CodexMark,
+  McpMark,
+} from "@/features/auth/components/AgentMarks";
+
 /** 🔴 실제로 설정 명령이 있는 Client 둘뿐이다(`AgentIntegrationPanel`). */
-const AGENTS = ["Claude Code", "Codex"];
+const AGENTS = [
+  { name: "Claude Code", Mark: ClaudeCodeMark },
+  { name: "Codex", Mark: CodexMark },
+];
 
 export function LoginAgentSupport({ label }: { label: string }) {
   return (
@@ -90,12 +98,18 @@ export function LoginAgentSupport({ label }: { label: string }) {
         tile 사이에서 접힌다 — 가로 스크롤이 생기는 쪽이 훨씬 나쁘다.
       */}
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
-        {AGENTS.map((agent) => (
+        {AGENTS.map(({ name, Mark }) => (
           <span
-            key={agent}
-            className="rounded-md bg-background px-2 py-1 text-[0.6875rem] leading-none font-medium tracking-[-0.01em] whitespace-nowrap text-foreground/85"
+            key={name}
+            className="inline-flex items-center gap-1.5 rounded-md bg-background px-2 py-1 text-[0.6875rem] leading-none font-medium tracking-[-0.01em] whitespace-nowrap text-foreground/85"
           >
-            {agent}
+            {/*
+              🔴 **`size-3.5` 는 11px 글자보다 «조금» 크다.** 같은 크기로 맞추면 마크가
+              글자에 눌려 무엇인지 알아볼 수 없고, 더 키우면 tile 이 아이콘 버튼처럼
+              읽힌다. `shrink-0` 이라 줄이 접혀도 마크가 찌그러지지 않는다.
+            */}
+            <Mark className="size-3.5 shrink-0" />
+            {name}
           </span>
         ))}
 
@@ -108,8 +122,13 @@ export function LoginAgentSupport({ label }: { label: string }) {
           className="mx-1 h-3.5 w-px shrink-0 bg-border"
         />
 
-        {/* 🔴 mono 는 「프로토콜 이름」의 글꼴이다. 면을 깔지 않아 Agent tile 과 갈린다. */}
-        <span className="font-mono text-[0.6875rem] leading-none text-muted-foreground">
+        {/*
+          🔴 mono 는 「프로토콜 이름」의 글꼴이다. 면을 깔지 않아 Agent tile 과 갈린다 —
+          **마크가 붙어도 그 구분은 그대로다.** 색도 한 단 흐린 `muted-foreground` 라
+          Agent 둘보다 뒤에 선다.
+        */}
+        <span className="inline-flex items-center gap-1.5 font-mono text-[0.6875rem] leading-none text-muted-foreground">
+          <McpMark className="size-3.5 shrink-0" />
           MCP
         </span>
       </div>
