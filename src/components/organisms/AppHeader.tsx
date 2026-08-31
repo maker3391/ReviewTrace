@@ -14,6 +14,16 @@ import { DEFAULT_SECTION, sectionHref } from "@/config/navigation";
 import { ReviewTraceMark } from "@/features/auth/components/ReviewTraceMark";
 import { SignOutButton } from "@/features/auth/components/SignOutButton";
 import { readMessages } from "@/lib/ui/appearance";
+import { avatarSources } from "@/lib/ui/avatar";
+
+/**
+ * 아바타의 표시 크기(CSS px).
+ *
+ * 🔴 **아래 `size-[26px]` 과 같은 값이어야 한다.** Tailwind 는 class 문자열을 정적으로
+ * 훑으므로 이 상수를 class 에 끼워 넣을 수 없다 — 그래서 두 자리가 나뉘어 있고, 한쪽만
+ * 고치면 내려받는 해상도와 그리는 크기가 어긋난다.
+ */
+const AVATAR_PX = 26;
 
 /**
  * 상단 바.
@@ -43,6 +53,8 @@ export async function AppHeader({
 }) {
   const initial = (user.name ?? "?").trim().charAt(0).toUpperCase();
   const t = (await readMessages()).nav;
+  const avatar =
+    user.image === null ? null : avatarSources(user.image, AVATAR_PX);
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-card/80 px-3 backdrop-blur-sm sm:gap-4 sm:px-5">
@@ -116,17 +128,24 @@ export async function AppHeader({
 
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-full py-1 pl-1 pr-1.5 text-sm transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 sm:pr-2.5">
-            {user.image !== null ? (
+            {avatar !== null ? (
               /*
                 next/image 를 쓰지 않는다 — GitHub 아바타는 외부 도메인이라 원격 패턴 설정이
                 필요하고, 아이콘 하나에 최적화 파이프라인을 붙일 이유가 없다.
+
+                🔴 **대신 해상도는 «직접» 고른다.** 세션의 `image` 는 크기 인자가 없는
+                `avatar_url` 원문이라 그대로 쓰면 460×460 원본이 와서 브라우저가 26px 로
+                17.7배를 줄인다 — 그게 아바타가 저해상도로 보이던 원인이다. `srcSet` 으로
+                DPR 별 크기를 GitHub 에게 요청한다(`@/lib/ui/avatar`).
+                🔴 **표시 크기는 그대로다** — 바뀌는 것은 내려받는 픽셀 수뿐이다.
               */
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={user.image}
+                src={avatar.src}
+                srcSet={avatar.srcSet}
                 alt=""
-                width={26}
-                height={26}
+                width={AVATAR_PX}
+                height={AVATAR_PX}
                 className="size-[26px] rounded-full ring-1 ring-border"
               />
             ) : (
