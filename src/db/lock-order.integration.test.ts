@@ -136,16 +136,50 @@ async function until(
 }
 
 /**
- * 잠금을 기다리고 있는 backend 수.
+ * 잠금을 기다리고 있는 backend 수 — **이 시험이 만든 연결만** 센다.
  *
  * 🔴 **고정 대기(sleep)로 순서를 «믿지» 않는다.** 기계가 바쁘면 그 순서가 뒤집히고,
  * 뒤집힌 시험은 결함이 살아 있어도 초록이 된다. 「누가 기다리기 시작했다」는 사실을
- * Database 에 직접 묻는다. 이 파일의 시험들은 **한 파일 안에서 차례로** 도므로 서로의
- * 대기를 섞어 세지 않는다.
+ * Database 에 직접 묻는다.
+ *
+ * ## 🔴 전에는 Database «전역»을 셌고, 그래서 간헐적으로 거짓 초록이 났다
+ *
+ * 옛 주석은 「이 파일의 시험들은 한 파일 안에서 차례로 도므로 서로의 대기를 섞어 세지
+ * 않는다」고 적어 두었다. **파일 «안»에서는 맞지만 파일 «사이»에서는 틀리다** — vitest 는
+ * 시험 파일을 병렬 워커로 돌린다. 다른 파일이 같은 표를 만지다 잠깐 막히면 그 대기가
+ * 함께 세어져, 이 시험이 기다리던 «자기» 경쟁이 아직 시작되지 않았는데도 배리어가
+ * 먼저 풀린다. 그러면 경쟁이 재현되지 않은 채 통과한다.
+ *
+ * 실제로 전체 통합 실행에서 이 파일이 간헐적으로 실패했다 — 원인은 제품이 아니라
+ * **이 세는 방식**이었다.
+ *
+ * 🔴 **assertion 을 약하게 만들지 않고 «세는 범위»를 좁혔다.** `pg_blocking_pids` 로
+ * **이 시험의 blocker 가 막고 있는 backend 만** 센다 — 「누가 무엇을 기다리는가」가 아니라
+ * 「누가 «내» 잠금을 기다리는가」다. 다른 파일이 무엇을 하든 이 숫자는 흔들리지 않는다.
  */
+/** 지금 잠금을 쥐고 버티는 연결의 backend pid. `holdingLock` 이 채운다. */
+let blockerPid: number | null = null;
+
 async function waiters(): Promise<number> {
+  if (blockerPid === null) {
+    return 0;
+  }
+  /*
+    🔴 **직접 막힌 것만 세면 부족하다.** 이 시험의 경쟁은 사슬이다 —
+    blocker 가 표를 잠그고, 수락이 그것을 기다리고, 발행은 **수락이 쥔 행**을 기다린다.
+    `pg_blocking_pids` 는 «직접» 막는 backend 만 돌려주므로 발행은 blocker 가 아니라
+    수락에 매달려 있고, 직접 관계만 세면 그 둘째가 영영 보이지 않는다.
+    그래서 blocker 에서 시작해 **막힘의 사슬을 따라 내려가며** 센다.
+  */
   const result = await db().execute<{ n: number }>(
-    sql`select count(*)::int as n from pg_locks where not granted`,
+    sql`with recursive tree(pid) as (
+          select ${blockerPid}::int
+          union
+          select a.pid
+            from pg_stat_activity a, tree t
+           where t.pid = any(pg_blocking_pids(a.pid))
+        )
+        select count(*)::int - 1 as n from tree`,
   );
   return result.rows[0]?.n ?? 0;
 }
@@ -174,6 +208,11 @@ async function holdingLock(
 
   const blocker = db().transaction(async (tx) => {
     await acquire(tx);
+    // 🔴 잠금을 «쥔 뒤» 그 연결의 pid 를 남긴다 — `waiters()` 가 이것을 기준으로 센다.
+    const pid = await tx.execute<{ pid: number }>(
+      sql`select pg_backend_pid() as pid`,
+    );
+    blockerPid = pid.rows[0]?.pid ?? null;
     ready();
     await released;
   });
@@ -190,6 +229,7 @@ async function holdingLock(
   } finally {
     release();
     await blocker.catch(() => undefined);
+    blockerPid = null;
   }
 }
 
