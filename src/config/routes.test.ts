@@ -14,6 +14,7 @@ import {
   projectPath,
   readProjectSlugFromPath,
   readWorkspaceSlugFromPath,
+  ROOT_PATH,
 } from "@/config/routes";
 
 /**
@@ -21,7 +22,8 @@ import {
  * 그것이 뒤집히면 새 화면을 만들 때마다 조용히 공개된다.
  */
 describe("isPublicPath", () => {
-  it("로그인 화면은 공개다 — 막으면 무한 리다이렉트가 된다", () => {
+  it("공식 Landing과 영구 redirect 경로는 세션 없이 도달할 수 있다", () => {
+    expect(isPublicPath(ROOT_PATH)).toBe(true);
     expect(isPublicPath(LOGIN_PATH)).toBe(true);
     expect(isPublicPath("/login/")).toBe(true);
   });
@@ -40,7 +42,6 @@ describe("isPublicPath", () => {
   });
 
   it("Workspace 화면은 전부 보호다", () => {
-    expect(isPublicPath("/")).toBe(false);
     expect(isPublicPath("/w/acme/dashboard")).toBe(false);
     expect(isPublicPath("/w/acme/settings")).toBe(false);
   });

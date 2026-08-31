@@ -6,7 +6,7 @@ import { APP_CONFIG } from "@/config/app";
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: `${APP_CONFIG.url}/login`,
+      url: `${APP_CONFIG.url}/`,
       changeFrequency: "monthly",
       priority: 1,
     },

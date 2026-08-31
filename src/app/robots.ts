@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: ["/", "/login", "/icon.png", "/logo.png", "/sitemap.xml"],
+      allow: ["/", "/icon.png", "/logo.png", "/sitemap.xml"],
       disallow: ["/api/", "/invite/", "/w/"],
     },
     sitemap: `${APP_CONFIG.url}/sitemap.xml`,

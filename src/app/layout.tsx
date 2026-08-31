@@ -1,8 +1,7 @@
-import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Sans_KR } from "next/font/google";
 
+import { SITE_METADATA } from "@/app/site-metadata";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { APP_CONFIG } from "@/config/app";
 import { readLocale, readTheme } from "@/lib/ui/appearance";
 import { LocaleProvider } from "@/lib/ui/locale-context";
 import { SYSTEM_THEME_SCRIPT, themeClassName } from "@/lib/ui/theme";
@@ -39,27 +38,7 @@ const notoSansKr = Noto_Sans_KR({
   weight: ["400", "500", "600", "700"],
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(APP_CONFIG.url),
-  title: {
-    default: APP_CONFIG.name,
-    template: `%s · ${APP_CONFIG.name}`,
-  },
-  description: APP_CONFIG.description,
-  verification: {
-    other: {
-      "naver-site-verification":
-        "0ac9ac3684016c79bf8d5852c04d93e95b120ce3",
-    },
-  },
-  openGraph: {
-    type: "website",
-    url: "/",
-    siteName: APP_CONFIG.name,
-    title: APP_CONFIG.name,
-    description: APP_CONFIG.description,
-  },
-};
+export const metadata = SITE_METADATA;
 
 /**
  * 🔴 **테마와 언어는 «서버가» 정해 내보낸다.**

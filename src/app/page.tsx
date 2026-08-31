@@ -1,8 +1,10 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { LANDING_METADATA } from "@/app/site-metadata";
 import { DEFAULT_SECTION, sectionHref } from "@/config/navigation";
-import { requireUser } from "@/lib/auth/require-workspace";
+import { AuthShell } from "@/features/auth/components/AuthShell";
+import { LoginLandingPage } from "@/features/auth/components/LoginLandingPage";
+import { currentUser } from "@/lib/auth/session";
 import {
   findMembership,
   listMemberWorkspaces,
@@ -10,10 +12,8 @@ import {
 import { readLastWorkspaceSlug } from "@/lib/workspace/last-workspace";
 import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
 
-/** 로그인 후에만 의미가 있는 진입점이다. 공개 검색 결과에는 로그인 화면만 노출한다. */
-export const metadata: Metadata = {
-  robots: { index: false, follow: false },
-};
+/** 검색 엔진과 사람이 함께 사용하는 공식 공개 대표 URL이다. */
+export const metadata = LANDING_METADATA;
 
 /**
  * 로그인 뒤 어디로 갈지 정하는 자리.
@@ -26,8 +26,18 @@ export const metadata: Metadata = {
  * 🔴 **「마지막 Workspace」는 편의일 뿐 권한 근거가 아니다**(스펙 16). 쿠키에서 읽은 slug 로
  * 곧장 보내지 않고 **소속을 다시 확인**한다 — 내보내진 뒤에도 그 주소가 열리면 안 된다.
  */
-export default async function LandingPage() {
-  const user = await requireUser();
+export default async function LandingPage(props: PageProps<"/">) {
+  const user = await currentUser();
+
+  if (user === null) {
+    const { error } = await props.searchParams;
+
+    return (
+      <AuthShell>
+        <LoginLandingPage error={error} />
+      </AuthShell>
+    );
+  }
 
   const remembered = await readLastWorkspaceSlug();
   if (remembered !== null) {

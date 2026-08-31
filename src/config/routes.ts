@@ -11,7 +11,10 @@
  * 이 파일은 순수 함수만 둔다 — Proxy(`src/proxy.ts`)와 서버 화면이 **같은 판정**을 쓴다.
  */
 
-/** 로그인 화면. 🔴 반드시 공개다 — 막으면 무한 리다이렉트가 된다. */
+/** 공식 공개 Landing Page. */
+export const ROOT_PATH = "/";
+
+/** 공식 대표 URL로 영구 이동시키는 호환 경로. 🔴 막으면 redirect가 실행되지 않는다. */
 export const LOGIN_PATH = "/login";
 
 /** Workspace 화면의 뿌리. `/w/{slug}/{section}` 이다. */
@@ -61,6 +64,7 @@ const PUBLIC_ASSET_PATHS: readonly string[] = ["/logo.png", "/icon.png"];
 const PUBLIC_METADATA_PATHS: readonly string[] = ["/robots.txt", "/sitemap.xml"];
 
 const PUBLIC_EXACT_PATHS: readonly string[] = [
+ ROOT_PATH,
  LOGIN_PATH,
 ...PUBLIC_ASSET_PATHS,
 ...PUBLIC_METADATA_PATHS,
