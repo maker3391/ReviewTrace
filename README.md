@@ -568,8 +568,10 @@ server alive but serving 500s on some routes.
 Issues and pull requests are welcome. Work branches from `develop`; pull requests target `develop`,
 never `main`. Run `pnpm lint`, `pnpm typecheck`, `pnpm test` and `pnpm build` before opening one.
 
-Project conventions — domain model, architecture boundaries, database rules, security rules — live
-in [`CLAUDE.md`](./CLAUDE.md), which applies to human and agent contributors alike.
+Project conventions — the domain model, architecture boundaries, database rules and security
+rules — are described throughout this README and in [`docs/`](./docs). The code carries the rest:
+modules state the reasoning behind their constraints in comments, so read the file you are about to
+change before changing it.
 
 ## License
 

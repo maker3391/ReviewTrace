@@ -41,3 +41,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 로컬 Agent 운영 파일 — 공개 저장소 산출물이 아니다.
+# 🔴 파일 자체는 로컬에 그대로 둔다. Git 이 «추적»만 하지 않는다.
+# AGENTS.md 는 `next dev` 가 스스로 다시 써 넣으므로 지워도 되살아난다.
+CLAUDE.md
+AGENTS.md
