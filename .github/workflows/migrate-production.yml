@@ -65,43 +65,24 @@ jobs:
       #     aws-[region].pooler.supabase.com / postgres.[project-id]).
       # 자세한 것은 docs/deployment.md 를 보라.
       - name: Apply migrations
+        # 아래 진단 step 이 "이 step 이 실패했는가"를 정확히 가리키게 하는 이름표다.
+        id: migrate
         env:
           DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
         run: pnpm db:migrate
 
       # 🔴 **drizzle-kit 은 실패 이유를 삼킨다.** 스피너 한 줄("applying migrations...")만 남고
-      # PostgreSQL 이 준 메시지가 사라져, 로그만 봐서는 «연결이 안 된 것»인지 «SQL 이 깨진 것»인지
-      # 구분할 수 없다 — 실제로 비밀번호가 틀렸을 때도 같은 출력이 나온다.
+      # PostgreSQL 이 준 메시지가 사라진다 — 비밀번호가 틀렸을 때도 SQL 이 깨졌을 때도 «같은
+      # 출력»이라, 로그만으로는 둘을 구분할 수 없다. 그래서 실패했을 때만 연결을 확인한다.
       #
-      # 그래서 실패했을 때만 연결을 한 번 확인해 그 오류를 그대로 찍는다.
-      # 🔴 **DDL 을 돌리지 않는다.** `select 1` 뿐이라 Database 를 건드리지 않는다.
-      # 🔴 **비밀번호를 찍지 않는다.** host·port·user·database 와 오류 code/message 만 낸다.
+      # 🔴 조건을 `failure()` 하나로 두지 않는다. `steps.migrate.conclusion` 까지 함께 보면
+      #    **어느 step 이 실패해서 도는지**가 조건에 드러나고, 앞으로 step 을 더해도 이 진단이
+      #    엉뚱한 실패에 딸려 돌지 않는다. `!cancelled()` 는 취소된 실행에서 돌지 않게 한다.
+      # 🔴 **성공하면 돌지 않는다** — `conclusion == 'failure'` 가 그것을 보장한다.
+      # 🔴 **DDL 을 돌리지 않는다.** `select 1` 뿐이라 Database 를 한 칸도 바꾸지 않는다.
+      # 🔴 **비밀번호와 URL 전문을 찍지 않는다.** host·port·user·database 와 code·message 뿐이다.
       - name: Diagnose connection (only when migrate failed)
-        if: failure()
+        if: ${{ !cancelled() && steps.migrate.conclusion == 'failure' }}
         env:
           DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
-        run: |
-          node -e '
-            const { Client } = require("pg");
-            const raw = process.env.DATABASE_URL || "";
-            let where = "(DATABASE_URL 을 URL 로 읽지 못했다)";
-            try {
-              const u = new URL(raw);
-              where = u.hostname + ":" + (u.port || "5432") +
-                " user=" + decodeURIComponent(u.username) +
-                " db=" + u.pathname.replace(/^//, "") +
-                " params=" + (u.search || "(없음)");
-            } catch {}
-            console.log("연결 대상:", where);
-            const client = new Client({ connectionString: raw });
-            client.connect()
-              .then(() => client.query("select 1"))
-              .then(() => { console.log("연결 자체는 된다 — 실패는 SQL 쪽이다."); return client.end(); })
-              .catch((error) => {
-                console.log("연결 실패");
-                console.log("  code   :", error.code);
-                console.log("  message:", error.message);
-                if (error.detail) console.log("  detail :", error.detail);
-                process.exit(1);
-              });
-          '
+        run: node .github/scripts/diagnose-db-connection.cjs
