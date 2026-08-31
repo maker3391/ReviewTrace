@@ -339,10 +339,10 @@ export const en: Messages = {
 
   wiki: {
     workspaceHeading: "Workspace Wiki",
-    workspaceDescription: "Rules that hold across every project",
+    workspaceDescription: "Rules and records shared by every project",
     projectHeading: "Project Wiki",
     projectDescription: (projectName: string) =>
-      `Rules and records that only mean something inside ${projectName}`,
+      `Rules and records for the ${projectName} project`,
     create: "New page",
     empty: "No pages yet",
     emptyHint: "Start with the rules you keep having to explain.",

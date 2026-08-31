@@ -466,10 +466,10 @@ export const ko = {
      * 🔴 **이 둘은 남긴다.** 「어느 위키인가」가 아니라 **「여기에 무엇을 적는가」**를
      * 말한다 — 제목만으로는 워크스페이스 위키와 프로젝트 위키의 경계를 알 수 없다.
      */
-    workspaceDescription: "프로젝트를 가리지 않고 지켜야 하는 규칙",
+    workspaceDescription: "모든 프로젝트에 공통으로 적용하는 규칙과 기록",
     projectHeading: "프로젝트 위키",
     projectDescription: (projectName: string) =>
-      `${projectName} 안에서만 뜻이 있는 규칙과 기록`,
+      `${projectName} 프로젝트의 규칙과 기록`,
     create: "문서 작성",
     empty: "문서가 없습니다",
     emptyHint: "반복해서 설명하게 되는 규칙부터 적어 두세요.",
