@@ -174,7 +174,7 @@ export const en: Messages = {
     optional: "(optional)",
     slugPlaceholder: "Leave empty to derive it from the name",
     slugHint: (workspaceSlug: string) =>
-      `Used in the URL — /w/${workspaceSlug}/p/{slug}`,
+      `Used in the URL · /w/${workspaceSlug}/p/{slug}`,
     descriptionField: "Description",
     submit: "Create",
     submitting: "Creating",
@@ -213,8 +213,8 @@ export const en: Messages = {
       title: "Recent Activity",
       empty: "No activity yet",
       reviewSuffix: (repository: string, issueCount: number) =>
-        ` reviewed ${repository} — ${issueCount} issues`,
-      resolutionSuffix: (repository: string) => ` resolved — ${repository}`,
+        ` reviewed ${repository} · ${issueCount} issues`,
+      resolutionSuffix: (repository: string) => ` resolved · ${repository}`,
     },
   },
 

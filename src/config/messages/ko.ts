@@ -292,7 +292,7 @@ export const ko = {
     optional: "(선택)",
     slugPlaceholder: "비워 두면 이름에서 만듭니다",
     slugHint: (workspaceSlug: string) =>
-      `주소에 쓰입니다 — /w/${workspaceSlug}/p/{slug}`,
+      `주소에 쓰입니다 · /w/${workspaceSlug}/p/{slug}`,
     descriptionField: "설명",
     submit: "만들기",
     submitting: "만드는 중",
@@ -344,8 +344,8 @@ export const ko = {
       empty: "활동이 없습니다",
       /** 행위자 이름은 굵게 따로 그린다 — 여기 담기는 것은 그 뒤에 붙는 말이다. */
       reviewSuffix: (repository: string, issueCount: number) =>
-        `가 ${repository} 검토 — 이슈 ${issueCount}건`,
-      resolutionSuffix: (repository: string) => ` 해결 — ${repository}`,
+        `가 ${repository} 검토 · 이슈 ${issueCount}건`,
+      resolutionSuffix: (repository: string) => ` 해결 · ${repository}`,
     },
   },
 
