@@ -276,7 +276,7 @@ export const ko = {
   workspaceDialog: {
     title: "워크스페이스 만들기",
     /** 🔴 남긴다 — 「무엇의 경계인가」는 만들기 전에 알아야 할 것이다. */
-    description: "멤버와 API Key 를 나누는 경계입니다.",
+    description: "멤버와 API Key를 나누는 경계입니다.",
     name: "이름",
     submit: "만들기",
     submitting: "만드는 중",
@@ -335,7 +335,7 @@ export const ko = {
     patterns: {
       title: "반복 패턴",
       empty: "패턴이 없습니다",
-      emptyHint: "Agent 가 리뷰에 patternKey 를 함께 보내면 여기에 쌓입니다.",
+      emptyHint: "Agent가 리뷰에 patternKey를 함께 보내면 여기에 쌓입니다.",
       resolved: (count: number) => `해결 ${count}`,
     },
     activity: {
@@ -343,7 +343,7 @@ export const ko = {
       empty: "활동이 없습니다",
       /** 행위자 이름은 굵게 따로 그린다 — 여기 담기는 것은 그 뒤에 붙는 말이다. */
       reviewSuffix: (repository: string, issueCount: number) =>
-        ` 가 ${repository} 검토 — 이슈 ${issueCount}건`,
+        `가 ${repository} 검토 — 이슈 ${issueCount}건`,
       resolutionSuffix: (repository: string) => ` 해결 — ${repository}`,
     },
   },
@@ -384,7 +384,7 @@ export const ko = {
     },
     repositories: {
       title: "저장소",
-      empty: "저장소가 없습니다. Agent 가 리뷰를 보내면 등록됩니다.",
+      empty: "저장소가 없습니다. Agent가 리뷰를 보내면 등록됩니다.",
       colRepository: "저장소",
       colReviews: "리뷰",
       colOpen: "미해결",
@@ -429,7 +429,7 @@ export const ko = {
     },
     empty: "조건에 맞는 이슈가 없습니다.",
     emptyHint:
-      "필터를 넓히거나, Agent 가 아직 리뷰 결과를 보내지 않았는지 확인하세요.",
+      "필터를 넓히거나, Agent가 아직 리뷰 결과를 보내지 않았는지 확인하세요.",
     colSeverity: "심각도",
     colTitle: "제목",
     colCategory: "분류",
@@ -441,7 +441,7 @@ export const ko = {
   reviews: {
     title: "리뷰",
     empty: "리뷰가 없습니다",
-    emptyHint: "Agent 가 POST /api/v1/reviews 로 결과를 보내면 여기에 쌓입니다.",
+    emptyHint: "Agent가 POST /api/v1/reviews로 결과를 보내면 여기에 쌓입니다.",
     colReviewer: "리뷰어",
     colRepository: "저장소",
     colTarget: "대상",
@@ -452,7 +452,7 @@ export const ko = {
   repositories: {
     title: "저장소",
     empty: "저장소가 없습니다",
-    emptyHint: "Agent 가 이 프로젝트로 리뷰를 보내면 자동으로 등록됩니다.",
+    emptyHint: "Agent가 이 프로젝트로 리뷰를 보내면 자동으로 등록됩니다.",
     colRepository: "저장소",
     colDefaultBranch: "기본 브랜치",
     colReviews: "리뷰",
@@ -493,7 +493,7 @@ export const ko = {
       slugHint: "비워 두면 제목에서 만듭니다",
       contentLabel: "본문 (Markdown)",
       contentPlaceholder:
-        "Markdown 으로 씁니다. 코드는 ``` 로 감싸세요.",
+        "Markdown으로 씁니다. 코드는 ```로 감싸세요.",
       editor: {
         write: "작성",
         preview: "미리 보기",
@@ -538,14 +538,14 @@ export const ko = {
     statKeys: "API Key",
     blockedTitle: "먼저 해결해야 합니다",
     blockedHint:
-      "다른 멤버가 있는데 OWNER 가 나뿐인 워크스페이스입니다. 멤버 화면에서 다른 멤버를 OWNER 로 올린 뒤 다시 시도하세요.",
+      "다른 멤버가 있는데 OWNER가 나뿐인 워크스페이스입니다. 멤버 화면에서 다른 멤버를 OWNER로 올린 뒤 다시 시도하세요.",
     delete: "계정 삭제",
     cancel: "취소",
     dialogTitle: "계정을 삭제할까요?",
     dialogBody:
       "혼자 쓰던 워크스페이스는 그 안의 리뷰 기록과 함께 사라집니다. 되돌릴 수 없습니다.",
     confirmPrefix: "확인하려면 ",
-    confirmSuffix: " 를 그대로 입력하세요.",
+    confirmSuffix: "를 그대로 입력하세요.",
   },
 
   apiKeys: {
@@ -553,7 +553,7 @@ export const ko = {
     namePlaceholder: "예: codex-ci",
     nameLabel: "Key 이름",
     issue: "발급",
-    empty: "발급된 Key 가 없습니다.",
+    empty: "발급된 Key가 없습니다.",
     expiresAt: "만료",
     /** 만료 선택지. 🔴 값(`30`·`NEVER`)은 Schema 의 것이고 여기 있는 것은 이름표뿐이다. */
     expiry30: "30일",
@@ -573,7 +573,7 @@ export const ko = {
     revoke: "폐기",
     cancel: "취소",
     /** 🔴 「이」를 붙이지 않는다 — 어느 Key 인지는 바로 아래 이름이 말한다. */
-    revokeConfirmTitle: "API Key 를 폐기할까요?",
+    revokeConfirmTitle: "API Key를 폐기할까요?",
     /**
      * 🔴 **「복구할 수 없다」고 적지 않는다.** 폐기는 행을 지우는 것이 아니라 `revokedAt`
      * 을 찍는 것이라(CLAUDE.md 12) 「이 키가 언제까지 무엇을 했는가」는 그대로 남는다 —
@@ -582,7 +582,7 @@ export const ko = {
      * 🔴 **두 사실을 한 문장으로 잇지 않는다.** 잃는 것(인증)과 남는 것(기록)은 성격이
      * 다른 사실이라, 이어 붙이면 뒤엣것이 앞엣것의 단서처럼 읽힌다. 줄을 나눠 둔다.
      */
-    revokeConfirmAuthLoss: "폐기하면 이 Key 로 더 이상 인증할 수 없습니다.",
+    revokeConfirmAuthLoss: "폐기하면 이 Key로 더 이상 인증할 수 없습니다.",
     revokeConfirmRecordKept: "기존 기록은 그대로 유지됩니다.",
     copy: "복사",
     copied: "복사됨",
@@ -599,7 +599,7 @@ export const ko = {
     copyCommand: (step: string) => `${step} 명령 복사`,
     /** 🔴 남긴다 — 모르면 실제로 막히거나 키가 새는 자리다. 장식이 아니다. */
     claudeNote:
-      "설정은 user 범위에 저장됩니다. 저장소의 .mcp.json 은 사용하지 마세요.",
+      "설정은 user 범위에 저장됩니다. 저장소의 .mcp.json은 사용하지 마세요.",
     codexNote:
       "직접 설정 파일을 수정하지 말고 위 명령으로 등록하세요. " +
       "쓰기 작업은 실행 전 승인이 필요합니다.",
@@ -607,7 +607,7 @@ export const ko = {
      * 🔴 앞뒤 공백까지 문구의 일부다 — 화면은 `<your-api-key>` 와 `.env` 를
      * 코드로 그리고 그 사이를 이 문자열로 잇는다. 언어마다 붙는 자리가 다르다.
      */
-    keyHint: "에 위에서 발급한 키를 입력하세요. API Key 는 저장소의 ",
+    keyHint: "에 위에서 발급한 키를 입력하세요. API Key는 저장소의 ",
     keyHintTail: "에 저장하지 마세요.",
   },
 
@@ -650,8 +650,8 @@ export const ko = {
       "링크가 만료됐거나 이미 사용됐습니다. 초대한 사람에게 다시 요청하세요.",
     title: (workspaceName: string) => `${workspaceName} 초대`,
     body: (email: string) =>
-      `${email} 로 초대받았습니다. 수락하면 이 워크스페이스의 멤버가 됩니다.`,
-    signInFirst: "먼저 GitHub 으로 로그인하세요. 로그인하면 이 화면으로 돌아옵니다.",
+      `${email}로 초대받았습니다. 수락하면 이 워크스페이스의 멤버가 됩니다.`,
+    signInFirst: "먼저 GitHub으로 로그인하세요. 로그인하면 이 화면으로 돌아옵니다.",
     accept: "초대 수락",
   },
 
@@ -701,7 +701,7 @@ export const ko = {
     /** 🔴 남긴다 — 「이 Review 당시」가 아니라 «지금» 상태라는 사실은 오해하기 쉽다. */
     foundIssuesHint: (count: number) => `${count}건 · 상태는 현재 값`,
     clean: "문제를 찾지 못했습니다",
-    cleanHint: "그것도 기록입니다 — 「이 Commit 은 깨끗했다」가 남습니다.",
+    cleanHint: "그것도 기록입니다 — 「이 Commit은 깨끗했다」가 남습니다.",
   },
 
   repositoryDetail: {
@@ -717,7 +717,7 @@ export const ko = {
     move: "프로젝트 이동",
     /** 🔴 남긴다 — 무엇이 함께 따라가는지 모르고 옮기게 두지 않는다. */
     moveDescription: (repositoryFullName: string) =>
-      `${repositoryFullName} 과 그 아래 리뷰·이슈가 함께 옮겨집니다.`,
+      `${repositoryFullName}과 그 아래 리뷰·이슈가 함께 옮겨집니다.`,
     moveTarget: "옮길 프로젝트",
     movePlaceholder: "옮길 프로젝트",
     moving: "옮기는 중",
@@ -747,10 +747,10 @@ export const ko = {
       knowledgePages: number;
     }) =>
       `저장소 ${impact.repositories} · 리뷰 ${impact.reviewSessions} · ` +
-      `이슈 ${impact.reviewIssues} · 문서 ${impact.knowledgePages} 이 함께 지워집니다.`,
+      `이슈 ${impact.reviewIssues} · 문서 ${impact.knowledgePages}이 함께 지워집니다.`,
     irreversible: "되돌릴 수 없습니다.",
     confirmPrefix: "확인을 위해 ",
-    confirmSuffix: " 을(를) 입력하세요",
+    confirmSuffix: "을(를) 입력하세요",
     deleting: "삭제 중",
     delete: "삭제",
   },
@@ -835,8 +835,8 @@ export const ko = {
       endLineBeforeStartLine: "끝 줄 번호는 시작 줄 번호보다 작을 수 없습니다.",
       endLineWithoutStartLine: "끝 줄 번호를 보내려면 시작 줄 번호도 함께 보내야 합니다.",
       reservedExternalRepositoryId:
-        "externalRepositoryId 는 `fullname:` 으로 시작할 수 없습니다.",
-      fullNameMismatch: "fullName 은 owner/name 과 같아야 합니다.",
+        "externalRepositoryId는 `fullname:`으로 시작할 수 없습니다.",
+      fullNameMismatch: "fullName은 owner/name과 같아야 합니다.",
     } satisfies Record<ValidationRule, string>,
   },
 
@@ -863,25 +863,25 @@ export const ko = {
 
     /** 🔴 아래 넷은 Agent 만 마주친다. 화면에는 뜨지 않지만 자리를 비워 두지 않는다. */
     AGENT_UNAUTHORIZED: "인증이 필요합니다.",
-    AGENT_BODY_NOT_JSON: "요청 본문이 올바른 JSON 이 아닙니다.",
+    AGENT_BODY_NOT_JSON: "요청 본문이 올바른 JSON이 아닙니다.",
     AGENT_BODY_UNSTORABLE_TEXT: "요청 본문에 저장할 수 없는 문자가 들어 있습니다.",
     AGENT_IDEMPOTENCY_KEY_TOO_LONG:
-      "Idempotency-Key 가 너무 깁니다.",
+      "Idempotency-Key가 너무 깁니다.",
 
     API_KEY_NAME_INVALID: "API Key 이름이 올바르지 않습니다.",
 
     PROJECT_SLUG_RESERVED: ({ slug }) =>
-      `'${slug}' 는 화면 주소로 쓰이는 이름이라 Project slug 로 쓸 수 없습니다.`,
-    PROJECT_SLUG_TAKEN: "같은 slug 의 Project 가 이미 있습니다.",
+      `'${slug}'는 화면 주소로 쓰이는 이름이라 Project slug로 쓸 수 없습니다.`,
+    PROJECT_SLUG_TAKEN: "같은 slug의 Project가 이미 있습니다.",
     PROJECT_NAME_TAKEN:
-      "같은 이름의 Project 가 이미 있습니다. slug 를 직접 정해 주세요.",
-    PROJECT_NOT_FOUND: "Project 를 찾을 수 없습니다.",
-    MOVE_TARGET_PROJECT_NOT_FOUND: "옮길 Project 를 찾을 수 없습니다.",
-    REPOSITORY_NOT_FOUND: "Repository 를 찾을 수 없습니다.",
+      "같은 이름의 Project가 이미 있습니다. slug를 직접 정해 주세요.",
+    PROJECT_NOT_FOUND: "Project를 찾을 수 없습니다.",
+    MOVE_TARGET_PROJECT_NOT_FOUND: "옮길 Project를 찾을 수 없습니다.",
+    REPOSITORY_NOT_FOUND: "Repository를 찾을 수 없습니다.",
 
     KNOWLEDGE_PAGE_SLUG_RESERVED: ({ slug }) =>
-      `'${slug}' 는 화면 주소로 쓰이는 이름이라 문서 slug 로 쓸 수 없습니다.`,
-    KNOWLEDGE_PAGE_SLUG_TAKEN: "같은 slug 의 문서가 이미 있습니다.",
+      `'${slug}'는 화면 주소로 쓰이는 이름이라 문서 slug로 쓸 수 없습니다.`,
+    KNOWLEDGE_PAGE_SLUG_TAKEN: "같은 slug의 문서가 이미 있습니다.",
     KNOWLEDGE_PAGE_NOT_FOUND: "문서를 찾을 수 없습니다.",
 
     /** 🔴 없다·만료됐다·이미 쓰였다를 구분해 알려 주지 않는다(CLAUDE.md 13). */
@@ -890,19 +890,19 @@ export const ko = {
     INVITATION_ALREADY_PENDING:
       "이 이메일로 보낸 초대가 아직 유효합니다. 기존 링크를 전달하거나, 수락 대기 목록에서 취소한 뒤 다시 초대해 주세요.",
 
-    WORKSPACE_MEMBER_ALREADY: "이미 이 Workspace 의 멤버입니다.",
+    WORKSPACE_MEMBER_ALREADY: "이미 이 Workspace의 멤버입니다.",
     WORKSPACE_MEMBER_NOT_FOUND: "멤버를 찾을 수 없습니다.",
     WORKSPACE_NAME_REQUIRED: "Workspace 이름을 입력하세요.",
     WORKSPACE_NAME_UNUSABLE:
       "그 이름으로 Workspace 주소를 만들지 못했습니다. 다른 이름을 써 주세요.",
     WORKSPACE_LAST_OWNER:
-      "마지막 OWNER 입니다. 다른 멤버를 OWNER 로 올린 뒤에 바꿔 주세요.",
+      "마지막 OWNER입니다. 다른 멤버를 OWNER로 올린 뒤에 바꿔 주세요.",
     PERSONAL_WORKSPACE_ROLE_FIXED:
-      "Personal Workspace 의 주인은 역할을 바꿀 수 없습니다.",
+      "Personal Workspace의 주인은 역할을 바꿀 수 없습니다.",
 
     ACCOUNT_NOT_FOUND: "계정을 찾을 수 없습니다.",
     ACCOUNT_LAST_OWNER:
-      "다른 멤버가 있는 워크스페이스의 마지막 OWNER 입니다. 다른 멤버를 OWNER 로 올린 뒤 다시 시도해 주세요.",
+      "다른 멤버가 있는 워크스페이스의 마지막 OWNER입니다. 다른 멤버를 OWNER로 올린 뒤 다시 시도해 주세요.",
     WORKSPACE_SLUG_RELEASE_FAILED:
       "워크스페이스 주소를 바꾸지 못했습니다. 잠시 뒤 다시 시도해 주세요.",
   } satisfies AppErrorMessages,
