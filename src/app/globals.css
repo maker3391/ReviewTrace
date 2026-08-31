@@ -185,4 +185,44 @@
   html {
     @apply font-sans;
   }
+
+  /*
+   * 🔴 **키보드 초점의 «최저선»이다.** 목록의 이름 링크처럼 Button 을 쓰지 않는
+   * 누를 자리가 수십 곳인데, 그것들은 브라우저 기본 outline 하나에 기대고 있었다 —
+   * 굵기도 offset 도 브라우저마다 달라 「분명히 보인다」를 보장하지 못한다.
+   *
+   * 🔴 **`:focus-visible` 이라 마우스로 누른 뒤에는 남지 않는다.** 초점 표시를
+   * 지우는 것이 아니라 없던 자리에 채워 넣는 규칙이다.
+   *
+   * 🔴 **이미 초점을 다루는 자리를 덮어쓰지 않는다.** Tailwind 의 utilities layer 가
+   * base layer 보다 뒤에 오므로, `outline-none`/`outline-hidden` 을 달고 자기 ring 을
+   * 그리는 Button·Input·Select·DropdownMenuItem 은 그대로 자기 표시를 쓴다.
+   *
+   * 🔴 **`a`·`button`·`[role="button"]` 로 좁힌 이유**: `*:focus-visible` 로 걸면
+   * CodeMirror 의 contenteditable(`.cm-content`)까지 잡혀, 바깥 표면이 이미 그리는
+   * `focus-within:ring` 위에 두 겹으로 그려진다.
+   */
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /*
+   * 🔴 **Tailwind 4 는 `button { cursor: pointer }` 를 걷어냈다.** v3 의 Preflight 에
+   * 있던 그 한 줄이 v4 에서 사라졌다(`tailwindcss/preflight.css` 를 직접 열어 확인했다 —
+   * `button` 규칙에 `cursor` 가 없다). 그래서 이 앱의 «모든» Button 이 화살표 커서였고,
+   * 링크(`<a href>`)만 UA 기본값으로 손가락이었다 — 같은 자리에서 같은 일을 하는
+   * 「목록의 이름 링크」와 「Row 의 Action 버튼」이 서로 다른 커서를 냈다.
+   *
+   * 🔴 **`cursor-pointer` 유틸을 43곳에 붙이는 대신 여기서 한 번 정한다**(CLAUDE.md 16).
+   * 개별 화면이 커서를 따로 적기 시작하면 빠뜨린 자리가 다시 생긴다.
+   *
+   * 🔴 **`disabled` 는 제외한다.** 누를 수 없는 것에 누를 수 있다는 커서를 주지 않는다.
+   */
+  button:not(:disabled):not([disabled]),
+  [role="button"]:not([disabled]):not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
 }

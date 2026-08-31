@@ -377,6 +377,9 @@ function NavLink({
       className={cn(
         // 🔴 내부 관리도구처럼 촘촘하지 않게 — 아이콘 20px · 글자 15px · 넉넉한 행 높이.
         "group flex items-center gap-3 rounded-lg px-2 py-2 text-[15px] transition-colors duration-150",
+        // 🔴 접기 버튼(위)과 «같은» 초점 표시다. 사이드바 안에서 Tab 이 어디에 있는지
+        //    행 모양 그대로 드러난다 — 얇은 브라우저 기본 outline 으로 두지 않는다.
+        "outline-none focus-visible:ring-3 focus-visible:ring-sidebar-ring/50",
         active
           ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
           : muted

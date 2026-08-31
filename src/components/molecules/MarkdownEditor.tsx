@@ -418,10 +418,12 @@ export function MarkdownEditor({
               aria-pressed={mode === candidate}
               onClick={() => setMode(candidate)}
               className={cn(
-                "rounded-[calc(var(--radius)*0.6)] px-2.5 py-1 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                // 🔴 `ring-2` 였다 — 다른 모든 초점 표시가 `ring-3` 이라 여기만 얇았다.
+                "rounded-[calc(var(--radius)*0.6)] px-2.5 py-1 text-xs font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
                 mode === candidate
-                  ? "bg-card text-foreground shadow-[0_1px_2px_0_oklch(0_0_0/0.06)]"
-                  : "text-muted-foreground hover:text-foreground",
+                  // 고른 쪽도 누를 수 있는 자리다 — hover 가 없으면 죽은 것처럼 읽힌다.
+                  ? "bg-card text-foreground shadow-[0_1px_2px_0_oklch(0_0_0/0.06)] hover:bg-card/80"
+                  : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
               )}
             >
               {candidate === "write" ? labels.write : labels.preview}

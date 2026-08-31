@@ -77,7 +77,18 @@ export function WorkspaceSwitcher({
             접힌 폭 계산: nav px-2(8) + button px-2(8) + 아바타 24 = 40 = w-14 안쪽 폭.
             메뉴 Icon 의 왼쪽 offset 과도 같아 접고 펼칠 때 좌우로 튀지 않는다.
           */
-          className="h-11 w-full justify-start gap-2 overflow-hidden border-sidebar-border bg-card px-2 font-medium hover:bg-card"
+          /*
+            🔴 **`hover:bg-card` 였다 — 그것이 hover 를 «없앴다».** tailwind-merge 가
+            outline variant 의 `hover:bg-muted` 를 같은 속성이라고 걷어내는데, 남은 값이
+            바탕색(`bg-card`)과 같아 밝은 테마에서는 아무 변화도 일어나지 않았다.
+            Tenant 를 바꾸는 자리인데 눌러도 되는 곳인지 알 수 없었다.
+
+            🔴 **새 색을 만들지 않는다** — 사이드바가 이미 쓰는 `sidebar-accent` 다
+            (접기 버튼·NavLink 와 같은 톤). 두 테마 모두 같은 토큰으로 잠가,
+            outline variant 의 `dark:hover:bg-input/50` 이 dark 에서만 다른 색으로
+            갈라지는 것도 함께 막는다.
+          */
+          className="h-11 w-full justify-start gap-2 overflow-hidden border-sidebar-border bg-card px-2 font-medium hover:bg-sidebar-accent/60 dark:hover:bg-sidebar-accent/60"
         >
           <span className="flex min-w-0 flex-1 items-center gap-2">
             {/*

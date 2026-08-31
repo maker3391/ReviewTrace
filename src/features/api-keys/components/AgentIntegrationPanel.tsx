@@ -105,7 +105,8 @@ export function AgentIntegrationPanel({
               "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
               "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
               item.key === selected
-                ? "bg-primary text-primary-foreground"
+                // 고른 쪽도 누를 수 있는 자리다. Button default variant 와 같은 hover 다.
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
           >
