@@ -76,9 +76,43 @@ Supabase 는 연결 방식을 넷 준다. 🔴 **포트로 고르지 마라 — 
   COMMIT 에서 풀리므로 pooler 가 연결을 돌려써도 새지 않는다. session 범위였다면 깨진다
 - `LISTEN`/`NOTIFY`·`SET SESSION` 이 **0건**이다
 
-🔴 **SSL 은 URL 로 켠다** — `?sslmode=require` 를 붙인다. 코드를 고칠 필요가 없다:
-`pg-connection-string@2.14.0` 이 연결 문자열의 `sslmode` 를 해석해 `pg` 에 넘긴다
-(직접 열어 확인했다). 🔴 **`ssl` 옵션을 코드에 박지 않는다** — 그러면 로컬 Docker 연결까지 함께 바뀐다.
+### 🔴 SSL — `?sslmode=require` «만» 붙이면 연결이 실패한다
+
+`pg-connection-string@2.14.0` 은 libpq 와 다르게 해석한다. 설치된 파서로 직접 돌려 확인한 값이다:
+
+| URL 파라미터 | `pg` 에 넘어가는 `ssl` | 뜻 |
+|---|---|---|
+| (없음) | `undefined` | **TLS 를 아예 쓰지 않는다** |
+| `?sslmode=require` | `{}` | TLS + **완전 검증**(Node 기본 `rejectUnauthorized: true`) |
+| `?sslmode=verify-full` | `{}` | 위와 같다 |
+| `?uselibpqcompat=true&sslmode=require` | `{ rejectUnauthorized: false }` | TLS 를 쓰되 **인증서를 검증하지 않는다** |
+| `?sslmode=no-verify` | `{ rejectUnauthorized: false }` | 위와 같다 |
+| `?sslmode=verify-full&sslrootcert=<파일>` | `{ ca: "…" }` | **그 CA 로 완전 검증** |
+
+🔴 **그래서 `?sslmode=require` 로 Supabase 에 붙으면 이렇게 죽는다:**
+
+```
+code   : SELF_SIGNED_CERT_IN_CHAIN
+message: self-signed certificate in certificate chain
+```
+
+Supabase 의 인증서는 **자체 CA(`prod-ca-2021.crt`)로 서명돼 있어** Node 의 기본 신뢰 목록에 없다.
+연결도 비밀번호도 SQL 도 문제가 아니다 — **검증에 쓸 CA 가 없는 것**이다.
+
+**고르는 법 — 두 가지뿐이고 보안 수준이 다르다:**
+
+1. **`?sslmode=verify-full&sslrootcert=<prod-ca-2021.crt 경로>` — 권장.**
+   Supabase 대시보드(**Project Settings → Database → SSL Configuration**)에서 CA 를 내려받아
+   저장소에 둔다. 🔴 **그 파일은 비밀이 아니다** — 공개 인증서라 커밋해도 된다.
+   경로는 프로세스의 **cwd 기준 상대 경로**로도 읽힌다(확인했다)
+2. `?uselibpqcompat=true&sslmode=require` — **검증을 끄는 것과 같다.**
+   위 표대로 `rejectUnauthorized: false` 로 풀린다. 「libpq 호환」이라는 이름 때문에
+   더 안전해 보이지만 **암호화만 하고 상대가 누구인지 확인하지 않는다.**
+   🔴 1번을 쓸 수 없을 때의 임시 수단으로만 쓴다
+
+🔴 **`ssl` 옵션을 코드에 박지 않는다.** `src/db/index.ts` 는 `new Pool({ connectionString })`,
+`drizzle.config.ts` 는 `dbCredentials: { url }` 뿐이라 **URL 이 유일한 정본**이다(전수 확인:
+저장소에 `ssl:` 를 주는 코드가 0곳). 코드에 박으면 로컬 Docker 연결까지 함께 바뀐다.
 
 ### 🔴 연결 고갈 — 확인된 위험이다
 
