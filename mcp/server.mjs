@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
@@ -34,7 +36,22 @@ import { registerTools } from "./tools.mjs";
  */
 
 const NAME = "reviewtrace";
-const VERSION = "0.1.0";
+
+/**
+ * 판번호는 `package.json` 하나가 정본이다.
+ *
+ * 🔴 **여기에 문자열로 박아 두지 않는다.** 두 자리에서 손으로 맞추면 다음 판올림에서
+ * 반드시 갈라지고, 그때 Client 가 보는 판번호가 실제로 설치된 것과 달라진다.
+ *
+ * 🔴 `import … with { type: "json" }` 도 `createRequire` 도 쓰지 않는다 — 앞의 것은
+ * Node 판에 따라 문법 지원이 갈리고(이 패키지의 바닥은 `>=20.11` 이다), 뒤의 것은
+ * 이 저장소의 ESLint 가 막는 `require` 모양이다. `import.meta.url` 기준으로 파일을
+ * 읽는 것은 어느 Node 에서나 같게 돌고, `package.json` 은 `files` 에 들어 있어
+ * 배포된 패키지 안에도 함께 있다.
+ */
+const VERSION = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf8"),
+).version;
 
 async function main() {
   let config;

@@ -31,10 +31,25 @@ const KEY_PREFIX = "ci_";
 export function loadConfig() {
   const fromFile = readHomeConfig();
 
-  const apiUrl =
-    firstNonEmpty(process.env.REVIEWTRACE_API_URL, fromFile.apiUrl) ??
-    "http://localhost:3000";
+  const apiUrl = firstNonEmpty(process.env.REVIEWTRACE_API_URL, fromFile.apiUrl);
   const apiKey = firstNonEmpty(process.env.REVIEWTRACE_API_KEY, fromFile.apiKey);
+
+  /*
+    🔴 **기본값을 두지 않는다.** 예전에는 `http://localhost:3000` 으로 떨어졌는데,
+    npm 으로 배포되는 순간 그 편의가 위험이 된다 — 주소를 잊은 사람에게 서버가
+    **성공적으로 뜨고** `Authorization: Bearer ci_…` 를 **그 사람의 3000번 포트에서
+    듣고 있는 무엇이든**에게 보낸다. 게다가 기동은 조용하고 첫 Tool 호출에서야 깨져
+    무엇이 잘못됐는지 알기 어렵다.
+
+    그래서 Key 와 **같은 자리에서 같은 방식으로** 막는다 — 없으면 시작하지 않는다.
+    로컬 개발도 `REVIEWTRACE_API_URL=http://localhost:3000` 을 «적어서» 띄운다.
+  */
+  if (apiUrl === undefined) {
+    throw new ConfigError(
+      "ReviewTrace API URL 이 없다. MCP Client 설정의 env 에 REVIEWTRACE_API_URL 을 넣거나 " +
+        `${HOME_CONFIG} 에 {"apiUrl": "..."} 를 적어라. ReviewTrace 를 띄운 주소다(예: https://review-trace.vercel.app).`,
+    );
+  }
 
   if (apiKey === undefined) {
     throw new ConfigError(

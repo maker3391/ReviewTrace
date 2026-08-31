@@ -41,7 +41,7 @@ Nothing to install ahead of time: `npx` fetches the package on first run.
 
 ```bash
 claude mcp add reviewtrace -s user \
-  -e "REVIEWTRACE_API_URL=https://your-reviewtrace-instance" \
+  -e "REVIEWTRACE_API_URL=https://review-trace.vercel.app" \
   -e "REVIEWTRACE_API_KEY=ci_your_key" \
   -- npx -y reviewtrace-mcp
 ```
@@ -50,7 +50,7 @@ claude mcp add reviewtrace -s user \
 
 ```bash
 codex mcp add reviewtrace \
-  --env "REVIEWTRACE_API_URL=https://your-reviewtrace-instance" \
+  --env "REVIEWTRACE_API_URL=https://review-trace.vercel.app" \
   --env "REVIEWTRACE_API_KEY=ci_your_key" \
   -- npx -y reviewtrace-mcp
 ```
@@ -65,7 +65,7 @@ pass the two variables as the process env.
 To check it by hand, run it directly:
 
 ```bash
-REVIEWTRACE_API_URL=https://your-reviewtrace-instance \
+REVIEWTRACE_API_URL=https://review-trace.vercel.app \
 REVIEWTRACE_API_KEY=ci_your_key \
 npx -y reviewtrace-mcp
 ```
@@ -76,18 +76,29 @@ with a message instead, rather than starting a server that cannot authenticate.
 
 ## Configuration
 
-| Variable | Required | Default |
-|---|---|---|
-| `REVIEWTRACE_API_KEY` | yes | — |
-| `REVIEWTRACE_API_URL` | no | `http://localhost:3000` |
+| Variable | Required |
+|---|---|
+| `REVIEWTRACE_API_KEY` | **yes** |
+| `REVIEWTRACE_API_URL` | **yes** |
 
-`REVIEWTRACE_API_URL` is the origin of your instance — the server appends `/api/v1` itself.
-The default only suits a locally running instance; **set it explicitly for anything else.**
+**Both are required. There is no default URL.** `REVIEWTRACE_API_URL` is the origin of your
+instance — the server appends `/api/v1` itself.
+
+> Earlier versions fell back to `http://localhost:3000`. That default is gone: a server that
+> starts without a URL would send `Authorization: Bearer ci_…` to whatever happens to listen on
+> your port 3000, and it would fail silently until the first tool call. Missing either variable
+> now stops the server at startup with a message naming what is missing.
+
+Running your own instance? Point it at your own origin — for local development, say so explicitly:
+
+```bash
+REVIEWTRACE_API_URL=http://localhost:3000
+```
 
 Instead of environment variables you may write `~/.reviewtrace/config.json`:
 
 ```json
-{ "apiUrl": "https://your-reviewtrace-instance", "apiKey": "ci_your_key" }
+{ "apiUrl": "https://review-trace.vercel.app", "apiKey": "ci_your_key" }
 ```
 
 Environment variables win over the file. Put the key in one of those two places — not in
