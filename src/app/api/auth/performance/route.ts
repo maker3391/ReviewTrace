@@ -1,7 +1,9 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { sql } from "drizzle-orm";
+import { asc, sql } from "drizzle-orm";
 
 import { db } from "@/db";
+import { workspaces } from "@/db/schema";
+import { findWorkspaceDashboard } from "@/features/dashboard/server/workspace-dashboard-query";
 import {
   PerformanceTrace,
   runtimePerformanceHeaders,
@@ -47,6 +49,20 @@ export async function GET(request: Request): Promise<Response> {
       ),
     ),
   );
+
+  const workspaceRows = await trace.time("dashboard.db.scope_lookup", () =>
+    database
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .orderBy(asc(workspaces.createdAt))
+      .limit(1),
+  );
+  const workspaceId = workspaceRows[0]?.id;
+  if (workspaceId !== undefined) {
+    await trace.time("dashboard.data.total", () =>
+      findWorkspaceDashboard(workspaceId, database, trace),
+    );
+  }
 
   trace.log();
   return Response.json(
