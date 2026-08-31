@@ -61,7 +61,6 @@ import { useLocalizedForm } from "@/lib/validation/use-localized-form";
  */
 /** 🔴 이 화면이 실제로 그리는 낱말만 받는다(CLAUDE.md 11). */
 export interface ApiKeyLabels {
-  namePlaceholder: string;
   nameLabel: string;
   issue: string;
   empty: string;
@@ -166,7 +165,7 @@ export function ApiKeyPanel({
         <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-none">
           <Input
             {...form.register("name")}
-            placeholder={labels.namePlaceholder}
+            placeholder={labels.nameLabel}
             aria-label={labels.nameLabel}
             className="w-full sm:w-64"
           />

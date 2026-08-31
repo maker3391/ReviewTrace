@@ -39,7 +39,6 @@ export interface IssueStatusLabels {
   changeStatus: string;
   changing: string;
   resolutionSummary: string;
-  resolutionPlaceholder: string;
   /** 🔴 값의 이름표. Select 의 `value` 는 `IssueStatus` 그대로다. */
   statusOptions: Record<IssueStatus, string>;
 }
@@ -176,7 +175,6 @@ export function IssueStatusControl({
             id="issue-resolution-summary"
             rows={4}
             className="text-xs"
-            placeholder={labels.resolutionPlaceholder}
             {...form.register("resolutionSummary")}
           />
           {form.formState.errors.resolutionSummary !== undefined && (

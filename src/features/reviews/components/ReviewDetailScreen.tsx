@@ -140,9 +140,7 @@ export async function ReviewDetailScreen({
         bleed
       >
         {review.issues.total === 0 ? (
-          <SectionEmpty title={t.clean}>
-            {t.cleanHint}
-          </SectionEmpty>
+          <SectionEmpty title={t.clean} />
         ) : (
           <Table>
             <TableHeader>

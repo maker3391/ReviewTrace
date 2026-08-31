@@ -97,11 +97,7 @@ export function CreateWorkspaceDialog({
           <label className="text-xs font-medium" htmlFor="workspace-name">
             {labels.name}
           </label>
-          <Input
-            id="workspace-name"
-            placeholder="CodeApex"
-            {...form.register("name")}
-          />
+          <Input id="workspace-name" {...form.register("name")} />
           {form.formState.errors.name !== undefined && (
             <p className="text-xs text-destructive">
               {form.formState.errors.name.message}

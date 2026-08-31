@@ -303,7 +303,11 @@ export const ko = {
    *
    * 「반복되는 문제」(Frequent Patterns 아래) · 「Review 실행과 해결 기록」(Recent Activity
    * 아래) 처럼 제목을 한 번 더 말할 뿐인 줄을 걷어냈다. **남긴 것은 판단에 필요한 것뿐**이다 —
-   * 지표의 관측 구간(`hint*`) · 비어 있는 이유(`emptyHint`) · 되돌릴 수 없다는 경고.
+   * 지표의 관측 구간(`hint*`) · 되돌릴 수 없다는 경고.
+   *
+   * 🔴 **Empty State 는 «상태»만 적는다.** 「무엇을 만드세요」·「Agent 가 …를 보내면 여기에
+   * 쌓입니다」처럼 사용법을 설명하던 줄은 전부 걷어냈다 — 다음 행동은 화면의 Action 이
+   * 말하고, 비어 있다는 사실은 한 줄이면 된다(CLAUDE.md 16).
    */
   workspaceDashboard: {
     kpiReviews: "리뷰",
@@ -316,8 +320,6 @@ export const ko = {
     projects: {
       title: "프로젝트",
       empty: "프로젝트가 없습니다",
-      emptyHint:
-        "저장소는 프로젝트 아래에 붙습니다. 제품이나 업무 단위로 하나 만드세요.",
       colProject: "프로젝트",
       colRepositories: "저장소",
       colReviews: "리뷰",
@@ -335,7 +337,6 @@ export const ko = {
     patterns: {
       title: "반복 패턴",
       empty: "패턴이 없습니다",
-      emptyHint: "Agent가 리뷰에 patternKey를 함께 보내면 여기에 쌓입니다.",
       resolved: (count: number) => `해결 ${count}`,
     },
     activity: {
@@ -384,7 +385,7 @@ export const ko = {
     },
     repositories: {
       title: "저장소",
-      empty: "저장소가 없습니다. Agent가 리뷰를 보내면 등록됩니다.",
+      empty: "저장소가 없습니다.",
       colRepository: "저장소",
       colReviews: "리뷰",
       colOpen: "미해결",
@@ -403,7 +404,6 @@ export const ko = {
   projects: {
     title: "프로젝트",
     empty: "프로젝트가 없습니다",
-    emptyHint: "제품이나 업무 단위로 하나 만드세요 — 예: SMIL, ReviewTrace, ERP.",
     colProject: "프로젝트",
     colSlug: "slug",
     colRepositories: "저장소",
@@ -428,8 +428,6 @@ export const ko = {
       reset: "초기화",
     },
     empty: "조건에 맞는 이슈가 없습니다.",
-    emptyHint:
-      "필터를 넓히거나, Agent가 아직 리뷰 결과를 보내지 않았는지 확인하세요.",
     colSeverity: "심각도",
     colTitle: "제목",
     colCategory: "분류",
@@ -441,7 +439,6 @@ export const ko = {
   reviews: {
     title: "리뷰",
     empty: "리뷰가 없습니다",
-    emptyHint: "Agent가 POST /api/v1/reviews로 결과를 보내면 여기에 쌓입니다.",
     colReviewer: "리뷰어",
     colRepository: "저장소",
     colTarget: "대상",
@@ -452,7 +449,6 @@ export const ko = {
   repositories: {
     title: "저장소",
     empty: "저장소가 없습니다",
-    emptyHint: "Agent가 이 프로젝트로 리뷰를 보내면 자동으로 등록됩니다.",
     colRepository: "저장소",
     colDefaultBranch: "기본 브랜치",
     colReviews: "리뷰",
@@ -472,7 +468,6 @@ export const ko = {
       `${projectName} 프로젝트의 규칙과 기록`,
     create: "문서 작성",
     empty: "문서가 없습니다",
-    emptyHint: "반복해서 설명하게 되는 규칙부터 적어 두세요.",
     colTitle: "제목",
     colSlug: "slug",
     colAuthor: "작성자",
@@ -486,14 +481,17 @@ export const ko = {
       save: "저장",
       saving: "저장 중",
       cancel: "취소",
+      /**
+       * 🔴 **이 둘은 label 이자 placeholder 다.** 제목 칸과 본문 칸은 label 을 화면에서
+       * 감춘 자리라(`KnowledgePageForm`) placeholder 가 지워지면 「무엇을 적는 칸인지」를
+       * 말해 주는 것이 아무것도 남지 않는다 — 그래서 «칸 이름»만 남기고 사용법 설명
+       * (「코드는 ```로 감싸세요」)은 걷어냈다. 그 일은 Toolbar 가 한다.
+       */
       titleLabel: "문서 제목",
-      titlePlaceholder: "문서 제목",
       slugLabel: "Slug (선택)",
       slugPlaceholder: "transaction-boundary",
       slugHint: "비워 두면 제목에서 만듭니다",
       contentLabel: "본문 (Markdown)",
-      contentPlaceholder:
-        "Markdown으로 씁니다. 코드는 ```로 감싸세요.",
       editor: {
         write: "작성",
         preview: "미리 보기",
@@ -549,8 +547,11 @@ export const ko = {
   },
 
   apiKeys: {
-    /** 🔴 label 을 되풀이하지 않는다 — 남는 것은 «예시»뿐이다. */
-    namePlaceholder: "예: codex-ci",
+    /**
+     * 🔴 **이름표가 화면에 없는 칸이라 placeholder 가 그 자리를 대신한다**(`ApiKeyPanel`).
+     * 예시(`예: codex-ci`)를 두었지만 이름 짓기에 규칙이 있는 칸이 아니라 아무것도 돕지
+     * 못했다 — 칸 이름만 남긴다.
+     */
     nameLabel: "Key 이름",
     issue: "발급",
     empty: "발급된 Key가 없습니다.",
@@ -673,12 +674,6 @@ export const ko = {
     changeStatus: "상태 변경",
     changing: "변경 중",
     resolutionSummary: "해결 요약",
-    /**
-     * 🔴 **남긴다 — 이것은 훈계가 아니라 «예시»다.** 무엇을 적어야 할지 모르는 칸에서
-     * 한 줄짜리 실제 예가 「자세히 적으세요」 열 줄보다 낫다(CLAUDE.md 16).
-     */
-    resolutionPlaceholder:
-      "예: DB Transaction 범위를 줄이고 외부 API 호출을 밖으로 옮겼다",
     optional: "(선택)",
     activity: "기록",
     activityType: "기록 종류",
@@ -701,7 +696,6 @@ export const ko = {
     /** 🔴 남긴다 — 「이 Review 당시」가 아니라 «지금» 상태라는 사실은 오해하기 쉽다. */
     foundIssuesHint: (count: number) => `${count}건 · 상태는 현재 값`,
     clean: "문제를 찾지 못했습니다",
-    cleanHint: "그것도 기록입니다 — 「이 Commit은 깨끗했다」가 남습니다.",
   },
 
   repositoryDetail: {
@@ -768,7 +762,6 @@ export const ko = {
   wikiPage: {
     newTitle: "새 문서",
     editTitle: "문서 수정",
-    titlePlaceholder: "예: Transaction 경계 규칙",
     optional: "(선택)",
     slugHint: "비워 두면 제목에서 만듭니다",
     saving: "저장 중",

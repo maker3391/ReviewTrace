@@ -54,7 +54,7 @@ export async function IssueTable({
   const label = messages.enums;
 
   if (result.items.length === 0) {
-    return <EmptyState title={t.empty} description={t.emptyHint} />;
+    return <EmptyState title={t.empty} />;
   }
 
   /**
@@ -174,17 +174,10 @@ export async function IssueTable({
   );
 }
 
-function EmptyState({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+function EmptyState({ title }: { title: string }) {
   return (
     <div className="px-4 py-16 text-center">
       <p className="text-sm font-medium">{title}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{description}</p>
     </div>
   );
 }

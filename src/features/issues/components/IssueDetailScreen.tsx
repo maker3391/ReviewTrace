@@ -210,7 +210,6 @@ export async function IssueDetailScreen({
                   changeStatus: t.changeStatus,
                   changing: t.changing,
                   resolutionSummary: t.resolutionSummary,
-                  resolutionPlaceholder: t.resolutionPlaceholder,
                   statusOptions: label.status,
                 }}
               />

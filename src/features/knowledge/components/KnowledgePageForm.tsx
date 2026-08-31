@@ -57,12 +57,10 @@ export interface KnowledgePageFormLabels {
   saving: string;
   cancel: string;
   titleLabel: string;
-  titlePlaceholder: string;
   slugLabel: string;
   slugPlaceholder: string;
   slugHint: string;
   contentLabel: string;
-  contentPlaceholder: string;
   editor: MarkdownEditorLabels;
 }
 
@@ -164,7 +162,7 @@ export function KnowledgePageForm({
         </label>
         <Input
           id="knowledge-title"
-          placeholder={labels.titlePlaceholder}
+          placeholder={labels.titleLabel}
           autoComplete="off"
           aria-invalid={titleError !== undefined}
           aria-describedby={
@@ -241,7 +239,7 @@ export function KnowledgePageForm({
               onChange={field.onChange}
               onBlur={field.onBlur}
               ref={field.ref}
-              placeholder={labels.contentPlaceholder}
+              placeholder={labels.contentLabel}
               labels={labels.editor}
               labelledBy="knowledge-content-label"
               invalid={fieldState.error !== undefined}

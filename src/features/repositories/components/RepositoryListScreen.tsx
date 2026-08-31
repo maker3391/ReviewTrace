@@ -65,9 +65,10 @@ export async function RepositoryListScreen({
       {/* 🔴 사이드바가 「저장소」라고 말한 자리에 「저장소」를 한 번 더 적지 않는다. */}
       <Section variant="raised" bleed>
         {repositories.length === 0 ? (
-          <SectionEmpty icon={<FolderGit2 className="size-4" />} title={t.empty}>
-            {t.emptyHint}
-          </SectionEmpty>
+          <SectionEmpty
+            icon={<FolderGit2 className="size-4" />}
+            title={t.empty}
+          />
         ) : (
           <Table>
             <TableHeader>

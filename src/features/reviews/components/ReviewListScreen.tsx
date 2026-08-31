@@ -67,9 +67,10 @@ export async function ReviewListScreen({
     <PageContainer width="wide">
       <Section variant="raised" bleed>
         {reviews.length === 0 ? (
-          <SectionEmpty icon={<ListChecks className="size-4" />} title={t.empty}>
-            {t.emptyHint}
-          </SectionEmpty>
+          <SectionEmpty
+            icon={<ListChecks className="size-4" />}
+            title={t.empty}
+          />
         ) : (
           <Table className={REVIEW_TABLE}>
             <TableHeader>

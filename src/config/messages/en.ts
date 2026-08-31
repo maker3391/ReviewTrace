@@ -190,8 +190,6 @@ export const en: Messages = {
     projects: {
       title: "Projects",
       empty: "No projects yet",
-      emptyHint:
-        "Repositories live under a project. Create one per product or unit of work.",
       colProject: "Project",
       colRepositories: "Repositories",
       colReviews: "Reviews",
@@ -209,8 +207,6 @@ export const en: Messages = {
     patterns: {
       title: "Frequent Patterns",
       empty: "No patterns yet",
-      emptyHint:
-        "Patterns appear here once an agent sends a patternKey with its review.",
       resolved: (count: number) => `${count} resolved`,
     },
     activity: {
@@ -258,7 +254,7 @@ export const en: Messages = {
     },
     repositories: {
       title: "Repositories",
-      empty: "No repositories yet. They register when an agent sends a review.",
+      empty: "No repositories yet.",
       colRepository: "Repository",
       colReviews: "Reviews",
       colOpen: "Open",
@@ -277,8 +273,6 @@ export const en: Messages = {
   projects: {
     title: "Projects",
     empty: "No projects yet",
-    emptyHint:
-      "Create one per product or unit of work — e.g. SMIL, ReviewTrace, ERP.",
     colProject: "Project",
     colSlug: "slug",
     colRepositories: "Repositories",
@@ -303,8 +297,6 @@ export const en: Messages = {
       reset: "Reset",
     },
     empty: "No issues match these filters.",
-    emptyHint:
-      "Widen the filters, or check whether an agent has sent review results yet.",
     colSeverity: "Severity",
     colTitle: "Title",
     colCategory: "Category",
@@ -316,8 +308,6 @@ export const en: Messages = {
   reviews: {
     title: "Reviews",
     empty: "No reviews yet",
-    emptyHint:
-      "Reviews appear here once an agent posts results to POST /api/v1/reviews.",
     colReviewer: "Reviewer",
     colRepository: "Repository",
     colTarget: "Target",
@@ -328,8 +318,6 @@ export const en: Messages = {
   repositories: {
     title: "Repositories",
     empty: "No repositories yet",
-    emptyHint:
-      "A repository registers itself when an agent sends a review to this project.",
     colRepository: "Repository",
     colDefaultBranch: "Default Branch",
     colReviews: "Reviews",
@@ -345,7 +333,6 @@ export const en: Messages = {
       `Rules and records for the ${projectName} project`,
     create: "New page",
     empty: "No pages yet",
-    emptyHint: "Start with the rules you keep having to explain.",
     colTitle: "Title",
     colSlug: "slug",
     colAuthor: "Author",
@@ -359,12 +346,10 @@ export const en: Messages = {
       saving: "Saving",
       cancel: "Cancel",
       titleLabel: "Document title",
-      titlePlaceholder: "Document title",
       slugLabel: "Slug (optional)",
       slugPlaceholder: "transaction-boundary",
       slugHint: "Left empty, it comes from the title",
       contentLabel: "Body (Markdown)",
-      contentPlaceholder: "Write in Markdown. Fence code with ```.",
       editor: {
         write: "Write",
         preview: "Preview",
@@ -419,7 +404,6 @@ export const en: Messages = {
   },
 
   apiKeys: {
-    namePlaceholder: "e.g. codex-ci",
     nameLabel: "Key name",
     issue: "Create",
     empty: "No keys yet.",
@@ -517,8 +501,6 @@ export const en: Messages = {
     changeStatus: "Change status",
     changing: "Saving",
     resolutionSummary: "Resolution summary",
-    resolutionPlaceholder:
-      "e.g. Narrowed the transaction boundary and moved the outbound call after commit",
     optional: "(optional)",
     activity: "Activity",
     activityType: "Activity type",
@@ -541,7 +523,6 @@ export const en: Messages = {
     foundIssuesHint: (count: number) =>
       `${count} · status shown is current, not as of this review`,
     clean: "Nothing was found",
-    cleanHint: "That is a record too — \"this commit was clean\" is worth keeping.",
   },
 
   repositoryDetail: {
@@ -595,7 +576,6 @@ export const en: Messages = {
   wikiPage: {
     newTitle: "New page",
     editTitle: "Edit page",
-    titlePlaceholder: "e.g. Transaction boundary rules",
     optional: "(optional)",
     slugHint: "Leave blank to derive it from the title",
     saving: "Saving",

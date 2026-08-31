@@ -76,9 +76,7 @@ export async function KnowledgeScreen({
 
       <Section variant="raised" bleed>
         {pages.length === 0 ? (
-          <SectionEmpty icon={<BookText className="size-4" />} title={t.empty}>
-            {t.emptyHint}
-          </SectionEmpty>
+          <SectionEmpty icon={<BookText className="size-4" />} title={t.empty} />
         ) : (
           <Table>
             <TableHeader>

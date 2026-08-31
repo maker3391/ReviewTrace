@@ -65,9 +65,7 @@ export async function ProjectListScreen({
 
       <Section variant="raised" bleed>
         {projects.length === 0 ? (
-          <SectionEmpty icon={<Boxes className="size-4" />} title={t.empty}>
-            {t.emptyHint}
-          </SectionEmpty>
+          <SectionEmpty icon={<Boxes className="size-4" />} title={t.empty} />
         ) : (
           <Table>
             <TableHeader>

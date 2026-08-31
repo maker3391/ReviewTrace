@@ -113,11 +113,7 @@ export function CreateProjectDialog({
             <label className="text-xs font-medium" htmlFor="project-name">
               {labels.name}
             </label>
-            <Input
-              id="project-name"
-              placeholder="SMIL"
-              {...form.register("name")}
-            />
+            <Input id="project-name" {...form.register("name")} />
             {form.formState.errors.name !== undefined && (
               <p className="text-xs text-destructive">
                 {form.formState.errors.name.message}

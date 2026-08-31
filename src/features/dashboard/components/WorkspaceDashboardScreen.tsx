@@ -105,9 +105,7 @@ export async function WorkspaceDashboardScreen({
           <SectionEmpty
             icon={<Boxes className="size-4" />}
             title={t.projects.empty}
-          >
-            {t.projects.emptyHint}
-          </SectionEmpty>
+          />
         ) : (
           <Table>
             <TableHeader>
@@ -253,9 +251,7 @@ export async function WorkspaceDashboardScreen({
             <SectionEmpty
               icon={<Repeat2 className="size-4" />}
               title={t.patterns.empty}
-            >
-              {t.patterns.emptyHint}
-            </SectionEmpty>
+            />
           ) : (
             <ul className="divide-y divide-border/60">
               {dashboard.frequentPatterns.map((pattern) => (
