@@ -53,11 +53,19 @@ export function ProjectSettingsPanel({
   workspaceSlug,
   project,
   impact,
+  canDelete,
   labels,
 }: {
   workspaceSlug: string;
   project: { slug: string; name: string; description: string | null };
   impact: ProjectDeletionImpact;
+  /**
+   * 🔴 **삭제 자리를 그릴지 말지.** Workspace OWNER 만 참이다.
+   *
+   * 이름이 `isOwner` 가 아니라 `canDelete` 인 이유는, 화면이 「역할」이 아니라
+   * 「이 화면에서 할 수 있는 일」만 알면 되기 때문이다 — 역할 판정은 서버의 몫이다.
+   */
+  canDelete: boolean;
   labels: ProjectSettingsLabels;
 }) {
   const router = useRouter();
@@ -174,6 +182,13 @@ export function ProjectSettingsPanel({
         </div>
       </form>
 
+      {/*
+        🔴 **비-OWNER 에게는 이 자리 «자체»를 그리지 않는다.** 버튼만 비활성으로 두면
+        「지울 수 있는데 지금은 안 된다」로 읽히고, 없는 권한을 있는 것처럼 보여 준다.
+        🔴 **이것은 편의일 뿐 경계가 아니다** — 서버(`deleteProjectAction`)가 같은 판정을
+        다시 한다(CLAUDE.md 11).
+      */}
+      {canDelete && (
       <div className="flex flex-col gap-2 border-t border-border pt-4">
         <p className="text-xs font-medium">{labels.deleteTitle}</p>
         <p className="text-[11px] text-muted-foreground">
@@ -224,6 +239,7 @@ export function ProjectSettingsPanel({
           </div>
         </ConfirmDialog>
       </div>
+      )}
     </div>
   );
 }

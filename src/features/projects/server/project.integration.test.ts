@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { db, type DbExecutor } from "@/db";
 import {
+  knowledgePages,
   repositories,
   reviewIssues,
   reviewSessions,
@@ -931,6 +932,154 @@ describe.skipIf(!enabled)("Project 수정·삭제", () => {
       expect(await listProjectSummaries(alpha.workspaceId, tx)).toHaveLength(0);
     });
   });
+
+    /**
+     * 🔴 **Project 문서는 함께 지워지고 Workspace 문서는 남는다.**
+     *
+     * `knowledge_pages.project_id` 는 **nullable 인데 ON DELETE CASCADE** 다(실제
+     * catalog 로 확인했다). 그 둘이 함께 있으면 보통은 「부모를 잃으면 NULL 로 남는다」를
+     * 의심하게 되는데, 여기서는 `NULL` 이 **「부모 없음(= Workspace 공통 문서)」**을 뜻하지
+     * 「부모를 잃음」이 아니다 — 그래서 CASCADE 가 두 의미를 섞지 않는다.
+     *
+     * 🔴 이 시험이 지키는 것은 **Project 문서가 Workspace 공통 문서로 «승격»되지 않는다**는
+     * 사실이다. 승격되면 그 Project 안에서만 뜻이 있던 규칙이 모든 Project 에 적용된다.
+     */
+    it("🔴 Project 문서는 함께 지워지고 Workspace 문서는 남는다", async () => {
+      await inRollback(async (tx) => {
+        const alpha = await makeWorkspace(tx, "Alpha");
+        const project = await createProject(
+          {
+            workspaceId: alpha.workspaceId,
+            createdBy: alpha.userId,
+            input: { name: "SMIL", slug: "smil", description: "" },
+          },
+          tx,
+        );
+
+        await createKnowledgePage(
+          {
+            scope: { workspaceId: alpha.workspaceId, projectId: null },
+            createdBy: alpha.userId,
+            input: { title: "공통 규칙", slug: "rules", content: "W" },
+          },
+          tx,
+        );
+        await createKnowledgePage(
+          {
+            scope: {
+              workspaceId: alpha.workspaceId,
+              projectId: project.projectId,
+            },
+            createdBy: alpha.userId,
+            input: { title: "SMIL 규칙", slug: "rules", content: "P" },
+          },
+          tx,
+        );
+
+        const impact = await findProjectDeletionImpact(
+          { workspaceId: alpha.workspaceId, projectId: project.projectId },
+          tx,
+        );
+        // 🔴 Workspace 문서는 세지 않는다 — 지워지지 않으므로 영향이 아니다.
+        expect(impact.knowledgePages).toBe(1);
+
+        await deleteProject(
+          { workspaceId: alpha.workspaceId, projectId: project.projectId },
+          tx,
+        );
+
+        const left = await tx
+          .select({ projectId: knowledgePages.projectId })
+          .from(knowledgePages)
+          .where(eq(knowledgePages.workspaceId, alpha.workspaceId));
+
+        expect(left).toHaveLength(1);
+        // 🔴 남은 하나는 «원래부터» Workspace 문서다. 승격된 것이 아니다.
+        expect(left[0]?.projectId).toBeNull();
+      });
+    });
+
+    it("같은 Workspace 의 다른 Project 와 다른 Workspace 는 그대로다", async () => {
+      await inRollback(async (tx) => {
+        const alpha = await makeWorkspace(tx, "Alpha");
+        const beta = await makeWorkspace(tx, "Beta");
+
+        const doomed = await createProject(
+          {
+            workspaceId: alpha.workspaceId,
+            createdBy: alpha.userId,
+            input: { name: "SMIL", slug: "smil", description: "" },
+          },
+          tx,
+        );
+        await createProject(
+          {
+            workspaceId: alpha.workspaceId,
+            createdBy: alpha.userId,
+            input: { name: "ERP", slug: "erp", description: "" },
+          },
+          tx,
+        );
+        await createProject(
+          {
+            workspaceId: beta.workspaceId,
+            createdBy: beta.userId,
+            input: { name: "Other", slug: "other", description: "" },
+          },
+          tx,
+        );
+
+        await seedReview(tx, {
+          workspaceId: alpha.workspaceId,
+          projectId: doomed.projectId,
+          title: "문제",
+        });
+
+        await deleteProject(
+          { workspaceId: alpha.workspaceId, projectId: doomed.projectId },
+          tx,
+        );
+
+        // 같은 Workspace 의 다른 Project 는 살아 있다.
+        const alphaLeft = await listProjectSummaries(alpha.workspaceId, tx);
+        expect(alphaLeft.map((p) => p.slug)).toEqual(["erp"]);
+
+        // 🔴 다른 Workspace 는 손대지 않는다.
+        const betaLeft = await listProjectSummaries(beta.workspaceId, tx);
+        expect(betaLeft.map((p) => p.slug)).toEqual(["other"]);
+      });
+    });
+
+    /**
+     * 🔴 **지운 Project 는 다시 조회되지 않는다.**
+     *
+     * 삭제가 「목록에서 빠지는 것」까지만이면, 주소를 아는 사람이 그 Project 로 계속
+     * 들어간다. `findProjectBySlug` 가 `null` 을 돌려줘야 화면이 404 가 된다.
+     */
+    it("🔴 지운 Project 는 slug 로도 찾을 수 없다", async () => {
+      await inRollback(async (tx) => {
+        const alpha = await makeWorkspace(tx, "Alpha");
+        const project = await createProject(
+          {
+            workspaceId: alpha.workspaceId,
+            createdBy: alpha.userId,
+            input: { name: "SMIL", slug: "smil", description: "" },
+          },
+          tx,
+        );
+
+        expect(
+          await findProjectBySlug(alpha.workspaceId, "smil", tx),
+        ).not.toBeNull();
+
+        await deleteProject(
+          { workspaceId: alpha.workspaceId, projectId: project.projectId },
+          tx,
+        );
+
+        expect(await findProjectBySlug(alpha.workspaceId, "smil", tx)).toBeNull();
+      });
+    });
 });
 
 describe.skipIf(!enabled)("Repository 이동", () => {

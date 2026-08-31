@@ -11,9 +11,14 @@ const { requireOwner } = await import("@/lib/auth/require-workspace");
 /**
  * OWNER 전용 경계.
  *
- * 🔴 **이 한 줄이 지우면 사라지는 것**: `requireOwner` 는 지금 네 곳을 지킨다 —
+ * 🔴 **이 한 줄이 지우면 사라지는 것**: `requireOwner` 는 지금 여섯 곳을 지킨다 —
  * API Key **발급**(`api-key-actions.ts:52`) · API Key **폐기**(`:79`) ·
- * **멤버 초대**(`invite-member.ts:50`) · **멤버 역할 변경**(`workspace-actions.ts:87`).
+ * **멤버 초대**(`invite-member.ts`) · **멤버 역할 변경**(`workspace-actions.ts`) ·
+ * **Workspace 삭제** · **Project 삭제**(`manage-project.ts`).
+ *
+ * 🔴 **Project 삭제는 오래 빠져 있었다.** `requireProject` 는 「그 Workspace 의 멤버인가」와
+ * 「그 Workspace 안의 Project 인가」까지만 본다 — 그것으로 끝냈던 탓에 **MEMBER 도 Project 를
+ * 통째로 지울 수 있었다.** 조회 권한과 파괴 권한은 다른 판정이다.
  * 함수 본문을 지우면 **그 Workspace 의 아무 MEMBER 나** 남을 초대하고 API Key 를 뽑고
  * 남의 역할을 바꿀 수 있게 되는데, **시험이 하나도 없어 전 스위트가 초록이었다.**
  *

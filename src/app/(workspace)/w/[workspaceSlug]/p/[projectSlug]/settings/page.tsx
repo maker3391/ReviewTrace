@@ -47,6 +47,8 @@ export default async function ProjectSettingsPage({
             description: project.description,
           }}
           impact={impact}
+          /* 🔴 화면 숨김은 편의다 — 서버가 같은 판정을 다시 한다(CLAUDE.md 11). */
+          canDelete={workspace.role === "OWNER"}
           labels={{
             name: t.name,
             slug: t.slug,
