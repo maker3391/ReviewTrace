@@ -3,7 +3,7 @@
  *
  * ```
  * ┌──────────────────────────────────────────────────┐
- * │ Coding Agent 연동      [Claude Code] [Codex] │ MCP │
+ * │ Coding Agent 연동 [Claude Code] [Codex] │ MCP │
  * └──────────────────────────────────────────────────┘
  * ```
  *
@@ -26,7 +26,7 @@
  * 맨 아래에 페이지(`--background`)보다 한 단 밝은 면(`--surface-muted`)이 한 번 오면
  * 단이 허공에서 끝나지 않고 닫힌다. 🔴 **Card(`--card`)로 올리지 않는다** — 올리면
  * 가운데 로그인 Card·오른쪽 미리보기와 같은 층이 되어 CTA 와 시선을 다툰다.
- * 표면 세 단(page < surface-muted < card) 중 **가운데 것**이 이 자리의 값이다(CLAUDE.md 16).
+ * 표면 세 단(page < surface-muted < card) 중 **가운데 것**이 이 자리의 값이다.
  *
  * ## 🔴 Agent 는 «항목»이고 MCP 는 그 항목이 아니다
  *
@@ -66,72 +66,72 @@
  * 🔴 **없는 것을 적지 않는다.** 「공식 파트너십」도 「native integration」도 「모든 Agent
  * 지원」도 쓰지 않는다 — 우리가 하는 일은 MCP Server 를 두고 그것을 사용자가 자기 Agent 에
  * 등록하는 것까지다. MCP Server 는 이 저장소의 파일을 절대 경로로 가리켜 쓰는 것이고
- * npm 배포가 없다(CLAUDE.md 0).
+ * npm 배포가 없다.
  *
  * 🔴 **tile 이 버튼으로 읽히면 안 된다.** 그래서 테두리도 그림자도 hover 도 주지 않고
- * **배경 톤 차이 하나로만** 세운다(CLAUDE.md 16 — 「모든 요소에 border」를 쓰지 않는다).
+ * **배경 톤 차이 하나로만** 세운다 — 모든 요소에 테두리를 두르지 않는다.
  * 11px 글자에 면만 깔린 tile 은 이 페이지의 유일한 CTA(가운데 카드의 GitHub 버튼 —
  * 진한 solid · 카드 층 · 훨씬 큰 글자)와 시선을 다투지 못한다.
  */
 
 import {
-  ClaudeCodeMark,
-  CodexMark,
-  McpMark,
+ ClaudeCodeMark,
+ CodexMark,
+ McpMark,
 } from "@/features/auth/components/AgentMarks";
 
 /** 🔴 실제로 설정 명령이 있는 Client 둘뿐이다(`AgentIntegrationPanel`). */
 const AGENTS = [
-  { name: "Claude Code", Mark: ClaudeCodeMark },
-  { name: "Codex", Mark: CodexMark },
+ { name: "Claude Code", Mark: ClaudeCodeMark },
+ { name: "Codex", Mark: CodexMark },
 ];
 
 export function LoginAgentSupport({ label }: { label: string }) {
-  return (
-    // 🔴 `max-w-[32rem]` 은 subhead 와 같은 값이다 — 왼쪽 단의 오른쪽 끝을 맞춘다.
-    <div className="mt-8 flex max-w-[32rem] flex-wrap items-center justify-between gap-x-4 gap-y-2.5 rounded-xl border border-border/70 bg-surface-muted/50 px-4 py-3">
-      {/* 🔴 대문자 eyebrow 를 쓰지 않는다 — 그것이 「마디 제목」으로 읽히던 원인이다. */}
-      <p className="text-[0.8125rem] break-keep text-foreground/75">{label}</p>
+ return (
+ // 🔴 `max-w-[32rem]` 은 subhead 와 같은 값이다 — 왼쪽 단의 오른쪽 끝을 맞춘다.
+ <div className="mt-8 flex max-w-[32rem] flex-wrap items-center justify-between gap-x-4 gap-y-2.5 rounded-xl border border-border/70 bg-surface-muted/50 px-4 py-3">
+ {/* 🔴 대문자 eyebrow 를 쓰지 않는다 — 그것이 「마디 제목」으로 읽히던 원인이다. */}
+ <p className="text-[0.8125rem] break-keep text-foreground/75">{label}</p>
 
-      {/*
-        🔴 **모바일에서 한 줄을 억지로 지키지 않는다.** `flex-wrap` 이라 좁아지면
-        tile 사이에서 접힌다 — 가로 스크롤이 생기는 쪽이 훨씬 나쁘다.
-      */}
-      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
-        {AGENTS.map(({ name, Mark }) => (
-          <span
-            key={name}
-            className="inline-flex items-center gap-1.5 rounded-md bg-background px-2 py-1 text-[0.6875rem] leading-none font-medium tracking-[-0.01em] whitespace-nowrap text-foreground/85"
-          >
-            {/*
-              🔴 **`size-3.5` 는 11px 글자보다 «조금» 크다.** 같은 크기로 맞추면 마크가
-              글자에 눌려 무엇인지 알아볼 수 없고, 더 키우면 tile 이 아이콘 버튼처럼
-              읽힌다. `shrink-0` 이라 줄이 접혀도 마크가 찌그러지지 않는다.
-            */}
-            <Mark className="size-3.5 shrink-0" />
-            {name}
-          </span>
-        ))}
+ {/*
+ 🔴 **모바일에서 한 줄을 억지로 지키지 않는다.** `flex-wrap` 이라 좁아지면
+ tile 사이에서 접힌다 — 가로 스크롤이 생기는 쪽이 훨씬 나쁘다.
+ */}
+ <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
+ {AGENTS.map(({ name, Mark }) => (
+ <span
+ key={name}
+ className="inline-flex items-center gap-1.5 rounded-md bg-background px-2 py-1 text-[0.6875rem] leading-none font-medium tracking-[-0.01em] whitespace-nowrap text-foreground/85"
+ >
+ {/*
+ 🔴 **`size-3.5` 는 11px 글자보다 «조금» 크다.** 같은 크기로 맞추면 마크가
+ 글자에 눌려 무엇인지 알아볼 수 없고, 더 키우면 tile 이 아이콘 버튼처럼
+ 읽힌다. `shrink-0` 이라 줄이 접혀도 마크가 찌그러지지 않는다.
+ */}
+ <Mark className="size-3.5 shrink-0" />
+ {name}
+ </span>
+))}
 
-        {/*
-          🔴 **가운뎃점이 아니라 세로선이다.** Agent 목록이 여기서 끝나고 다음 것은
-          같은 종류가 아니라는 표시다 — 위 표 참고.
-        */}
-        <span
-          aria-hidden="true"
-          className="mx-1 h-3.5 w-px shrink-0 bg-border"
-        />
+ {/*
+ 🔴 **가운뎃점이 아니라 세로선이다.** Agent 목록이 여기서 끝나고 다음 것은
+ 같은 종류가 아니라는 표시다 — 위 표 참고.
+ */}
+ <span
+ aria-hidden="true"
+ className="mx-1 h-3.5 w-px shrink-0 bg-border"
+ />
 
-        {/*
-          🔴 mono 는 「프로토콜 이름」의 글꼴이다. 면을 깔지 않아 Agent tile 과 갈린다 —
-          **마크가 붙어도 그 구분은 그대로다.** 색도 한 단 흐린 `muted-foreground` 라
-          Agent 둘보다 뒤에 선다.
-        */}
-        <span className="inline-flex items-center gap-1.5 font-mono text-[0.6875rem] leading-none text-muted-foreground">
-          <McpMark className="size-3.5 shrink-0" />
-          MCP
-        </span>
-      </div>
-    </div>
-  );
+ {/*
+ 🔴 mono 는 「프로토콜 이름」의 글꼴이다. 면을 깔지 않아 Agent tile 과 갈린다 —
+ **마크가 붙어도 그 구분은 그대로다.** 색도 한 단 흐린 `muted-foreground` 라
+ Agent 둘보다 뒤에 선다.
+ */}
+ <span className="inline-flex items-center gap-1.5 font-mono text-[0.6875rem] leading-none text-muted-foreground">
+ <McpMark className="size-3.5 shrink-0" />
+ MCP
+ </span>
+ </div>
+ </div>
+);
 }

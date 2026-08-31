@@ -1,15 +1,15 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+ Table,
+ TableBody,
+ TableCell,
+ TableHead,
+ TableHeader,
+ TableRow,
 } from "@/components/ui/table";
 import {
-  ISSUE_COL,
-  ISSUE_TABLE,
+ ISSUE_COL,
+ ISSUE_TABLE,
 } from "@/features/issues/components/issue-table-columns";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
@@ -18,12 +18,12 @@ const SKELETON_ROWS = Math.min(DEFAULT_PAGE_SIZE, 8);
 
 /** 실제 표와 **같은** 머리 낱말. 어긋나면 결과가 도착할 때 글자가 바뀐다. */
 export interface SkeletonLabels {
-  colSeverity: string;
-  colTitle: string;
-  colCategory: string;
-  colLocation: string;
-  colStatus: string;
-  colDetected: string;
+ colSeverity: string;
+ colTitle: string;
+ colCategory: string;
+ colLocation: string;
+ colStatus: string;
+ colDetected: string;
 }
 
 /**
@@ -34,45 +34,45 @@ export interface SkeletonLabels {
  * 이 Component 는 async 가 아니다.
  *
  * 🔴 실제 Content 와 **같은 열·같은 행 높이**로 그린다. 크기가 다르면 결과가 도착하는 순간
- * 화면이 튄다(Layout Shift). 조회 중에도 Header · Search · Filter 는 그대로 남는다(CLAUDE.md 8).
+ * 화면이 튄다(Layout Shift). 조회 중에도 Header · Search · Filter 는 그대로 남는다.
  */
 export function IssueTableSkeleton({ labels: t }: { labels: SkeletonLabels }) {
-  return (
-    <Table className={ISSUE_TABLE}>
-      <TableHeader>
-        <TableRow>
-          <TableHead className={ISSUE_COL.severity}>{t.colSeverity}</TableHead>
-          <TableHead>{t.colTitle}</TableHead>
-          <TableHead className={ISSUE_COL.category}>{t.colCategory}</TableHead>
-          <TableHead className={ISSUE_COL.location}>{t.colLocation}</TableHead>
-          <TableHead className={ISSUE_COL.status}>{t.colStatus}</TableHead>
-          <TableHead className={ISSUE_COL.detected}>{t.colDetected}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {Array.from({ length: SKELETON_ROWS }, (_, index) => (
-          <TableRow key={index}>
-            <TableCell>
-              <Skeleton className="h-5 w-16" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-3/4" />
-            </TableCell>
-            <TableCell className={ISSUE_COL.category}>
-              <Skeleton className="h-4 w-28" />
-            </TableCell>
-            <TableCell className={ISSUE_COL.location}>
-              <Skeleton className="h-4 w-40" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-5 w-16" />
-            </TableCell>
-            <TableCell className={ISSUE_COL.detected}>
-              <Skeleton className="ml-auto h-4 w-20" />
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
+ return (
+ <Table className={ISSUE_TABLE}>
+ <TableHeader>
+ <TableRow>
+ <TableHead className={ISSUE_COL.severity}>{t.colSeverity}</TableHead>
+ <TableHead>{t.colTitle}</TableHead>
+ <TableHead className={ISSUE_COL.category}>{t.colCategory}</TableHead>
+ <TableHead className={ISSUE_COL.location}>{t.colLocation}</TableHead>
+ <TableHead className={ISSUE_COL.status}>{t.colStatus}</TableHead>
+ <TableHead className={ISSUE_COL.detected}>{t.colDetected}</TableHead>
+ </TableRow>
+ </TableHeader>
+ <TableBody>
+ {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+ <TableRow key={index}>
+ <TableCell>
+ <Skeleton className="h-5 w-16" />
+ </TableCell>
+ <TableCell>
+ <Skeleton className="h-4 w-3/4" />
+ </TableCell>
+ <TableCell className={ISSUE_COL.category}>
+ <Skeleton className="h-4 w-28" />
+ </TableCell>
+ <TableCell className={ISSUE_COL.location}>
+ <Skeleton className="h-4 w-40" />
+ </TableCell>
+ <TableCell>
+ <Skeleton className="h-5 w-16" />
+ </TableCell>
+ <TableCell className={ISSUE_COL.detected}>
+ <Skeleton className="ml-auto h-4 w-20" />
+ </TableCell>
+ </TableRow>
+))}
+ </TableBody>
+ </Table>
+);
 }

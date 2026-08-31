@@ -4,27 +4,27 @@ import { and, asc, count, eq, sql } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
 import {
-  knowledgePages,
-  projects,
-  repositories,
-  reviewIssues,
-  reviewSessions,
+ knowledgePages,
+ projects,
+ repositories,
+ reviewIssues,
+ reviewSessions,
 } from "@/db/schema";
 import {
-  resolveProjectInput,
-  type CreateProjectInput,
+ resolveProjectInput,
+ type CreateProjectInput,
 } from "@/features/projects/schemas/project";
 import type {
-  ProjectContext,
-  ProjectSummary,
+ ProjectContext,
+ ProjectSummary,
 } from "@/features/projects/types/project";
 import { asCount, asNullableDate } from "@/db/raw-value";
 import { isUniqueViolation } from "@/db/unique-violation";
 import { AppError } from "@/lib/errors";
 import {
-  paginate,
-  type PageRequest,
-  type PageResult,
+ paginate,
+ type PageRequest,
+ type PageResult,
 } from "@/lib/pagination";
 import { normalizeSlug } from "@/lib/workspace/slug";
 
@@ -32,7 +32,7 @@ import { normalizeSlug } from "@/lib/workspace/slug";
  * Project 의 Application Service.
  *
  * 🔴 **모든 함수의 첫 조건이 `workspaceId` 다.** 그 값은 호출자가 소속 확인으로 얻은 것이고
- * (`require-workspace.ts`), Client 가 보낸 값이 아니다(CLAUDE.md 11).
+ * (`require-workspace.ts`), Client 가 보낸 값이 아니다.
  * `projectId`·`projectSlug` 만으로 조회하는 경로를 **만들지 않는다** — 그것을 만드는 순간
  * ID 를 아는 것이 곧 권한이 된다.
  */
@@ -49,24 +49,24 @@ const MAX_SLUG_ATTEMPTS = 5;
  * 🔴 조건이 둘이다. slug 만으로 찾지 않는다 — 그러면 남의 Workspace 의 Project 가 나온다.
  */
 export async function findProjectBySlug(
-  workspaceId: string,
-  projectSlug: string,
-  executor: DbExecutor = db(),
+ workspaceId: string,
+ projectSlug: string,
+ executor: DbExecutor = db(),
 ): Promise<ProjectContext | null> {
-  const rows = await executor
-    .select({
-      projectId: projects.id,
-      slug: projects.slug,
-      name: projects.name,
-      description: projects.description,
-    })
-    .from(projects)
-    .where(
-      and(eq(projects.workspaceId, workspaceId), eq(projects.slug, projectSlug)),
-    )
-    .limit(1);
+ const rows = await executor
+.select({
+ projectId: projects.id,
+ slug: projects.slug,
+ name: projects.name,
+ description: projects.description,
+ })
+.from(projects)
+.where(
+ and(eq(projects.workspaceId, workspaceId), eq(projects.slug, projectSlug)),
+)
+.limit(1);
 
-  return rows[0] ?? null;
+ return rows[0] ?? null;
 }
 
 /**
@@ -76,19 +76,19 @@ export async function findProjectBySlug(
  * 집계를 얹으면 Project 를 열지 않는 화면에서도 매번 Join 세 개가 붙는다.
  */
 export async function listProjectOptions(
-  workspaceId: string,
-  executor: DbExecutor = db(),
+ workspaceId: string,
+ executor: DbExecutor = db(),
 ): Promise<ProjectContext[]> {
-  return executor
-    .select({
-      projectId: projects.id,
-      slug: projects.slug,
-      name: projects.name,
-      description: projects.description,
-    })
-    .from(projects)
-    .where(eq(projects.workspaceId, workspaceId))
-    .orderBy(asc(projects.name));
+ return executor
+.select({
+ projectId: projects.id,
+ slug: projects.slug,
+ name: projects.name,
+ description: projects.description,
+ })
+.from(projects)
+.where(eq(projects.workspaceId, workspaceId))
+.orderBy(asc(projects.name));
 }
 
 /**
@@ -102,11 +102,11 @@ export async function listProjectOptions(
  * Review 10건이면 30행이 되고, 그 위에서 센 Repository 수는 30이 된다.
  */
 export async function listProjectSummaries(
-  workspaceId: string,
-  executor: DbExecutor = db(),
+ workspaceId: string,
+ executor: DbExecutor = db(),
 ): Promise<ProjectSummary[]> {
-  // 상한 없이 전부 — Workspace Dashboard 는 Project 를 하나도 빠뜨리지 않고 보여 준다.
-  return selectProjectSummaries(workspaceId, executor, null, 0);
+ // 상한 없이 전부 — Workspace Dashboard 는 Project 를 하나도 빠뜨리지 않고 보여 준다.
+ return selectProjectSummaries(workspaceId, executor, null, 0);
 }
 
 /**
@@ -116,117 +116,117 @@ export async function listProjectSummaries(
  * 붙이면 쪽을 넘길 때마다 Repository·Review·Issue 집계가 한 번씩 더 돈다.
  */
 export async function findProjectSummaryPage(
-  workspaceId: string,
-  request: PageRequest,
-  executor: DbExecutor = db(),
+ workspaceId: string,
+ request: PageRequest,
+ executor: DbExecutor = db(),
 ): Promise<PageResult<ProjectSummary>> {
-  return paginate(request, {
-    count: async () => {
-      const rows = await executor
-        .select({ value: count() })
-        .from(projects)
-        .where(eq(projects.workspaceId, workspaceId));
+ return paginate(request, {
+ count: async () => {
+ const rows = await executor
+.select({ value: count() })
+.from(projects)
+.where(eq(projects.workspaceId, workspaceId));
 
-      return rows[0]?.value ?? 0;
-    },
-    rows: (limit, offset) =>
-      selectProjectSummaries(workspaceId, executor, limit, offset),
-  });
+ return rows[0]?.value ?? 0;
+ },
+ rows: (limit, offset) =>
+ selectProjectSummaries(workspaceId, executor, limit, offset),
+ });
 }
 
 async function selectProjectSummaries(
-  workspaceId: string,
-  executor: DbExecutor,
-  /** `null` 이면 상한을 걸지 않는다. */
-  limit: number | null,
-  offset: number,
+ workspaceId: string,
+ executor: DbExecutor,
+ /** `null` 이면 상한을 걸지 않는다. */
+ limit: number | null,
+ offset: number,
 ): Promise<ProjectSummary[]> {
-  const repositoryStats = executor
-    .select({
-      projectId: repositories.projectId,
-      repositoryCount: sql<number>`count(*)::int`.as("repository_count"),
-    })
-    .from(repositories)
-    .where(eq(repositories.workspaceId, workspaceId))
-    .groupBy(repositories.projectId)
-    .as("repository_stats");
+ const repositoryStats = executor
+.select({
+ projectId: repositories.projectId,
+ repositoryCount: sql<number>`count(*)::int`.as("repository_count"),
+ })
+.from(repositories)
+.where(eq(repositories.workspaceId, workspaceId))
+.groupBy(repositories.projectId)
+.as("repository_stats");
 
-  const reviewStats = executor
-    .select({
-      projectId: repositories.projectId,
-      reviewCount: sql<number>`count(*)::int`.as("review_count"),
-      lastReviewAt: sql<Date | null>`max(${reviewSessions.createdAt})`.as(
-        "last_review_at",
-      ),
-    })
-    .from(reviewSessions)
-    .innerJoin(repositories, eq(repositories.id, reviewSessions.repositoryId))
-    .where(eq(reviewSessions.workspaceId, workspaceId))
-    .groupBy(repositories.projectId)
-    .as("review_stats");
+ const reviewStats = executor
+.select({
+ projectId: repositories.projectId,
+ reviewCount: sql<number>`count(*)::int`.as("review_count"),
+ lastReviewAt: sql<Date | null>`max(${reviewSessions.createdAt})`.as(
+ "last_review_at",
+),
+ })
+.from(reviewSessions)
+.innerJoin(repositories, eq(repositories.id, reviewSessions.repositoryId))
+.where(eq(reviewSessions.workspaceId, workspaceId))
+.groupBy(repositories.projectId)
+.as("review_stats");
 
-  const issueStats = executor
-    .select({
-      projectId: repositories.projectId,
-      openIssueCount:
-        sql<number>`count(*) filter (where ${reviewIssues.status} in ${OPEN_STATUSES})::int`.as(
-          "open_issue_count",
-        ),
-      lastIssueAt: sql<Date | null>`max(${reviewIssues.updatedAt})`.as(
-        "last_issue_at",
-      ),
-    })
-    .from(reviewIssues)
-    .innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
-    .where(eq(reviewIssues.workspaceId, workspaceId))
-    .groupBy(repositories.projectId)
-    .as("issue_stats");
+ const issueStats = executor
+.select({
+ projectId: repositories.projectId,
+ openIssueCount:
+ sql<number>`count(*) filter (where ${reviewIssues.status} in ${OPEN_STATUSES})::int`.as(
+ "open_issue_count",
+),
+ lastIssueAt: sql<Date | null>`max(${reviewIssues.updatedAt})`.as(
+ "last_issue_at",
+),
+ })
+.from(reviewIssues)
+.innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
+.where(eq(reviewIssues.workspaceId, workspaceId))
+.groupBy(repositories.projectId)
+.as("issue_stats");
 
-  const query = executor
-    .select({
-      projectId: projects.id,
-      slug: projects.slug,
-      name: projects.name,
-      description: projects.description,
-      repositoryCount: sql<number>`coalesce(${repositoryStats.repositoryCount}, 0)`,
-      reviewCount: sql<number>`coalesce(${reviewStats.reviewCount}, 0)`,
-      openIssueCount: sql<number>`coalesce(${issueStats.openIssueCount}, 0)`,
-      // 「마지막 활동」은 Review 와 Issue 중 더 최근인 쪽이다. 둘 다 없으면 NULL 이다.
-      lastActivityAt: sql<
-        Date | null
-      >`greatest(${reviewStats.lastReviewAt}, ${issueStats.lastIssueAt})`,
-    })
-    .from(projects)
-    .leftJoin(repositoryStats, eq(repositoryStats.projectId, projects.id))
-    .leftJoin(reviewStats, eq(reviewStats.projectId, projects.id))
-    .leftJoin(issueStats, eq(issueStats.projectId, projects.id))
-    .where(eq(projects.workspaceId, workspaceId))
-    // 이름이 같은 Project 는 없지만, 쪽을 넘길 때의 순서는 id 로 못박아 둔다.
-    .orderBy(asc(projects.name), asc(projects.id))
-    .$dynamic();
+ const query = executor
+.select({
+ projectId: projects.id,
+ slug: projects.slug,
+ name: projects.name,
+ description: projects.description,
+ repositoryCount: sql<number>`coalesce(${repositoryStats.repositoryCount}, 0)`,
+ reviewCount: sql<number>`coalesce(${reviewStats.reviewCount}, 0)`,
+ openIssueCount: sql<number>`coalesce(${issueStats.openIssueCount}, 0)`,
+ // 「마지막 활동」은 Review 와 Issue 중 더 최근인 쪽이다. 둘 다 없으면 NULL 이다.
+ lastActivityAt: sql<
+ Date | null
+ >`greatest(${reviewStats.lastReviewAt}, ${issueStats.lastIssueAt})`,
+ })
+.from(projects)
+.leftJoin(repositoryStats, eq(repositoryStats.projectId, projects.id))
+.leftJoin(reviewStats, eq(reviewStats.projectId, projects.id))
+.leftJoin(issueStats, eq(issueStats.projectId, projects.id))
+.where(eq(projects.workspaceId, workspaceId))
+ // 이름이 같은 Project 는 없지만, 쪽을 넘길 때의 순서는 id 로 못박아 둔다.
+.orderBy(asc(projects.name), asc(projects.id))
+.$dynamic();
 
-  const rows = await (limit === null
-    ? query
-    : query.limit(limit).offset(offset));
+ const rows = await (limit === null
+ ? query
+ : query.limit(limit).offset(offset));
 
-  /**
-   * 🔴 원시 SQL 조각의 타입 단언을 여기서 실제 값으로 맞춘다(`db/raw-value.ts`).
-   * 이 줄이 없으면 `lastActivityAt` 이 문자열인 채 화면까지 가서 `formatDate` 가 터진다.
-   */
-  return rows.map((row) => ({
-    ...row,
-    repositoryCount: asCount(row.repositoryCount),
-    reviewCount: asCount(row.reviewCount),
-    openIssueCount: asCount(row.openIssueCount),
-    lastActivityAt: asNullableDate(row.lastActivityAt),
-  }));
+ /**
+ * 🔴 원시 SQL 조각의 타입 단언을 여기서 실제 값으로 맞춘다(`db/raw-value.ts`).
+ * 이 줄이 없으면 `lastActivityAt` 이 문자열인 채 화면까지 가서 `formatDate` 가 터진다.
+ */
+ return rows.map((row) => ({
+...row,
+ repositoryCount: asCount(row.repositoryCount),
+ reviewCount: asCount(row.reviewCount),
+ openIssueCount: asCount(row.openIssueCount),
+ lastActivityAt: asNullableDate(row.lastActivityAt),
+ }));
 }
 
 export interface CreateProjectCommand {
-  /** 🔴 소속 확인을 통과한 값. Client 가 보낸 `workspaceId` 를 쓰지 않는다. */
-  workspaceId: string;
-  createdBy: string;
-  input: CreateProjectInput;
+ /** 🔴 소속 확인을 통과한 값. Client 가 보낸 `workspaceId` 를 쓰지 않는다. */
+ workspaceId: string;
+ createdBy: string;
+ input: CreateProjectInput;
 }
 
 /**
@@ -242,48 +242,48 @@ export interface CreateProjectCommand {
  * @throws {AppError} slug 가 이미 쓰이면 `CONFLICT`.
  */
 export async function createProject(
-  command: CreateProjectCommand,
-  executor: DbExecutor = db(),
+ command: CreateProjectCommand,
+ executor: DbExecutor = db(),
 ): Promise<ProjectContext> {
-  const resolved = resolveProjectInput(command.input);
-  if (!resolved.ok) {
-    throw new AppError("PROJECT_SLUG_RESERVED", { meta: { slug: resolved.slug } });
-  }
+ const resolved = resolveProjectInput(command.input);
+ if (!resolved.ok) {
+ throw new AppError("PROJECT_SLUG_RESERVED", { meta: { slug: resolved.slug } });
+ }
 
-  const explicitSlug = command.input.slug.trim() !== "";
-  const attempts = explicitSlug ? 1 : MAX_SLUG_ATTEMPTS;
+ const explicitSlug = command.input.slug.trim() !== "";
+ const attempts = explicitSlug ? 1 : MAX_SLUG_ATTEMPTS;
 
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const slug =
-      attempt === 0
-        ? resolved.value.slug
-        : normalizeSlug(`${resolved.value.slug}-${attempt + 1}`);
+ for (let attempt = 0; attempt < attempts; attempt += 1) {
+ const slug =
+ attempt === 0
+ ? resolved.value.slug
+ : normalizeSlug(`${resolved.value.slug}-${attempt + 1}`);
 
-    const created = await executor
-      .insert(projects)
-      .values({
-        workspaceId: command.workspaceId,
-        name: resolved.value.name,
-        slug,
-        description: resolved.value.description,
-        createdBy: command.createdBy,
-      })
-      .onConflictDoNothing({ target: [projects.workspaceId, projects.slug] })
-      .returning({
-        projectId: projects.id,
-        slug: projects.slug,
-        name: projects.name,
-        description: projects.description,
-      });
+ const created = await executor
+.insert(projects)
+.values({
+ workspaceId: command.workspaceId,
+ name: resolved.value.name,
+ slug,
+ description: resolved.value.description,
+ createdBy: command.createdBy,
+ })
+.onConflictDoNothing({ target: [projects.workspaceId, projects.slug] })
+.returning({
+ projectId: projects.id,
+ slug: projects.slug,
+ name: projects.name,
+ description: projects.description,
+ });
 
-    const project = created[0];
-    if (project !== undefined) {
-      return project;
-    }
-  }
+ const project = created[0];
+ if (project !== undefined) {
+ return project;
+ }
+ }
 
-  // 🔴 「직접 적은 slug 가 겹쳤다」와 「이름에서 만든 후보가 다 막혔다」는 다음 할 일이 다르다.
-  throw new AppError(explicitSlug ? "PROJECT_SLUG_TAKEN" : "PROJECT_NAME_TAKEN");
+ // 🔴 「직접 적은 slug 가 겹쳤다」와 「이름에서 만든 후보가 다 막혔다」는 다음 할 일이 다르다.
+ throw new AppError(explicitSlug ? "PROJECT_SLUG_TAKEN" : "PROJECT_NAME_TAKEN");
 }
 
 /**
@@ -291,10 +291,10 @@ export async function createProject(
  *
  * ```
  * API Key -> Workspace -> payload.project?.slug -> Project (없으면 만든다)
- *                      -> 없으면              -> 'default' Project (없으면 만든다)
+ * -> 없으면 -> 'default' Project (없으면 만든다)
  * ```
  *
- * 🔴 **Client 가 Workspace 를 지정하지 못한다**(CLAUDE.md 13). `workspaceId` 는 API Key 가
+ * 🔴 **Client 가 Workspace 를 지정하지 못한다**. `workspaceId` 는 API Key 가
  * 정한 값이고, Payload 가 고를 수 있는 것은 **그 Workspace 안의 Project** 뿐이다. 남의
  * Workspace 의 Project slug 를 적어도 아래 조회가 `workspaceId` 로 좁혀 아무것도 찾지 못하고,
  * 그 slug 로 **이 Workspace 안에** 새 Project 가 하나 생길 뿐이다.
@@ -312,45 +312,45 @@ export async function createProject(
 export const INGEST_DEFAULT_PROJECT_SLUG = "default";
 
 export interface IngestProjectRef {
-  slug: string;
-  name: string | null;
+ slug: string;
+ name: string | null;
 }
 
 export async function resolveIngestProject(
-  input: { workspaceId: string; project: IngestProjectRef | null },
-  executor: DbExecutor = db(),
+ input: { workspaceId: string; project: IngestProjectRef | null },
+ executor: DbExecutor = db(),
 ): Promise<string> {
-  const slug = normalizeSlug(input.project?.slug ?? INGEST_DEFAULT_PROJECT_SLUG);
-  const name =
-    input.project?.name ??
-    (slug === INGEST_DEFAULT_PROJECT_SLUG ? "Default" : slug);
+ const slug = normalizeSlug(input.project?.slug ?? INGEST_DEFAULT_PROJECT_SLUG);
+ const name =
+ input.project?.name ??
+ (slug === INGEST_DEFAULT_PROJECT_SLUG ? "Default" : slug);
 
-  const existing = await findProjectBySlug(input.workspaceId, slug, executor);
-  if (existing !== null) {
-    return existing.projectId;
-  }
+ const existing = await findProjectBySlug(input.workspaceId, slug, executor);
+ if (existing !== null) {
+ return existing.projectId;
+ }
 
-  /**
-   * 🔴 `onConflictDoNothing` 이다 — 같은 Workspace 로 두 Agent 요청이 동시에 닿으면 진 쪽은
-   * 예외로 Transaction 을 깨는 대신 「이미 있다」로 받아 아래에서 다시 읽는다.
-   * 이 함수는 Review 저장 Transaction **안에서** 도므로, 여기서 던지면 Review 전체가 날아간다.
-   */
-  const created = await executor
-    .insert(projects)
-    .values({ workspaceId: input.workspaceId, name, slug })
-    .onConflictDoNothing({ target: [projects.workspaceId, projects.slug] })
-    .returning({ id: projects.id });
+ /**
+ * 🔴 `onConflictDoNothing` 이다 — 같은 Workspace 로 두 Agent 요청이 동시에 닿으면 진 쪽은
+ * 예외로 Transaction 을 깨는 대신 「이미 있다」로 받아 아래에서 다시 읽는다.
+ * 이 함수는 Review 저장 Transaction **안에서** 도므로, 여기서 던지면 Review 전체가 날아간다.
+ */
+ const created = await executor
+.insert(projects)
+.values({ workspaceId: input.workspaceId, name, slug })
+.onConflictDoNothing({ target: [projects.workspaceId, projects.slug] })
+.returning({ id: projects.id });
 
-  const createdId = created[0]?.id;
-  if (createdId !== undefined) {
-    return createdId;
-  }
+ const createdId = created[0]?.id;
+ if (createdId !== undefined) {
+ return createdId;
+ }
 
-  const raced = await findProjectBySlug(input.workspaceId, slug, executor);
-  if (raced === null) {
-    throw new AppError("UNEXPECTED");
-  }
-  return raced.projectId;
+ const raced = await findProjectBySlug(input.workspaceId, slug, executor);
+ if (raced === null) {
+ throw new AppError("UNEXPECTED");
+ }
+ return raced.projectId;
 }
 
 /**
@@ -361,110 +361,110 @@ export async function resolveIngestProject(
  * @throws {AppError} 대상이 없으면 `NOT_FOUND`, slug 가 겹치면 `CONFLICT`.
  */
 export async function updateProject(
-  command: {
-    workspaceId: string;
-    projectId: string;
-    input: CreateProjectInput;
-  },
-  executor: DbExecutor = db(),
+ command: {
+ workspaceId: string;
+ projectId: string;
+ input: CreateProjectInput;
+ },
+ executor: DbExecutor = db(),
 ): Promise<ProjectContext> {
-  const resolved = resolveProjectInput(command.input);
-  if (!resolved.ok) {
-    throw new AppError("PROJECT_SLUG_RESERVED", { meta: { slug: resolved.slug } });
-  }
+ const resolved = resolveProjectInput(command.input);
+ if (!resolved.ok) {
+ throw new AppError("PROJECT_SLUG_RESERVED", { meta: { slug: resolved.slug } });
+ }
 
-  const updated = await executor
-    .update(projects)
-    .set({
-      name: resolved.value.name,
-      slug: resolved.value.slug,
-      description: resolved.value.description,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(projects.id, command.projectId),
-        eq(projects.workspaceId, command.workspaceId),
-      ),
-    )
-    .returning({
-      projectId: projects.id,
-      slug: projects.slug,
-      name: projects.name,
-      description: projects.description,
-    })
-    .catch((cause: unknown) => {
-      /**
-       * unique 위반은 **사용자 입력 문제**다 — 500 이 아니라 `CONFLICT` 다.
-       * 🔴 Driver 오류 message 에는 쿼리와 값이 실려 온다. 밖으로 흘리지 않는다(CLAUDE.md 19).
-       *
-       * 🔴 **unique 위반«일 때만» 바꾼다.** 무엇이 오든 `CONFLICT` 로 접으면 접속 끊김·
-       * timeout 까지 「같은 slug 가 있습니다」가 되어, 사용자는 멀쩡한 이름을 바꿔 가며
-       * 계속 실패하고 진짜 원인은 어디에도 남지 않는다(`src/db/unique-violation.ts`).
-       */
-      if (isUniqueViolation(cause)) {
-        throw new AppError("PROJECT_SLUG_TAKEN", { cause });
-      }
-      throw cause;
-    });
+ const updated = await executor
+.update(projects)
+.set({
+ name: resolved.value.name,
+ slug: resolved.value.slug,
+ description: resolved.value.description,
+ updatedAt: new Date(),
+ })
+.where(
+ and(
+ eq(projects.id, command.projectId),
+ eq(projects.workspaceId, command.workspaceId),
+),
+)
+.returning({
+ projectId: projects.id,
+ slug: projects.slug,
+ name: projects.name,
+ description: projects.description,
+ })
+.catch((cause: unknown) => {
+ /**
+ * unique 위반은 **사용자 입력 문제**다 — 500 이 아니라 `CONFLICT` 다.
+ * 🔴 Driver 오류 message 에는 쿼리와 값이 실려 온다. 밖으로 흘리지 않는다.
+ *
+ * 🔴 **unique 위반«일 때만» 바꾼다.** 무엇이 오든 `CONFLICT` 로 접으면 접속 끊김·
+ * timeout 까지 「같은 slug 가 있습니다」가 되어, 사용자는 멀쩡한 이름을 바꿔 가며
+ * 계속 실패하고 진짜 원인은 어디에도 남지 않는다(`src/db/unique-violation.ts`).
+ */
+ if (isUniqueViolation(cause)) {
+ throw new AppError("PROJECT_SLUG_TAKEN", { cause });
+ }
+ throw cause;
+ });
 
-  const project = updated[0];
-  if (project === undefined) {
-    throw new AppError("PROJECT_NOT_FOUND");
-  }
+ const project = updated[0];
+ if (project === undefined) {
+ throw new AppError("PROJECT_NOT_FOUND");
+ }
 
-  return project;
+ return project;
 }
 
 /** 지우면 함께 사라지는 것. 🔴 사용자에게 «무엇을 잃는지» 먼저 보여 주기 위한 값이다. */
 export interface ProjectDeletionImpact {
-  repositories: number;
-  reviewSessions: number;
-  reviewIssues: number;
-  knowledgePages: number;
+ repositories: number;
+ reviewSessions: number;
+ reviewIssues: number;
+ knowledgePages: number;
 }
 
 export async function findProjectDeletionImpact(
-  input: { workspaceId: string; projectId: string },
-  executor: DbExecutor = db(),
+ input: { workspaceId: string; projectId: string },
+ executor: DbExecutor = db(),
 ): Promise<ProjectDeletionImpact> {
-  const scope = and(
-    eq(repositories.workspaceId, input.workspaceId),
-    eq(repositories.projectId, input.projectId),
-  );
+ const scope = and(
+ eq(repositories.workspaceId, input.workspaceId),
+ eq(repositories.projectId, input.projectId),
+);
 
-  const [repositoryRows, sessionRows, issueRows, pageRows] = await Promise.all([
-    executor
-      .select({ value: sql<number>`count(*)::int` })
-      .from(repositories)
-      .where(scope),
-    executor
-      .select({ value: sql<number>`count(*)::int` })
-      .from(reviewSessions)
-      .innerJoin(repositories, eq(repositories.id, reviewSessions.repositoryId))
-      .where(scope),
-    executor
-      .select({ value: sql<number>`count(*)::int` })
-      .from(reviewIssues)
-      .innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
-      .where(scope),
-    executor
-      .select({ value: sql<number>`count(*)::int` })
-      .from(knowledgePages)
-      .where(
-        and(
-          eq(knowledgePages.workspaceId, input.workspaceId),
-          eq(knowledgePages.projectId, input.projectId),
-        ),
-      ),
-  ]);
+ const [repositoryRows, sessionRows, issueRows, pageRows] = await Promise.all([
+ executor
+.select({ value: sql<number>`count(*)::int` })
+.from(repositories)
+.where(scope),
+ executor
+.select({ value: sql<number>`count(*)::int` })
+.from(reviewSessions)
+.innerJoin(repositories, eq(repositories.id, reviewSessions.repositoryId))
+.where(scope),
+ executor
+.select({ value: sql<number>`count(*)::int` })
+.from(reviewIssues)
+.innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
+.where(scope),
+ executor
+.select({ value: sql<number>`count(*)::int` })
+.from(knowledgePages)
+.where(
+ and(
+ eq(knowledgePages.workspaceId, input.workspaceId),
+ eq(knowledgePages.projectId, input.projectId),
+),
+),
+ ]);
 
-  return {
-    repositories: repositoryRows[0]?.value ?? 0,
-    reviewSessions: sessionRows[0]?.value ?? 0,
-    reviewIssues: issueRows[0]?.value ?? 0,
-    knowledgePages: pageRows[0]?.value ?? 0,
-  };
+ return {
+ repositories: repositoryRows[0]?.value ?? 0,
+ reviewSessions: sessionRows[0]?.value ?? 0,
+ reviewIssues: issueRows[0]?.value ?? 0,
+ knowledgePages: pageRows[0]?.value ?? 0,
+ };
 }
 
 /**
@@ -480,20 +480,20 @@ export async function findProjectDeletionImpact(
  * @throws {AppError} 대상이 없으면 `NOT_FOUND`.
  */
 export async function deleteProject(
-  input: { workspaceId: string; projectId: string },
-  executor: DbExecutor = db(),
+ input: { workspaceId: string; projectId: string },
+ executor: DbExecutor = db(),
 ): Promise<void> {
-  const deleted = await executor
-    .delete(projects)
-    .where(
-      and(
-        eq(projects.id, input.projectId),
-        eq(projects.workspaceId, input.workspaceId),
-      ),
-    )
-    .returning({ id: projects.id });
+ const deleted = await executor
+.delete(projects)
+.where(
+ and(
+ eq(projects.id, input.projectId),
+ eq(projects.workspaceId, input.workspaceId),
+),
+)
+.returning({ id: projects.id });
 
-  if (deleted.length === 0) {
-    throw new AppError("PROJECT_NOT_FOUND");
-  }
+ if (deleted.length === 0) {
+ throw new AppError("PROJECT_NOT_FOUND");
+ }
 }

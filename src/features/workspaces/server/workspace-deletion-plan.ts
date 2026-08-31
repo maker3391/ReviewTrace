@@ -6,7 +6,7 @@ import type { WorkspaceRole } from "@/types/review";
  * 🔴 **이 판단을 Database 질의 안에 흩지 않는다.** 같은 규칙을 「미리 보여 주는 화면」과
  * 「실제로 지우는 Transaction」 두 곳이 쓴다 — 한쪽만 고치면 **화면이 지울 수 있다고 말한
  * Workspace 를 서버가 거절하거나, 그 반대가 된다.** 그래서 규칙은 순수 함수 하나이고,
- * 두 곳은 이 함수에 사실(fact)만 넣는다(CLAUDE.md 6).
+ * 두 곳은 이 함수에 사실(fact)만 넣는다.
  * `account-deletion-plan.ts` 와 같은 방식이다.
  *
  * Database 도 `process.env` 도 보지 않는다 — 기본 `pnpm test` 에서 매번 돈다.
@@ -14,15 +14,15 @@ import type { WorkspaceRole } from "@/types/review";
  * # 규칙
  *
  * ```
- * OWNER 가 아니다                -> NOT_OWNER     서버가 거절한다
- * Personal Workspace 다          -> PERSONAL      영원히 지울 수 없다
- * 나 말고 멤버가 «한 명이라도»    -> HAS_MEMBERS   먼저 내보내야 한다
- * 그 밖                          -> 지운다
+ * OWNER 가 아니다 -> NOT_OWNER 서버가 거절한다
+ * Personal Workspace 다 -> PERSONAL 영원히 지울 수 없다
+ * 나 말고 멤버가 «한 명이라도» -> HAS_MEMBERS 먼저 내보내야 한다
+ * 그 밖 -> 지운다
  * ```
  *
  * ## 🔴 Personal Workspace 를 지우지 않는 이유
  *
- * 그것은 가입이 만들어 준 **그 사람의 자리**다(CLAUDE.md 11). 지우게 두면 소속이 하나도
+ * 그것은 가입이 만들어 준 **그 사람의 자리**다. 지우게 두면 소속이 하나도
  * 없는 사용자가 생기고, 그 사람이 로그인하면 갈 곳이 없다. 🔴 **그때 Personal Workspace 를
  * 다시 만들어 주는 길로 메우지 않는다** — 그러면 「지웠는데 되살아나는」 동작이 되고,
  * `workspaces.personal_owner_id` 의 unique 로 한 개만 두려던 설계가 흔들린다.
@@ -41,31 +41,31 @@ import type { WorkspaceRole } from "@/types/review";
 
 /** 왜 지울 수 없는가. `null` 이 아니면 삭제가 서지 않는다. */
 export type WorkspaceDeletionBlock =
-  /** 부르는 사람이 OWNER 가 아니다. */
-  | "NOT_OWNER"
-  /** Personal Workspace 다 — 조건이 아니라 **영구히** 지울 수 없다. */
-  | "PERSONAL"
-  /** 나 말고 멤버가 남아 있다. 먼저 내보내야 한다. */
-  | "HAS_MEMBERS";
+ /** 부르는 사람이 OWNER 가 아니다. */
+ | "NOT_OWNER"
+ /** Personal Workspace 다 — 조건이 아니라 **영구히** 지울 수 없다. */
+ | "PERSONAL"
+ /** 나 말고 멤버가 남아 있다. 먼저 내보내야 한다. */
+ | "HAS_MEMBERS";
 
 /** 판정에 필요한 사실. 🔴 판단은 하나도 들어 있지 않다. */
 export interface WorkspaceDeletionFacts {
-  /**
-   * `workspaces.personal_owner_id` 가 채워져 있는가.
-   *
-   * 🔴 **「그 값이 나인가」가 아니다.** 남의 Personal Workspace 도 Personal Workspace 다.
-   */
-  isPersonal: boolean;
-  /** 부르는 사람의 이 Workspace 안 역할. */
-  role: WorkspaceRole;
-  /** 부르는 사람을 뺀 멤버 수. */
-  otherMembers: number;
+ /**
+ * `workspaces.personal_owner_id` 가 채워져 있는가.
+ *
+ * 🔴 **「그 값이 나인가」가 아니다.** 남의 Personal Workspace 도 Personal Workspace 다.
+ */
+ isPersonal: boolean;
+ /** 부르는 사람의 이 Workspace 안 역할. */
+ role: WorkspaceRole;
+ /** 부르는 사람을 뺀 멤버 수. */
+ otherMembers: number;
 }
 
 export interface WorkspaceDeletionPlan {
-  deletable: boolean;
-  /** 지울 수 있으면 `null`. */
-  block: WorkspaceDeletionBlock | null;
+ deletable: boolean;
+ /** 지울 수 있으면 `null`. */
+ block: WorkspaceDeletionBlock | null;
 }
 
 /**
@@ -76,27 +76,27 @@ export interface WorkspaceDeletionPlan {
  * 「멤버를 내보내세요」라고 말하면 그가 할 수 없는 일을 시키는 것이 된다.
  */
 export function planWorkspaceDeletion(
-  facts: WorkspaceDeletionFacts,
+ facts: WorkspaceDeletionFacts,
 ): WorkspaceDeletionPlan {
-  const block = findBlock(facts);
+ const block = findBlock(facts);
 
-  return { deletable: block === null, block };
+ return { deletable: block === null, block };
 }
 
 function findBlock(
-  facts: WorkspaceDeletionFacts,
+ facts: WorkspaceDeletionFacts,
 ): WorkspaceDeletionBlock | null {
-  if (facts.role !== "OWNER") {
-    return "NOT_OWNER";
-  }
+ if (facts.role !== "OWNER") {
+ return "NOT_OWNER";
+ }
 
-  if (facts.isPersonal) {
-    return "PERSONAL";
-  }
+ if (facts.isPersonal) {
+ return "PERSONAL";
+ }
 
-  if (facts.otherMembers > 0) {
-    return "HAS_MEMBERS";
-  }
+ if (facts.otherMembers > 0) {
+ return "HAS_MEMBERS";
+ }
 
-  return null;
+ return null;
 }

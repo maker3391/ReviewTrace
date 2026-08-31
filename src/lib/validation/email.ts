@@ -15,11 +15,11 @@
  * 비교 시점에 함수를 씌우는 방식은 두 가지를 못 한다.
  *
  * 1. **`users_email_unique` 를 타지 못한다.** 그 index 는 `btree (email)` 이라
- *    Column 에 `lower()` 를 씌우는 순간 쓰이지 않는다 — 별도의 표현식 index 를
- *    새로 만들어야 하고, 그것은 근거 없이 Index 를 더하는 일이다(CLAUDE.md 10)
+ * Column 에 `lower()` 를 씌우는 순간 쓰이지 않는다 — 별도의 표현식 index 를
+ * 새로 만들어야 하고, 그것은 근거 없이 Index 를 더하는 일이다
  * 2. **unique 제약이 case 차이를 막지 못한다.** 조회를 아무리 `lower()` 로 해도
- *    `Guest@x` 와 `guest@x` 는 서로 다른 행으로 **저장될 수 있다.** 정본이 갈라진 뒤에
- *    조회만 합치는 것은 뒷수습이지 방지가 아니다
+ * `Guest@x` 와 `guest@x` 는 서로 다른 행으로 **저장될 수 있다.** 정본이 갈라진 뒤에
+ * 조회만 합치는 것은 뒷수습이지 방지가 아니다
  *
  * 그래서 **경계에서 한 번 정규화해 저장하고, 이후 비교는 평범한 equality** 로 한다.
  *
@@ -44,5 +44,5 @@
  * Mailbox 는 사실상 없고 이 제품의 유일한 입구인 GitHub OAuth 도 그렇게 다룬다.
  */
 export function normalizeEmail(value: string): string {
-  return value.trim().toLowerCase();
+ return value.trim().toLowerCase();
 }

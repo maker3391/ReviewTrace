@@ -4,11 +4,11 @@
 주소는 전부 이것 하나다 — 배포 플랫폼이 주는 주소(`*.vercel.app`)를 사용자에게 노출하지 않는다.
 
 ```
-Vercel (Next.js)  ──►  Supabase PostgreSQL
-      ▲                        ▲
-      │                        │
-  git push                 사람이 누르는
-  (자동 배포)          Migrate workflow
+Vercel (Next.js) ──► Supabase PostgreSQL
+ ▲ ▲
+ │ │
+ git push 사람이 누르는
+ (자동 배포) Migrate workflow
 ```
 
 **GitHub Actions 는 배포하지 않는다.** 검증(CI)과 사람이 누르는 Migration 두 가지만 맡는다.
@@ -45,7 +45,7 @@ Supabase 는 **PostgreSQL 호스팅으로만** 쓴다. Auth·Storage·Realtime �
 **`@supabase/supabase-js` 를 넣지 않는다.** 구조는 그대로다:
 
 ```
-Application  ──►  Drizzle ORM  ──►  node-postgres(pg)  ──►  Supabase PostgreSQL
+Application ──► Drizzle ORM ──► node-postgres(pg) ──► Supabase PostgreSQL
 ```
 
 Supabase 는 연결 방식을 넷 준다. 🔴 **포트로 고르지 마라 — 이름으로 고른다.**
@@ -74,9 +74,9 @@ Supabase 는 연결 방식을 넷 준다. 🔴 **포트로 고르지 마라 — 
 **runtime 에 Transaction mode 를 써도 되는 근거**(이 저장소 코드로 확인했다):
 
 - `.prepare(` 가 `src/` 에 **0건**이고 `pg` 는 `name` 을 주지 않으면 named prepared statement 를
-  만들지 않는다 — Transaction mode 의 유일한 제약에 걸리지 않는다
+ 만들지 않는다 — Transaction mode 의 유일한 제약에 걸리지 않는다
 - advisory lock 이 `pg_advisory_xact_lock` 이라(`repository-upsert.ts`) **transaction 범위**다.
-  COMMIT 에서 풀리므로 pooler 가 연결을 돌려써도 새지 않는다. session 범위였다면 깨진다
+ COMMIT 에서 풀리므로 pooler 가 연결을 돌려써도 새지 않는다. session 범위였다면 깨진다
 - `LISTEN`/`NOTIFY`·`SET SESSION` 이 **0건**이다
 
 ### 🔴 SSL — `?sslmode=require` «만» 붙이면 연결이 실패한다
@@ -95,7 +95,7 @@ Supabase 는 연결 방식을 넷 준다. 🔴 **포트로 고르지 마라 — 
 🔴 **그래서 `?sslmode=require` 로 Supabase 에 붙으면 이렇게 죽는다:**
 
 ```
-code   : SELF_SIGNED_CERT_IN_CHAIN
+code : SELF_SIGNED_CERT_IN_CHAIN
 message: self-signed certificate in certificate chain
 ```
 
@@ -105,13 +105,13 @@ Supabase 의 인증서는 **자체 CA(`prod-ca-2021.crt`)로 서명돼 있어** 
 **고르는 법 — 두 가지뿐이고 보안 수준이 다르다:**
 
 1. **`?sslmode=verify-full&sslrootcert=<prod-ca-2021.crt 경로>` — 권장.**
-   Supabase 대시보드(**Project Settings → Database → SSL Configuration**)에서 CA 를 내려받아
-   저장소에 둔다. 🔴 **그 파일은 비밀이 아니다** — 공개 인증서라 커밋해도 된다.
-   경로는 프로세스의 **cwd 기준 상대 경로**로도 읽힌다(확인했다)
+ Supabase 대시보드(**Project Settings → Database → SSL Configuration**)에서 CA 를 내려받아
+ 저장소에 둔다. 🔴 **그 파일은 비밀이 아니다** — 공개 인증서라 커밋해도 된다.
+ 경로는 프로세스의 **cwd 기준 상대 경로**로도 읽힌다(확인했다)
 2. `?uselibpqcompat=true&sslmode=require` — **검증을 끄는 것과 같다.**
-   위 표대로 `rejectUnauthorized: false` 로 풀린다. 「libpq 호환」이라는 이름 때문에
-   더 안전해 보이지만 **암호화만 하고 상대가 누구인지 확인하지 않는다.**
-   🔴 1번을 쓸 수 없을 때의 임시 수단으로만 쓴다
+ 위 표대로 `rejectUnauthorized: false` 로 풀린다. 「libpq 호환」이라는 이름 때문에
+ 더 안전해 보이지만 **암호화만 하고 상대가 누구인지 확인하지 않는다.**
+ 🔴 1번을 쓸 수 없을 때의 임시 수단으로만 쓴다
 
 🔴 **`ssl` 옵션을 코드에 박지 않는다.** `src/db/index.ts` 는 `new Pool({ connectionString })`,
 `drizzle.config.ts` 는 `dbCredentials: { url }` 뿐이라 **URL 이 유일한 정본**이다(전수 확인:
@@ -129,7 +129,7 @@ Supabase 의 인증서는 **자체 CA(`prod-ca-2021.crt`)로 서명돼 있어** 
 2. Supabase pooler 의 상한을 올린다
 
 지금 값(10)으로도 **소규모에서는 문제가 나지 않는다.** 실제로 `too many connections` 를 보면
-1번을 먼저 한다 — 근거 없이 Index 를 더하지 않는 것과 같은 기준이다(CLAUDE.md 10).
+1번을 먼저 한다 — 근거 없이 Index 를 더하지 않는 것과 같은 기준이다.
 
 ---
 
@@ -140,7 +140,7 @@ Supabase 의 인증서는 **자체 CA(`prod-ca-2021.crt`)로 서명돼 있어** 
 ```
 1) Migrate workflow 실행 (confirm 에 "migrate" 입력)
 2) 초록 확인
-3) merge/push  ->  Vercel 이 배포
+3) merge/push -> Vercel 이 배포
 ```
 
 🔴 **왜 자동이 아닌가**
@@ -150,9 +150,9 @@ Supabase 의 인증서는 **자체 CA(`prod-ca-2021.crt`)로 서명돼 있어** 
 - Vercel 은 push 에 자동 배포하므로 「CI 성공 후 배포」로 순서를 강제할 수 없다. 그래서 **Migration 을 먼저 눌러 두는 쪽**을 택했다
 
 🔴 **순서가 어긋나도 견디게 쓴다.** 더하는 변경(새 Column·표)을 먼저 배포하고, 지우는 변경은
-옛 코드가 완전히 빠진 뒤에 적용한다 — `0002` → `0003` 을 나눈 것이 그 예다(CLAUDE.md 0장).
+옛 코드가 완전히 빠진 뒤에 적용한다 — `0002` → `0003` 을 나눈 것이 그 예다.
 
-🔴 **`0006` 을 아직 적용하지 않은 Database 는 그냥 통과하지 못한다.** CLAUDE.md 0장의
+🔴 **`0006` 을 아직 적용하지 않은 Database 는 그냥 통과하지 못한다.** 아래
 「0006 복구 절차」를 먼저 읽어라 — 살아 있는 초대가 중복된 배포에서 `23505` 로 멈춘다.
 
 ---
@@ -161,10 +161,10 @@ Supabase 의 인증서는 **자체 CA(`prod-ca-2021.crt`)로 서명돼 있어** 
 
 - **Framework**: Next.js (자동 인식). Build `pnpm build`, Install `pnpm install --frozen-lockfile`
 - **`output` 설정을 넣지 않는다.** `next.config.ts` 에 `standalone` 을 넣는 것은 컨테이너 배포용이고,
-  Vercel 에서는 오히려 방해가 된다
+ Vercel 에서는 오히려 방해가 된다
 - **Node**: 로컬과 같은 **24** 를 고른다
 - `next.config.ts` 의 보안 헤더(CSP `frame-ancestors 'none'` · HSTS · `X-Content-Type-Options` 등)는
-  이미 서 있다 — Vercel 에서 따로 할 일이 없다
+ 이미 서 있다 — Vercel 에서 따로 할 일이 없다
 
 ---
 

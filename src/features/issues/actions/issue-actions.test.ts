@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * Server Action 이 **읽은 범위 그대로 쓰는가**(CLAUDE.md 8·10·11).
+ * Server Action 이 **읽은 범위 그대로 쓰는가**.
  *
  * ## 🔴 이 시험이 왜 필요했는가
  *
@@ -31,95 +31,95 @@ const addIssueActivity = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 vi.mock("@/lib/auth/require-project", () => ({
-  requireProject: (...args: unknown[]) => requireProject(...args),
+ requireProject: (...args: unknown[]) => requireProject(...args),
 }));
 
 vi.mock("@/features/issues/server/issue-status-service", () => ({
-  updateIssueStatus: (...args: unknown[]) => updateIssueStatus(...args),
+ updateIssueStatus: (...args: unknown[]) => updateIssueStatus(...args),
 }));
 
 vi.mock("@/features/issues/server/issue-activity-service", () => ({
-  addIssueActivity: (...args: unknown[]) => addIssueActivity(...args),
+ addIssueActivity: (...args: unknown[]) => addIssueActivity(...args),
 }));
 
 const { updateIssueStatusAction, addIssueActivityAction } = await import(
-  "@/features/issues/actions/issue-actions"
+ "@/features/issues/actions/issue-actions"
 );
 
 beforeEach(() => {
-  vi.clearAllMocks();
+ vi.clearAllMocks();
 
-  requireProject.mockResolvedValue({
-    user: { id: "user-1", name: "사장님", email: "owner@example.test" },
-    workspace: { workspaceId: WORKSPACE, role: "OWNER" },
-    project: { projectId: PROJECT, slug: "smil", name: "SMIL" },
-  });
-  updateIssueStatus.mockResolvedValue({ id: ISSUE });
+ requireProject.mockResolvedValue({
+ user: { id: "user-1", name: "사장님", email: "owner@example.test" },
+ workspace: { workspaceId: WORKSPACE, role: "OWNER" },
+ project: { projectId: PROJECT, slug: "smil", name: "SMIL" },
+ });
+ updateIssueStatus.mockResolvedValue({ id: ISSUE });
 });
 
 const target = {
-  workspaceSlug: "codeapex",
-  projectSlug: "smil",
-  issueId: ISSUE,
+ workspaceSlug: "codeapex",
+ projectSlug: "smil",
+ issueId: ISSUE,
 };
 
 describe("updateIssueStatusAction", () => {
-  it("🔴 확인된 Workspace 와 Project 를 «둘 다» 넘긴다", async () => {
-    const result = await updateIssueStatusAction(target, {
-      status: "RESOLVED",
-      resolutionSummary: "Transaction 밖으로 옮겼다",
-    });
+ it("🔴 확인된 Workspace 와 Project 를 «둘 다» 넘긴다", async () => {
+ const result = await updateIssueStatusAction(target, {
+ status: "RESOLVED",
+ resolutionSummary: "Transaction 밖으로 옮겼다",
+ });
 
-    expect(result.ok).toBe(true);
-    expect(requireProject).toHaveBeenCalledWith("codeapex", "smil");
+ expect(result.ok).toBe(true);
+ expect(requireProject).toHaveBeenCalledWith("codeapex", "smil");
 
-    const [input] = updateIssueStatus.mock.calls[0] as [
-      { scope: { workspaceId: string; projectId?: string }; issueId: string },
-    ];
+ const [input] = updateIssueStatus.mock.calls[0] as [
+ { scope: { workspaceId: string; projectId?: string }; issueId: string },
+ ];
 
-    // 주소의 Project 로 좁히지 않으면 읽기와 쓰기의 범위가 어긋난다.
-    expect(input.scope).toEqual({
-      workspaceId: WORKSPACE,
-      projectId: PROJECT,
-    });
-    expect(input.issueId).toBe(ISSUE);
-  });
+ // 주소의 Project 로 좁히지 않으면 읽기와 쓰기의 범위가 어긋난다.
+ expect(input.scope).toEqual({
+ workspaceId: WORKSPACE,
+ projectId: PROJECT,
+ });
+ expect(input.issueId).toBe(ISSUE);
+ });
 
-  it("🔴 행위자는 세션에서 온다 — 화면이 보낸 이름을 쓰지 않는다", async () => {
-    await updateIssueStatusAction(target, {
-      status: "RESOLVED",
-      resolutionSummary: "고쳤다",
-    });
+ it("🔴 행위자는 세션에서 온다 — 화면이 보낸 이름을 쓰지 않는다", async () => {
+ await updateIssueStatusAction(target, {
+ status: "RESOLVED",
+ resolutionSummary: "고쳤다",
+ });
 
-    const [input] = updateIssueStatus.mock.calls[0] as [
-      { update: { actor: { type: string; name: string } } },
-    ];
+ const [input] = updateIssueStatus.mock.calls[0] as [
+ { update: { actor: { type: string; name: string } } },
+ ];
 
-    expect(input.update.actor).toEqual({ type: "HUMAN", name: "사장님" });
-  });
+ expect(input.update.actor).toEqual({ type: "HUMAN", name: "사장님" });
+ });
 
-  it("RESOLVED 인데 해결 요약이 없으면 Service 를 부르지도 않는다", async () => {
-    const result = await updateIssueStatusAction(target, {
-      status: "RESOLVED",
-      resolutionSummary: null,
-    });
+ it("RESOLVED 인데 해결 요약이 없으면 Service 를 부르지도 않는다", async () => {
+ const result = await updateIssueStatusAction(target, {
+ status: "RESOLVED",
+ resolutionSummary: null,
+ });
 
-    expect(result.ok).toBe(false);
-    expect(updateIssueStatus).not.toHaveBeenCalled();
-  });
+ expect(result.ok).toBe(false);
+ expect(updateIssueStatus).not.toHaveBeenCalled();
+ });
 
-  it("Service 가 거절하면 예외가 아니라 결과로 돌려준다", async () => {
-    const { AppError } = await import("@/lib/errors");
-    updateIssueStatus.mockRejectedValue(new AppError("RESOURCE_NOT_FOUND"));
+ it("Service 가 거절하면 예외가 아니라 결과로 돌려준다", async () => {
+ const { AppError } = await import("@/lib/errors");
+ updateIssueStatus.mockRejectedValue(new AppError("RESOURCE_NOT_FOUND"));
 
-    const result = await updateIssueStatusAction(target, {
-      status: "REOPENED",
-      resolutionSummary: null,
-    });
+ const result = await updateIssueStatusAction(target, {
+ status: "REOPENED",
+ resolutionSummary: null,
+ });
 
-    expect(result.ok).toBe(false);
-    expect(result.ok === false && result.error.code).toBe("NOT_FOUND");
-  });
+ expect(result.ok).toBe(false);
+ expect(result.ok === false && result.error.code).toBe("NOT_FOUND");
+ });
 });
 
 /**
@@ -133,55 +133,55 @@ describe("updateIssueStatusAction", () => {
  * 화면 폼이 넘기는 것과 같게 모든 칸을 적는다.
  */
 const activityInput = (over: Record<string, unknown> = {}) =>
-  ({
-    type: "FIX_ATTEMPTED",
-    description: "Transaction 밖으로 옮겼다",
-    commitSha: null,
-    decision: null,
-    evidence: [],
-    ...over,
-  }) as Parameters<typeof addIssueActivityAction>[1];
+ ({
+ type: "FIX_ATTEMPTED",
+ description: "Transaction 밖으로 옮겼다",
+ commitSha: null,
+ decision: null,
+ evidence: [],
+...over,
+ }) as Parameters<typeof addIssueActivityAction>[1];
 
 describe("addIssueActivityAction", () => {
-  it("🔴 확인된 Workspace 와 Project 를 «둘 다» 넘긴다", async () => {
-    const result = await addIssueActivityAction(target, activityInput());
+ it("🔴 확인된 Workspace 와 Project 를 «둘 다» 넘긴다", async () => {
+ const result = await addIssueActivityAction(target, activityInput());
 
-    expect(result.ok).toBe(true);
+ expect(result.ok).toBe(true);
 
-    const [input] = addIssueActivity.mock.calls[0] as [
-      { scope: { workspaceId: string; projectId?: string }; issueId: string },
-    ];
+ const [input] = addIssueActivity.mock.calls[0] as [
+ { scope: { workspaceId: string; projectId?: string }; issueId: string },
+ ];
 
-    expect(input.scope).toEqual({
-      workspaceId: WORKSPACE,
-      projectId: PROJECT,
-    });
-    expect(input.issueId).toBe(ISSUE);
-  });
+ expect(input.scope).toEqual({
+ workspaceId: WORKSPACE,
+ projectId: PROJECT,
+ });
+ expect(input.issueId).toBe(ISSUE);
+ });
 
-  it("🔴 행위자는 세션에서 온다 — 화면이 보낸 이름을 쓰지 않는다", async () => {
-    await addIssueActivityAction(
-      target,
-      activityInput({ type: "COMMENT", description: "확인했다" }),
-    );
+ it("🔴 행위자는 세션에서 온다 — 화면이 보낸 이름을 쓰지 않는다", async () => {
+ await addIssueActivityAction(
+ target,
+ activityInput({ type: "COMMENT", description: "확인했다" }),
+);
 
-    const [input] = addIssueActivity.mock.calls[0] as [
-      { activity: { actor: { type: string; name: string } } },
-    ];
+ const [input] = addIssueActivity.mock.calls[0] as [
+ { activity: { actor: { type: string; name: string } } },
+ ];
 
-    expect(input.activity.actor).toEqual({ type: "HUMAN", name: "사장님" });
-  });
+ expect(input.activity.actor).toEqual({ type: "HUMAN", name: "사장님" });
+ });
 
-  it("Service 가 거절하면 예외가 아니라 결과로 돌려준다", async () => {
-    const { AppError } = await import("@/lib/errors");
-    addIssueActivity.mockRejectedValue(new AppError("RESOURCE_NOT_FOUND"));
+ it("Service 가 거절하면 예외가 아니라 결과로 돌려준다", async () => {
+ const { AppError } = await import("@/lib/errors");
+ addIssueActivity.mockRejectedValue(new AppError("RESOURCE_NOT_FOUND"));
 
-    const result = await addIssueActivityAction(
-      target,
-      activityInput({ type: "COMMENT", description: "확인했다" }),
-    );
+ const result = await addIssueActivityAction(
+ target,
+ activityInput({ type: "COMMENT", description: "확인했다" }),
+);
 
-    expect(result.ok).toBe(false);
-    expect(result.ok === false && result.error.code).toBe("NOT_FOUND");
-  });
+ expect(result.ok).toBe(false);
+ expect(result.ok === false && result.error.code).toBe("NOT_FOUND");
+ });
 });

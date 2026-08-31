@@ -2,14 +2,14 @@ import { z } from "zod";
 
 import { activityActorSchema } from "@/features/issues/schemas/issue-activity";
 import {
-  codeEvidenceListSchema,
-  optionalDecisionRecordSchema,
+ codeEvidenceListSchema,
+ optionalDecisionRecordSchema,
 } from "@/features/issues/schemas/decision-record";
 import { rule } from "@/lib/validation/validation-rule";
 import {
-  ISSUE_STATUSES,
-  type IssueActivityType,
-  type IssueStatus,
+ ISSUE_STATUSES,
+ type IssueActivityType,
+ type IssueStatus,
 } from "@/types/review";
 
 /**
@@ -36,56 +36,56 @@ const RESOLUTION_SUMMARY_MAX = 20_000;
  * | `IGNORED` · `FALSE_POSITIVE` | `IGNORED` | 오탐도 「더 보지 않는다」의 한 갈래다 |
  */
 export const ACTIVITY_TYPE_BY_STATUS: Record<IssueStatus, IssueActivityType> = {
-  OPEN: "REOPENED",
-  IN_PROGRESS: "FIX_ATTEMPTED",
-  RESOLVED: "RESOLVED",
-  IGNORED: "IGNORED",
-  FALSE_POSITIVE: "IGNORED",
-  REOPENED: "REOPENED",
+ OPEN: "REOPENED",
+ IN_PROGRESS: "FIX_ATTEMPTED",
+ RESOLVED: "RESOLVED",
+ IGNORED: "IGNORED",
+ FALSE_POSITIVE: "IGNORED",
+ REOPENED: "REOPENED",
 };
 
 export const issueStatusUpdateSchema = z
-  .object({
-    status: z.enum(ISSUE_STATUSES),
-    resolutionSummary: z
-      .string()
-      .trim()
-      .max(RESOLUTION_SUMMARY_MAX)
-      .nullish()
-      .transform((value) =>
-        value === undefined || value === "" ? null : value,
-      ),
-    /**
-     * 누가 바꿨는가. 생략하면 API Key 의 이름이 대신 들어간다 —
-     * Key 하나가 곧 한 Agent 라, 「누구의 요청인가」는 Key 가 이미 말한다.
-     */
-    actor: activityActorSchema.nullish().transform((value) => value ?? null),
-    /** 이 전이가 가리키는 Commit. 「고쳤다」를 코드와 잇는다. */
-    commitSha: z
-      .string()
-      .trim()
-      .max(200)
-      .nullish()
-      .transform((value) => (value === undefined || value === "" ? null : value)),
-    /**
-     * 이 전이가 내린 판단(스펙 4).
-     *
-     * 🔴 `resolutionSummary` 와 겹치지 않는다. 저것은 Issue 에 남는 **최종 한 줄 요약**
-     * 이고, 이것은 그 결론에 이른 **이번 판단**이라 Activity 에 남는다.
-     */
-    decision: optionalDecisionRecordSchema,
-    /** 이 전이가 만든 코드 근거. `RESOLVED` 면 보통 `AFTER` 다. */
-    evidence: codeEvidenceListSchema,
-  })
-  .refine(
-    (input) => input.status !== "RESOLVED" || input.resolutionSummary !== null,
-    {
-      // 🔴 `resolved = true` 만 저장하지 않는다 — **어떻게 해결했는가가 Knowledge 의 핵심**이다(CLAUDE.md 2).
-      // 🔴 문구가 아니라 규칙의 «이름»만 남긴다. 이 오류는 화면(IssueStatusControl)에도 뜨므로
-      //    한 언어로 적어 두면 EN 화면에 한국어가 그대로 뜬다(`lib/validation/zod-error-map.ts`).
-      ...rule("resolutionSummaryRequired"),
-      path: ["resolutionSummary"],
-    },
-  );
+.object({
+ status: z.enum(ISSUE_STATUSES),
+ resolutionSummary: z
+.string()
+.trim()
+.max(RESOLUTION_SUMMARY_MAX)
+.nullish()
+.transform((value) =>
+ value === undefined || value === "" ? null : value,
+),
+ /**
+ * 누가 바꿨는가. 생략하면 API Key 의 이름이 대신 들어간다 —
+ * Key 하나가 곧 한 Agent 라, 「누구의 요청인가」는 Key 가 이미 말한다.
+ */
+ actor: activityActorSchema.nullish().transform((value) => value ?? null),
+ /** 이 전이가 가리키는 Commit. 「고쳤다」를 코드와 잇는다. */
+ commitSha: z
+.string()
+.trim()
+.max(200)
+.nullish()
+.transform((value) => (value === undefined || value === "" ? null : value)),
+ /**
+ * 이 전이가 내린 판단(스펙 4).
+ *
+ * 🔴 `resolutionSummary` 와 겹치지 않는다. 저것은 Issue 에 남는 **최종 한 줄 요약**
+ * 이고, 이것은 그 결론에 이른 **이번 판단**이라 Activity 에 남는다.
+ */
+ decision: optionalDecisionRecordSchema,
+ /** 이 전이가 만든 코드 근거. `RESOLVED` 면 보통 `AFTER` 다. */
+ evidence: codeEvidenceListSchema,
+ })
+.refine(
+ (input) => input.status !== "RESOLVED" || input.resolutionSummary !== null,
+ {
+ // 🔴 `resolved = true` 만 저장하지 않는다 — **어떻게 해결했는가가 Knowledge 의 핵심**이다.
+ // 🔴 문구가 아니라 규칙의 «이름»만 남긴다. 이 오류는 화면(IssueStatusControl)에도 뜨므로
+ // 한 언어로 적어 두면 EN 화면에 한국어가 그대로 뜬다(`lib/validation/zod-error-map.ts`).
+...rule("resolutionSummaryRequired"),
+ path: ["resolutionSummary"],
+ },
+);
 
 export type IssueStatusUpdateInput = z.infer<typeof issueStatusUpdateSchema>;

@@ -7,7 +7,7 @@ import { addIssueActivity } from "@/features/issues/server/issue-activity-servic
 import { isAppError } from "@/lib/errors";
 
 /**
- * History 한 줄이 **어느 범위 안에서만** 남는가(CLAUDE.md 10·11·13).
+ * History 한 줄이 **어느 범위 안에서만** 남는가.
  *
  * ## 🔴 이 시험이 왜 필요했는가
  *
@@ -35,12 +35,12 @@ const PROJECT = "22222222-2222-4222-8222-222222222222";
 const ISSUE = "33333333-3333-4333-8333-333333333333";
 
 const ACTIVITY = {
-  type: "FIX_ATTEMPTED" as const,
-  actor: { type: "HUMAN" as const, name: "사장님" },
-  description: "Transaction 밖으로 옮겼다",
-  commitSha: null,
-  decision: null,
-  evidence: [],
+ type: "FIX_ATTEMPTED" as const,
+ actor: { type: "HUMAN" as const, name: "사장님" },
+ description: "Transaction 밖으로 옮겼다",
+ commitSha: null,
+ decision: null,
+ evidence: [],
 };
 
 /**
@@ -50,143 +50,143 @@ const ACTIVITY = {
  * 그대로 붙잡아 두었다가, 어떤 문장이 만들어졌는지 밖에서 들여다본다.
  */
 function fakeExecutor(foundRows: readonly unknown[]) {
-  const captured: { where?: SQL } = {};
-  const inserted: Record<string, unknown>[] = [];
+ const captured: { where?: SQL } = {};
+ const inserted: Record<string, unknown>[] = [];
 
-  const tx = {
-    select: () => ({
-      from: () => ({
-        where: (condition: SQL) => {
-          captured.where = condition;
-          return { limit: () => Promise.resolve(foundRows) };
-        },
-      }),
-    }),
-    insert: () => ({
-      values: (values: Record<string, unknown>) => {
-        inserted.push(values);
-        return {
-          returning: () =>
-            Promise.resolve([
-              {
-                id: "55555555-5555-4555-8555-555555555555",
-                reviewIssueId: ISSUE,
-                type: ACTIVITY.type,
-                actorType: ACTIVITY.actor.type,
-                actorName: ACTIVITY.actor.name,
-                description: ACTIVITY.description,
-                commitSha: null,
-                createdAt: new Date("2026-08-29T00:00:00.000Z"),
-              },
-            ]),
-        };
-      },
-    }),
-  };
+ const tx = {
+ select: () => ({
+ from: () => ({
+ where: (condition: SQL) => {
+ captured.where = condition;
+ return { limit: () => Promise.resolve(foundRows) };
+ },
+ }),
+ }),
+ insert: () => ({
+ values: (values: Record<string, unknown>) => {
+ inserted.push(values);
+ return {
+ returning: () =>
+ Promise.resolve([
+ {
+ id: "55555555-5555-4555-8555-555555555555",
+ reviewIssueId: ISSUE,
+ type: ACTIVITY.type,
+ actorType: ACTIVITY.actor.type,
+ actorName: ACTIVITY.actor.name,
+ description: ACTIVITY.description,
+ commitSha: null,
+ createdAt: new Date("2026-08-29T00:00:00.000Z"),
+ },
+ ]),
+ };
+ },
+ }),
+ };
 
-  const executor = {
-    transaction: (run: (tx: unknown) => unknown) => run(tx),
-  } as unknown as DbExecutor;
+ const executor = {
+ transaction: (run: (tx: unknown) => unknown) => run(tx),
+ } as unknown as DbExecutor;
 
-  return { executor, captured, inserted };
+ return { executor, captured, inserted };
 }
 
 const FOUND = [{ id: ISSUE, workspaceId: WORKSPACE, status: "OPEN" }];
 
 /** 만들어진 조건절을 실제 SQL 과 Parameter 로 펼친다. */
 function rendered(condition: SQL | undefined) {
-  if (condition === undefined) {
-    throw new Error("조건절이 붙지 않았다");
-  }
-  return new PgDialect().sqlToQuery(condition);
+ if (condition === undefined) {
+ throw new Error("조건절이 붙지 않았다");
+ }
+ return new PgDialect().sqlToQuery(condition);
 }
 
 describe("addIssueActivity — 어느 범위 안에서 남는가", () => {
-  /**
-   * 🔴 되돌림 확인(2026-08-29): `issue-activity-service.ts` 의 `issueInScope(scope)` 를
-   * `eq(reviewIssues.workspaceId, scope.workspaceId)` 로 되돌리면 이 시험이 실패한다.
-   * 직접 되돌려 보고 원복했다.
-   */
-  it("🔴 화면에서 온 요청은 Project 까지 좁힌다", async () => {
-    const { executor, captured } = fakeExecutor(FOUND);
+ /**
+ * 🔴 되돌림 확인(2026-08-29): `issue-activity-service.ts` 의 `issueInScope(scope)` 를
+ * `eq(reviewIssues.workspaceId, scope.workspaceId)` 로 되돌리면 이 시험이 실패한다.
+ * 직접 되돌려 보고 원복했다.
+ */
+ it("🔴 화면에서 온 요청은 Project 까지 좁힌다", async () => {
+ const { executor, captured } = fakeExecutor(FOUND);
 
-    await addIssueActivity(
-      {
-        scope: { workspaceId: WORKSPACE, projectId: PROJECT },
-        issueId: ISSUE,
-        activity: ACTIVITY,
-      },
-      executor,
-    );
+ await addIssueActivity(
+ {
+ scope: { workspaceId: WORKSPACE, projectId: PROJECT },
+ issueId: ISSUE,
+ activity: ACTIVITY,
+ },
+ executor,
+);
 
-    const { sql, params } = rendered(captured.where);
-    // Repository 를 거쳐서만 Project 를 안다 — `review_issues` 에는 `project_id` 가 없다.
-    expect(sql).toContain("exists");
-    expect(sql).toContain("project_id");
-    expect(params).toContain(PROJECT);
-    // 🔴 조건이 겹친다 — `workspace_id` 를 양쪽 표에서 각각 한 번씩 본다.
-    expect(params.filter((value) => value === WORKSPACE)).toHaveLength(2);
-  });
+ const { sql, params } = rendered(captured.where);
+ // Repository 를 거쳐서만 Project 를 안다 — `review_issues` 에는 `project_id` 가 없다.
+ expect(sql).toContain("exists");
+ expect(sql).toContain("project_id");
+ expect(params).toContain(PROJECT);
+ // 🔴 조건이 겹친다 — `workspace_id` 를 양쪽 표에서 각각 한 번씩 본다.
+ expect(params.filter((value) => value === WORKSPACE)).toHaveLength(2);
+ });
 
-  /**
-   * 🔴 **회귀 방지.** Agent 요청에는 Project 가 «없다» — API Key 가 Workspace 를 정하고
-   * Payload 에도 Query 에도 Project 자리가 없다(CLAUDE.md 13). 이 시험이 없으면
-   * 다음 사람이 「쓰기는 다 Project 로 좁힌다」를 여기까지 밀어붙여 돌고 있는 Agent 를 끊는다.
-   */
-  it("🔴 Agent 요청은 Workspace 까지만 좁힌다 — Project 를 요구하지 않는다", async () => {
-    const { executor, captured } = fakeExecutor(FOUND);
+ /**
+ * 🔴 **회귀 방지.** Agent 요청에는 Project 가 «없다» — API Key 가 Workspace 를 정하고
+ * Payload 에도 Query 에도 Project 자리가 없다. 이 시험이 없으면
+ * 다음 사람이 「쓰기는 다 Project 로 좁힌다」를 여기까지 밀어붙여 돌고 있는 Agent 를 끊는다.
+ */
+ it("🔴 Agent 요청은 Workspace 까지만 좁힌다 — Project 를 요구하지 않는다", async () => {
+ const { executor, captured } = fakeExecutor(FOUND);
 
-    await addIssueActivity(
-      {
-        scope: { workspaceId: WORKSPACE },
-        issueId: ISSUE,
-        activity: ACTIVITY,
-      },
-      executor,
-    );
+ await addIssueActivity(
+ {
+ scope: { workspaceId: WORKSPACE },
+ issueId: ISSUE,
+ activity: ACTIVITY,
+ },
+ executor,
+);
 
-    const { sql, params } = rendered(captured.where);
-    expect(sql).not.toContain("exists");
-    expect(sql).not.toContain("project_id");
-    expect(params).toEqual([ISSUE, WORKSPACE]);
-  });
+ const { sql, params } = rendered(captured.where);
+ expect(sql).not.toContain("exists");
+ expect(sql).not.toContain("project_id");
+ expect(params).toEqual([ISSUE, WORKSPACE]);
+ });
 
-  it("🔴 범위 밖이면 NOT_FOUND 이고 History 도 남지 않는다", async () => {
-    const { executor, inserted } = fakeExecutor([]);
+ it("🔴 범위 밖이면 NOT_FOUND 이고 History 도 남지 않는다", async () => {
+ const { executor, inserted } = fakeExecutor([]);
 
-    let thrown: unknown = null;
-    try {
-      await addIssueActivity(
-        {
-          scope: { workspaceId: WORKSPACE, projectId: PROJECT },
-          issueId: ISSUE,
-          activity: ACTIVITY,
-        },
-        executor,
-      );
-    } catch (error) {
-      thrown = error;
-    }
+ let thrown: unknown = null;
+ try {
+ await addIssueActivity(
+ {
+ scope: { workspaceId: WORKSPACE, projectId: PROJECT },
+ issueId: ISSUE,
+ activity: ACTIVITY,
+ },
+ executor,
+);
+ } catch (error) {
+ thrown = error;
+ }
 
-    // 없는 Issue 와 남의 Project 의 Issue 를 구분해 알려주지 않는다 — 둘 다 NOT_FOUND 다.
-    expect(isAppError(thrown) && thrown.code).toBe("NOT_FOUND");
-    // 🔴 반쪽 History 를 만들지 않는다.
-    expect(inserted).toHaveLength(0);
-  });
+ // 없는 Issue 와 남의 Project 의 Issue 를 구분해 알려주지 않는다 — 둘 다 NOT_FOUND 다.
+ expect(isAppError(thrown) && thrown.code).toBe("NOT_FOUND");
+ // 🔴 반쪽 History 를 만들지 않는다.
+ expect(inserted).toHaveLength(0);
+ });
 
-  it("요청이 보낸 workspaceId 가 아니라 «조회로 확인한» 값을 저장한다", async () => {
-    const { executor, inserted } = fakeExecutor(FOUND);
+ it("요청이 보낸 workspaceId 가 아니라 «조회로 확인한» 값을 저장한다", async () => {
+ const { executor, inserted } = fakeExecutor(FOUND);
 
-    await addIssueActivity(
-      {
-        scope: { workspaceId: WORKSPACE, projectId: PROJECT },
-        issueId: ISSUE,
-        activity: ACTIVITY,
-      },
-      executor,
-    );
+ await addIssueActivity(
+ {
+ scope: { workspaceId: WORKSPACE, projectId: PROJECT },
+ issueId: ISSUE,
+ activity: ACTIVITY,
+ },
+ executor,
+);
 
-    expect(inserted[0]?.workspaceId).toBe(WORKSPACE);
-    expect(inserted[0]?.reviewIssueId).toBe(ISSUE);
-  });
+ expect(inserted[0]?.workspaceId).toBe(WORKSPACE);
+ expect(inserted[0]?.reviewIssueId).toBe(ISSUE);
+ });
 });

@@ -10,11 +10,11 @@ import type { ProjectScope, WorkspaceScope } from "@/types/tenant";
  *
  * ## 왜 범위가 둘인가
  *
- * Issue 를 다루는 경로는 두 갈래이고, **각자 아는 것이 다르다**(CLAUDE.md 11·13).
+ * Issue 를 다루는 경로는 두 갈래이고, **각자 아는 것이 다르다**.
  *
  * ```
- * Browser  Session -> Workspace 소속 -> URL 의 Project -> Issue     ProjectScope
- * Agent    API Key -> Workspace                       -> Issue     WorkspaceScope
+ * Browser Session -> Workspace 소속 -> URL 의 Project -> Issue ProjectScope
+ * Agent API Key -> Workspace -> Issue WorkspaceScope
  * ```
  *
  * 🔴 **Agent 요청에는 Project 가 없다.** API Key 가 Workspace 를 정하고 Payload 에도
@@ -23,7 +23,7 @@ import type { ProjectScope, WorkspaceScope } from "@/types/tenant";
  *
  * ## 왜 `review_issues` 에는 `project_id` 가 없는가
  *
- * 소유는 Repository 가 한다(CLAUDE.md 10). Repository 는 Project 사이를 옮겨 다니고
+ * 소유는 Repository 가 한다. Repository 는 Project 사이를 옮겨 다니고
  * (`moveRepositoryToProject`), 그때 아래의 Review Knowledge 가 **행 하나 건드리지 않고**
  * 함께 따라가는 것이 그 설계의 값이다. 하위 표에 `project_id` 를 복사해 두면 그 이동이
  * 표 네 개를 갱신하는 일이 되고, 하나라도 빠뜨리면 화면마다 다른 Project 를 말한다.
@@ -35,7 +35,7 @@ import type { ProjectScope, WorkspaceScope } from "@/types/tenant";
  *
  * 🔴 **조건을 겹쳐서 건다.** `workspace_id` 는 `review_issues` 에서 한 번, `repositories`
  * 에서 또 한 번 본다. 어느 한쪽을 잘못 얻은 경로가 있어도 결과가 비어서 돌아온다
- * (CLAUDE.md 10·11).
+ *.
  *
  * 🔴 **범위 밖은 `FORBIDDEN` 이 아니라 `NOT_FOUND`** 다 — 부르는 쪽이 그렇게 끝낸다.
  * 「없다」와 「남의 것이다」를 구분해 주면 그것만으로 그 ID 가 존재한다는 사실이 새어 나간다.
@@ -59,11 +59,11 @@ import type { ProjectScope, WorkspaceScope } from "@/types/tenant";
 export type IssueScope = WorkspaceScope | ProjectScope;
 
 export function issueInScope(scope: IssueScope): SQL {
-  const inWorkspace = eq(reviewIssues.workspaceId, scope.workspaceId);
+ const inWorkspace = eq(reviewIssues.workspaceId, scope.workspaceId);
 
-  if (!("projectId" in scope)) {
-    return inWorkspace;
-  }
+ if (!("projectId" in scope)) {
+ return inWorkspace;
+ }
 
-  return sql`${inWorkspace} and exists (select 1 from ${repositories} where ${repositories.id} = ${reviewIssues.repositoryId} and ${repositories.workspaceId} = ${scope.workspaceId} and ${repositories.projectId} = ${scope.projectId})`;
+ return sql`${inWorkspace} and exists (select 1 from ${repositories} where ${repositories.id} = ${reviewIssues.repositoryId} and ${repositories.workspaceId} = ${scope.workspaceId} and ${repositories.projectId} = ${scope.projectId})`;
 }

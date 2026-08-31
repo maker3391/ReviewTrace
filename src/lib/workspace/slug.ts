@@ -4,7 +4,7 @@
  * slug 는 주소에 그대로 나간다(`/w/{slug}/issues`). 그래서 **사람이 읽을 수 있고 URL 에서
  * 인코딩되지 않는 글자**로만 만든다.
  *
- * 🔴 slug 는 **Context 표시일 뿐 권한 증명이 아니다**(CLAUDE.md 11). 아무리 잘 만들어도
+ * 🔴 slug 는 **Context 표시일 뿐 권한 증명이 아니다**. 아무리 잘 만들어도
  * 주소를 손으로 바꿀 수 있으므로, 서버는 매 요청 소속을 다시 확인한다.
  *
  * 이 파일은 순수 함수만 둔다 — Database 도 `process.env` 도 보지 않는다.
@@ -23,17 +23,17 @@ const FALLBACK_SLUG = "workspace";
  * 사람마다 다른 결과를 내면 주소가 예측 불가능해진다. 남는 것이 없으면 `FALLBACK_SLUG` 다.
  */
 export function normalizeSlug(value: string): string {
-  const slug = value
-    .normalize("NFKD")
-    .toLowerCase()
-    // 영숫자가 아닌 것은 전부 하이픈 한 개로 접는다.
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, MAX_SLUG_LENGTH)
-    // 잘라 낸 끝이 하이픈으로 끝날 수 있다.
-    .replace(/-+$/g, "");
+ const slug = value
+.normalize("NFKD")
+.toLowerCase()
+ // 영숫자가 아닌 것은 전부 하이픈 한 개로 접는다.
+.replace(/[^a-z0-9]+/g, "-")
+.replace(/^-+|-+$/g, "")
+.slice(0, MAX_SLUG_LENGTH)
+ // 잘라 낸 끝이 하이픈으로 끝날 수 있다.
+.replace(/-+$/g, "");
 
-  return slug === "" ? FALLBACK_SLUG : slug;
+ return slug === "" ? FALLBACK_SLUG : slug;
 }
 
 /**
@@ -44,12 +44,12 @@ export function normalizeSlug(value: string): string {
  * 안전하다. 물어본 뒤 넣는 사이에 다른 요청이 끼어들 수 있다.
  */
 export function slugCandidate(base: string, attempt: number): string {
-  const normalized = normalizeSlug(base);
+ const normalized = normalizeSlug(base);
 
-  if (attempt === 0) {
-    return normalized;
-  }
+ if (attempt === 0) {
+ return normalized;
+ }
 
-  const suffix = `-${attempt + 1}`;
-  return `${normalized.slice(0, MAX_SLUG_LENGTH - suffix.length)}${suffix}`;
+ const suffix = `-${attempt + 1}`;
+ return `${normalized.slice(0, MAX_SLUG_LENGTH - suffix.length)}${suffix}`;
 }

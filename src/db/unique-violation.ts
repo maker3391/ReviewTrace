@@ -10,7 +10,7 @@ import "server-only";
  * 실패하는데, 진짜 원인은 화면에도 로그에도 남지 않는다.
  *
  * 그래서 **`23505` 일 때만** 업무 오류로 바꾸고 나머지는 그대로 위로 올린다 —
- * 위에서 `INTERNAL_ERROR` 로 뭉개지되 원인은 서버 로그에 남는다(CLAUDE.md 19).
+ * 위에서 `INTERNAL_ERROR` 로 뭉개지되 원인은 서버 로그에 남는다.
  *
  * ## 🔴 왜 `cause` 를 따라 내려가는가
  *
@@ -34,27 +34,27 @@ const UNIQUE_VIOLATION = "23505";
 const MAX_CAUSE_DEPTH = 5;
 
 export function isUniqueViolation(cause: unknown): boolean {
-  let current = cause;
+ let current = cause;
 
-  for (let depth = 0; depth <= MAX_CAUSE_DEPTH; depth += 1) {
-    if (typeof current !== "object" || current === null) {
-      return false;
-    }
+ for (let depth = 0; depth <= MAX_CAUSE_DEPTH; depth += 1) {
+ if (typeof current !== "object" || current === null) {
+ return false;
+ }
 
-    if ((current as { code?: unknown }).code === UNIQUE_VIOLATION) {
-      return true;
-    }
+ if ((current as { code?: unknown }).code === UNIQUE_VIOLATION) {
+ return true;
+ }
 
-    if (!("cause" in current)) {
-      return false;
-    }
+ if (!("cause" in current)) {
+ return false;
+ }
 
-    const next = (current as { cause?: unknown }).cause;
-    if (next === current) {
-      return false;
-    }
-    current = next;
-  }
+ const next = (current as { cause?: unknown }).cause;
+ if (next === current) {
+ return false;
+ }
+ current = next;
+ }
 
-  return false;
+ return false;
 }

@@ -7,96 +7,97 @@
 #
 # 순서는 이렇게 잡는다:
 #
-#   1) 이 워크플로를 눌러 Migration 을 적용한다
-#   2) 초록을 확인한다
-#   3) 그 다음에 Vercel 로 배포되게 한다(merge/push)
+# 1) 이 워크플로를 눌러 Migration 을 적용한다
+# 2) 초록을 확인한다
+# 3) 그 다음에 Vercel 로 배포되게 한다(merge/push)
 #
 # 🔴 **더하는 Migration 을 먼저, 지우는 Migration 을 나중에** 두면 배포 순서가 어긋나도
-# 옛 코드가 계속 돈다(CLAUDE.md 0장 — 이름 변경을 두 Migration 으로 나눈 이유).
+# 옛 코드가 계속 돈다. Column 이름을 바꿀 때 「더하는 Migration」과 「지우는 Migration」을
+# 나눠 만드는 것도 같은 이유다.
 name: Migrate production database
 
 on:
-  workflow_dispatch:
-    inputs:
-      confirm:
-        description: '적용하려면 "migrate" 라고 입력한다'
-        required: true
-        type: string
+ workflow_dispatch:
+ inputs:
+ confirm:
+ description: '적용하려면 "migrate" 라고 입력한다'
+ required: true
+ type: string
 
 jobs:
-  migrate:
-    name: drizzle-kit migrate
-    runs-on: ubuntu-latest
-    # 🔴 GitHub Environment 의 승인·Secret 을 쓴다. Secret 을 저장소 전체에 두지 않는다.
-    environment: production
+ migrate:
+ name: drizzle-kit migrate
+ runs-on: ubuntu-latest
+ # 🔴 GitHub Environment 의 승인·Secret 을 쓴다. Secret 을 저장소 전체에 두지 않는다.
+ environment: production
 
-    steps:
-      - name: Check confirmation
-        if: inputs.confirm != 'migrate'
-        run: |
-          echo "confirm 입력이 'migrate' 가 아니다. 중단한다." >&2
-          exit 1
+ steps:
+ - name: Check confirmation
+ if: inputs.confirm != 'migrate'
+ run: |
+ echo "confirm 입력이 'migrate' 가 아니다. 중단한다." >&2
+ exit 1
 
-      - name: Checkout
-        uses: actions/checkout@v4
+ - name: Checkout
+ uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+ - name: Setup pnpm
+ uses: pnpm/action-setup@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
+ - name: Setup Node
+ uses: actions/setup-node@v4
+ with:
+ node-version: 24
+ cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+ - name: Install dependencies
+ run: pnpm install --frozen-lockfile
 
-      # 🔴 **runtime 과 다른 연결이다.**
-      #
-      #   애플리케이션  Shared Pooler (Supavisor) — Transaction mode  (6543)
-      #   Migration     Shared Pooler (Supavisor) — Session mode      (5432)
-      #
-      # DDL 은 세션이 유지돼야 하므로 Transaction mode 로 돌리지 않는다.
-      # 🔴 **그렇다고 "Direct connection" 을 쓰지 마라** — 그것은 IPv6 이고
-      # GitHub Actions 러너는 IPv4 전용이라 연결 자체가 되지 않는다.
-      # 🔴 Direct 와 Session mode 는 **둘 다 포트 5432 지만 host 도 user 도 다르다**
-      #    (db.[project-id].supabase.co / postgres  vs
-      #     aws-[region].pooler.supabase.com / postgres.[project-id]).
-      # 자세한 것은 docs/deployment.md 를 보라.
-      # 🔴 **여기서 job 을 끝내지 않는다.** 기본값이면 실패하는 순간 job 이 멈춰,
-      # 바로 아래 진단이 돌 기회를 얻지 못한다. `continue-on-error` 로 «계속 가되»
-      # 마지막 step 이 실패를 다시 세운다 — 진단 로그를 얻으면서 결과는 빨갛게 남는다.
-      #
-      # 🔴 `continue-on-error: true` 면 이 step 의 `conclusion` 은 «success» 로 기록된다.
-      #    실제로 깨졌는지는 `outcome` 이 갖고 있다 — 아래 두 step 이 `outcome` 을 본다.
-      - name: Apply migrations
-        id: migrate
-        continue-on-error: true
-        env:
-          DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
-        run: pnpm db:migrate
+ # 🔴 **runtime 과 다른 연결이다.**
+ #
+ # 애플리케이션 Shared Pooler (Supavisor) — Transaction mode (6543)
+ # Migration Shared Pooler (Supavisor) — Session mode (5432)
+ #
+ # DDL 은 세션이 유지돼야 하므로 Transaction mode 로 돌리지 않는다.
+ # 🔴 **그렇다고 "Direct connection" 을 쓰지 마라** — 그것은 IPv6 이고
+ # GitHub Actions 러너는 IPv4 전용이라 연결 자체가 되지 않는다.
+ # 🔴 Direct 와 Session mode 는 **둘 다 포트 5432 지만 host 도 user 도 다르다**
+ # (db.[project-id].supabase.co / postgres vs
+ # aws-[region].pooler.supabase.com / postgres.[project-id]).
+ # 자세한 것은 docs/deployment.md 를 보라.
+ # 🔴 **여기서 job 을 끝내지 않는다.** 기본값이면 실패하는 순간 job 이 멈춰,
+ # 바로 아래 진단이 돌 기회를 얻지 못한다. `continue-on-error` 로 «계속 가되»
+ # 마지막 step 이 실패를 다시 세운다 — 진단 로그를 얻으면서 결과는 빨갛게 남는다.
+ #
+ # 🔴 `continue-on-error: true` 면 이 step 의 `conclusion` 은 «success» 로 기록된다.
+ # 실제로 깨졌는지는 `outcome` 이 갖고 있다 — 아래 두 step 이 `outcome` 을 본다.
+ - name: Apply migrations
+ id: migrate
+ continue-on-error: true
+ env:
+ DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+ run: pnpm db:migrate
 
-      # 🔴 **drizzle-kit 은 실패 이유를 삼킨다.** 스피너 한 줄("applying migrations...")만 남고
-      # PostgreSQL 이 준 메시지가 사라진다 — 비밀번호가 틀렸을 때도 SQL 이 깨졌을 때도 «같은
-      # 출력»이라 로그만으로 둘을 구분할 수 없다. 그래서 실패했을 때만 연결을 확인한다.
-      #
-      # 🔴 **`failure()` 에 기대지 않는다.** 위 step 이 `continue-on-error` 라 job 은 아직
-      #    실패 상태가 아니고, `failure()` 는 거짓이다. 판정의 정본은 `outcome` 하나다.
-      # 🔴 **성공하면 돌지 않는다** — `outcome == 'failure'` 가 그것을 보장한다.
-      # 🔴 **DDL 을 돌리지 않는다.** `select 1` 뿐이라 Database 를 한 칸도 바꾸지 않는다.
-      # 🔴 **비밀번호와 URL 전문을 찍지 않는다.** host·port·user·database 와 code·message 뿐이다.
-      - name: Diagnose connection (only when migrate failed)
-        if: steps.migrate.outcome == 'failure'
-        env:
-          DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
-        run: node .github/scripts/diagnose-db-connection.mjs
+ # 🔴 **drizzle-kit 은 실패 이유를 삼킨다.** 스피너 한 줄("applying migrations...")만 남고
+ # PostgreSQL 이 준 메시지가 사라진다 — 비밀번호가 틀렸을 때도 SQL 이 깨졌을 때도 «같은
+ # 출력»이라 로그만으로 둘을 구분할 수 없다. 그래서 실패했을 때만 연결을 확인한다.
+ #
+ # 🔴 **`failure()` 에 기대지 않는다.** 위 step 이 `continue-on-error` 라 job 은 아직
+ # 실패 상태가 아니고, `failure()` 는 거짓이다. 판정의 정본은 `outcome` 하나다.
+ # 🔴 **성공하면 돌지 않는다** — `outcome == 'failure'` 가 그것을 보장한다.
+ # 🔴 **DDL 을 돌리지 않는다.** `select 1` 뿐이라 Database 를 한 칸도 바꾸지 않는다.
+ # 🔴 **비밀번호와 URL 전문을 찍지 않는다.** host·port·user·database 와 code·message 뿐이다.
+ - name: Diagnose connection (only when migrate failed)
+ if: steps.migrate.outcome == 'failure'
+ env:
+ DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+ run: node.github/scripts/diagnose-db-connection.mjs
 
-      # 🔴 **진단을 얻었다고 실패를 덮지 않는다.** `continue-on-error` 는 «순서를 얻으려는»
-      # 장치일 뿐이고, Migration 이 깨졌다는 사실은 그대로 남아야 한다 — 초록으로 끝나면
-      # 다음 사람이 「적용됐다」고 읽는다.
-      - name: Fail the job because migration failed
-        if: steps.migrate.outcome == 'failure'
-        run: |
-          echo "Migration 이 실패했다. 위 'Diagnose connection' 로그를 보라." >&2
-          exit 1
+ # 🔴 **진단을 얻었다고 실패를 덮지 않는다.** `continue-on-error` 는 «순서를 얻으려는»
+ # 장치일 뿐이고, Migration 이 깨졌다는 사실은 그대로 남아야 한다 — 초록으로 끝나면
+ # 다음 사람이 「적용됐다」고 읽는다.
+ - name: Fail the job because migration failed
+ if: steps.migrate.outcome == 'failure'
+ run: |
+ echo "Migration 이 실패했다. 위 'Diagnose connection' 로그를 보라." >&2
+ exit 1

@@ -4,14 +4,19 @@
 
 Your agent fixes the bug. ReviewTrace remembers why.
 
-ReviewTrace is a self-hosted system that captures what coding agents learn while reviewing and
+ReviewTrace captures what coding agents learn while reviewing and
 fixing code — the problem, the root cause, the alternatives they weighed, the solution they chose,
 the trade-off they accepted, and the exact lines of code involved — and makes it searchable by the
 next agent, months later.
 
 It connects to **Claude Code** and **Codex** over MCP.
 
-> **Status:** pre-1.0, self-hosted, actively developed. Not published to npm; you run it locally.
+Run it against the hosted instance at **https://reviewtrace.app**, or host it yourself — the
+setup below covers both.
+
+> **Status:** pre-1.0, actively developed. A hosted instance runs at https://reviewtrace.app and
+> self-hosting is supported. The MCP server is not published to npm yet — until then you point your
+> client at a local checkout.
 
 <!--
   DEMO SLOT — 15–20s GIF: Claude Code finds an issue -> records it in ReviewTrace ->
@@ -547,6 +552,8 @@ server alive but serving 500s on some routes.
 - Decision records on every activity
 - Workspace and project dashboards, issue / review / repository detail pages, markdown wiki
 - API key issue and revoke UI
+- Deleting a project or a workspace, with the impact counted before you confirm
+- A hosted instance at https://reviewtrace.app
 
 **In progress**
 
@@ -557,7 +564,6 @@ server alive but serving 500s on some routes.
 **Planned**
 
 - Removing members; renaming a workspace
-- A hosted instance
 - Deeper GitHub integration (pull request context)
 - LLM- or embedding-based features are explicitly deferred until the structured data justifies them
 

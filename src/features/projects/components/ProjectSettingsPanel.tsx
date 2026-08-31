@@ -9,13 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  deleteProjectAction,
-  updateProjectAction,
+ deleteProjectAction,
+ updateProjectAction,
 } from "@/features/projects/actions/manage-project";
 import {
-  createProjectSchema,
-  type CreateProjectFormValues,
-  type CreateProjectInput,
+ createProjectSchema,
+ type CreateProjectFormValues,
+ type CreateProjectInput,
 } from "@/features/projects/schemas/project";
 import type { ProjectDeletionImpact } from "@/features/projects/server/project-service";
 import { useLocalizedForm } from "@/lib/validation/use-localized-form";
@@ -30,216 +30,216 @@ import { useLocalizedForm } from "@/lib/validation/use-localized-form";
  *
  * `window.confirm` 을 쓰지 않는다 — 브라우저 모달은 자동화 도구에서 세션을 멈추게 한다.
  */
-/** 🔴 이 화면이 실제로 그리는 낱말만 받는다(CLAUDE.md 11). */
+/** 🔴 이 화면이 실제로 그리는 낱말만 받는다. */
 export interface ProjectSettingsLabels {
-  name: string;
-  slug: string;
-  slugHint: string;
-  description: string;
-  save: string;
-  deleteTitle: string;
-  deleteImpact: string;
-  deleteRescue: string;
-  deleteDialogTitle: string;
-  deleteDialogImpact: string;
-  irreversible: string;
-  confirmPrefix: string;
-  confirmSuffix: string;
-  delete: string;
-  cancel: string;
+ name: string;
+ slug: string;
+ slugHint: string;
+ description: string;
+ save: string;
+ deleteTitle: string;
+ deleteImpact: string;
+ deleteRescue: string;
+ deleteDialogTitle: string;
+ deleteDialogImpact: string;
+ irreversible: string;
+ confirmPrefix: string;
+ confirmSuffix: string;
+ delete: string;
+ cancel: string;
 }
 
 export function ProjectSettingsPanel({
-  workspaceSlug,
-  project,
-  impact,
-  canDelete,
-  labels,
+ workspaceSlug,
+ project,
+ impact,
+ canDelete,
+ labels,
 }: {
-  workspaceSlug: string;
-  project: { slug: string; name: string; description: string | null };
-  impact: ProjectDeletionImpact;
-  /**
-   * 🔴 **삭제 자리를 그릴지 말지.** Workspace OWNER 만 참이다.
-   *
-   * 이름이 `isOwner` 가 아니라 `canDelete` 인 이유는, 화면이 「역할」이 아니라
-   * 「이 화면에서 할 수 있는 일」만 알면 되기 때문이다 — 역할 판정은 서버의 몫이다.
-   */
-  canDelete: boolean;
-  labels: ProjectSettingsLabels;
+ workspaceSlug: string;
+ project: { slug: string; name: string; description: string | null };
+ impact: ProjectDeletionImpact;
+ /**
+ * 🔴 **삭제 자리를 그릴지 말지.** Workspace OWNER 만 참이다.
+ *
+ * 이름이 `isOwner` 가 아니라 `canDelete` 인 이유는, 화면이 「역할」이 아니라
+ * 「이 화면에서 할 수 있는 일」만 알면 되기 때문이다 — 역할 판정은 서버의 몫이다.
+ */
+ canDelete: boolean;
+ labels: ProjectSettingsLabels;
 }) {
-  const router = useRouter();
-  const [failure, setFailure] = useState<string | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [confirmName, setConfirmName] = useState("");
+ const router = useRouter();
+ const [failure, setFailure] = useState<string | null>(null);
+ const [deleteOpen, setDeleteOpen] = useState(false);
+ const [confirmName, setConfirmName] = useState("");
 
-  const form = useLocalizedForm<
-    CreateProjectFormValues,
-    unknown,
-    CreateProjectInput
-  >(createProjectSchema, {
-    defaultValues: {
-      name: project.name,
-      slug: project.slug,
-      description: project.description ?? "",
-    },
-  });
+ const form = useLocalizedForm<
+ CreateProjectFormValues,
+ unknown,
+ CreateProjectInput
+ >(createProjectSchema, {
+ defaultValues: {
+ name: project.name,
+ slug: project.slug,
+ description: project.description ?? "",
+ },
+ });
 
-  async function onSave(values: CreateProjectInput) {
-    setFailure(null);
+ async function onSave(values: CreateProjectInput) {
+ setFailure(null);
 
-    const result = await updateProjectAction(
-      { workspaceSlug, projectSlug: project.slug },
-      values,
-    );
+ const result = await updateProjectAction(
+ { workspaceSlug, projectSlug: project.slug },
+ values,
+);
 
-    if (!result.ok) {
-      setFailure(result.error.message);
-      return;
-    }
+ if (!result.ok) {
+ setFailure(result.error.message);
+ return;
+ }
 
-    // slug 가 바뀌었으면 지금 주소는 더 이상 이 Project 가 아니다.
-    router.replace(`/w/${workspaceSlug}/p/${result.data.slug}/settings`);
-  }
+ // slug 가 바뀌었으면 지금 주소는 더 이상 이 Project 가 아니다.
+ router.replace(`/w/${workspaceSlug}/p/${result.data.slug}/settings`);
+ }
 
-  async function onDelete() {
-    const result = await deleteProjectAction({
-      workspaceSlug,
-      projectSlug: project.slug,
-    });
+ async function onDelete() {
+ const result = await deleteProjectAction({
+ workspaceSlug,
+ projectSlug: project.slug,
+ });
 
-    if (result.ok) {
-      router.push(`/w/${workspaceSlug}/projects`);
-    }
+ if (result.ok) {
+ router.push(`/w/${workspaceSlug}/projects`);
+ }
 
-    // 실패 사유는 Dialog 가 제 안에 그린다 — 뒤에 가려진 폼으로 보내지 않는다.
-    return result;
-  }
+ // 실패 사유는 Dialog 가 제 안에 그린다 — 뒤에 가려진 폼으로 보내지 않는다.
+ return result;
+ }
 
-  return (
-    <div className="flex flex-col gap-6">
-      <form onSubmit={form.handleSubmit(onSave)} className="flex flex-col gap-3 pt-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium" htmlFor="project-settings-name">
-            {labels.name}
-          </label>
-          <Input
-            id="project-settings-name"
-            className="max-w-md"
-            {...form.register("name")}
-          />
-          {form.formState.errors.name !== undefined && (
-            <p className="text-xs text-destructive">
-              {form.formState.errors.name.message}
-            </p>
-          )}
-        </div>
+ return (
+ <div className="flex flex-col gap-6">
+ <form onSubmit={form.handleSubmit(onSave)} className="flex flex-col gap-3 pt-3">
+ <div className="flex flex-col gap-1">
+ <label className="text-xs font-medium" htmlFor="project-settings-name">
+ {labels.name}
+ </label>
+ <Input
+ id="project-settings-name"
+ className="max-w-md"
+ {...form.register("name")}
+ />
+ {form.formState.errors.name !== undefined && (
+ <p className="text-xs text-destructive">
+ {form.formState.errors.name.message}
+ </p>
+)}
+ </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium" htmlFor="project-settings-slug">
-            {labels.slug}
-          </label>
-          <Input
-            id="project-settings-slug"
-            className="max-w-md font-mono"
-            {...form.register("slug")}
-          />
-          <p className="text-[11px] text-muted-foreground">{labels.slugHint}</p>
-          {form.formState.errors.slug !== undefined && (
-            <p className="text-xs text-destructive">
-              {form.formState.errors.slug.message}
-            </p>
-          )}
-        </div>
+ <div className="flex flex-col gap-1">
+ <label className="text-xs font-medium" htmlFor="project-settings-slug">
+ {labels.slug}
+ </label>
+ <Input
+ id="project-settings-slug"
+ className="max-w-md font-mono"
+ {...form.register("slug")}
+ />
+ <p className="text-[11px] text-muted-foreground">{labels.slugHint}</p>
+ {form.formState.errors.slug !== undefined && (
+ <p className="text-xs text-destructive">
+ {form.formState.errors.slug.message}
+ </p>
+)}
+ </div>
 
-        <div className="flex flex-col gap-1">
-          <label
-            className="text-xs font-medium"
-            htmlFor="project-settings-description"
-          >
-            {labels.description}
-          </label>
-          <Textarea
-            id="project-settings-description"
-            rows={2}
-            className="max-w-md"
-            {...form.register("description")}
-          />
-        </div>
+ <div className="flex flex-col gap-1">
+ <label
+ className="text-xs font-medium"
+ htmlFor="project-settings-description"
+ >
+ {labels.description}
+ </label>
+ <Textarea
+ id="project-settings-description"
+ rows={2}
+ className="max-w-md"
+ {...form.register("description")}
+ />
+ </div>
 
-        {failure !== null && (
-          <p role="alert" className="text-xs text-destructive">
-            {failure}
-          </p>
-        )}
+ {failure !== null && (
+ <p role="alert" className="text-xs text-destructive">
+ {failure}
+ </p>
+)}
 
-        <div>
-          <Button type="submit" size="sm" disabled={form.formState.isSubmitting}>
-            {/* 🔴 label 을 갈아 끼우지 않는다 — 무엇을 실행 중인지가 계속 보여야 한다. */}
-            {form.formState.isSubmitting && <Spinner />}
-            {labels.save}
-          </Button>
-        </div>
-      </form>
+ <div>
+ <Button type="submit" size="sm" disabled={form.formState.isSubmitting}>
+ {/* 🔴 label 을 갈아 끼우지 않는다 — 무엇을 실행 중인지가 계속 보여야 한다. */}
+ {form.formState.isSubmitting && <Spinner />}
+ {labels.save}
+ </Button>
+ </div>
+ </form>
 
-      {/*
-        🔴 **비-OWNER 에게는 이 자리 «자체»를 그리지 않는다.** 버튼만 비활성으로 두면
-        「지울 수 있는데 지금은 안 된다」로 읽히고, 없는 권한을 있는 것처럼 보여 준다.
-        🔴 **이것은 편의일 뿐 경계가 아니다** — 서버(`deleteProjectAction`)가 같은 판정을
-        다시 한다(CLAUDE.md 11).
-      */}
-      {canDelete && (
-      <div className="flex flex-col gap-2 border-t border-border pt-4">
-        <p className="text-xs font-medium">{labels.deleteTitle}</p>
-        <p className="text-[11px] text-muted-foreground">
-          {labels.deleteImpact}
-          {impact.repositories > 0 && labels.deleteRescue}
-        </p>
+ {/*
+ 🔴 **비-OWNER 에게는 이 자리 «자체»를 그리지 않는다.** 버튼만 비활성으로 두면
+ 「지울 수 있는데 지금은 안 된다」로 읽히고, 없는 권한을 있는 것처럼 보여 준다.
+ 🔴 **이것은 편의일 뿐 경계가 아니다** — 서버(`deleteProjectAction`)가 같은 판정을
+ 다시 한다.
+ */}
+ {canDelete && (
+ <div className="flex flex-col gap-2 border-t border-border pt-4">
+ <p className="text-xs font-medium">{labels.deleteTitle}</p>
+ <p className="text-[11px] text-muted-foreground">
+ {labels.deleteImpact}
+ {impact.repositories > 0 && labels.deleteRescue}
+ </p>
 
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-fit"
-          onClick={() => setDeleteOpen(true)}
-        >
-          {labels.delete}
-        </Button>
+ <Button
+ size="sm"
+ variant="outline"
+ className="w-fit"
+ onClick={() => setDeleteOpen(true)}
+ >
+ {labels.delete}
+ </Button>
 
-        <ConfirmDialog
-          open={deleteOpen}
-          onOpenChange={(open) => {
-            setDeleteOpen(open);
-            if (!open) {
-              setConfirmName("");
-            }
-          }}
-          title={labels.deleteDialogTitle}
-          description={
-            <>
-              {labels.deleteDialogImpact} {labels.irreversible}
-            </>
-          }
-          actionLabel={labels.delete}
-          cancelLabel={labels.cancel}
-          /* 🔴 이름을 그대로 적기 전에는 실행되지 않는다 — 확인 버튼 하나로 지워지게 두지 않는다. */
-          confirmDisabled={confirmName !== project.name}
-          onConfirm={onDelete}
-        >
-          <div className="flex flex-col gap-1">
-            <label className="text-xs" htmlFor="confirm-project-name">
-              {labels.confirmPrefix}
-              <span className="font-medium">{project.name}</span>
-              {labels.confirmSuffix}
-            </label>
-            <Input
-              id="confirm-project-name"
-              value={confirmName}
-              onChange={(event) => setConfirmName(event.target.value)}
-            />
-          </div>
-        </ConfirmDialog>
-      </div>
-      )}
-    </div>
-  );
+ <ConfirmDialog
+ open={deleteOpen}
+ onOpenChange={(open) => {
+ setDeleteOpen(open);
+ if (!open) {
+ setConfirmName("");
+ }
+ }}
+ title={labels.deleteDialogTitle}
+ description={
+ <>
+ {labels.deleteDialogImpact} {labels.irreversible}
+ </>
+ }
+ actionLabel={labels.delete}
+ cancelLabel={labels.cancel}
+ /* 🔴 이름을 그대로 적기 전에는 실행되지 않는다 — 확인 버튼 하나로 지워지게 두지 않는다. */
+ confirmDisabled={confirmName !== project.name}
+ onConfirm={onDelete}
+ >
+ <div className="flex flex-col gap-1">
+ <label className="text-xs" htmlFor="confirm-project-name">
+ {labels.confirmPrefix}
+ <span className="font-medium">{project.name}</span>
+ {labels.confirmSuffix}
+ </label>
+ <Input
+ id="confirm-project-name"
+ value={confirmName}
+ onChange={(event) => setConfirmName(event.target.value)}
+ />
+ </div>
+ </ConfirmDialog>
+ </div>
+)}
+ </div>
+);
 }

@@ -21,7 +21,7 @@ import { issueStatusUpdateSchema } from "@/features/issues/schemas/issue-status-
  * 나올 때는 `null` 로 확정된다 — React Hook Form 은 앞을, Server Action 은 뒤를 다룬다.
  *
  * `actor` 는 이 Schema 에서 선택 값이라 폼이 아예 등록하지 않는다. 🔴 **누가 바꿨는가는
- * 세션이 정한다** — 화면이 보낸 이름을 쓰면 History 가 곧바로 거짓이 된다(CLAUDE.md 11).
+ * 세션이 정한다** — 화면이 보낸 이름을 쓰면 History 가 곧바로 거짓이 된다.
  */
 export type IssueStatusFormValues = z.input<typeof issueStatusUpdateSchema>;
 export type IssueStatusFormInput = z.output<typeof issueStatusUpdateSchema>;
@@ -35,9 +35,9 @@ export type IssueStatusFormInput = z.output<typeof issueStatusUpdateSchema>;
  * 않아야 한다는 것이 상태 전이 설계의 전제다(`issue-status-service.ts`).
  */
 export const MANUAL_ACTIVITY_TYPES = [
-  "COMMENT",
-  "FIX_ATTEMPTED",
-  "REVIEWED_AGAIN",
+ "COMMENT",
+ "FIX_ATTEMPTED",
+ "REVIEWED_AGAIN",
 ] as const;
 
 /**
@@ -46,8 +46,8 @@ export const MANUAL_ACTIVITY_TYPES = [
  * 두 경로가 같은 규칙을 쓴다.
  */
 export const issueActivityFormSchema = issueActivitySchema
-  .omit({ actor: true })
-  .extend({ type: z.enum(MANUAL_ACTIVITY_TYPES) });
+.omit({ actor: true })
+.extend({ type: z.enum(MANUAL_ACTIVITY_TYPES) });
 
 export type IssueActivityFormValues = z.input<typeof issueActivityFormSchema>;
 export type IssueActivityFormInput = z.output<typeof issueActivityFormSchema>;

@@ -5,7 +5,7 @@ import { normalizeSlug } from "@/lib/workspace/slug";
 /**
  * Project 생성·수정 입력 계약.
  *
- * 🔴 **검증 규칙을 Component 안의 `if` 로 흩뿌리지 않는다. 여기에 둔다**(CLAUDE.md 9).
+ * 🔴 **검증 규칙을 Component 안의 `if` 로 흩뿌리지 않는다. 여기에 둔다**.
  * 화면(React Hook Form)과 Server Action 이 **같은 Schema 하나**를 본다 — 두 곳에 따로
  * 적으면 브라우저는 통과시키는데 서버는 거절하는 값이 생긴다.
  *
@@ -24,35 +24,35 @@ const DESCRIPTION_MAX = 500;
  * Project 를 만들면 주소가 갈린다.
  */
 const RESERVED_SLUGS: readonly string[] = [
-  "new",
-  "reviews",
-  "issues",
-  // 🔴 `knowledge` 는 예전 주소다. 지금은 `wiki` 를 쓰지만, 예약어에서 빼면
-  // 그 이름의 Project 가 만들어져 옛 링크와 부딪힌다.
-  "knowledge",
-  "wiki",
-  "repositories",
-  "settings",
+ "new",
+ "reviews",
+ "issues",
+ // 🔴 `knowledge` 는 예전 주소다. 지금은 `wiki` 를 쓰지만, 예약어에서 빼면
+ // 그 이름의 Project 가 만들어져 옛 링크와 부딪힌다.
+ "knowledge",
+ "wiki",
+ "repositories",
+ "settings",
 ];
 
 export const createProjectSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1)
-    .max(NAME_MAX),
-  /**
-   * 비워 두면 이름에서 만든다.
-   *
-   * 🔴 **정규화를 화면과 서버가 같은 함수로 한다**(`normalizeSlug`). 한쪽만 정규화하면
-   * 사용자가 본 주소와 저장된 주소가 갈린다.
-   */
-  slug: z
-    .string()
-    .trim()
-    .max(SLUG_MAX)
-    .default(""),
-  description: z.string().trim().max(DESCRIPTION_MAX).default(""),
+ name: z
+.string()
+.trim()
+.min(1)
+.max(NAME_MAX),
+ /**
+ * 비워 두면 이름에서 만든다.
+ *
+ * 🔴 **정규화를 화면과 서버가 같은 함수로 한다**(`normalizeSlug`). 한쪽만 정규화하면
+ * 사용자가 본 주소와 저장된 주소가 갈린다.
+ */
+ slug: z
+.string()
+.trim()
+.max(SLUG_MAX)
+.default(""),
+ description: z.string().trim().max(DESCRIPTION_MAX).default(""),
 });
 
 /**
@@ -74,9 +74,9 @@ export type CreateProjectInput = z.output<typeof createProjectSchema>;
  * @throws 예외를 던지지 않는다. slug 가 예약어면 그 사실을 결과로 알린다.
  */
 export interface ResolvedProjectInput {
-  name: string;
-  slug: string;
-  description: string | null;
+ name: string;
+ slug: string;
+ description: string | null;
 }
 
 /**
@@ -89,23 +89,23 @@ export interface ResolvedProjectInput {
 export type ProjectInputFailure = "RESERVED_SLUG";
 
 export function resolveProjectInput(
-  input: CreateProjectInput,
+ input: CreateProjectInput,
 ):
-  | { ok: true; value: ResolvedProjectInput }
-  | { ok: false; reason: ProjectInputFailure; slug: string } {
-  const slug = normalizeSlug(input.slug === "" ? input.name : input.slug);
+ | { ok: true; value: ResolvedProjectInput }
+ | { ok: false; reason: ProjectInputFailure; slug: string } {
+ const slug = normalizeSlug(input.slug === "" ? input.name : input.slug);
 
-  if (RESERVED_SLUGS.includes(slug)) {
-    // 🔴 문장을 만들지 않고 **문장에 들어갈 값**만 돌려준다.
-    return { ok: false, reason: "RESERVED_SLUG", slug };
-  }
+ if (RESERVED_SLUGS.includes(slug)) {
+ // 🔴 문장을 만들지 않고 **문장에 들어갈 값**만 돌려준다.
+ return { ok: false, reason: "RESERVED_SLUG", slug };
+ }
 
-  return {
-    ok: true,
-    value: {
-      name: input.name,
-      slug,
-      description: input.description === "" ? null : input.description,
-    },
-  };
+ return {
+ ok: true,
+ value: {
+ name: input.name,
+ slug,
+ description: input.description === "" ? null : input.description,
+ },
+ };
 }

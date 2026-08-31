@@ -5,8 +5,8 @@ import type { z } from "zod";
 import { DEFAULT_LOCALE, messages, type Locale } from "@/config/i18n";
 import type { Messages } from "@/config/messages/ko";
 import {
-  actionValidationFailed,
-  type ActionResult,
+ actionValidationFailed,
+ type ActionResult,
 } from "@/lib/action/action-result";
 import { readLocale } from "@/lib/ui/appearance";
 import { parseOptions } from "@/lib/validation/zod-error-map";
@@ -16,8 +16,8 @@ import { parseOptions } from "@/lib/validation/zod-error-map";
  *
  * ```text
  * 화면 -> Server Action -> parseActionInput -> Application Service
- *                              |
- *                              +-> 실패는 예외가 아니라 ActionResult 로 돌아간다(CLAUDE.md 8)
+ * |
+ * +-> 실패는 예외가 아니라 ActionResult 로 돌아간다
  * ```
  *
  * 🔴 **브라우저 검증을 믿지 않는다.** Server Action 은 주소만 알면 누구나 부를 수 있어
@@ -29,32 +29,32 @@ import { parseOptions } from "@/lib/validation/zod-error-map";
  * 🔴 `z.config` 같은 전역을 요청마다 바꾸는 구조를 만들지 않는다.
  *
  * @param pickMessage 실패했을 때 화면 맨 아래에 뜨는 한 줄을 사전에서 고른다. 기본은
- *   「입력값이 올바르지 않습니다」이고, 그 자리에서 더 정확히 말할 수 있으면 넘긴다.
- *   🔴 **문자열이 아니라 «고르는 함수»를 받는다** — 부르는 쪽이 사전을 따로 읽으면
- *   같은 요청에서 쿠키를 두 번 보게 되고, 무엇보다 한국어를 손으로 적을 자리가 생긴다.
+ * 「입력값이 올바르지 않습니다」이고, 그 자리에서 더 정확히 말할 수 있으면 넘긴다.
+ * 🔴 **문자열이 아니라 «고르는 함수»를 받는다** — 부르는 쪽이 사전을 따로 읽으면
+ * 같은 요청에서 쿠키를 두 번 보게 되고, 무엇보다 한국어를 손으로 적을 자리가 생긴다.
  */
 export async function parseActionInput<S extends z.ZodType>(
-  schema: S,
-  input: unknown,
-  pickMessage?: (validation: Messages["validation"]) => string,
+ schema: S,
+ input: unknown,
+ pickMessage?: (validation: Messages["validation"]) => string,
 ): Promise<
-  { ok: true; data: z.output<S> } | { ok: false; failure: ActionResult<never> }
+ { ok: true; data: z.output<S> } | { ok: false; failure: ActionResult<never> }
 > {
-  const locale = await currentLocale();
-  const validation = messages(locale).validation;
-  const parsed = schema.safeParse(input, parseOptions(locale));
+ const locale = await currentLocale();
+ const validation = messages(locale).validation;
+ const parsed = schema.safeParse(input, parseOptions(locale));
 
-  if (parsed.success) {
-    return { ok: true, data: parsed.data as z.output<S> };
-  }
+ if (parsed.success) {
+ return { ok: true, data: parsed.data as z.output<S> };
+ }
 
-  return {
-    ok: false,
-    failure: actionValidationFailed(
-      parsed.error,
-      pickMessage === undefined ? validation.invalidInput : pickMessage(validation),
-    ),
-  };
+ return {
+ ok: false,
+ failure: actionValidationFailed(
+ parsed.error,
+ pickMessage === undefined ? validation.invalidInput : pickMessage(validation),
+),
+ };
 }
 
 /**
@@ -65,9 +65,9 @@ export async function parseActionInput<S extends z.ZodType>(
  * 이상한 값일 때 `parseLocale` 이 하는 일과 같은 정책이다(`config/i18n.ts`).
  */
 async function currentLocale(): Promise<Locale> {
-  try {
-    return await readLocale();
-  } catch {
-    return DEFAULT_LOCALE;
-  }
+ try {
+ return await readLocale();
+ } catch {
+ return DEFAULT_LOCALE;
+ }
 }

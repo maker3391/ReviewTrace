@@ -12,7 +12,7 @@
  * `table-auto` 에서 그것은 **요구일 뿐 약속이 아니다.** 실측한 결과:
  *
  * ```
- * 표 1214px(1920)   저장소 726px   대상 108px   브랜치·커밋 87px  ← w-56 이 지켜지지 않았다
+ * 표 1214px(1920) 저장소 726px 대상 108px 브랜치·커밋 87px ← w-56 이 지켜지지 않았다
  * ```
  *
  * 저장소의 `w-full` 이 남는 폭을 전부 요구하자 브라우저가 **줄일 수 있는 칸부터 줄여**
@@ -30,7 +30,7 @@
  * `min-w-[22rem]` — Issue 목록과 같은 바닥이다. 고정 폭(Reviewer 128 + Issues 80)을 빼면
  * 대상 칸에 **144px** 이 남는다. 이 아래로는 브랜치가 두어 낱말만 남는다.
  * 그때는 **표만** 자기 컨테이너 안에서 가로로 넘어간다(`Table` 의 `overflow-x-auto`).
- * 🔴 **페이지 자체는 좌우로 넘치지 않는다**(CLAUDE.md 16).
+ * 🔴 **페이지 자체는 좌우로 넘치지 않는다**.
  */
 export const REVIEW_TABLE = "table-fixed min-w-[22rem]";
 
@@ -38,9 +38,9 @@ export const REVIEW_TABLE = "table-fixed min-w-[22rem]";
  * 열마다의 폭과 «언제 보이는가».
  *
  * ```
- * 항상        Reviewer · Target · Issues     누가 · 무엇을 봤고 · 몇 건이 나왔나
- * sm~ · lg~   + Date                          언제인가   (🔴 md 구간만 다시 접는다 — 아래)
- * lg~         + Repository                    어느 저장소인가
+ * 항상 Reviewer · Target · Issues 누가 · 무엇을 봤고 · 몇 건이 나왔나
+ * sm~ · lg~ + Date 언제인가 (🔴 md 구간만 다시 접는다 — 아래)
+ * lg~ + Repository 어느 저장소인가
  * ```
  *
  * 🔴 **Reviewer 를 접지 않는 이유는 그 칸이 상세로 들어가는 입구이기 때문이다.**
@@ -58,9 +58,9 @@ export const REVIEW_TABLE = "table-fixed min-w-[22rem]";
  * 실측한 표의 안쪽 폭(`overflow-x-auto` 컨테이너):
  *
  * ```
- * 390    292      640    526      767    653
- * 768    462  ← 여기서 «좁아진다»
- * 1024   718     1280    958     1440   1118     1920   1214
+ * 390 292 640 526 767 653
+ * 768 462 ← 여기서 «좁아진다»
+ * 1024 718 1280 958 1440 1118 1920 1214
  * ```
  *
  * 날짜(`2026-08-28`)를 `sm` 에서 켠 채 두면 768~1023 구간에서 대상 칸이 134px 로 내려가
@@ -74,12 +74,12 @@ export const REVIEW_TABLE = "table-fixed min-w-[22rem]";
  * 다른 하나가 넓은 화면에서 그 폭을 혼자 물게 된다 — 그것이 원래의 고장이었다.
  *
  * ```
- *          고정 폭   저장소   대상
- * 1920      312      451     451     ← 브랜치 55자가 잘리지 않고 들어간다
- * 1440      312      403     403
- * 1024      312      203     203
- *  768      208       —      254
- *  390      208       —      144     (min-w 에 닿아 표만 60px 가로로 넘어간다)
+ * 고정 폭 저장소 대상
+ * 1920 312 451 451 ← 브랜치 55자가 잘리지 않고 들어간다
+ * 1440 312 403 403
+ * 1024 312 203 203
+ * 768 208 — 254
+ * 390 208 — 144 (min-w 에 닿아 표만 60px 가로로 넘어간다)
  * ```
  *
  * 🔴 어느 폭에서도 **페이지·`<main>` 은 좌우로 넘치지 않는다**(실측 0). 390 에서 넘치는
@@ -89,18 +89,18 @@ export const REVIEW_TABLE = "table-fixed min-w-[22rem]";
  * 첫 행만 131px 이었다 — 브랜치가 87px 칸 안에서 글자 단위로 일곱 줄 접혔기 때문이다.
  */
 export const REVIEW_COL = {
-  /** `claude-code` 가 14px 로 들어가는 폭. 더 긴 이름은 잘리고 전문은 `title` 에 남는다. */
-  reviewer: "w-32",
-  repository: "hidden lg:table-cell",
-  /** 폭을 적지 않는다 — 저장소와 남는 폭을 나눠 갖는다. */
-  target: "",
-  /** 세 자리 숫자와 머리글(`ISSUES`) 기준. */
-  issues: "w-20 text-right",
-  /**
-   * `2026-08-28` 고정 형식(`lib/format/date.ts`)이라 자릿수가 늘지 않는다.
-   * `md:hidden` 은 위의 사이드바 구간을 위한 것이다 — 실수가 아니다.
-   */
-  date: "w-[6.5rem] hidden text-right sm:table-cell md:hidden lg:table-cell",
+ /** `claude-code` 가 14px 로 들어가는 폭. 더 긴 이름은 잘리고 전문은 `title` 에 남는다. */
+ reviewer: "w-32",
+ repository: "hidden lg:table-cell",
+ /** 폭을 적지 않는다 — 저장소와 남는 폭을 나눠 갖는다. */
+ target: "",
+ /** 세 자리 숫자와 머리글(`ISSUES`) 기준. */
+ issues: "w-20 text-right",
+ /**
+ * `2026-08-28` 고정 형식(`lib/format/date.ts`)이라 자릿수가 늘지 않는다.
+ * `md:hidden` 은 위의 사이드바 구간을 위한 것이다 — 실수가 아니다.
+ */
+ date: "w-[6.5rem] hidden text-right sm:table-cell md:hidden lg:table-cell",
 } as const;
 
 /**
@@ -112,9 +112,9 @@ export const REVIEW_COL = {
  * **실제로 있는 값 중 가장 구체적인 것**을 앞줄에 세운다.
  *
  * ```
- * branch 있음          feature/auth-…      Commit · a81f3c2
- * branch 없음·SHA 있음  a81f3c2             Commit
- * 둘 다 없음            —                   Manual
+ * branch 있음 feature/auth-… Commit · a81f3c2
+ * branch 없음·SHA 있음 a81f3c2 Commit
+ * 둘 다 없음 — Manual
  * ```
  *
  * 종류는 언제나 아랫줄에 남으므로 **행 높이가 데이터에 따라 들쭉날쭉해지지 않는다.**
@@ -131,28 +131,28 @@ export const REVIEW_COL = {
  * 받는다 — 이 파일이 조회 계층에 묶이지 않는다.
  */
 export function describeTarget(
-  review: { branch: string | null; commitSha: string | null },
-  typeLabel: string,
+ review: { branch: string | null; commitSha: string | null },
+ typeLabel: string,
 ): { primary: string; secondary: string; full: string | undefined } {
-  const shortSha =
-    review.commitSha === null ? null : review.commitSha.slice(0, 7);
+ const shortSha =
+ review.commitSha === null ? null : review.commitSha.slice(0, 7);
 
-  if (review.branch !== null) {
-    return {
-      primary: review.branch,
-      secondary: shortSha === null ? typeLabel : `${typeLabel} · ${shortSha}`,
-      full: review.branch,
-    };
-  }
+ if (review.branch !== null) {
+ return {
+ primary: review.branch,
+ secondary: shortSha === null ? typeLabel : `${typeLabel} · ${shortSha}`,
+ full: review.branch,
+ };
+ }
 
-  if (shortSha !== null) {
-    return {
-      primary: shortSha,
-      secondary: typeLabel,
-      // 상세로 가기 전에도 전체 SHA 를 확인할 수 있게 한다.
-      full: review.commitSha ?? undefined,
-    };
-  }
+ if (shortSha !== null) {
+ return {
+ primary: shortSha,
+ secondary: typeLabel,
+ // 상세로 가기 전에도 전체 SHA 를 확인할 수 있게 한다.
+ full: review.commitSha ?? undefined,
+ };
+ }
 
-  return { primary: "—", secondary: typeLabel, full: undefined };
+ return { primary: "—", secondary: typeLabel, full: undefined };
 }

@@ -35,17 +35,17 @@ and `resolve_issue` default to the issue you last touched.
 
 ```
 create_review
-     |
-     v
-  add_issue ──────────────► DETECTED
-     |
-     v
+ |
+ v
+ add_issue ──────────────► DETECTED
+ |
+ v
 add_fix_attempt ──────────► FIX_ATTEMPTED
-     |
-     v
+ |
+ v
  review_again ────────────► REVIEWED_AGAIN
-     |
-     v
+ |
+ v
  resolve_issue ───────────► RESOLVED
 ```
 

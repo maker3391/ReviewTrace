@@ -17,29 +17,29 @@ import { readMessages } from "@/lib/ui/appearance";
  * 밝은 CTA 가 된다. 색을 박지 않고 토큰을 뒤집는 것이라 테마가 바뀌어도 대비가 유지된다.
  *
  * 이 화면의 **유일한 Primary Action** 이라 `size="lg"` 로 둔다 — 다른 화면의 촘촘한
- * 도구 버튼과 같은 높이면 「눌러야 할 것」으로 읽히지 않는다(CLAUDE.md 16).
+ * 도구 버튼과 같은 높이면 「눌러야 할 것」으로 읽히지 않는다.
  * Focus ring·keyboard 동작은 `Button` primitive 가 그대로 갖는다.
  */
 export async function SignInWithGithubButton({
-  redirectTo = "/",
-  className,
+ redirectTo = "/",
+ className,
 }: {
-  redirectTo?: string;
-  className?: string;
+ redirectTo?: string;
+ className?: string;
 }) {
-  const t = (await readMessages()).login;
+ const t = (await readMessages()).login;
 
-  return (
-    <form action={signInWithGithubAction} className={className}>
-      <input type="hidden" name="redirectTo" value={redirectTo} />
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full gap-2.5 bg-foreground text-background hover:bg-foreground/90 focus-visible:ring-foreground/30"
-      >
-        <GithubMark className="size-[18px]" />
-        {t.continueWithGithub}
-      </Button>
-    </form>
-  );
+ return (
+ <form action={signInWithGithubAction} className={className}>
+ <input type="hidden" name="redirectTo" value={redirectTo} />
+ <Button
+ type="submit"
+ size="lg"
+ className="w-full gap-2.5 bg-foreground text-background hover:bg-foreground/90 focus-visible:ring-foreground/30"
+ >
+ <GithubMark className="size-[18px]" />
+ {t.continueWithGithub}
+ </Button>
+ </form>
+);
 }

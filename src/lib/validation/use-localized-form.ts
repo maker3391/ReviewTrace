@@ -2,11 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import {
-  useForm,
-  type FieldValues,
-  type Resolver,
-  type UseFormProps,
-  type UseFormReturn,
+ useForm,
+ type FieldValues,
+ type Resolver,
+ type UseFormProps,
+ type UseFormReturn,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
@@ -19,16 +19,16 @@ import { parseOptions } from "@/lib/validation/zod-error-map";
  *
  * `useForm` + `zodResolver` 를 쓰는 자리는 아홉 군데인데, 그 아홉이 모두
  * **「이 언어로 Zod 오류를 적어라」**를 똑같이 적어야 한다. 한 곳이라도 빠지면 그 폼만
- * 영어 기본값으로 되돌아가므로 여기 한 번만 적는다(CLAUDE.md 6).
+ * 영어 기본값으로 되돌아가므로 여기 한 번만 적는다.
  *
  * ```text
  * useLocalizedForm(schema)
- *   -> zodResolver(schema, { error: validationErrorMap(locale) })   per-parse 경계
- *   -> Zod issue -> 사전의 문구
+ * -> zodResolver(schema, { error: validationErrorMap(locale) }) per-parse 경계
+ * -> Zod issue -> 사전의 문구
  * ```
  *
  * 🔴 **검증 규칙은 그대로다.** 바뀌는 것은 오류를 «무슨 말로 적는가»뿐이고, Schema 는
- * 화면과 Server Action 이 **같은 것 하나**를 계속 쓴다(CLAUDE.md 9).
+ * 화면과 Server Action 이 **같은 것 하나**를 계속 쓴다.
  *
  * 🔴 **`z.config` 를 건드리지 않는다.** 언어는 parse 하나에만 실려 가므로, 같은 순간
  * 다른 언어로 도는 다른 폼·다른 요청에 영향이 없다.
@@ -41,45 +41,45 @@ import { parseOptions } from "@/lib/validation/zod-error-map";
  * 다시 검증해 새 언어로 적는다 — 값도 규칙도 건드리지 않는다.
  */
 export function useLocalizedForm<
-  TFieldValues extends FieldValues = FieldValues,
-  TContext = unknown,
-  TTransformedValues = TFieldValues,
+ TFieldValues extends FieldValues = FieldValues,
+ TContext = unknown,
+ TTransformedValues = TFieldValues,
 >(
-  schema: z.ZodType<unknown, TFieldValues>,
-  options?: Omit<
-    UseFormProps<TFieldValues, TContext, TTransformedValues>,
-    "resolver"
-  >,
+ schema: z.ZodType<unknown, TFieldValues>,
+ options?: Omit<
+ UseFormProps<TFieldValues, TContext, TTransformedValues>,
+ "resolver"
+ >,
 ): UseFormReturn<TFieldValues, TContext, TTransformedValues> {
-  const locale = useLocale();
+ const locale = useLocale();
 
-  const form = useForm<TFieldValues, TContext, TTransformedValues>({
-    ...options,
-    /*
-      Schema 의 입력·출력 타입은 부르는 쪽이 이미 못 박아 두었다(`z.input`·`z.output`).
-      여기서는 그 짝을 다시 세우지 않고 RHF 의 Resolver 계약으로만 좁힌다.
-    */
-    resolver: zodResolver(schema, parseOptions(locale)) as unknown as Resolver<
-      TFieldValues,
-      TContext,
-      TTransformedValues
-    >,
-  } as UseFormProps<TFieldValues, TContext, TTransformedValues>);
+ const form = useForm<TFieldValues, TContext, TTransformedValues>({
+...options,
+ /*
+ Schema 의 입력·출력 타입은 부르는 쪽이 이미 못 박아 두었다(`z.input`·`z.output`).
+ 여기서는 그 짝을 다시 세우지 않고 RHF 의 Resolver 계약으로만 좁힌다.
+ */
+ resolver: zodResolver(schema, parseOptions(locale)) as unknown as Resolver<
+ TFieldValues,
+ TContext,
+ TTransformedValues
+ >,
+ } as UseFormProps<TFieldValues, TContext, TTransformedValues>);
 
-  const { trigger, formState } = form;
-  const renderedLocale = useRef(locale);
+ const { trigger, formState } = form;
+ const renderedLocale = useRef(locale);
 
-  useEffect(() => {
-    if (renderedLocale.current === locale) {
-      return;
-    }
-    renderedLocale.current = locale;
+ useEffect(() => {
+ if (renderedLocale.current === locale) {
+ return;
+ }
+ renderedLocale.current = locale;
 
-    // 오류가 떠 있지 않으면 다시 검증하지 않는다 — 건드린 적 없는 폼을 붉게 만들지 않는다.
-    if (Object.keys(formState.errors).length > 0) {
-      void trigger();
-    }
-  }, [locale, trigger, formState]);
+ // 오류가 떠 있지 않으면 다시 검증하지 않는다 — 건드린 적 없는 폼을 붉게 만들지 않는다.
+ if (Object.keys(formState.errors).length > 0) {
+ void trigger();
+ }
+ }, [locale, trigger, formState]);
 
-  return form;
+ return form;
 }

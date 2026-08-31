@@ -2,21 +2,21 @@
 #
 # Agent API E2E — 실제 서버 · 실제 PostgreSQL.
 #
-# 🔴 이 저장소는 「Compile 성공만으로 완료라고 판단하지 않는다」(CLAUDE.md 21).
-#    Agent API 는 화면이 없어 눈으로 확인할 수 없으므로, 그 자리를 이 스크립트가 맡는다.
+# 🔴 이 저장소는 「Compile 성공만으로 완료라고 판단하지 않는다」.
+# Agent API 는 화면이 없어 눈으로 확인할 수 없으므로, 그 자리를 이 스크립트가 맡는다.
 #
 # 무엇을 지키는가
-#   - API Key 원문이 Database 에 남지 않는다
-#   - 잘못된·폐기된·만료된 키가 전부 같은 401 이다
-#   - 한 Review 가 한 Transaction 으로 저장된다 (반쪽 Session 없음)
-#   - 같은 Idempotency-Key 재전송이 ReviewSession 을 늘리지 않는다
-#   - 🔴 Workspace 를 넘는 접근이 막힌다 (404, 403 이 아니다)
-#   - 상태와 History 가 모순되지 않는다
+# - API Key 원문이 Database 에 남지 않는다
+# - 잘못된·폐기된·만료된 키가 전부 같은 401 이다
+# - 한 Review 가 한 Transaction 으로 저장된다 (반쪽 Session 없음)
+# - 같은 Idempotency-Key 재전송이 ReviewSession 을 늘리지 않는다
+# - 🔴 Workspace 를 넘는 접근이 막힌다 (404, 403 이 아니다)
+# - 상태와 History 가 모순되지 않는다
 #
 # 쓰는 법
-#   1) docker compose up -d          (컨테이너 code-intelligence-postgres)
-#   2) pnpm dev -- -p 3930           (다른 터미널)
-#   3) bash scripts/agent-api-e2e.sh
+# 1) docker compose up -d (컨테이너 code-intelligence-postgres)
+# 2) pnpm dev -- -p 3930 (다른 터미널)
+# 3) bash scripts/agent-api-e2e.sh
 #
 # 끝나면 만들어 둔 Workspace 를 지운다. 실패해도 지운다.
 #
@@ -37,15 +37,15 @@ cleanup() { psql1 "delete from workspaces where slug like 'e2e-%'" >/dev/null 2>
 trap cleanup EXIT
 
 PASS=0; FAIL=0
-ok()   { PASS=$((PASS+1)); printf 'OK   %s\n' "$1"; }
-bad()  { FAIL=$((FAIL+1)); printf 'FAIL %s\n' "$1"; }
+ok() { PASS=$((PASS+1)); printf 'OK %s\n' "$1"; }
+bad() { FAIL=$((FAIL+1)); printf 'FAIL %s\n' "$1"; }
 # expect <이름> <기대 status> <curl 인자...>
 expect() {
-  local name="$1" want="$2"; shift 2
-  local code
-  code=$(curl -s -o "$WORK/body" -w "%{http_code}" "$@")
-  if [ "$code" = "$want" ]; then ok "$name ($code)"
-  else bad "$name — got=$code want=$want"; head -c 300 "$WORK/body"; echo; fi
+ local name="$1" want="$2"; shift 2
+ local code
+ code=$(curl -s -o "$WORK/body" -w "%{http_code}" "$@")
+ if [ "$code" = "$want" ]; then ok "$name ($code)"
+ else bad "$name — got=$code want=$want"; head -c 300 "$WORK/body"; echo; fi
 }
 # 본문에서 값 하나를 꺼낸다. 셸이 UTF-8 을 망가뜨리지 않게 node 를 쓴다.
 pick() { node -e "const d=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));console.log(eval('d.'+process.argv[2]))" "$WORK/body" "$1"; }
@@ -54,21 +54,21 @@ echo "===== 0. 준비 — 실제 생성기로 API Key 를 만들고 Hash 만 저
 node -e "
 const fs=require('fs');
 import(new URL('../src/lib/api/api-key-token.ts', 'file://' + process.argv[1].replace(/\\\\/g,'/') + '/scripts/').href).then(m => {
-  const keys = Object.fromEntries(['alpha','beta','revoked','expired'].map(n => [n, m.generateApiKey()]));
-  fs.writeFileSync(process.argv[2] + '/keys.json', JSON.stringify(keys), 'utf8');
-  for (const [n,k] of Object.entries(keys)) fs.writeFileSync(process.argv[2] + '/tok_' + n, k.plainToken, 'utf8');
-  // 🔴 원문은 여기(임시 디렉터리)에만 있다. SQL 에는 Hash 와 Prefix 만 나간다.
-  const row = (ws,name,k,exp,rev) =>
-    \`('\${ws}','\${name}','\${k.keyPrefix}','\${k.keyHash}',\${exp},\${rev})\`;
-  const A='aaaaaaaa-0000-4000-8000-000000000001', B='bbbbbbbb-0000-4000-8000-000000000002';
-  fs.writeFileSync(process.argv[2] + '/seed.sql', [
-    \`insert into workspaces (id, slug, name) values ('\${A}','e2e-alpha','E2E Alpha'),('\${B}','e2e-beta','E2E Beta');\`,
-    'insert into api_keys (workspace_id, name, key_prefix, key_hash, expires_at, revoked_at) values',
-    [row(A,'alpha-agent',keys.alpha,'null','null'),
-     row(B,'beta-agent',keys.beta,'null','null'),
-     row(A,'alpha-revoked',keys.revoked,'null','now()'),
-     row(A,'alpha-expired',keys.expired,\"now() - interval '1 day'\",'null')].join(',\n') + ';',
-  ].join('\n'), 'utf8');
+ const keys = Object.fromEntries(['alpha','beta','revoked','expired'].map(n => [n, m.generateApiKey()]));
+ fs.writeFileSync(process.argv[2] + '/keys.json', JSON.stringify(keys), 'utf8');
+ for (const [n,k] of Object.entries(keys)) fs.writeFileSync(process.argv[2] + '/tok_' + n, k.plainToken, 'utf8');
+ // 🔴 원문은 여기(임시 디렉터리)에만 있다. SQL 에는 Hash 와 Prefix 만 나간다.
+ const row = (ws,name,k,exp,rev) =>
+ \`('\${ws}','\${name}','\${k.keyPrefix}','\${k.keyHash}',\${exp},\${rev})\`;
+ const A='aaaaaaaa-0000-4000-8000-000000000001', B='bbbbbbbb-0000-4000-8000-000000000002';
+ fs.writeFileSync(process.argv[2] + '/seed.sql', [
+ \`insert into workspaces (id, slug, name) values ('\${A}','e2e-alpha','E2E Alpha'),('\${B}','e2e-beta','E2E Beta');\`,
+ 'insert into api_keys (workspace_id, name, key_prefix, key_hash, expires_at, revoked_at) values',
+ [row(A,'alpha-agent',keys.alpha,'null','null'),
+ row(B,'beta-agent',keys.beta,'null','null'),
+ row(A,'alpha-revoked',keys.revoked,'null','now()'),
+ row(A,'alpha-expired',keys.expired,\"now() - interval '1 day'\",'null')].join(',\n') + ';',
+ ].join('\n'), 'utf8');
 }).catch(e => { console.error('키 생성 실패:', e.message); process.exit(1); });
 " "$(pwd)" "$WORK" || exit 1
 
@@ -82,50 +82,50 @@ if [ "$STORED" = "0" ]; then ok "🔴 API Key 원문이 Database 에 없다 (전
 node -e "
 const fs=require('fs');
 fs.writeFileSync(process.argv[1]+'/review.json', JSON.stringify({
-  repository:{provider:'GITHUB',externalRepositoryId:'987654321',owner:'SMIL-26',name:'smil-be',
-    fullName:'SMIL-26/smil-be',defaultBranch:'develop',htmlUrl:'https://github.com/SMIL-26/smil-be'},
-  target:{type:'COMMIT',branch:'develop',commitSha:'a81f3c2'},
-  reviewer:{type:'AGENT',name:'codex',version:'1.0.0'},
-  summary:'Refresh token 회전 경합 검토',
-  issues:[
-    {severity:'HIGH',category:'CONCURRENCY',patternKey:'REFRESH_TOKEN_RACE_CONDITION',
-     title:'Refresh token rotation race condition',
-     description:'Concurrent requests can rotate the same token family.',
-     filePath:'src/RefreshTokenService.java',startLine:82,endLine:101,
-     suggestion:'Make family rotation atomic.',source:'codex',externalId:'CDX-1',
-     tags:['refresh-token','Race Condition','race_condition']},
-    {severity:'CRITICAL',category:'TRANSACTION',patternKey:'EXTERNAL_IO_IN_TRANSACTION',
-     title:'External API call inside DB transaction',filePath:'src/OrderService.java',startLine:40,
-     source:'codex',externalId:'CDX-2',tags:['transaction']},
-    {severity:'LOW',category:'CLEAN_CODE',title:'Unused import',tags:[]}]
+ repository:{provider:'GITHUB',externalRepositoryId:'987654321',owner:'SMIL-26',name:'smil-be',
+ fullName:'SMIL-26/smil-be',defaultBranch:'develop',htmlUrl:'https://github.com/SMIL-26/smil-be'},
+ target:{type:'COMMIT',branch:'develop',commitSha:'a81f3c2'},
+ reviewer:{type:'AGENT',name:'codex',version:'1.0.0'},
+ summary:'Refresh token 회전 경합 검토',
+ issues:[
+ {severity:'HIGH',category:'CONCURRENCY',patternKey:'REFRESH_TOKEN_RACE_CONDITION',
+ title:'Refresh token rotation race condition',
+ description:'Concurrent requests can rotate the same token family.',
+ filePath:'src/RefreshTokenService.java',startLine:82,endLine:101,
+ suggestion:'Make family rotation atomic.',source:'codex',externalId:'CDX-1',
+ tags:['refresh-token','Race Condition','race_condition']},
+ {severity:'CRITICAL',category:'TRANSACTION',patternKey:'EXTERNAL_IO_IN_TRANSACTION',
+ title:'External API call inside DB transaction',filePath:'src/OrderService.java',startLine:40,
+ source:'codex',externalId:'CDX-2',tags:['transaction']},
+ {severity:'LOW',category:'CLEAN_CODE',title:'Unused import',tags:[]}]
 }), 'utf8');
 fs.writeFileSync(process.argv[1]+'/resolve.json', JSON.stringify({
-  status:'RESOLVED', resolutionSummary:'회전을 Lua Script 한 번으로 원자화했다',
-  actor:{type:'AGENT',name:'코덱스'}}), 'utf8');
+ status:'RESOLVED', resolutionSummary:'회전을 Lua Script 한 번으로 원자화했다',
+ actor:{type:'AGENT',name:'코덱스'}}), 'utf8');
 fs.writeFileSync(process.argv[1]+'/reopen.json', JSON.stringify({
-  status:'REOPENED', actor:{type:'HUMAN',name:'사장님'}}), 'utf8');
+ status:'REOPENED', actor:{type:'HUMAN',name:'사장님'}}), 'utf8');
 fs.writeFileSync(process.argv[1]+'/fix.json', JSON.stringify({
-  type:'FIX_ATTEMPTED', actor:{type:'AGENT',name:'claude'},
-  description:'Lua Script 로 회전을 원자화했다', commitSha:'def1234'}), 'utf8');
+ type:'FIX_ATTEMPTED', actor:{type:'AGENT',name:'claude'},
+ description:'Lua Script 로 회전을 원자화했다', commitSha:'def1234'}), 'utf8');
 " "$WORK"
 JSON='content-type: application/json'
 
 echo
 echo "===== 1. 인증 — 사유를 구분해 알려주지 않는다 ====="
-expect "Authorization 없음"        401 -X POST "$BASE/reviews" -H "$JSON" -d '{}'
-expect "형식이 아닌 키"            401 -X POST "$BASE/reviews" -H 'authorization: Bearer nonsense' -H "$JSON" -d '{}'
-expect "형식은 맞지만 없는 키"      401 -X POST "$BASE/reviews" -H "authorization: Bearer ci_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" -H "$JSON" -d '{}'
-expect "폐기된 키"                 401 -X POST "$BASE/reviews" -H "authorization: Bearer $REV" -H "$JSON" -d '{}'
-expect "만료된 키"                 401 -X POST "$BASE/reviews" -H "authorization: Bearer $EXP" -H "$JSON" -d '{}'
+expect "Authorization 없음" 401 -X POST "$BASE/reviews" -H "$JSON" -d '{}'
+expect "형식이 아닌 키" 401 -X POST "$BASE/reviews" -H 'authorization: Bearer nonsense' -H "$JSON" -d '{}'
+expect "형식은 맞지만 없는 키" 401 -X POST "$BASE/reviews" -H "authorization: Bearer ci_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" -H "$JSON" -d '{}'
+expect "폐기된 키" 401 -X POST "$BASE/reviews" -H "authorization: Bearer $REV" -H "$JSON" -d '{}'
+expect "만료된 키" 401 -X POST "$BASE/reviews" -H "authorization: Bearer $EXP" -H "$JSON" -d '{}'
 
 echo
 echo "===== 2. 검증 ====="
-expect "잘못된 Payload"            400 -X POST "$BASE/reviews" -H "authorization: Bearer $A" -H "$JSON" -d '{"repository":{"provider":"GITLAB"},"issues":[{"severity":"URGENT"}]}'
-expect "깨진 JSON"                 400 -X POST "$BASE/reviews" -H "authorization: Bearer $A" -H "$JSON" -d '{oops'
+expect "잘못된 Payload" 400 -X POST "$BASE/reviews" -H "authorization: Bearer $A" -H "$JSON" -d '{"repository":{"provider":"GITLAB"},"issues":[{"severity":"URGENT"}]}'
+expect "깨진 JSON" 400 -X POST "$BASE/reviews" -H "authorization: Bearer $A" -H "$JSON" -d '{oops'
 
 echo
 echo "===== 3. Review 저장 ====="
-expect "첫 저장"                   201 -X POST "$BASE/reviews" -H "authorization: Bearer $A" -H "$JSON" -H 'Idempotency-Key: e2e-run-1' --data-binary @"$WORK/review.json"
+expect "첫 저장" 201 -X POST "$BASE/reviews" -H "authorization: Bearer $A" -H "$JSON" -H 'Idempotency-Key: e2e-run-1' --data-binary @"$WORK/review.json"
 SESSION=$(pick reviewSessionId); REPO=$(pick repositoryId); ISSUE=$(pick "issues.find(i=>i.severity==='HIGH').id")
 COUNT=$(psql1 "select count(*) from review_issues where review_session_id='$SESSION'")
 if [ "$COUNT" = "3" ]; then ok "ReviewIssue 3건이 같은 Session 에 저장됐다"; else bad "Issue 수가 $COUNT 다"; fi
@@ -145,23 +145,23 @@ echo
 echo "===== 5. Tenant 격리 ====="
 expect "Workspace B 가 같은 GitHub Repository 를 저장" 201 -X POST "$BASE/reviews" -H "authorization: Bearer $B" -H "$JSON" -H 'Idempotency-Key: e2e-run-1' --data-binary @"$WORK/review.json"
 if [ "$(pick repositoryId)" != "$REPO" ]; then ok "Workspace 마다 다른 repositories 행"; else bad "Repository 가 Tenant 를 넘어 공유됐다"; fi
-expect "🔴 B 키로 A 의 Issue 에 Activity"  404 -X POST "$BASE/issues/$ISSUE/activities" -H "authorization: Bearer $B" -H "$JSON" -d '{"type":"COMMENT","actor":{"type":"AGENT","name":"intruder"},"description":"x"}'
-expect "🔴 B 키로 A 의 Issue 상태 변경"    404 -X PATCH "$BASE/issues/$ISSUE" -H "authorization: Bearer $B" -H "$JSON" -d '{"status":"IGNORED"}'
+expect "🔴 B 키로 A 의 Issue 에 Activity" 404 -X POST "$BASE/issues/$ISSUE/activities" -H "authorization: Bearer $B" -H "$JSON" -d '{"type":"COMMENT","actor":{"type":"AGENT","name":"intruder"},"description":"x"}'
+expect "🔴 B 키로 A 의 Issue 상태 변경" 404 -X PATCH "$BASE/issues/$ISSUE" -H "authorization: Bearer $B" -H "$JSON" -d '{"status":"IGNORED"}'
 
 echo
 echo "===== 6. Activity ====="
-expect "FIX_ATTEMPTED 추가"        201 -X POST "$BASE/issues/$ISSUE/activities" -H "authorization: Bearer $A" -H "$JSON" --data-binary @"$WORK/fix.json"
-expect "행위자 없는 Activity"       400 -X POST "$BASE/issues/$ISSUE/activities" -H "authorization: Bearer $A" -H "$JSON" -d '{"type":"COMMENT","description":"x"}'
-expect "UUID 아닌 issueId"          400 -X POST "$BASE/issues/not-a-uuid/activities" -H "authorization: Bearer $A" -H "$JSON" -d '{"type":"COMMENT","actor":{"type":"AGENT","name":"c"}}'
-expect "없는 issueId"               404 -X POST "$BASE/issues/00000000-0000-4000-8000-000000000000/activities" -H "authorization: Bearer $A" -H "$JSON" -d '{"type":"COMMENT","actor":{"type":"AGENT","name":"c"}}'
+expect "FIX_ATTEMPTED 추가" 201 -X POST "$BASE/issues/$ISSUE/activities" -H "authorization: Bearer $A" -H "$JSON" --data-binary @"$WORK/fix.json"
+expect "행위자 없는 Activity" 400 -X POST "$BASE/issues/$ISSUE/activities" -H "authorization: Bearer $A" -H "$JSON" -d '{"type":"COMMENT","description":"x"}'
+expect "UUID 아닌 issueId" 400 -X POST "$BASE/issues/not-a-uuid/activities" -H "authorization: Bearer $A" -H "$JSON" -d '{"type":"COMMENT","actor":{"type":"AGENT","name":"c"}}'
+expect "없는 issueId" 404 -X POST "$BASE/issues/00000000-0000-4000-8000-000000000000/activities" -H "authorization: Bearer $A" -H "$JSON" -d '{"type":"COMMENT","actor":{"type":"AGENT","name":"c"}}'
 
 echo
 echo "===== 7. Resolution — 상태와 History 가 함께 움직인다 ====="
-expect "요약 없는 RESOLVED"        400 -X PATCH "$BASE/issues/$ISSUE" -H "authorization: Bearer $A" -H "$JSON" -d '{"status":"RESOLVED"}'
-expect "RESOLVED"                  200 -X PATCH "$BASE/issues/$ISSUE" -H "authorization: Bearer $A" -H "$JSON" --data-binary @"$WORK/resolve.json"
+expect "요약 없는 RESOLVED" 400 -X PATCH "$BASE/issues/$ISSUE" -H "authorization: Bearer $A" -H "$JSON" -d '{"status":"RESOLVED"}'
+expect "RESOLVED" 200 -X PATCH "$BASE/issues/$ISSUE" -H "authorization: Bearer $A" -H "$JSON" --data-binary @"$WORK/resolve.json"
 KOR=$(psql1 "select (resolution_summary ~ '[가-힣]')::text from review_issues where id='$ISSUE'")
 if [ "$KOR" = "true" ]; then ok "한글 해결 요약이 UTF-8 로 온전히 저장됐다"; else bad "한글이 깨졌다"; fi
-expect "REOPENED"                  200 -X PATCH "$BASE/issues/$ISSUE" -H "authorization: Bearer $A" -H "$JSON" --data-binary @"$WORK/reopen.json"
+expect "REOPENED" 200 -X PATCH "$BASE/issues/$ISSUE" -H "authorization: Bearer $A" -H "$JSON" --data-binary @"$WORK/reopen.json"
 CLEARED=$(psql1 "select (resolved_at is null and resolution_summary is null)::text from review_issues where id='$ISSUE'")
 if [ "$CLEARED" = "true" ]; then ok "REOPENED 가 resolvedAt·resolutionSummary 를 비웠다"; else bad "REOPENED 인데 해결 흔적이 남았다"; fi
 KEPT=$(psql1 "select count(*) from issue_activities where review_issue_id='$ISSUE' and type='RESOLVED' and description ~ '[가-힣]'")
@@ -171,15 +171,15 @@ if [ "$BAD" = "0" ]; then ok "🔴 상태와 시각·요약이 모순된 행이 
 
 echo
 echo "===== 8. Knowledge Context ====="
-expect "Workspace A 조회"          200 "$BASE/knowledge/context?limit=10" -H "authorization: Bearer $A"
+expect "Workspace A 조회" 200 "$BASE/knowledge/context?limit=10" -H "authorization: Bearer $A"
 node -e "const j=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));
-console.log('   frequentPatterns:', j.frequentPatterns.map(p=>p.patternKey+' x'+p.occurrences+' (resolved '+p.resolvedCount+')').join(' | '));
-console.log('   unresolved:', j.unresolvedIssues.map(i=>i.severity).join(','));" "$WORK/body"
+console.log(' frequentPatterns:', j.frequentPatterns.map(p=>p.patternKey+' x'+p.occurrences+' (resolved '+p.resolvedCount+')').join(' | '));
+console.log(' unresolved:', j.unresolvedIssues.map(i=>i.severity).join(','));" "$WORK/body"
 expect "🔴 B 는 A 의 Resolution 을 못 본다" 200 "$BASE/knowledge/context?limit=10" -H "authorization: Bearer $B"
 if [ "$(pick 'pastResolutions.length')" = "0" ]; then ok "B 의 pastResolutions 가 비어 있다"; else bad "다른 Tenant 의 해결 요약이 새어 나왔다"; fi
-expect "🔴 남의 repositoryId 를 Filter 로"  200 "$BASE/knowledge/context?repositoryId=$REPO&limit=10" -H "authorization: Bearer $B"
+expect "🔴 남의 repositoryId 를 Filter 로" 200 "$BASE/knowledge/context?repositoryId=$REPO&limit=10" -H "authorization: Bearer $B"
 if [ "$(pick 'frequentPatterns.length + d.recentHighSeverityIssues.length + d.unresolvedIssues.length + d.pastResolutions.length')" = "0" ]; then ok "남의 repositoryId 로는 아무것도 나오지 않는다"; else bad "다른 Tenant 데이터가 나왔다"; fi
-expect "limit 상한 초과"           400 "$BASE/knowledge/context?limit=999" -H "authorization: Bearer $A"
+expect "limit 상한 초과" 400 "$BASE/knowledge/context?limit=999" -H "authorization: Bearer $A"
 
 echo
 echo "===== 9. 같은 문제 재보고 (source + externalId) ====="
@@ -207,7 +207,7 @@ r.repository.name='smil-fe'; r.repository.fullName='SMIL-26/smil-fe';
 r.issues=[{severity:'MEDIUM',category:'VALIDATION',patternKey:'MISSING_VALIDATION',title:'Missing request validation',source:'codex',externalId:'CDX-9'}];
 fs.writeFileSync(process.argv[1]+'/review-smil.json', JSON.stringify(r),'utf8');
 " "$WORK"
-expect "project 를 지정한 저장"       201 -X POST "$BASE/reviews" -H "authorization: Bearer $A" -H "$JSON" -H 'Idempotency-Key: e2e-smil-1' --data-binary @"$WORK/review-smil.json"
+expect "project 를 지정한 저장" 201 -X POST "$BASE/reviews" -H "authorization: Bearer $A" -H "$JSON" -H 'Idempotency-Key: e2e-smil-1' --data-binary @"$WORK/review-smil.json"
 SMIL_REPO=$(pick repositoryId)
 SMIL_PRJ=$(psql1 "select p.slug from repositories r join projects p on p.id=r.project_id where r.id='$SMIL_REPO'")
 if [ "$SMIL_PRJ" = "smil" ]; then ok "지정한 Project 로 들어갔다"; else bad "Project 가 '$SMIL_PRJ' 다"; fi
@@ -221,10 +221,10 @@ MIX=$(psql1 "select count(*) from repositories r join projects p on p.id=r.proje
 if [ "$MIX" = "0" ]; then ok "🔴 Workspace 를 넘나드는 Repository-Project 조합이 하나도 없다"; else bad "어긋난 조합이 $MIX 개다"; fi
 
 echo "----- Knowledge Context 의 Project Scope -----"
-expect "projectSlug 로 좁힌 조회"      200 "$BASE/knowledge/context?projectSlug=smil&limit=10" -H "authorization: Bearer $A"
+expect "projectSlug 로 좁힌 조회" 200 "$BASE/knowledge/context?projectSlug=smil&limit=10" -H "authorization: Bearer $A"
 if [ "$(pick 'frequentPatterns.map(p=>p.patternKey).join(",")')" = "MISSING_VALIDATION" ]; then ok "그 Project 의 Pattern 만 나온다"; else bad "Project Scope 가 걸리지 않았다"; fi
 if [ "$(pick 'scope.projectResolved')" = "true" ]; then ok "scope 가 Project 를 찾았음을 알린다"; else bad "scope 가 비었다"; fi
-expect "🔴 없는 projectSlug"           200 "$BASE/knowledge/context?projectSlug=no-such&limit=10" -H "authorization: Bearer $A"
+expect "🔴 없는 projectSlug" 200 "$BASE/knowledge/context?projectSlug=no-such&limit=10" -H "authorization: Bearer $A"
 if [ "$(pick 'scope.projectResolved')" = "false" ] && [ "$(pick 'frequentPatterns.length + d.unresolvedIssues.length')" = "0" ]; then ok "🔴 못 찾았음을 알리고 빈 결과를 준다 — Workspace 전체로 넓히지 않는다"; else bad "없는 Project 인데 다른 데이터가 나왔다"; fi
 expect "🔴 B 키로 A 의 project slug 조회" 200 "$BASE/knowledge/context?projectSlug=smil&limit=10" -H "authorization: Bearer $B"
 # B 도 자기 'smil' Project 를 갖는다(위에서 만들어졌다). 같은 slug 로 조회하면
@@ -240,32 +240,32 @@ echo "===== 11. Decision Record · Code Evidence · 읽기 API ====="
 node -e "
 const fs=require('fs');
 fs.writeFileSync(process.argv[1]+'/decide.json', JSON.stringify({
-  repository:{provider:'GITHUB',owner:'SMIL-26',name:'smil-be',fullName:'SMIL-26/smil-be',
-    defaultBranch:'develop'},
-  target:{type:'COMMIT',branch:'develop',commitSha:'a81f3c2'},
-  reviewer:{type:'AGENT',name:'claude-code',version:'2.0'},
-  issues:[{severity:'HIGH',category:'TRANSACTION',patternKey:'EXTERNAL_IO_IN_TRANSACTION',
-    title:'Transaction 안에서 외부 API 를 부른다',
-    description:'주문 저장 Transaction 안에서 결제 API 를 호출한다.',
-    rootCause:'Transaction 경계를 Service 전체로 잡았다.',
-    failurePath:'결제 API 가 느려지면 Connection Pool 이 마르고 주문 전체가 멈춘다.',
-    filePath:'src/OrderService.java',startLine:40,endLine:52,
-    source:'claude',externalId:'CLD-EV-1',
-    decision:{solution:'Transaction 을 축소하고 결제 호출을 밖으로 옮겼다',
-      decisionReason:'보상 처리가 재시도로 충분했다',
-      alternativesConsidered:'Saga 도입 — 지금 규모에 과하다',
-      tradeOff:'결제 실패 시 주문이 잠깐 PENDING 으로 남는다',
-      verification:'부하 시험에서 Pool 고갈이 사라졌다',
-      regressionTest:'OrderServiceTest#외부호출은_Transaction_밖에서',
-      residualRisk:'보상 실패가 겹치면 수동 정리가 필요하다'},
-    evidence:[{kind:'BEFORE',commitSha:'a81f3c2',filePath:'src/OrderService.java',
-      startLine:40,endLine:52,snapshot:'@Transactional\npublic void place() { pay(); }'}]}]
+ repository:{provider:'GITHUB',owner:'SMIL-26',name:'smil-be',fullName:'SMIL-26/smil-be',
+ defaultBranch:'develop'},
+ target:{type:'COMMIT',branch:'develop',commitSha:'a81f3c2'},
+ reviewer:{type:'AGENT',name:'claude-code',version:'2.0'},
+ issues:[{severity:'HIGH',category:'TRANSACTION',patternKey:'EXTERNAL_IO_IN_TRANSACTION',
+ title:'Transaction 안에서 외부 API 를 부른다',
+ description:'주문 저장 Transaction 안에서 결제 API 를 호출한다.',
+ rootCause:'Transaction 경계를 Service 전체로 잡았다.',
+ failurePath:'결제 API 가 느려지면 Connection Pool 이 마르고 주문 전체가 멈춘다.',
+ filePath:'src/OrderService.java',startLine:40,endLine:52,
+ source:'claude',externalId:'CLD-EV-1',
+ decision:{solution:'Transaction 을 축소하고 결제 호출을 밖으로 옮겼다',
+ decisionReason:'보상 처리가 재시도로 충분했다',
+ alternativesConsidered:'Saga 도입 — 지금 규모에 과하다',
+ tradeOff:'결제 실패 시 주문이 잠깐 PENDING 으로 남는다',
+ verification:'부하 시험에서 Pool 고갈이 사라졌다',
+ regressionTest:'OrderServiceTest#외부호출은_Transaction_밖에서',
+ residualRisk:'보상 실패가 겹치면 수동 정리가 필요하다'},
+ evidence:[{kind:'BEFORE',commitSha:'a81f3c2',filePath:'src/OrderService.java',
+ startLine:40,endLine:52,snapshot:'@Transactional\npublic void place() { pay(); }'}]}]
 }), 'utf8');
 fs.writeFileSync(process.argv[1]+'/after.json', JSON.stringify({
-  type:'FIX_ATTEMPTED', actor:{type:'AGENT',name:'claude-code'}, commitSha:'bbb2222',
-  decision:{solution:'결제 호출을 Transaction 밖으로 뺐다', decisionReason:'첫 시도가 Timeout 을 못 막았다'},
-  evidence:[{kind:'AFTER',commitSha:'bbb2222',filePath:'src/OrderService.java',startLine:40,endLine:48,
-    snapshot:'public void place() { save(); }\npay();'}]}), 'utf8');
+ type:'FIX_ATTEMPTED', actor:{type:'AGENT',name:'claude-code'}, commitSha:'bbb2222',
+ decision:{solution:'결제 호출을 Transaction 밖으로 뺐다', decisionReason:'첫 시도가 Timeout 을 못 막았다'},
+ evidence:[{kind:'AFTER',commitSha:'bbb2222',filePath:'src/OrderService.java',startLine:40,endLine:48,
+ snapshot:'public void place() { save(); }\npay();'}]}), 'utf8');
 " "$WORK"
 
 expect "숫자 id 없이 Review 저장 — Agent 는 git remote 만 안다" 201 -X POST "$BASE/reviews" -H "authorization: Bearer $A" -H "$JSON" -H 'Idempotency-Key: e2e-decision-1' --data-binary @"$WORK/decide.json"
@@ -295,10 +295,10 @@ echo "----- 확인되지 않은 것을 확인했다고 적지 않는가 -----"
 # 없는 Commit 이므로 GitHub 에서 볼 수 없다. after() 가 응답 뒤에 도니 잠깐 기다린다.
 UNVERIFIED=0
 for _ in 1 2 3 4 5 6 7 8; do
-  UNVERIFIED=$(psql1 "select count(*) from issue_code_evidences where review_issue_id='$EV_ISSUE' and verification <> 'VERIFIED'")
-  DONE=$(psql1 "select count(*) from issue_code_evidences where review_issue_id='$EV_ISSUE' and verification='UNVERIFIED'")
-  [ "$DONE" = "0" ] && break
-  sleep 1
+ UNVERIFIED=$(psql1 "select count(*) from issue_code_evidences where review_issue_id='$EV_ISSUE' and verification <> 'VERIFIED'")
+ DONE=$(psql1 "select count(*) from issue_code_evidences where review_issue_id='$EV_ISSUE' and verification='UNVERIFIED'")
+ [ "$DONE" = "0" ] && break
+ sleep 1
 done
 if [ "$UNVERIFIED" = "2" ]; then ok "🔴 GitHub 에서 못 본 근거는 VERIFIED 가 되지 않았다"; else bad "확인하지 않은 근거가 VERIFIED 로 적혔다"; fi
 SNAP=$(psql1 "select count(*) from issue_code_evidences where review_issue_id='$EV_ISSUE' and snapshot is not null")
@@ -324,8 +324,8 @@ PAT=$(pick "issues.length")
 if [ "$PAT" -ge 1 ]; then ok "Pattern 으로 과거 사례를 찾는다 ($PAT건)"; else bad "Pattern 검색이 안 된다"; fi
 
 # 🔴 B 도 «자기» Workspace 에 같은 이름의 저장소를 갖고 있다(10장에서 만들어졌다).
-#    그러므로 「0건」은 옳은 기대가 아니다. 옳은 기대는 **돌아온 행이 전부 B 의 것**이라는 쪽이다 —
-#    같은 owner/name 을 넣었을 때 A 의 행이 한 줄이라도 섞이면 그것이 유출이다.
+# 그러므로 「0건」은 옳은 기대가 아니다. 옳은 기대는 **돌아온 행이 전부 B 의 것**이라는 쪽이다 —
+# 같은 owner/name 을 넣었을 때 A 의 행이 한 줄이라도 섞이면 그것이 유출이다.
 expect "🔴 B 키로 A 와 같은 이름의 저장소 검색" 200 "$BASE/issues?repository=SMIL-26/smil-be" -H "authorization: Bearer $B"
 IDS=$(pick "issues.map(i=>\"'\"+i.id+\"'\").join(',')||\"'00000000-0000-4000-8000-000000000000'\"")
 LEAK=$(psql1 "select count(*) from review_issues where id in ($IDS) and workspace_id <> 'bbbbbbbb-0000-4000-8000-000000000002'")
@@ -342,17 +342,17 @@ echo "===== 12. Repository 신원 · 검색어 경계 ====="
 node -e "
 const fs=require('fs');
 const repo = (extId) => ({provider:'GITHUB',owner:'idcheck',name:'app',fullName:'idcheck/app',
-  defaultBranch:'main', ...(extId===null?{}:{externalRepositoryId:extId})});
+ defaultBranch:'main',...(extId===null?{}:{externalRepositoryId:extId})});
 const mk = (extId, title) => ({repository:repo(extId),
-  target:{type:'COMMIT',commitSha:'c0ffee1'},
-  reviewer:{type:'AGENT',name:'codex'},
-  issues:[{severity:'LOW',category:'CLEAN_CODE',title}]});
+ target:{type:'COMMIT',commitSha:'c0ffee1'},
+ reviewer:{type:'AGENT',name:'codex'},
+ issues:[{severity:'LOW',category:'CLEAN_CODE',title}]});
 fs.writeFileSync(process.argv[1]+'/id-none.json', JSON.stringify(mk(null,'이름으로만 만든 저장소')), 'utf8');
 fs.writeFileSync(process.argv[1]+'/id-100.json', JSON.stringify(mk('100','숫자 id 100 로 승격')), 'utf8');
 fs.writeFileSync(process.argv[1]+'/id-200.json', JSON.stringify(mk('200','같은 이름 다른 저장소')), 'utf8');
 fs.writeFileSync(process.argv[1]+'/wild.json', JSON.stringify({repository:repo('300'),
-  target:{type:'COMMIT',commitSha:'c0ffee2'},reviewer:{type:'AGENT',name:'codex'},
-  issues:[{severity:'LOW',category:'CLEAN_CODE',title:'퍼센트 % 가 든 제목'}]}), 'utf8');
+ target:{type:'COMMIT',commitSha:'c0ffee2'},reviewer:{type:'AGENT',name:'codex'},
+ issues:[{severity:'LOW',category:'CLEAN_CODE',title:'퍼센트 % 가 든 제목'}]}), 'utf8');
 " "$WORK"
 
 expect "숫자 id 없이 저장소를 만든다" 201 -X POST "$BASE/reviews" -H "authorization: Bearer $A" -H "$JSON" --data-binary @"$WORK/id-none.json"
@@ -389,15 +389,15 @@ echo "===== 13. 같은 것을 가리키는 칸이 서로 어긋나지 않는가 
 node -e "
 const fs=require('fs');
 const mk=(repo)=>({repository:repo,target:{type:'COMMIT',commitSha:'d00d'},
-  reviewer:{type:'AGENT',name:'codex'},issues:[]});
+ reviewer:{type:'AGENT',name:'codex'},issues:[]});
 fs.writeFileSync(process.argv[1]+'/mismatch.json', JSON.stringify(mk({
-  provider:'GITHUB',owner:'real',name:'source',fullName:'other/project',defaultBranch:'main'})), 'utf8');
+ provider:'GITHUB',owner:'real',name:'source',fullName:'other/project',defaultBranch:'main'})), 'utf8');
 fs.writeFileSync(process.argv[1]+'/case.json', JSON.stringify(mk({
-  provider:'GITHUB',owner:'Acme',name:'App',fullName:'acme/app',defaultBranch:'main'})), 'utf8');
+ provider:'GITHUB',owner:'Acme',name:'App',fullName:'acme/app',defaultBranch:'main'})), 'utf8');
 " "$WORK"
 
 # 🔴 어긋나면 Evidence 확인은 owner/name 으로 GitHub 을 읽고, 화면·검색은 fullName 을 보여 준다 —
-#    다른 저장소의 코드가 확인된 근거처럼 붙는다.
+# 다른 저장소의 코드가 확인된 근거처럼 붙는다.
 expect "🔴 fullName 이 owner/name 과 다르면 거절한다" 400 -X POST "$BASE/reviews" -H "authorization: Bearer $A" -H "$JSON" --data-binary @"$WORK/mismatch.json"
 STRAY=$(psql1 "select count(*) from repositories where full_name='other/project'")
 if [ "$STRAY" = "0" ]; then ok "어긋난 요청이 행을 만들지 않았다"; else bad "행이 $STRAY 개 생겼다"; fi

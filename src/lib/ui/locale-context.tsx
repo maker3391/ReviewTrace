@@ -13,12 +13,12 @@ import { DEFAULT_LOCALE, type Locale } from "@/config/i18n";
  * 받는다(`AppearanceControls` 참고). 그 길이 막힌 자리가 둘이다:
  *
  * ```text
- * app/error.tsx           Next.js 가 error·retry 두 개만 넘긴다. prop 을 끼워 넣을 수 없다
- * 폼의 Zod 검증           브라우저에서 도는 검증이라 문구도 브라우저에서 정해진다
+ * app/error.tsx Next.js 가 error·retry 두 개만 넘긴다. prop 을 끼워 넣을 수 없다
+ * 폼의 Zod 검증 브라우저에서 도는 검증이라 문구도 브라우저에서 정해진다
  * ```
  *
  * 🔴 **그렇다고 사전을 통째로 내려보내지 않는다.** 여기 실려 가는 것은 `"ko"` · `"en"`
- * **두 글자뿐**이고, 문구는 각자 `messages(locale)` 에서 꺼낸다(CLAUDE.md 11).
+ * **두 글자뿐**이고, 문구는 각자 `messages(locale)` 에서 꺼낸다.
  *
  * 🔴 **전역 변수가 아니다.** 값은 Root Layout 이 요청마다 읽은 쿠키에서 오고 React Tree 를
  * 따라 내려간다 — 서버에 「지금 언어」라는 상태를 만들지 않는다.
@@ -32,13 +32,13 @@ import { DEFAULT_LOCALE, type Locale } from "@/config/i18n";
 const LocaleContext = createContext<Locale>(DEFAULT_LOCALE);
 
 export function LocaleProvider({
-  locale,
-  children,
+ locale,
+ children,
 }: {
-  locale: Locale;
-  children: ReactNode;
+ locale: Locale;
+ children: ReactNode;
 }) {
-  return <LocaleContext value={locale}>{children}</LocaleContext>;
+ return <LocaleContext value={locale}>{children}</LocaleContext>;
 }
 
 /**
@@ -48,5 +48,5 @@ export function LocaleProvider({
  * **없을 때 기본 언어로 그려지는 편**이 다시 죽는 것보다 낫다.
  */
 export function useLocale(): Locale {
-  return use(LocaleContext);
+ return use(LocaleContext);
 }

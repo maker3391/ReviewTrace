@@ -7,8 +7,8 @@
  * Server Component 에서 읽으면 진짜 문자열이 아니라 Proxy 객체가 온다.
  *
  * ```
- * className={FLEX_CELL}        Proxy 가 «prop 으로» 경계를 건너가 Client 에서 풀린다  → 동작함
- * cn(FLEX_CELL, "...")         Server 에서 «지금» 값을 읽는다 → clsx 가 객체를 보고 버린다 → 사라짐
+ * className={FLEX_CELL} Proxy 가 «prop 으로» 경계를 건너가 Client 에서 풀린다 → 동작함
+ * cn(FLEX_CELL, "...") Server 에서 «지금» 값을 읽는다 → clsx 가 객체를 보고 버린다 → 사라짐
  * ```
  *
  * 그래서 Reviews·Repositories 목록과 Project Dashboard 처럼 `cn(FLEX_CELL, …)` 로 쓴
@@ -21,91 +21,91 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
-  return (
-    <div
-      data-slot="table-container"
-      className="relative w-full overflow-x-auto"
-    >
-      <table
-        data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
-        {...props}
-      />
-    </div>
-  )
+function Table({ className,...props }: React.ComponentProps<"table">) {
+ return (
+ <div
+ data-slot="table-container"
+ className="relative w-full overflow-x-auto"
+ >
+ <table
+ data-slot="table"
+ className={cn("w-full caption-bottom text-sm", className)}
+ {...props}
+ />
+ </div>
+)
 }
 
-function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
-  return (
-    <thead
-      data-slot="table-header"
-      className={cn("bg-surface-muted/60 [&_tr]:border-b", className)}
-      {...props}
-    />
-  )
+function TableHeader({ className,...props }: React.ComponentProps<"thead">) {
+ return (
+ <thead
+ data-slot="table-header"
+ className={cn("bg-surface-muted/60 [&_tr]:border-b", className)}
+ {...props}
+ />
+)
 }
 
-function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
-  return (
-    <tbody
-      data-slot="table-body"
-      className={cn("[&_tr:last-child]:border-0", className)}
-      {...props}
-    />
-  )
+function TableBody({ className,...props }: React.ComponentProps<"tbody">) {
+ return (
+ <tbody
+ data-slot="table-body"
+ className={cn("[&_tr:last-child]:border-0", className)}
+ {...props}
+ />
+)
 }
 
-function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
-  return (
-    <tfoot
-      data-slot="table-footer"
-      className={cn(
-        "border-t bg-muted/50 font-medium [&>tr]:last:border-b-0",
-        className
-      )}
-      {...props}
-    />
-  )
+function TableFooter({ className,...props }: React.ComponentProps<"tfoot">) {
+ return (
+ <tfoot
+ data-slot="table-footer"
+ className={cn(
+ "border-t bg-muted/50 font-medium [&>tr]:last:border-b-0",
+ className
+)}
+ {...props}
+ />
+)
 }
 
-function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
-  return (
-    <tr
-      data-slot="table-row"
-      className={cn(
-        "border-b border-border/60 transition-colors last:border-0 hover:bg-accent/40 has-aria-expanded:bg-accent/40 data-[state=selected]:bg-accent/60",
-        className
-      )}
-      {...props}
-    />
-  )
+function TableRow({ className,...props }: React.ComponentProps<"tr">) {
+ return (
+ <tr
+ data-slot="table-row"
+ className={cn(
+ "border-b border-border/60 transition-colors last:border-0 hover:bg-accent/40 has-aria-expanded:bg-accent/40 data-[state=selected]:bg-accent/60",
+ className
+)}
+ {...props}
+ />
+)
 }
 
-function TableHead({ className, ...props }: React.ComponentProps<"th">) {
-  return (
-    <th
-      data-slot="table-head"
-      className={cn(
-        "h-9 px-3 text-left align-middle text-[11px] font-medium uppercase tracking-wide whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
-        className
-      )}
-      {...props}
-    />
-  )
+function TableHead({ className,...props }: React.ComponentProps<"th">) {
+ return (
+ <th
+ data-slot="table-head"
+ className={cn(
+ "h-9 px-3 text-left align-middle text-[11px] font-medium uppercase tracking-wide whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
+ className
+)}
+ {...props}
+ />
+)
 }
 
-function TableCell({ className, ...props }: React.ComponentProps<"td">) {
-  return (
-    <td
-      data-slot="table-cell"
-      className={cn(
-        "px-3 py-2.5 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
-        className
-      )}
-      {...props}
-    />
-  )
+function TableCell({ className,...props }: React.ComponentProps<"td">) {
+ return (
+ <td
+ data-slot="table-cell"
+ className={cn(
+ "px-3 py-2.5 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+ className
+)}
+ {...props}
+ />
+)
 }
 
 /**
@@ -116,8 +116,8 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
  * 「…」로 끝나는 화면이 실제로 그렇게 나왔다(`components/molecules/PageContainer.tsx`).
  *
  * ```
- * max-w-0   이 칸의 «내용»이 열을 밀어내지 못하게 한다 — 긴 식별자 하나가 표를 넓히지 않는다
- * w-full    그러고 남은 폭을 이 칸이 가져간다
+ * max-w-0 이 칸의 «내용»이 열을 밀어내지 못하게 한다 — 긴 식별자 하나가 표를 넓히지 않는다
+ * w-full 그러고 남은 폭을 이 칸이 가져간다
  * ```
  *
  * 둘을 함께 걸면 **다른 열은 제 폭대로 서고, 남는 자리는 전부 이 칸**이 된다.
@@ -150,10 +150,10 @@ const FLEX_CELL = "w-full max-w-0"
  * `owner/name`, `break-all`)의 **줄 수가 꺾이는 자리가 128px** 이다. 그 아래로는 줄이 는다.
  *
  * ```
- * 바닥 없음   55px   Reviews 132px 높이(8줄) · Repositories 160px(10줄)   ← 원래의 고장
- * 96 · 112    그대로  Reviews  68px          · Repositories  80px
- * 128         ✔      Reviews  52px          · Repositories  60px
- * 144 · 160   같음    Reviews  52px          · Repositories  60px         ← 32px 을 더 써도 얻는 것이 없다
+ * 바닥 없음 55px Reviews 132px 높이(8줄) · Repositories 160px(10줄) ← 원래의 고장
+ * 96 · 112 그대로 Reviews 68px · Repositories 80px
+ * 128 ✔ Reviews 52px · Repositories 60px
+ * 144 · 160 같음 Reviews 52px · Repositories 60px ← 32px 을 더 써도 얻는 것이 없다
  * ```
  *
  * 잘라내는 식별자(제목·이름, `truncate`)는 **폭이 줄어도 줄 수가 늘지 않는다** — 보이는
@@ -162,11 +162,11 @@ const FLEX_CELL = "w-full max-w-0"
  * **768 — 32px 을 되돌려 받는다.**
  *
  * ```
- *                       160px      128px
- * Project Overview      +23  →      0
- * Projects              +43  →     +11
- * Reviews               +70  →     +38
- * Repositories · Dashboard  0 →      0     (자연 폭이 이미 바닥보다 넓다)
+ * 160px 128px
+ * Project Overview +23 → 0
+ * Projects +43 → +11
+ * Reviews +70 → +38
+ * Repositories · Dashboard 0 → 0 (자연 폭이 이미 바닥보다 넓다)
  * ```
  *
  * **1024 이상에서는 이 값이 아무 일도 하지 않는다** — 남는 폭이 바닥보다 넓어 `w-full` 이
@@ -175,7 +175,7 @@ const FLEX_CELL = "w-full max-w-0"
  * 🔴 **여기서 더 낮추지 마라.** 112px 로 내리면 768 의 Projects 만 11px 을 얻는 대신
  * **390 에서 저장소 이름이 다시 한 줄 더 접힌다**(52 → 68px). 그것이 원래 고치려던 문제다.
  * 바닥에 닿으면 **표만** 제 컨테이너 안에서 가로로 넘어간다 — 그것은 의도된 동작이고,
- * 🔴 **페이지 자체는 좌우로 넘치지 않는다**(CLAUDE.md 16). 실제로 모든 폭에서 `<main>` 의
+ * 🔴 **페이지 자체는 좌우로 넘치지 않는다**. 실제로 모든 폭에서 `<main>` 의
  * 넘침은 0 이다.
  *
  * 🔴 **모든 `FLEX_CELL` 을 이것으로 바꾸지 마라.** 남는 폭을 «흡수만» 하는 칸
@@ -185,27 +185,27 @@ const FLEX_CELL = "w-full max-w-0"
 const NAME_CELL = `${FLEX_CELL} min-w-32`
 
 function TableCaption({
-  className,
-  ...props
+ className,
+...props
 }: React.ComponentProps<"caption">) {
-  return (
-    <caption
-      data-slot="table-caption"
-      className={cn("mt-4 text-sm text-muted-foreground", className)}
-      {...props}
-    />
-  )
+ return (
+ <caption
+ data-slot="table-caption"
+ className={cn("mt-4 text-sm text-muted-foreground", className)}
+ {...props}
+ />
+)
 }
 
 export {
-  FLEX_CELL,
-  NAME_CELL,
-  Table,
-  TableHeader,
-  TableBody,
-  TableFooter,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableCaption,
+ FLEX_CELL,
+ NAME_CELL,
+ Table,
+ TableHeader,
+ TableBody,
+ TableFooter,
+ TableHead,
+ TableRow,
+ TableCell,
+ TableCaption,
 }

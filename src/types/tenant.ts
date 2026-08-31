@@ -3,7 +3,7 @@
  *
  * 🔴 **여기 담긴 값은 이미 인증을 통과한 것이다.** Client 가 보낸 `workspaceId`·`projectId` 를
  * 그대로 넣지 않는다 — 이 타입을 만드는 자리는 `requireWorkspace`·`requireProject` 뿐이다
- * (CLAUDE.md 11).
+ *.
  *
  * ## 왜 타입 하나를 공유하는가
  *
@@ -16,7 +16,7 @@
 
 /** Workspace 하나로 좁힌 범위. */
 export interface WorkspaceScope {
-  workspaceId: string;
+ workspaceId: string;
 }
 
 /**
@@ -27,5 +27,5 @@ export interface WorkspaceScope {
  * 틀려도 결과가 비어서 돌아온다.
  */
 export interface ProjectScope extends WorkspaceScope {
-  projectId: string;
+ projectId: string;
 }

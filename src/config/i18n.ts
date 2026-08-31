@@ -4,13 +4,13 @@ import { ko, type Messages } from "@/config/messages/ko";
 /**
  * 화면 언어.
  *
- * 🔴 **i18n 라이브러리를 들이지 않는다**(CLAUDE.md 18). `next-intl` · `react-i18next` 가
+ * 🔴 **i18n 라이브러리를 들이지 않는다**. `next-intl` · `react-i18next` 가
  * 푸는 문제는 **언어가 여럿이고 문구가 수천 개일 때의 지연 로딩 · 복수형 · 형식화**다.
  * 여기는 언어 둘에 화면 수십 개이고 복수형 규칙을 쓰는 자리가 없다 —
  * **타입이 잡히는 사전 객체 하나**로 충분하고, 그편이 키 누락을 컴파일 시점에 잡는다.
  *
  * 🔴 **왜 쿠키인가 — 서버가 그릴 때 이미 알아야 하기 때문이다.** 조회 화면이 전부
- * Server Component 라(CLAUDE.md 8) 문구도 서버에서 정해진다. 쿠키는 요청과 함께 오므로
+ * Server Component 라 문구도 서버에서 정해진다. 쿠키는 요청과 함께 오므로
  * 첫 응답부터 맞는 언어로 나간다. 사이드바 접힘 상태(`lib/ui/sidebar-state.ts`)·
  * 테마(`lib/ui/theme.ts`)와 같은 방식이다.
  *
@@ -34,12 +34,12 @@ export const LOCALE_COOKIE = "locale";
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
 export function isLocale(value: string | undefined): value is Locale {
-  return value !== undefined && (LOCALES as readonly string[]).includes(value);
+ return value !== undefined && (LOCALES as readonly string[]).includes(value);
 }
 
 /** 쿠키 값을 언어로 읽는다. 값이 없거나 이상하면 기본 언어다. */
 export function parseLocale(value: string | undefined): Locale {
-  return isLocale(value) ? value : DEFAULT_LOCALE;
+ return isLocale(value) ? value : DEFAULT_LOCALE;
 }
 
 /**
@@ -49,7 +49,7 @@ export function parseLocale(value: string | undefined): Locale {
  * 브라우저 번들에 통째로 실리지도 않는다 — 나누면 얻는 것 없이 비동기 경계만 는다.
  */
 export function messages(locale: Locale): Messages {
-  return locale === "en" ? en : ko;
+ return locale === "en" ? en : ko;
 }
 
 /**
@@ -59,12 +59,12 @@ export function messages(locale: Locale): Messages {
  * 비밀이 아니라 표시 값이므로 `secure` 는 프로토콜에 맡긴다.
  *
  * 🔴 **테마와 달리 이것만으로 화면이 바뀌지 않는다.** 문구는 서버가 그린 것이라
- * 쓰고 나서 `router.refresh()` 로 **서버에 다시 그리게** 해야 한다(CLAUDE.md 8) —
+ * 쓰고 나서 `router.refresh()` 로 **서버에 다시 그리게** 해야 한다 —
  * 브라우저에서 문구를 갈아 끼우지 않는다.
  */
 export function writeLocaleCookie(locale: Locale): void {
-  const secure = window.location.protocol === "https:" ? "; secure" : "";
-  document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=${ONE_YEAR_SECONDS}; samesite=lax${secure}`;
+ const secure = window.location.protocol === "https:" ? "; secure" : "";
+ document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=${ONE_YEAR_SECONDS}; samesite=lax${secure}`;
 }
 
 export type { Messages };

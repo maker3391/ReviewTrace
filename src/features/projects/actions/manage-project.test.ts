@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * 사라지는 작업이다 — **조회 권한과 파괴 권한은 다른 판정이다.**
  *
  * 🔴 **되돌림 확인이 이 파일을 낳았다.** `requireOwner(workspace)` 를 지워 보니 전 스위트가
- * **그대로 초록이었다.** 화면에서 Danger Zone 을 감추는 것은 편의일 뿐이고(CLAUDE.md 11),
+ * **그대로 초록이었다.** 화면에서 Danger Zone 을 감추는 것은 편의일 뿐이고,
  * Server Action 은 주소만 알면 누구나 부를 수 있다.
  *
  * ## 🔴 이 시험이 지키지 «못하는» 것
@@ -28,65 +28,65 @@ const deleteProject = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 vi.mock("@/lib/auth/require-project", () => ({
-  requireProject: (...args: unknown[]) => requireProject(...args),
+ requireProject: (...args: unknown[]) => requireProject(...args),
 }));
 
 vi.mock("@/lib/auth/require-workspace", () => ({
-  requireOwner: (...args: unknown[]) => requireOwner(...args),
+ requireOwner: (...args: unknown[]) => requireOwner(...args),
 }));
 
 vi.mock("@/features/projects/server/project-service", () => ({
-  deleteProject: (...args: unknown[]) => deleteProject(...args),
-  updateProject: vi.fn(),
+ deleteProject: (...args: unknown[]) => deleteProject(...args),
+ updateProject: vi.fn(),
 }));
 
 const { deleteProjectAction } = await import(
-  "@/features/projects/actions/manage-project"
+ "@/features/projects/actions/manage-project"
 );
 
 const WORKSPACE = { workspaceId: "11111111-1111-4111-8111-111111111111" };
 const PROJECT = { projectId: "22222222-2222-4222-8222-222222222222" };
 
 beforeEach(() => {
-  vi.clearAllMocks();
-  requireProject.mockResolvedValue({ workspace: WORKSPACE, project: PROJECT });
-  requireOwner.mockReturnValue(undefined);
-  deleteProject.mockResolvedValue(undefined);
+ vi.clearAllMocks();
+ requireProject.mockResolvedValue({ workspace: WORKSPACE, project: PROJECT });
+ requireOwner.mockReturnValue(undefined);
+ deleteProject.mockResolvedValue(undefined);
 });
 
 describe("deleteProjectAction — 파괴 권한", () => {
-  it("🔴 OWNER 검증을 «지우기 전에» 부른다", async () => {
-    await deleteProjectAction({ workspaceSlug: "acme", projectSlug: "smil" });
+ it("🔴 OWNER 검증을 «지우기 전에» 부른다", async () => {
+ await deleteProjectAction({ workspaceSlug: "acme", projectSlug: "smil" });
 
-    expect(requireOwner).toHaveBeenCalledWith(WORKSPACE);
-    expect(deleteProject).toHaveBeenCalledTimes(1);
+ expect(requireOwner).toHaveBeenCalledWith(WORKSPACE);
+ expect(deleteProject).toHaveBeenCalledTimes(1);
 
-    // 🔴 순서가 뒤집히면 「지운 뒤에 권한을 본다」가 된다.
-    const ownerCall = requireOwner.mock.invocationCallOrder[0] ?? 0;
-    const deleteCall = deleteProject.mock.invocationCallOrder[0] ?? 0;
-    expect(ownerCall).toBeLessThan(deleteCall);
-  });
+ // 🔴 순서가 뒤집히면 「지운 뒤에 권한을 본다」가 된다.
+ const ownerCall = requireOwner.mock.invocationCallOrder[0] ?? 0;
+ const deleteCall = deleteProject.mock.invocationCallOrder[0] ?? 0;
+ expect(ownerCall).toBeLessThan(deleteCall);
+ });
 
-  /**
-   * 🔴 `requireOwner` 는 `notFound()` 를 던진다 — 그 자리를 흉내 낸다.
-   * 던지는 예외의 «종류»가 아니라 **삭제가 일어나지 않는다**는 사실을 붙든다.
-   */
-  it("🔴 OWNER 가 아니면 삭제가 «일어나지 않는다»", async () => {
-    requireOwner.mockImplementation(() => {
-      throw new Error("NEXT_NOT_FOUND");
-    });
+ /**
+ * 🔴 `requireOwner` 는 `notFound()` 를 던진다 — 그 자리를 흉내 낸다.
+ * 던지는 예외의 «종류»가 아니라 **삭제가 일어나지 않는다**는 사실을 붙든다.
+ */
+ it("🔴 OWNER 가 아니면 삭제가 «일어나지 않는다»", async () => {
+ requireOwner.mockImplementation(() => {
+ throw new Error("NEXT_NOT_FOUND");
+ });
 
-    await deleteProjectAction({ workspaceSlug: "acme", projectSlug: "smil" });
+ await deleteProjectAction({ workspaceSlug: "acme", projectSlug: "smil" });
 
-    expect(deleteProject).not.toHaveBeenCalled();
-  });
+ expect(deleteProject).not.toHaveBeenCalled();
+ });
 
-  it("Workspace·Project 는 «주소가 아니라» 소속 확인이 돌려준 값을 쓴다", async () => {
-    await deleteProjectAction({ workspaceSlug: "acme", projectSlug: "smil" });
+ it("Workspace·Project 는 «주소가 아니라» 소속 확인이 돌려준 값을 쓴다", async () => {
+ await deleteProjectAction({ workspaceSlug: "acme", projectSlug: "smil" });
 
-    expect(deleteProject).toHaveBeenCalledWith({
-      workspaceId: WORKSPACE.workspaceId,
-      projectId: PROJECT.projectId,
-    });
-  });
+ expect(deleteProject).toHaveBeenCalledWith({
+ workspaceId: WORKSPACE.workspaceId,
+ projectId: PROJECT.projectId,
+ });
+ });
 });

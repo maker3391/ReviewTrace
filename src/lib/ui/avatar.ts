@@ -27,7 +27,7 @@
  * 외부 도메인이라 `next.config.ts` 에 `images.remotePatterns` 를 열어야 하고, 그러면
  * 우리 서버가 GitHub 이미지를 대신 받아 다시 내보내는 최적화 경로가 붙는다. GitHub 의
  * 아바타 CDN 이 **이미 크기별 리사이즈를 제공**하므로 그 파이프라인이 하는 일을 한 번 더
- * 하는 셈이다(CLAUDE.md 18). 필요한 것은 「DPR 별로 다른 크기를 고르게 하는 것」뿐이고,
+ * 하는 셈이다. 필요한 것은 「DPR 별로 다른 크기를 고르게 하는 것」뿐이고,
  * 그건 `srcSet` 한 줄이다.
  */
 
@@ -50,10 +50,10 @@ const SIZE_PARAMS = ["s", "size"] as const;
 const DEVICE_PIXEL_RATIOS = [1, 2, 3] as const;
 
 export type AvatarSources = {
-  /** `srcSet` 을 모르는 클라이언트가 받을 값. 표시 크기의 2배로 둔다. */
-  src: string;
-  /** DPR 별 후보. GitHub 아바타가 아니면 `undefined` — 그때는 원본 그대로 쓴다. */
-  srcSet?: string;
+ /** `srcSet` 을 모르는 클라이언트가 받을 값. 표시 크기의 2배로 둔다. */
+ src: string;
+ /** DPR 별 후보. GitHub 아바타가 아니면 `undefined` — 그때는 원본 그대로 쓴다. */
+ srcSet?: string;
 };
 
 /**
@@ -63,29 +63,29 @@ export type AvatarSources = {
  * 🔴 여기서 던지면 Header 가 통째로 죽는다 — 알아보지 못하는 값은 손대지 않고 지나간다.
  */
 export function avatarSources(image: string, renderPx: number): AvatarSources {
-  let url: URL;
+ let url: URL;
 
-  try {
-    url = new URL(image);
-  } catch {
-    return { src: image };
-  }
+ try {
+ url = new URL(image);
+ } catch {
+ return { src: image };
+ }
 
-  if (url.protocol !== "https:" || url.hostname !== GITHUB_AVATAR_HOST) {
-    return { src: image };
-  }
+ if (url.protocol !== "https:" || url.hostname !== GITHUB_AVATAR_HOST) {
+ return { src: image };
+ }
 
-  const at = (dpr: number): string => {
-    const sized = new URL(url);
-    for (const param of SIZE_PARAMS) {
-      sized.searchParams.delete(param);
-    }
-    sized.searchParams.set("s", String(Math.round(renderPx * dpr)));
-    return sized.toString();
-  };
+ const at = (dpr: number): string => {
+ const sized = new URL(url);
+ for (const param of SIZE_PARAMS) {
+ sized.searchParams.delete(param);
+ }
+ sized.searchParams.set("s", String(Math.round(renderPx * dpr)));
+ return sized.toString();
+ };
 
-  return {
-    src: at(2),
-    srcSet: DEVICE_PIXEL_RATIOS.map((dpr) => `${at(dpr)} ${dpr}x`).join(", "),
-  };
+ return {
+ src: at(2),
+ srcSet: DEVICE_PIXEL_RATIOS.map((dpr) => `${at(dpr)} ${dpr}x`).join(", "),
+ };
 }

@@ -12,7 +12,7 @@ import type { IssueCategory } from "@/types/review";
  * 반복되는 문제의 집계.
  *
  * 🔴 **Tag 개수가 아니다.** Pattern 은 반복되는 문제의 **정규화된 개념**이고,
- * Tag 는 검색용 자유 Keyword 다(CLAUDE.md 3).
+ * Tag 는 검색용 자유 Keyword 다.
  *
  * ## 왜 여기 있는가
  *
@@ -24,11 +24,11 @@ import type { IssueCategory } from "@/types/review";
  * 통째로 들어내도 이 파일은 그대로 선다.
  */
 export interface PatternCount {
-  patternKey: string;
-  category: IssueCategory;
-  occurrences: number;
-  resolvedCount: number;
-  lastDetectedAt: Date;
+ patternKey: string;
+ category: IssueCategory;
+ occurrences: number;
+ resolvedCount: number;
+ lastDetectedAt: Date;
 }
 
 /**
@@ -38,49 +38,49 @@ export interface PatternCount {
  * 없다(소유는 Repository 가 갖는다).
  */
 export async function findFrequentPatterns(
-  input: { scope: WorkspaceScope | ProjectScope; limit: number },
-  executor: DbExecutor = db(),
+ input: { scope: WorkspaceScope | ProjectScope; limit: number },
+ executor: DbExecutor = db(),
 ): Promise<PatternCount[]> {
-  const projectId = "projectId" in input.scope ? input.scope.projectId : null;
+ const projectId = "projectId" in input.scope ? input.scope.projectId : null;
 
-  const conditions: SQL[] = [
-    eq(reviewIssues.workspaceId, input.scope.workspaceId),
-    isNotNull(reviewIssues.patternKey),
-  ];
-  if (projectId !== null) {
-    conditions.push(eq(repositories.projectId, projectId));
-  }
+ const conditions: SQL[] = [
+ eq(reviewIssues.workspaceId, input.scope.workspaceId),
+ isNotNull(reviewIssues.patternKey),
+ ];
+ if (projectId !== null) {
+ conditions.push(eq(repositories.projectId, projectId));
+ }
 
-  /**
-   * Repository Join 을 «늘» 건다.
-   *
-   * 조건이 있을 때만 붙이면 조건과 Join 이 갈라져 빠뜨리기 쉽다. FK 가 `NOT NULL` 이라
-   * Join 을 더해도 행 수는 변하지 않는다.
-   */
-  const rows = await executor
-    .select({
-      patternKey: sql<string>`${reviewIssues.patternKey}`,
-      category: reviewIssues.category,
-      // count(*) 는 bigint 라 Driver 가 문자열로 준다. 세는 값은 숫자로 받는다.
-      occurrences: sql<number>`count(*)::int`,
-      resolvedCount: sql<number>`count(*) filter (where ${reviewIssues.status} = 'RESOLVED')::int`,
-      lastDetectedAt: sql<Date>`max(${reviewIssues.firstDetectedAt})`,
-    })
-    .from(reviewIssues)
-    .innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
-    .where(and(...conditions))
-    .groupBy(reviewIssues.patternKey, reviewIssues.category)
-    .orderBy(
-      desc(sql`count(*)`),
-      desc(sql`max(${reviewIssues.firstDetectedAt})`),
-    )
-    .limit(input.limit);
+ /**
+ * Repository Join 을 «늘» 건다.
+ *
+ * 조건이 있을 때만 붙이면 조건과 Join 이 갈라져 빠뜨리기 쉽다. FK 가 `NOT NULL` 이라
+ * Join 을 더해도 행 수는 변하지 않는다.
+ */
+ const rows = await executor
+.select({
+ patternKey: sql<string>`${reviewIssues.patternKey}`,
+ category: reviewIssues.category,
+ // count(*) 는 bigint 라 Driver 가 문자열로 준다. 세는 값은 숫자로 받는다.
+ occurrences: sql<number>`count(*)::int`,
+ resolvedCount: sql<number>`count(*) filter (where ${reviewIssues.status} = 'RESOLVED')::int`,
+ lastDetectedAt: sql<Date>`max(${reviewIssues.firstDetectedAt})`,
+ })
+.from(reviewIssues)
+.innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
+.where(and(...conditions))
+.groupBy(reviewIssues.patternKey, reviewIssues.category)
+.orderBy(
+ desc(sql`count(*)`),
+ desc(sql`max(${reviewIssues.firstDetectedAt})`),
+)
+.limit(input.limit);
 
-  // 🔴 원시 SQL 조각의 타입 단언을 실제 값으로 맞춘다(`db/raw-value.ts`).
-  return rows.map((row) => ({
-    ...row,
-    occurrences: asCount(row.occurrences),
-    resolvedCount: asCount(row.resolvedCount),
-    lastDetectedAt: asDate(row.lastDetectedAt),
-  }));
+ // 🔴 원시 SQL 조각의 타입 단언을 실제 값으로 맞춘다(`db/raw-value.ts`).
+ return rows.map((row) => ({
+...row,
+ occurrences: asCount(row.occurrences),
+ resolvedCount: asCount(row.resolvedCount),
+ lastDetectedAt: asDate(row.lastDetectedAt),
+ }));
 }

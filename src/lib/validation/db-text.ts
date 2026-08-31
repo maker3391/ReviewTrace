@@ -12,7 +12,7 @@
  * | 짝 없는 Surrogate (`U+D800`~`U+DFFF`) | 유효한 UTF-8 로 인코딩되지 않는다 |
  *
  * 🔴 **검증이 통과시킨 값을 Driver 가 거절하면 그것은 `500` 이 된다.** 요청이 잘못됐는데도
- * 「서버가 실패했다」로 답하는 셈이라 Error Contract 가 깨지고(CLAUDE.md 13), 무엇보다
+ * 「서버가 실패했다」로 답하는 셈이라 Error Contract 가 깨지고, 무엇보다
  * **5xx 를 재시도하도록 만들어진 Agent 가 영원히 같은 요청을 다시 보낸다** — 몇 번을 보내도
  * 성공할 수 없는 요청이다. 400 으로 답해야 Agent 가 「내가 보낸 것이 틀렸다」를 안다.
  *
@@ -25,7 +25,7 @@
  * ## 왜 「거르지」 않고 「거절」하는가
  *
  * 조용히 지우면 저장된 Knowledge 가 Agent 가 보낸 것과 달라진다. Review 기록은 나중에
- * 다시 읽어 근거로 쓰는 값이라(CLAUDE.md 1), 우리가 말없이 고친 본문을 사실로 남기지 않는다.
+ * 다시 읽어 근거로 쓰는 값이라, 우리가 말없이 고친 본문을 사실로 남기지 않는다.
  */
 
 /**
@@ -36,11 +36,11 @@
  * 여기서는 Code Unit 단위로 보고 앞뒤 짝을 직접 확인해야 한다.
  */
 const UNSTORABLE =
-  /\u0000|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+ /\u0000|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 
 /** PostgreSQL `text` 에 그대로 저장할 수 있는 문자열인가. */
 export function isStorableText(value: string): boolean {
-  return !UNSTORABLE.test(value);
+ return !UNSTORABLE.test(value);
 }
 
 /**
@@ -53,19 +53,19 @@ export function isStorableText(value: string): boolean {
  * Key 도 본다 — Key 가 그대로 저장되는 자리(`rawPayload` JSONB)가 있다.
  */
 export function hasUnstorableText(value: unknown): boolean {
-  if (typeof value === "string") {
-    return !isStorableText(value);
-  }
+ if (typeof value === "string") {
+ return !isStorableText(value);
+ }
 
-  if (Array.isArray(value)) {
-    return value.some(hasUnstorableText);
-  }
+ if (Array.isArray(value)) {
+ return value.some(hasUnstorableText);
+ }
 
-  if (typeof value === "object" && value !== null) {
-    return Object.entries(value).some(
-      ([key, child]) => !isStorableText(key) || hasUnstorableText(child),
-    );
-  }
+ if (typeof value === "object" && value !== null) {
+ return Object.entries(value).some(
+ ([key, child]) => !isStorableText(key) || hasUnstorableText(child),
+);
+ }
 
-  return false;
+ return false;
 }

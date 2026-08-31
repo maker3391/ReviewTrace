@@ -7,7 +7,7 @@ import { useLocale } from "@/lib/ui/locale-context";
 /**
  * 화면 단위 Error Boundary.
  *
- * 🔴 Stack Trace · SQL · 내부 경로를 사용자에게 보여 주지 않는다(CLAUDE.md 19).
+ * 🔴 Stack Trace · SQL · 내부 경로를 사용자에게 보여 주지 않는다.
  * 프로덕션 빌드에서는 Server 오류의 `message` 가 이미 지워진 채 도착한다 —
  * 원인을 찾는 단서는 `digest` 이고, 그것은 서버 로그와 짝을 이룬다.
  *
@@ -19,30 +19,30 @@ import { useLocale } from "@/lib/ui/locale-context";
  * (`lib/ui/locale-context.tsx`) — 서버가 그린 것과 첫 클라이언트 렌더가 같다.
  */
 export default function Error({
-  error,
-  retry,
+ error,
+ retry,
 }: {
-  error: Error & { digest?: string };
-  retry: () => void;
+ error: Error & { digest?: string };
+ retry: () => void;
 }) {
-  const t = messages(useLocale()).errorPage;
+ const t = messages(useLocale()).errorPage;
 
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-      <p className="text-sm font-medium">{t.generic}</p>
-      <p className="text-xs text-muted-foreground">
-        {t.hint}
-        {error.digest !== undefined && (
-          <>
-            {" "}
-            {t.digestLabel}{" "}
-            <code className="font-mono">{error.digest}</code>
-          </>
-        )}
-      </p>
-      <Button size="sm" variant="outline" onClick={() => retry()}>
-        {t.retry}
-      </Button>
-    </div>
-  );
+ return (
+ <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+ <p className="text-sm font-medium">{t.generic}</p>
+ <p className="text-xs text-muted-foreground">
+ {t.hint}
+ {error.digest !== undefined && (
+ <>
+ {" "}
+ {t.digestLabel}{" "}
+ <code className="font-mono">{error.digest}</code>
+ </>
+)}
+ </p>
+ <Button size="sm" variant="outline" onClick={() => retry()}>
+ {t.retry}
+ </Button>
+ </div>
+);
 }
