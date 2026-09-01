@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * 라고 읽을 여지가 생겼다. **그것은 계약 위반이다**:
  *
  * ```
- * API Key -> Workspace 결정. Payload 에도 Query 에도 Project 자리가 없다.
+ * Credential -> authorized Workspace set -> Issue ownership 확인.
  * ```
  *
  * Agent 는 화면이 없어 Project 를 미리 만들 수도, 고를 수도 없다. 여기에 Project 를
@@ -24,12 +24,22 @@ const WORKSPACE = "11111111-1111-4111-8111-111111111111";
 const ISSUE = "33333333-3333-4333-8333-333333333333";
 
 const authenticateAgent = vi.fn();
+const requireAgentCapability = vi.fn();
+const requireAuthorizedIssueWorkspace = vi.fn();
 const updateIssueStatus = vi.fn();
+const findAgentIssue = vi.fn();
 
 vi.mock("next/server", () => ({ after: vi.fn() }));
 
 vi.mock("@/lib/api/api-key-auth", () => ({
   authenticateAgent: (...args: unknown[]) => authenticateAgent(...args),
+  requireAgentCapability: (...args: unknown[]) =>
+    requireAgentCapability(...args),
+}));
+
+vi.mock("@/lib/api/agent-resource-authorization", () => ({
+  requireAuthorizedIssueWorkspace: (...args: unknown[]) =>
+    requireAuthorizedIssueWorkspace(...args),
 }));
 
 vi.mock("@/features/issues/server/issue-status-service", () => ({
@@ -41,18 +51,25 @@ vi.mock("@/features/issues/server/code-evidence-service", () => ({
 }));
 
 vi.mock("@/features/issues/server/issue-agent-query", () => ({
-  findAgentIssue: vi.fn(),
+  findAgentIssue: (...args: unknown[]) => findAgentIssue(...args),
 }));
 
-const { PATCH } = await import("@/app/api/v1/issues/[issueId]/route");
+const { GET, PATCH } = await import("@/app/api/v1/issues/[issueId]/route");
 
 beforeEach(() => {
   vi.clearAllMocks();
 
   authenticateAgent.mockResolvedValue({
-    workspaceId: WORKSPACE,
-    apiKeyName: "codex-ci",
+    model: "PRINCIPAL",
+    credentialId: "44444444-4444-4444-8444-444444444444",
+    principalId: "55555555-5555-4555-8555-555555555555",
+    principalType: "USER_AGENT",
+    actorName: "codex-ci",
+    capabilities: ["READ", "WRITE"],
+    authorizedWorkspaceIds: [WORKSPACE],
   });
+  requireAuthorizedIssueWorkspace.mockResolvedValue(WORKSPACE);
+  findAgentIssue.mockResolvedValue({ id: ISSUE, status: "OPEN" });
   updateIssueStatus.mockResolvedValue({
     id: ISSUE,
     status: "RESOLVED",
@@ -60,6 +77,26 @@ beforeEach(() => {
     resolvedAt: new Date("2026-08-28T00:00:00.000Z"),
     updatedAt: new Date("2026-08-28T00:00:00.000Z"),
     evidenceIds: [],
+  });
+});
+
+describe("GET /api/v1/issues/{issueId}", () => {
+  it("authorizes the Issue UUID before loading its lifecycle", async () => {
+    const response = await GET(
+      new Request(`https://example.test/api/v1/issues/${ISSUE}`),
+      context,
+    );
+
+    expect(response.status).toBe(200);
+    expect(requireAgentCapability).toHaveBeenCalledWith(
+      expect.objectContaining({ actorName: "codex-ci" }),
+      "READ",
+    );
+    expect(requireAuthorizedIssueWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({ authorizedWorkspaceIds: [WORKSPACE] }),
+      ISSUE,
+    );
+    expect(findAgentIssue).toHaveBeenCalledWith(WORKSPACE, ISSUE);
   });
 });
 

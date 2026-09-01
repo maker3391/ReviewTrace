@@ -9,7 +9,11 @@ import {
   runAgentRoute,
   validationErrorResponse,
 } from "@/lib/api/agent-route";
-import { authenticateAgent } from "@/lib/api/api-key-auth";
+import {
+  authenticateAgent,
+  requireAgentCapability,
+} from "@/lib/api/api-key-auth";
+import { requireAuthorizedReviewWorkspace } from "@/lib/api/agent-resource-authorization";
 import { apiError } from "@/lib/api/error-response";
 
 /**
@@ -26,12 +30,17 @@ export async function POST(
 ): Promise<Response> {
   return runAgentRoute(async () => {
     const agent = await authenticateAgent(request);
+    requireAgentCapability(agent, "WRITE");
 
     const { reviewId } = await context.params;
     const parsedId = z.uuid().safeParse(reviewId);
     if (!parsedId.success) {
       return apiError("VALIDATION_ERROR", "reviewId 형식이 올바르지 않다.");
     }
+    const workspaceId = await requireAuthorizedReviewWorkspace(
+      agent,
+      parsedId.data,
+    );
 
     const parsed = reviewIssueAppendSchema.safeParse(
       await readJsonBody(request),
@@ -41,13 +50,13 @@ export async function POST(
     }
 
     const { evidenceIds, ...body } = await appendReviewIssues({
-      workspaceId: agent.workspaceId,
+      workspaceId,
       reviewSessionId: parsedId.data,
       issues: parsed.data.issues,
     });
 
     // 🔴 GitHub 확인은 응답을 붙잡지 않는다 — `after()` 는 응답이 나간 뒤 도는 자리다.
-    after(() => verifyCodeEvidence(agent.workspaceId, evidenceIds));
+    after(() => verifyCodeEvidence(workspaceId, evidenceIds));
 
     return Response.json(body, { status: 201 });
   });

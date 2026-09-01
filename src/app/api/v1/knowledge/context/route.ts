@@ -1,10 +1,21 @@
-import { runAgentRoute, validationErrorResponse } from "@/lib/api/agent-route";
-import { authenticateAgent } from "@/lib/api/api-key-auth";
+import {
+  readAgentWorkspaceHint,
+  runAgentRoute,
+  validationErrorResponse,
+} from "@/lib/api/agent-route";
+import {
+  authenticateAgent,
+  requireAgentCapability,
+} from "@/lib/api/api-key-auth";
 import {
   knowledgeContextQuerySchema,
   readKnowledgeContextQuery,
 } from "@/features/knowledge/schemas/knowledge-context-query";
 import { findKnowledgeContext } from "@/features/knowledge/server/knowledge-context-query";
+import {
+  resolveAuthorizedRepositoryContext,
+  resolveAuthorizedWorkspace,
+} from "@/features/repositories/server/authorized-repository-context-service";
 
 /**
  * `GET /api/v1/knowledge/context` — Agent 가 작업 전에 읽는 과거 Knowledge(스펙 34).
@@ -15,6 +26,7 @@ import { findKnowledgeContext } from "@/features/knowledge/server/knowledge-cont
 export async function GET(request: Request): Promise<Response> {
   return runAgentRoute(async () => {
     const agent = await authenticateAgent(request);
+    requireAgentCapability(agent, "READ");
 
     const url = new URL(request.url);
     const parsed = knowledgeContextQuerySchema.safeParse(
@@ -24,8 +36,32 @@ export async function GET(request: Request): Promise<Response> {
       return validationErrorResponse(parsed.error);
     }
 
+    const requestedRepository =
+      parsed.data.repository ?? parsed.data.repositoryId;
+    const workspaceHint = readAgentWorkspaceHint(request);
+    const repositoryContext =
+      requestedRepository === null
+        ? null
+        : await resolveAuthorizedRepositoryContext({
+            authorization: agent,
+            identity: {
+              provider: "GITHUB",
+              repositoryId: parsed.data.repositoryId,
+              fullName: parsed.data.repository,
+            },
+            workspaceHint,
+          });
+    const workspace =
+      repositoryContext?.workspace ??
+      (await resolveAuthorizedWorkspace({
+        authorization: agent,
+        workspaceHint,
+      }));
+
     const context = await findKnowledgeContext({
-      workspaceId: agent.workspaceId,
+      workspaceId: workspace.id,
+      workspace,
+      authorizedRepositoryContext: repositoryContext,
       query: parsed.data,
     });
 

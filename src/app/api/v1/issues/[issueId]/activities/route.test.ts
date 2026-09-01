@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * **그것은 계약 위반이다**:
  *
  * ```
- * API Key -> Workspace 결정. Payload 에도 Query 에도 Project 자리가 없다.
+ * Credential -> authorized Workspace set -> Issue ownership 확인.
  * ```
  *
  * Agent 는 화면이 없어 Project 를 미리 만들 수도, 고를 수도 없다. 여기에 Project 를
@@ -28,12 +28,21 @@ const WORKSPACE = "11111111-1111-4111-8111-111111111111";
 const ISSUE = "33333333-3333-4333-8333-333333333333";
 
 const authenticateAgent = vi.fn();
+const requireAgentCapability = vi.fn();
+const requireAuthorizedIssueWorkspace = vi.fn();
 const addIssueActivity = vi.fn();
 
 vi.mock("next/server", () => ({ after: vi.fn() }));
 
 vi.mock("@/lib/api/api-key-auth", () => ({
   authenticateAgent: (...args: unknown[]) => authenticateAgent(...args),
+  requireAgentCapability: (...args: unknown[]) =>
+    requireAgentCapability(...args),
+}));
+
+vi.mock("@/lib/api/agent-resource-authorization", () => ({
+  requireAuthorizedIssueWorkspace: (...args: unknown[]) =>
+    requireAuthorizedIssueWorkspace(...args),
 }));
 
 vi.mock("@/features/issues/server/issue-activity-service", () => ({
@@ -50,9 +59,15 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   authenticateAgent.mockResolvedValue({
-    workspaceId: WORKSPACE,
-    apiKeyName: "codex-ci",
+    model: "PRINCIPAL",
+    credentialId: "44444444-4444-4444-8444-444444444444",
+    principalId: "55555555-5555-4555-8555-555555555555",
+    principalType: "USER_AGENT",
+    actorName: "codex-ci",
+    capabilities: ["READ", "WRITE"],
+    authorizedWorkspaceIds: [WORKSPACE],
   });
+  requireAuthorizedIssueWorkspace.mockResolvedValue(WORKSPACE);
   addIssueActivity.mockResolvedValue({
     id: "55555555-5555-4555-8555-555555555555",
     reviewIssueId: ISSUE,
@@ -99,7 +114,7 @@ describe("POST /api/v1/issues/{issueId}/activities", () => {
     expect(input.issueId).toBe(ISSUE);
   });
 
-  it("Payload 로 Workspace 를 지정할 수 없다 — 범위는 API Key 가 정한다", async () => {
+  it("Payload 로 Workspace 를 지정할 수 없다 — 범위는 authorized resource가 정한다", async () => {
     await POST(
       postRequest({
         ...ACTIVITY,

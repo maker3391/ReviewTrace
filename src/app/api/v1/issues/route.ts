@@ -1,10 +1,21 @@
-import { runAgentRoute, validationErrorResponse } from "@/lib/api/agent-route";
-import { authenticateAgent } from "@/lib/api/api-key-auth";
+import {
+  readAgentWorkspaceHint,
+  runAgentRoute,
+  validationErrorResponse,
+} from "@/lib/api/agent-route";
+import {
+  authenticateAgent,
+  requireAgentCapability,
+} from "@/lib/api/api-key-auth";
 import {
   issueSearchQuerySchema,
   readIssueSearchQuery,
 } from "@/features/issues/schemas/issue-search-query";
 import { searchAgentIssues } from "@/features/issues/server/issue-agent-query";
+import {
+  resolveAuthorizedRepositoryContext,
+  resolveAuthorizedWorkspace,
+} from "@/features/repositories/server/authorized-repository-context-service";
 
 /**
  * `GET /api/v1/issues` — Agent 가 「이 저장소에 지금 뭐가 열려 있나」를 묻는 자리(스펙 5).
@@ -18,6 +29,7 @@ import { searchAgentIssues } from "@/features/issues/server/issue-agent-query";
 export async function GET(request: Request): Promise<Response> {
   return runAgentRoute(async () => {
     const agent = await authenticateAgent(request);
+    requireAgentCapability(agent, "READ");
 
     const url = new URL(request.url);
     const parsed = issueSearchQuerySchema.safeParse(
@@ -27,7 +39,27 @@ export async function GET(request: Request): Promise<Response> {
       return validationErrorResponse(parsed.error);
     }
 
-    const issues = await searchAgentIssues(agent.workspaceId, parsed.data);
+    const workspaceHint = readAgentWorkspaceHint(request);
+    const workspaceId =
+      parsed.data.repository === null
+        ? (
+            await resolveAuthorizedWorkspace({
+              authorization: agent,
+              workspaceHint,
+            })
+          ).id
+        : (
+            await resolveAuthorizedRepositoryContext({
+              authorization: agent,
+              identity: {
+                provider: "GITHUB",
+                fullName: parsed.data.repository,
+              },
+              workspaceHint,
+            })
+          ).workspace.id;
+
+    const issues = await searchAgentIssues(workspaceId, parsed.data);
 
     return Response.json({ issues }, { status: 200 });
   });
