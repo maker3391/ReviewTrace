@@ -25,10 +25,15 @@ const TIMEOUT_MS = 20_000;
 const MAX_BODY_BYTES = 4_000_000;
 
 export class ApiError extends Error {
-  constructor(message, { status = null, code = null } = {}) {
+  constructor(
+    message,
+    { status = null, code = null, resolutionStatus = null, candidates = [] } = {},
+  ) {
     super(message);
     this.status = status;
     this.code = code;
+    this.resolutionStatus = resolutionStatus;
+    this.candidates = candidates;
   }
 }
 
@@ -150,8 +155,12 @@ export function createClient({ apiUrl, apiKey }) {
   }
 
   return {
-    createReview: (body, idempotencyKey) =>
-      call("POST", "/reviews", { body, idempotencyKey }),
+    createReview: (body, idempotencyKey, workspaceSlug) =>
+      call("POST", "/reviews", {
+        body,
+        idempotencyKey,
+        query: { workspaceSlug },
+      }),
     appendIssues: (reviewId, issues) =>
       call("POST", `/reviews/${encodeURIComponent(reviewId)}/issues`, {
         body: { issues },
@@ -185,29 +194,58 @@ function safeParse(text) {
  */
 function toApiError(status, parsed) {
   const code = parsed?.error?.code ?? null;
+  const resolutionStatus = parsed?.error?.resolutionStatus ?? null;
+  const candidates = Array.isArray(parsed?.error?.candidates)
+    ? parsed.error.candidates
+    : [];
+  const details = { status, code, resolutionStatus, candidates };
   const serverMessage =
     typeof parsed?.error?.message === "string" ? parsed.error.message : null;
 
   if (status === 401) {
     return new ApiError(
-      "ReviewTrace API Key 가 유효하지 않다 (없음 · 폐기됨 · 만료됨). Workspace Settings > API Keys 에서 새로 발급해라.",
-      { status, code },
+      "ReviewTrace credential이 유효하지 않습니다(없음·폐기됨·만료됨). Settings > Agent Credentials에서 확인하세요.",
+      details,
     );
   }
   if (status === 403) {
-    return new ApiError("이 Workspace 에 접근할 수 없다.", { status, code });
+    return new ApiError(
+      "이 작업에 필요한 capability 또는 Workspace 접근 권한이 없습니다.",
+      details,
+    );
   }
   if (status === 404) {
+    if (resolutionStatus === "NOT_CONNECTED_OR_NOT_AUTHORIZED") {
+      return new ApiError(
+        "Repository가 허용된 Workspace에 연결되지 않았거나 접근 권한이 없습니다.",
+        details,
+      );
+    }
     return new ApiError(
-      "대상을 찾지 못했다. 이 API Key 의 Workspace 안에 있는 것인지 확인해라.",
-      { status, code },
+      "대상을 찾지 못했거나 현재 credential의 허용 범위 밖입니다.",
+      details,
     );
   }
   if (status === 400 || status === 422) {
-    return new ApiError(serverMessage ?? "보낸 값이 계약에 맞지 않다.", {
-      status,
-      code,
-    });
+    return new ApiError(
+      serverMessage ?? "보낸 값이 계약에 맞지 않습니다.",
+      details,
+    );
+  }
+  if (
+    status === 409 &&
+    resolutionStatus === "REPOSITORY_CONTEXT_AMBIGUOUS"
+  ) {
+    const workspaces = candidates
+      .map((candidate) => candidate?.workspace?.slug)
+      .filter((slug) => typeof slug === "string")
+      .join(", ");
+    return new ApiError(
+      "Repository가 여러 허용 Workspace에 연결되어 자동 선택할 수 없습니다." +
+        (workspaces === "" ? "" : ` 후보: ${workspaces}.`) +
+        " 이 repository에서 git config --local reviewtrace.workspace <workspace-slug>를 설정하세요.",
+      details,
+    );
   }
   if (status === 429) {
     return new ApiError("요청이 너무 잦다. 잠시 뒤 다시 시도해라.", {

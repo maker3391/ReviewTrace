@@ -157,7 +157,13 @@ export function registerTools(server, client, state) {
     if (typeof fullName === "string" && fullName.trim() !== "") {
       return repositoryFromFullName(fullName);
     }
-    return readRepositoryContext();
+    try {
+      return await readRepositoryContext();
+    } catch {
+      throw new ToolError(
+        "현재 git remote에서 GitHub Repository를 읽지 못했습니다. repository에 owner/name을 명시하세요.",
+      );
+    }
   }
 
   server.registerTool(
@@ -233,6 +239,7 @@ export function registerTools(server, client, state) {
            * `add_issue` 가 엉뚱한 세션에 붙는다. 그래서 열쇠는 저장소+commit 에 묶인다.
            */
           reviewKeyFor(state, `${repo.fullName}@${commitSha ?? ""}`),
+          repo.workspaceSlug,
         );
 
         /**
@@ -539,9 +546,11 @@ export function registerTools(server, client, state) {
     },
     (args) =>
       guard(async () => {
-        const repository = args.repository ?? (await requiredFullName());
+        const repo = await resolveRepository(args.repository);
+        const repository = repo.fullName;
         const result = await client.searchIssues({
           repository,
+          workspaceSlug: repo.workspaceSlug,
           status: args.status,
           severity: args.severity,
           category: args.category,
@@ -571,35 +580,17 @@ export function registerTools(server, client, state) {
     },
     (args) =>
       guard(async () => {
-        const repository = args.repository ?? (await requiredFullName());
+        const repo = await resolveRepository(args.repository);
+        const repository = repo.fullName;
         const context = await client.knowledgeContext({
           repository,
+          workspaceSlug: repo.workspaceSlug,
           limit: args.limit,
         });
         // local git 문자열은 requested일 뿐이다. DB resolution 여부는 서버의 scope가 말한다.
         return { requestedRepository: repository, ...context };
       }),
   );
-}
-
-/** local git remote가 없으면 호출자가 owner/name을 명시해야 한다. */
-async function safeFullName() {
-  try {
-    const repo = await readRepositoryContext();
-    return repo.fullName;
-  } catch {
-    return undefined;
-  }
-}
-
-async function requiredFullName() {
-  const fullName = await safeFullName();
-  if (fullName === undefined) {
-    throw new ToolError(
-      "현재 git remote에서 GitHub Repository를 읽지 못했다. repository에 owner/name을 명시하라.",
-    );
-  }
-  return fullName;
 }
 
 async function activity(client, state, args, type, done) {

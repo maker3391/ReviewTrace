@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { execFile } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
 
-import { parseRemote, repositoryFromFullName } from "./git.mjs";
+import {
+  parseRemote,
+  readRepositoryContext,
+  repositoryFromFullName,
+} from "./git.mjs";
+
+const run = promisify(execFile);
 
 /**
  * 🔴 이 시험이 지키는 것은 **「GitHub 이 아닌 곳을 GitHub 이라고 적지 않는다」** 이다.
@@ -66,6 +77,24 @@ describe("repositoryFromFullName", () => {
     });
     expect(() => repositoryFromFullName("acme")).toThrow();
     expect(() => repositoryFromFullName("acme/app/extra")).toThrow();
+  });
+});
+
+describe("readRepositoryContext", () => {
+  it("repository-local reviewtrace.workspace를 optional hint로 읽는다", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "reviewtrace-git-"));
+    try {
+      await run("git", ["init", directory]);
+      await run("git", ["-C", directory, "remote", "add", "origin", "git@github.com:acme/app.git"]);
+      await run("git", ["-C", directory, "config", "--local", "reviewtrace.workspace", "workspace-a"]);
+
+      await expect(readRepositoryContext(directory)).resolves.toMatchObject({
+        fullName: "acme/app",
+        workspaceSlug: "workspace-a",
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });
 

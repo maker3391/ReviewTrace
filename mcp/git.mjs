@@ -41,10 +41,11 @@ export async function readRepositoryContext(cwd = process.cwd()) {
     );
   }
 
-  const [commitSha, branch, defaultBranch] = await Promise.all([
+  const [commitSha, branch, defaultBranch, workspaceSlug] = await Promise.all([
     git(cwd, ["rev-parse", "HEAD"]),
     git(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]),
     readDefaultBranch(cwd),
+    git(cwd, ["config", "--local", "--get", "reviewtrace.workspace"]),
   ]);
 
   return {
@@ -57,6 +58,7 @@ export async function readRepositoryContext(cwd = process.cwd()) {
     commitSha,
     // Detached HEAD 면 git 이 `HEAD` 를 준다 — 그것은 가지 이름이 아니다.
     branch: branch === "HEAD" ? null : branch,
+    workspaceSlug,
   };
 }
 
@@ -79,6 +81,7 @@ export function repositoryFromFullName(fullName) {
     defaultBranch: "main",
     commitSha: null,
     branch: null,
+    workspaceSlug: null,
   };
 }
 
