@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { authEnvSchema, serverEnvSchema } from "@/lib/env.schema";
+import {
+  authEnvSchema,
+  githubEnvSchema,
+  serverEnvSchema,
+} from "@/lib/env.schema";
 
 /**
  * 환경 변수도 「외부 입력」이다.
@@ -96,4 +100,34 @@ describe("authEnvSchema", () => {
         .success,
     ).toBe(false);
   });
+});
+
+describe("githubEnvSchema credential URL", () => {
+  it.each([
+    ["https://api.github.com", "https://api.github.com"],
+    ["https://github.example/api/v3/", "https://github.example/api/v3"],
+    ["http://localhost:4000", "http://localhost:4000"],
+    ["http://127.0.0.1:4000/api/v3", "http://127.0.0.1:4000/api/v3"],
+    ["http://[::1]:4000", "http://[::1]:4000"],
+  ])("GitHub Enterprise HTTPS와 loopback HTTP를 허용한다", (input, output) => {
+    const result = githubEnvSchema.safeParse({ GITHUB_API_URL: input });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.GITHUB_API_URL).toBe(output);
+  });
+
+  it.each([
+    "http://github.example/api/v3",
+    "ftp://github.example/api/v3",
+    "https://user:pass@github.example/api/v3",
+    "https://github.example/api/v3?token=value",
+    "https://github.example/api/v3#fragment",
+  ])(
+    "credential이나 검증 결과를 안전하게 보낼 수 없는 URL을 거절한다",
+    (value) => {
+      expect(githubEnvSchema.safeParse({ GITHUB_API_URL: value }).success).toBe(
+        false,
+      );
+    },
+  );
 });

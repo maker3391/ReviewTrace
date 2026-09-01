@@ -1,6 +1,7 @@
 import "server-only";
 
 import { githubEnv } from "@/lib/env";
+import { assertCredentialRequestUrl } from "@/lib/security/credential-url";
 
 /**
  * GitHub 에서 **한 Commit 시점의 파일 줄 범위**를 읽는다(스펙 15).
@@ -79,13 +80,17 @@ export async function isPublicRepository(
   name: string,
 ): Promise<boolean> {
   const env = githubEnv();
-  const url = `${env.GITHUB_API_URL}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  const url = githubApiUrl(
+    env.GITHUB_API_URL,
+    `repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`,
+  );
 
   try {
     const response = await fetch(url, {
-      headers: apiHeaders("application/vnd.github+json"),
+      headers: apiHeaders(url, "application/vnd.github+json"),
       signal: AbortSignal.timeout(TIMEOUT_MS),
       cache: "no-store",
+      redirect: "error",
     });
 
     if (!response.ok) {
@@ -210,17 +215,19 @@ async function readGithubFile(ref: GithubFileRef): Promise<FileRead> {
 
   // Contents API 는 Private 저장소에 대해 Token 이 없으면 404 를 준다 —
   // 「없다」와 「못 본다」를 GitHub 이 이미 합쳐 주므로 존재 여부가 새지 않는다.
-  const url =
-    `${env.GITHUB_API_URL}/repos/${encodeURIComponent(ref.owner)}/` +
-    `${encodeURIComponent(ref.name)}/contents/${path}` +
-    `?ref=${encodeURIComponent(ref.commitSha)}`;
+  const url = githubApiUrl(
+    env.GITHUB_API_URL,
+    `repos/${encodeURIComponent(ref.owner)}/${encodeURIComponent(ref.name)}/contents/${path}`,
+    { ref: ref.commitSha },
+  );
 
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: apiHeaders("application/vnd.github.raw+json"),
+      headers: apiHeaders(url, "application/vnd.github.raw+json"),
       signal: AbortSignal.timeout(TIMEOUT_MS),
       cache: "no-store",
+      redirect: "error",
     });
   } catch {
     // 🔴 원인을 밖으로 흘리지 않는다 — 주소·Token 이 message 에 섞여 나올 수 있다.
@@ -261,9 +268,27 @@ async function readGithubFile(ref: GithubFileRef): Promise<FileRead> {
   return { ok: true, text };
 }
 
+/** GitHub Enterprise 의 base path를 보존하면서 API resource를 조합한다. */
+export function githubApiUrl(
+  baseUrl: string,
+  resourcePath: string,
+  query: Record<string, string> = {},
+): URL {
+  const url = new URL(baseUrl);
+  const basePath = url.pathname === "/" ? "" : url.pathname.replace(/\/+$/, "");
+  url.pathname = `${basePath}/${resourcePath}`;
+  for (const [key, value] of Object.entries(query)) {
+    url.searchParams.set(key, value);
+  }
+  assertCredentialRequestUrl(url, baseUrl);
+  return url;
+}
+
 /** 🔴 Token 은 헤더에만 담는다. URL·로그·오류 message 어디에도 넣지 않는다. */
-function apiHeaders(accept: string): Record<string, string> {
+function apiHeaders(url: URL, accept: string): Record<string, string> {
   const env = githubEnv();
+  // 🔴 Authorization 을 붙이는 바로 이 자리에서도 최종 request URL invariant를 다시 확인한다.
+  assertCredentialRequestUrl(url, env.GITHUB_API_URL);
   const headers: Record<string, string> = {
     Accept: accept,
     "X-GitHub-Api-Version": "2022-11-28",

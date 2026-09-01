@@ -84,6 +84,10 @@ with a message instead, rather than starting a server that cannot authenticate.
 **Both are required. There is no default URL.** `REVIEWTRACE_API_URL` is the origin of your
 instance — the server appends `/api/v1` itself.
 
+The URL must use HTTPS. Plain HTTP is accepted only for explicit loopback development addresses:
+`localhost`, `127.0.0.1`, and `::1`. Paths, embedded credentials, query strings, fragments, and
+authenticated redirects are rejected before a key can be sent.
+
 > Earlier versions fell back to `http://localhost:3000`. That default is gone: a server that
 > starts without a URL would send `Authorization: Bearer ci_…` to whatever happens to listen on
 > your port 3000, and it would fail silently until the first tool call. Missing either variable

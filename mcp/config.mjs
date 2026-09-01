@@ -2,6 +2,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import {
+  CredentialUrlError,
+  normalizeCredentialApiUrl,
+} from "./credential-url.mjs";
+
 /**
  * ReviewTrace MCP Server 의 접속 설정(스펙 8).
  *
@@ -71,7 +76,14 @@ export function loadConfig() {
     );
   }
 
-  return { apiUrl: apiUrl.replace(/\/+$/, ""), apiKey };
+  try {
+    return { apiUrl: normalizeCredentialApiUrl(apiUrl), apiKey };
+  } catch (error) {
+    if (error instanceof CredentialUrlError) {
+      throw new ConfigError(error.message);
+    }
+    throw error;
+  }
 }
 
 export class ConfigError extends Error {}

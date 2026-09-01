@@ -26,6 +26,7 @@
     "server.mjs",
     "client.mjs",
     "config.mjs",
+    "credential-url.mjs",
     "git.mjs",
     "tools.mjs",
     "README.md",

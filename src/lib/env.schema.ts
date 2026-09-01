@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { normalizeCredentialHttpBaseUrl } from "@/lib/security/credential-url";
+
 /**
  * 서버 환경 변수 Schema.
  *
@@ -83,8 +85,25 @@ export const githubEnvSchema = z.object({
    */
   GITHUB_API_TOKEN: z.string().min(1).optional(),
 
-  /** GitHub API 주소. GitHub Enterprise 를 쓰는 자리를 막지 않기 위해 열어 둔다. */
-  GITHUB_API_URL: z.url().default("https://api.github.com"),
+  /**
+   * GitHub API 주소. GitHub Enterprise 의 HTTPS host와 `/api/v3` base path는 유지한다.
+   * 원격 HTTP는 Token뿐 아니라 Evidence 무결성도 잃으므로, 명시적 loopback 개발만 예외다.
+   */
+  GITHUB_API_URL: z
+    .url()
+    .default("https://api.github.com")
+    .transform((value, context) => {
+      try {
+        return normalizeCredentialHttpBaseUrl(value, { allowPath: true });
+      } catch {
+        context.addIssue({
+          code: "custom",
+          message:
+            "GITHUB_API_URL 은 HTTPS 여야 한다 (localhost, 127.0.0.1, ::1 HTTP 제외)",
+        });
+        return z.NEVER;
+      }
+    }),
 });
 
 export type GithubEnv = z.infer<typeof githubEnvSchema>;

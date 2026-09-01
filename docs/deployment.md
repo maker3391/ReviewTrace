@@ -29,7 +29,7 @@ Vercel 이 Git 연동으로 스스로 빌드·배포한다 — 두 곳에서 배
 | `GITHUB_CLIENT_SECRET` | **필수**    | —                        | GitHub OAuth App                                                                                                                                                                   |
 | `APP_URL`              | 사실상 필수 | `http://localhost:3000`  | 운영은 **`https://reviewtrace.app`**. 🔴 **반드시 덮어쓴다** — Settings 화면이 Agent 에게 알려 주는 API 주소가 이 값이라, 기본값이 남으면 사용자의 Agent 가 자기 컴퓨터를 가리킨다 |
 | `GITHUB_API_TOKEN`     | 선택        | 없음                     | Code Evidence 를 GitHub 실제 코드와 대조할 때 쓴다. 없으면 그 확인만 못 한다                                                                                                       |
-| `GITHUB_API_URL`       | 선택        | `https://api.github.com` | GitHub Enterprise 를 쓸 때만                                                                                                                                                       |
+| `GITHUB_API_URL`       | 선택        | `https://api.github.com` | GitHub Enterprise 를 쓸 때만. `/api/v3` base path는 허용하지만 원격 endpoint는 HTTPS여야 한다                                                                                      |
 | `NODE_ENV`             | 선택        | `development`            | Vercel 이 알아서 `production` 을 넣는다                                                                                                                                            |
 
 🔴 **`AUTH_URL` 은 넣지 않는다.** `src/lib/auth/config.ts` 가 `trustHost: true` 라 앞단이 넘긴

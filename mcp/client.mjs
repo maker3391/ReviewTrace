@@ -13,6 +13,11 @@
  * 흘리지 않고 **Agent 가 다음 행동을 정할 수 있는 만큼만** 옮긴다(스펙 18).
  */
 
+import {
+  assertCredentialRequestUrl,
+  normalizeCredentialApiUrl,
+} from "./credential-url.mjs";
+
 /** 한 번의 호출에 허용하는 시간. Agent 를 무한정 붙잡아 두지 않는다. */
 const TIMEOUT_MS = 20_000;
 
@@ -28,14 +33,18 @@ export class ApiError extends Error {
 }
 
 export function createClient({ apiUrl, apiKey }) {
+  const baseUrl = normalizeCredentialApiUrl(apiUrl);
+
   async function call(method, path, { body, query, idempotencyKey } = {}) {
-    const url = new URL(`${apiUrl}/api/v1${path}`);
+    const url = new URL(`/api/v1${path}`, `${baseUrl}/`);
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value !== undefined && value !== null && value !== "") {
         url.searchParams.set(key, String(value));
       }
     }
 
+    // 🔴 Authorization 을 만들기 직전의 최종 URL 이 설정된 origin 을 벗어나지 않았는지 다시 본다.
+    assertCredentialRequestUrl(url, baseUrl);
     const headers = {
       // 🔴 Key 는 이 한 줄에만 있다.
       authorization: `Bearer ${apiKey}`,
@@ -89,6 +98,8 @@ export function createClient({ apiUrl, apiKey }) {
         method,
         headers,
         body: payload,
+        // API endpoint 가 다른 origin 으로 보내는 credential-bearing redirect 를 따르지 않는다.
+        redirect: "error",
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
 
@@ -115,7 +126,7 @@ export function createClient({ apiUrl, apiKey }) {
       if (!replayable) {
         // 🔴 원인을 그대로 옮기지 않는다 — 주소가 message 에 섞여 나올 수 있다.
         throw new ApiError(
-          `ReviewTrace 서버에 닿지 못했다 (${apiUrl}). 저장됐는지 알 수 없으므로 다시 보내지 않았다 — ` +
+          `ReviewTrace 서버에 닿지 못했다 (${baseUrl}). 저장됐는지 알 수 없으므로 다시 보내지 않았다 — ` +
             `get_issue 나 search_issues 로 확인해라.`,
         );
       }
@@ -124,7 +135,7 @@ export function createClient({ apiUrl, apiKey }) {
         result = await attempt();
       } catch {
         throw new ApiError(
-          `ReviewTrace 서버에 닿지 못했다 (${apiUrl}). 서버가 떠 있는지, REVIEWTRACE_API_URL 이 맞는지 확인해라.`,
+          `ReviewTrace 서버에 닿지 못했다 (${baseUrl}). 서버가 떠 있는지, REVIEWTRACE_API_URL 이 맞는지 확인해라.`,
         );
       }
     }
