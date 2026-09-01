@@ -46,6 +46,7 @@ import { cn } from "@/lib/utils";
 export function MarkdownView({
  content,
  emptyLabel,
+ className,
 }: {
  content: string;
  /**
@@ -56,6 +57,7 @@ export function MarkdownView({
  * 쪽이 넘긴다(`ConfirmDialog` 와 같은 판단).
  */
  emptyLabel: string;
+ className?: string;
 }) {
  if (content.trim() === "") {
  return <p className="text-xs text-muted-foreground">{emptyLabel}</p>;
@@ -74,7 +76,12 @@ export function MarkdownView({
  `pre` 는 `white-space: pre` 라 애초에 줄바꿈 자리가 없어 **영향을 받지 않는다** —
  코드블록은 지금처럼 제 컨테이너 안에서 가로로 스크롤한다.
  */
- <div className="flex flex-col gap-3 text-sm leading-relaxed break-words">
+ <div
+ className={cn(
+ "flex flex-col gap-3 text-sm leading-relaxed break-words",
+ className,
+ )}
+ >
  <Markdown
  remarkPlugins={[remarkGfm]}
  /*
@@ -97,7 +104,14 @@ export function MarkdownView({
  h3: ({ children }) => (
  <h4 className="mt-3 text-sm font-medium">{children}</h4>
 ),
- p: ({ children }) => <p className="text-sm">{children}</p>,
+ /*
+ Markdown 의 빈 줄은 paragraph 로 나뉘고, paragraph 안의 단일 newline 은 Text node 로
+ 남는다. `whitespace-pre-wrap` 으로 그 newline 도 화면에서 보존한다. remark-breaks 로
+ 의미를 `<br>` 로 바꾸지 않으므로 저장된 Markdown 구조는 그대로다.
+ */
+ p: ({ children }) => (
+ <p className="whitespace-pre-wrap text-sm">{children}</p>
+ ),
  ul: ({ children }) => (
  <ul className="list-disc space-y-1 pl-5 text-sm">{children}</ul>
 ),
@@ -109,18 +123,11 @@ export function MarkdownView({
  {children}
  </blockquote>
 ),
- code: ({ children, className }) => {
- // 코드 블록은 `language-*` Class 를 달고 온다. 인라인 코드와 다르게 그린다.
- const isBlock = typeof className === "string" && className !== "";
- if (isBlock) {
- return <code className="font-mono text-xs">{children}</code>;
- }
- return (
+ code: ({ children }) => (
  <code className="rounded-sm bg-muted px-1 py-0.5 font-mono text-xs">
  {children}
  </code>
-);
- },
+ ),
  pre: ({ children }) => (
  /*
  🔴 긴 줄은 가로로 스크롤한다. 페이지 전체가 옆으로 늘어나지 않게 한다.
@@ -131,6 +138,8 @@ export function MarkdownView({
  <pre
  className={cn(
  "overflow-x-auto rounded-sm border border-border bg-muted/40 p-3 text-accent-foreground",
+ /* 언어가 없는 fenced block도 `<pre><code>`다. inline 장식은 parent에서 확실히 걷는다. */
+ "[&_code]:rounded-none [&_code]:bg-transparent [&_code]:p-0",
  "[&_.hljs-comment]:text-muted-foreground [&_.hljs-comment]:italic",
  "[&_.hljs-quote]:text-muted-foreground [&_.hljs-quote]:italic",
  "[&_.hljs-keyword]:text-primary [&_.hljs-literal]:text-primary",
