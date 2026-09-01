@@ -1,0 +1,1 @@
+ALTER TABLE "agent_principals" ADD CONSTRAINT "agent_principals_owner_type_check" CHECK (("agent_principals"."type" = 'USER_AGENT' and "agent_principals"."owner_user_id" is not null) or ("agent_principals"."type" = 'SERVICE_AGENT' and "agent_principals"."owner_user_id" is null));

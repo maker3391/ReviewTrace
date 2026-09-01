@@ -71,6 +71,20 @@
       "when": 1788247290520,
       "tag": "0009_numerous_preak",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788256600723,
+      "tag": "0010_clammy_vanisher",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788257305457,
+      "tag": "0011_tiny_warpath",
+      "breakpoints": true
     }
   ]
 }
