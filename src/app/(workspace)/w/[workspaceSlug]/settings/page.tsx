@@ -4,6 +4,11 @@ import { PageContainer } from "@/components/molecules/PageContainer";
 import { Section } from "@/components/molecules/Section";
 import { AgentIntegrationPanel } from "@/features/api-keys/components/AgentIntegrationPanel";
 import { ApiKeyPanel } from "@/features/api-keys/components/ApiKeyPanel";
+import { AgentCredentialPanel } from "@/features/agent-credentials/components/AgentCredentialPanel";
+import {
+  listUserAgentCredentials,
+  listUserAgentWorkspaceGrants,
+} from "@/features/agent-credentials/server/agent-credential-service";
 import { listApiKeys } from "@/features/api-keys/server/api-key-service";
 import { listProjectOptions } from "@/features/projects/server/project-service";
 import { listWorkspaceMembers } from "@/features/invitations/server/invitation-service";
@@ -44,12 +49,22 @@ export default async function WorkspaceSettingsPage({
 
   const isOwner = workspace.role === "OWNER";
 
-  const [members, projects, apiKeys, accountImpact, workspaceImpact] =
+  const [
+    members,
+    projects,
+    apiKeys,
+    agentCredentials,
+    agentWorkspaceGrants,
+    accountImpact,
+    workspaceImpact,
+  ] =
     await Promise.all([
       listWorkspaceMembers(workspace.workspaceId),
       listProjectOptions(workspace.workspaceId),
       // 🔴 OWNER 가 아니면 조회하지도 않는다. 화면에서 감추는 것으로 대신하지 않는다.
       isOwner ? listApiKeys(workspace.workspaceId) : Promise.resolve([]),
+      listUserAgentCredentials(user.id),
+      listUserAgentWorkspaceGrants(user.id),
       /*
  🔴 **이 Workspace 가 아니라 «이 사람»의 범위다.** 계정 삭제는 지금 보고 있는
  Workspace 하나가 아니라 그가 속한 전부에 걸린다 — 그래서 조회도 `userId` 로 한다.
@@ -156,6 +171,16 @@ export default async function WorkspaceSettingsPage({
           />
         </Section>
       )}
+
+      <Section title={t.agentCredentialsSection}>
+        <AgentCredentialPanel
+          workspaceSlug={workspace.slug}
+          currentUserId={user.id}
+          credentials={agentCredentials}
+          grants={agentWorkspaceGrants}
+          labels={messages.agentCredentials}
+        />
+      </Section>
 
       {isOwner && (
         <Section title={t.integrationSection} variant="raised" bleed>
