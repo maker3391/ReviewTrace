@@ -25,8 +25,8 @@ import type { Adapter, AdapterAccount } from "next-auth/adapters";
  * - **재로그인은 `linkAccount` 를 다시 부르지 않는다.** OAuth 계정 행이 이미 있으면
  * Auth.js 는 세션만 만들고 돌아간다(`@auth/core/lib/actions/callback/handle-login.js`).
  * 저장된 Token 은 갱신되지도 않아 **어차피 만료된 채 남는다**
- * - GitHub Evidence 대조는 서버가 따로 들고 있는 `GITHUB_API_TOKEN` 을 쓴다
- * (`src/lib/github/content.ts`) — 사용자 OAuth Token 과 무관하다
+ * - GitHub Evidence 대조는 공개 fallback의 `GITHUB_API_TOKEN` 또는 Workspace에 연결된
+ * GitHub App installation token을 쓴다 — 사용자 로그인 OAuth Token과 무관하다
  *
  * 암호화는 **쓸 데가 있는 값**을 지키는 방법이다. 쓰지 않는 값에 그것을 붙이면 키 관리와
  * 회전이라는 새 짐만 지고 유출 표면은 그대로 남는다. 안 가지고 있는 것은 샐 수 없다.

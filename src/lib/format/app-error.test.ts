@@ -179,7 +179,7 @@ describe("⑪ HTTP Status 는 오류 의미를 따른다", () => {
       ),
     );
 
-    expect([...statuses].sort()).toEqual([400, 401, 404, 409, 413, 500]);
+    expect([...statuses].sort()).toEqual([400, 401, 403, 404, 409, 413, 500]);
   });
 
   it("의미별 등급이 지금 그대로다", () => {
@@ -198,6 +198,13 @@ describe("⑪ HTTP Status 는 오류 의미를 따른다", () => {
       PROJECT_NOT_FOUND: 404,
       MOVE_TARGET_PROJECT_NOT_FOUND: 404,
       REPOSITORY_NOT_FOUND: 404,
+      REPOSITORY_NOT_CONNECTED: 400,
+      REPOSITORY_PROJECT_MISMATCH: 409,
+      REPOSITORY_IDENTITY_CONFLICT: 409,
+      GITHUB_REPOSITORY_NOT_AUTHORIZED: 403,
+      GITHUB_INSTALLATION_NOT_FOUND: 404,
+      GITHUB_INSTALLATION_CONFLICT: 409,
+      GITHUB_CALLBACK_INVALID: 400,
       KNOWLEDGE_PAGE_SLUG_RESERVED: 400,
       KNOWLEDGE_PAGE_SLUG_TAKEN: 409,
       KNOWLEDGE_PAGE_NOT_FOUND: 404,

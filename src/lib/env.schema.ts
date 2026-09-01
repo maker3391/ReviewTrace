@@ -67,9 +67,8 @@ export type AuthEnv = z.infer<typeof authEnvSchema>;
 /**
  * GitHub Evidence 확인에만 쓰는 값(스펙 15).
  *
- * 🔴 **전부 선택 항목이다.** 없어도 ReviewTrace 는 그대로 돈다 — Evidence 가
- * `UNVERIFIED`/`UNAVAILABLE` 로 남을 뿐이다. 확인 수단이 없다고 기록 자체를 거절하면
- * Private 저장소를 쓰는 사용자는 이 제품을 아예 쓸 수 없다.
+ * 🔴 **전부 선택 항목이다.** 없어도 공개 Repository fallback 외 기능은 그대로 돈다.
+ * Private Repository는 별도 `githubAppEnvSchema`의 installation credential을 쓴다.
  *
  * 🔴 **사용자의 GitHub OAuth Token 을 쓰지 않는다.** 로그인에 쓰는 Scope 는
  * `read:user`·`user:email` 뿐이고, 코드를 읽으려면 `repo` 를 더 받아야 한다 —
@@ -107,3 +106,33 @@ export const githubEnvSchema = z.object({
 });
 
 export type GithubEnv = z.infer<typeof githubEnvSchema>;
+
+/** GitHub App installation 연동에 필요한 server-only credential. */
+export const githubAppEnvSchema = z.object({
+  GITHUB_APP_ID: z.string().regex(/^\d+$/, "GITHUB_APP_ID 는 숫자여야 한다"),
+  GITHUB_APP_CLIENT_ID: z.string().min(1, "GITHUB_APP_CLIENT_ID 가 비어 있다"),
+  GITHUB_APP_CLIENT_SECRET: z
+    .string()
+    .min(1, "GITHUB_APP_CLIENT_SECRET 이 비어 있다"),
+  GITHUB_APP_PRIVATE_KEY: z
+    .string()
+    .min(1, "GITHUB_APP_PRIVATE_KEY 가 비어 있다"),
+  GITHUB_APP_SLUG: z.string().regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/),
+  GITHUB_WEB_URL: z
+    .url()
+    .default("https://github.com")
+    .transform((value, context) => {
+      try {
+        return normalizeCredentialHttpBaseUrl(value, { allowPath: false });
+      } catch {
+        context.addIssue({
+          code: "custom",
+          message: "GITHUB_WEB_URL 은 HTTPS 여야 한다",
+        });
+        return z.NEVER;
+      }
+    }),
+  GITHUB_API_URL: githubEnvSchema.shape.GITHUB_API_URL,
+});
+
+export type GithubAppEnv = z.infer<typeof githubAppEnvSchema>;

@@ -55,7 +55,7 @@ export const repositories = pgTable(
      *
      * 🔴 **소유는 Project 가 하고, Tenant 판정은 여전히 `workspaceId` 가 한다.**
      * Project 는 반드시 한 Workspace 안에 있으므로 둘은 어긋날 수 없다 — 어긋나지 않게
-     * 지키는 자리는 Application Layer 다(`project-service.ts` 의 `resolveIngestProject`).
+     * 지키는 자리는 Application Layer 다(`repository-context-service.ts`).
      */
     projectId: uuid("project_id")
       .notNull()

@@ -70,10 +70,10 @@ const MAX_FILE_BYTES = 1_000_000;
  * -> GET /issues/{id} 가 A 에게 그 코드를 돌려준다
  * ```
  *
- * 저장소를 Workspace 에 등록했다는 사실은 **GitHub 접근 권한의 근거가 아니다**
- *. 그래서 읽기 전에 공개 여부를 먼저 묻고, private 이면 보지 않는다.
- * private 저장소의 Evidence 는 Agent 가 보낸 snapshot 그대로 `UNAVAILABLE` 로 남는다 —
- * 확인하지 못한 것을 확인한 것처럼 적지 않는다.
+ * 저장소를 Workspace 에 등록했다는 사실만으로는 **GitHub 접근 권한의 근거가 아니다**.
+ * 그래서 Workspace의 GitHub App installation이 stored numeric repository id를 실제로
+ * 읽을 수 있는지 먼저 확인한다. 그 권한이 없으면 공개 여부를 확인해 public만 익명/public
+ * fallback으로 읽고, private Evidence는 Agent가 보낸 snapshot 그대로 `UNAVAILABLE`로 남긴다.
  */
 export async function isPublicRepository(
   owner: string,
@@ -126,8 +126,9 @@ export interface GithubFileRef {
 export async function readGithubLines(
   ref: GithubFileRef,
   lines: { startLine: number | null; endLine: number | null },
+  options: { authorizationToken?: string } = {},
 ): Promise<GithubReadResult> {
-  const file = await readGithubFile(ref);
+  const file = await readGithubFile(ref, options.authorizationToken);
   if (!file.ok) {
     return file;
   }
@@ -204,7 +205,10 @@ function countLines(text: string): number {
 type FileRead =
   { ok: true; text: string } | { ok: false; reason: GithubReadFailure };
 
-async function readGithubFile(ref: GithubFileRef): Promise<FileRead> {
+async function readGithubFile(
+  ref: GithubFileRef,
+  authorizationToken?: string,
+): Promise<FileRead> {
   const env = githubEnv();
 
   const path = encodeGithubPath(ref.filePath);
@@ -224,7 +228,11 @@ async function readGithubFile(ref: GithubFileRef): Promise<FileRead> {
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: apiHeaders(url, "application/vnd.github.raw+json"),
+      headers: apiHeaders(
+        url,
+        "application/vnd.github.raw+json",
+        authorizationToken,
+      ),
       signal: AbortSignal.timeout(TIMEOUT_MS),
       cache: "no-store",
       redirect: "error",
@@ -285,7 +293,11 @@ export function githubApiUrl(
 }
 
 /** 🔴 Token 은 헤더에만 담는다. URL·로그·오류 message 어디에도 넣지 않는다. */
-function apiHeaders(url: URL, accept: string): Record<string, string> {
+function apiHeaders(
+  url: URL,
+  accept: string,
+  authorizationToken?: string,
+): Record<string, string> {
   const env = githubEnv();
   // 🔴 Authorization 을 붙이는 바로 이 자리에서도 최종 request URL invariant를 다시 확인한다.
   assertCredentialRequestUrl(url, env.GITHUB_API_URL);
@@ -295,8 +307,9 @@ function apiHeaders(url: URL, accept: string): Record<string, string> {
     "User-Agent": "ReviewTrace",
   };
 
-  if (env.GITHUB_API_TOKEN !== undefined) {
-    headers.Authorization = `Bearer ${env.GITHUB_API_TOKEN}`;
+  const token = authorizationToken ?? env.GITHUB_API_TOKEN;
+  if (token !== undefined) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
   return headers;

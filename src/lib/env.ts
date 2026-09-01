@@ -4,10 +4,12 @@ import type { z } from "zod";
 
 import {
   authEnvSchema,
+  githubAppEnvSchema,
   githubEnvSchema,
   serverEnvSchema,
   type AuthEnv,
   type GithubEnv,
+  type GithubAppEnv,
   type ServerEnv,
 } from "@/lib/env.schema";
 
@@ -39,6 +41,7 @@ function parseOrThrow<T extends z.ZodType>(schema: T): z.infer<T> {
 let cachedServerEnv: ServerEnv | null = null;
 let cachedAuthEnv: AuthEnv | null = null;
 let cachedGithubEnv: GithubEnv | null = null;
+let cachedGithubAppEnv: GithubAppEnv | null = null;
 
 export function serverEnv(): ServerEnv {
   cachedServerEnv ??= parseOrThrow(serverEnvSchema);
@@ -55,4 +58,10 @@ export function authEnv(): AuthEnv {
 export function githubEnv(): GithubEnv {
   cachedGithubEnv ??= parseOrThrow(githubEnvSchema);
   return cachedGithubEnv;
+}
+
+/** Repository integration 경로에서만 읽는다. */
+export function githubAppEnv(): GithubAppEnv {
+  cachedGithubAppEnv ??= parseOrThrow(githubAppEnvSchema);
+  return cachedGithubAppEnv;
 }

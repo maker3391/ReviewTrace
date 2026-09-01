@@ -323,6 +323,11 @@ export const en: Messages = {
     colReviews: "Reviews",
     colOpenIssues: "Open Issues",
     colLastReview: "Last review",
+    connect: "Connect repository",
+    installGithub: "Connect GitHub",
+    choose: "Repository to connect",
+    private: "Private",
+    public: "Public",
   },
 
   wiki: {
@@ -701,6 +706,19 @@ export const en: Messages = {
     PROJECT_NOT_FOUND: "Project not found.",
     MOVE_TARGET_PROJECT_NOT_FOUND: "The destination Project was not found.",
     REPOSITORY_NOT_FOUND: "Repository not found.",
+    REPOSITORY_NOT_CONNECTED:
+      "This Repository is not connected to a Project yet.",
+    REPOSITORY_PROJECT_MISMATCH:
+      "This Repository is connected to another Project. Use the move action.",
+    REPOSITORY_IDENTITY_CONFLICT:
+      "The same name is connected to a different GitHub Repository ID.",
+    GITHUB_REPOSITORY_NOT_AUTHORIZED:
+      "The GitHub App cannot access this Repository.",
+    GITHUB_INSTALLATION_NOT_FOUND: "GitHub connection not found.",
+    GITHUB_INSTALLATION_CONFLICT:
+      "This GitHub installation is connected to another Workspace.",
+    GITHUB_CALLBACK_INVALID:
+      "This GitHub connection request is invalid or expired.",
 
     KNOWLEDGE_PAGE_SLUG_RESERVED: ({ slug }) =>
       `'${slug}' is used by a page address, so it cannot be a page slug.`,

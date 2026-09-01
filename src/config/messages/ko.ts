@@ -454,6 +454,11 @@ export const ko = {
     colReviews: "리뷰",
     colOpenIssues: "미해결 이슈",
     colLastReview: "최근 리뷰",
+    connect: "저장소 연결",
+    installGithub: "GitHub 연결",
+    choose: "연결할 저장소",
+    private: "비공개",
+    public: "공개",
   },
 
   wiki: {
@@ -944,6 +949,19 @@ export const ko = {
     PROJECT_NOT_FOUND: "Project를 찾을 수 없습니다.",
     MOVE_TARGET_PROJECT_NOT_FOUND: "옮길 Project를 찾을 수 없습니다.",
     REPOSITORY_NOT_FOUND: "Repository를 찾을 수 없습니다.",
+    REPOSITORY_NOT_CONNECTED:
+      "Repository가 아직 Project에 연결되지 않았습니다.",
+    REPOSITORY_PROJECT_MISMATCH:
+      "이미 다른 Project에 연결된 Repository입니다. 이동 기능을 사용하세요.",
+    REPOSITORY_IDENTITY_CONFLICT:
+      "같은 이름에 다른 GitHub Repository ID가 연결되어 있습니다.",
+    GITHUB_REPOSITORY_NOT_AUTHORIZED:
+      "GitHub App이 이 Repository에 접근할 수 없습니다.",
+    GITHUB_INSTALLATION_NOT_FOUND: "GitHub 연결을 찾을 수 없습니다.",
+    GITHUB_INSTALLATION_CONFLICT:
+      "이 GitHub installation은 이미 다른 Workspace에 연결되어 있습니다.",
+    GITHUB_CALLBACK_INVALID:
+      "GitHub 연결 요청이 만료되었거나 올바르지 않습니다.",
 
     KNOWLEDGE_PAGE_SLUG_RESERVED: ({ slug }) =>
       `'${slug}'는 화면 주소로 쓰이는 이름이라 문서 slug로 쓸 수 없습니다.`,

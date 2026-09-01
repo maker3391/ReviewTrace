@@ -9,6 +9,7 @@ import { SNAPSHOT_MAX } from "@/features/issues/schemas/decision-record";
 import { describeErrorForLog } from "@/lib/errors";
 import { isPublicRepository, readGithubLines } from "@/lib/github/content";
 import type { EvidenceVerification } from "@/types/review";
+import { findWorkspaceRepositoryToken } from "@/features/repositories/server/github-installation-service";
 
 /**
  * Issue 를 실제 코드에 붙들어 매는 근거의 저장과 확인(스펙 15).
@@ -149,6 +150,7 @@ export async function verifyCodeEvidence(
         provider: repositories.provider,
         owner: repositories.owner,
         name: repositories.name,
+        externalRepositoryId: repositories.externalRepositoryId,
       })
       .from(issueCodeEvidences)
       .innerJoin(
@@ -197,6 +199,7 @@ export async function verifyCodeEvidence(
      * GitHub 왕복이 근거 수만큼 두 배가 된다.
      */
     const publicByRepository = new Map<string, boolean>();
+    const tokenByRepository = new Map<string, string | null>();
 
     for (const row of rows) {
       if (row.provider !== "GITHUB") {
@@ -204,21 +207,33 @@ export async function verifyCodeEvidence(
       }
 
       /**
-       * 🔴 **읽기 전에 공개 저장소인지 먼저 묻는다.**
-       *
-       * `GITHUB_API_TOKEN` 은 서버 하나가 들고 있는 값이고, Repository 행은 Agent 가
-       * 보낸 `owner/name` 으로 만들어질 뿐이다 — **등록했다는 사실은 접근 권한의 근거가
-       * 아니다.** 이 확인이 없으면 아무 Workspace 나 남의 private 저장소 경로를 적어
-       * 서버의 Token 으로 그 코드를 읽어 갈 수 있다(`isPublicRepository` 주석).
+       * 🔴 **읽기 전에 Workspace installation 접근 또는 public 여부를 확인한다.**
+       * Repository 문자열이나 client가 보낸 id는 권한이 아니다. Private source는 같은
+       * Workspace에 연결된 installation이 stored numeric id를 실제로 읽을 때만 접근한다.
        */
       const repositoryKey = `${row.owner}/${row.name}`;
-      let isPublic = publicByRepository.get(repositoryKey);
-      if (isPublic === undefined) {
-        isPublic = await isPublicRepository(row.owner, row.name);
+      let token = tokenByRepository.get(row.externalRepositoryId);
+      if (token === undefined) {
+        try {
+          token = await findWorkspaceRepositoryToken(
+            workspaceId,
+            row.externalRepositoryId,
+            executor,
+          );
+        } catch {
+          token = null;
+        }
+        tokenByRepository.set(row.externalRepositoryId, token);
+      }
+      let isPublic = false;
+      if (token === null) {
+        const knownPublic = publicByRepository.get(repositoryKey);
+        isPublic =
+          knownPublic ?? (await isPublicRepository(row.owner, row.name));
         publicByRepository.set(repositoryKey, isPublic);
       }
 
-      if (!isPublic) {
+      if (token === null && !isPublic) {
         // 볼 수 없었다는 사실을 적는다. Agent 가 보낸 snapshot 은 그대로 둔다.
         await executor
           .update(issueCodeEvidences)
@@ -240,6 +255,7 @@ export async function verifyCodeEvidence(
           filePath: row.filePath,
         },
         { startLine: row.startLine, endLine: row.endLine },
+        token === null ? {} : { authorizationToken: token },
       );
 
       const outcome = decideVerification(read, row.snapshot);

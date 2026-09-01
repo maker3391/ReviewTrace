@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   authEnvSchema,
+  githubAppEnvSchema,
   githubEnvSchema,
   serverEnvSchema,
 } from "@/lib/env.schema";
@@ -68,6 +69,42 @@ describe("serverEnvSchema", () => {
 
   it("인증 값은 여기서 요구하지 않는다 — Database 만 쓰는 코드가 OAuth Secret 을 요구하면 안 된다", () => {
     expect(serverEnvSchema.safeParse(VALID).success).toBe(true);
+  });
+});
+
+describe("githubAppEnvSchema", () => {
+  const app = {
+    GITHUB_APP_ID: "123456",
+    GITHUB_APP_CLIENT_ID: "Iv1.test",
+    GITHUB_APP_CLIENT_SECRET: "secret",
+    GITHUB_APP_PRIVATE_KEY:
+      "-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----",
+    GITHUB_APP_SLUG: "reviewtrace",
+  };
+
+  it("GitHub App credential은 한 벌이 모두 있어야 통과한다", () => {
+    expect(githubAppEnvSchema.safeParse(app).success).toBe(true);
+    for (const key of [
+      "GITHUB_APP_ID",
+      "GITHUB_APP_CLIENT_ID",
+      "GITHUB_APP_CLIENT_SECRET",
+      "GITHUB_APP_PRIVATE_KEY",
+      "GITHUB_APP_SLUG",
+    ] as const) {
+      const missing = { ...app };
+      delete missing[key];
+      expect(githubAppEnvSchema.safeParse(missing).success, key).toBe(false);
+    }
+  });
+
+  it("App ID와 slug를 임의 문자열로 받지 않는다", () => {
+    expect(
+      githubAppEnvSchema.safeParse({ ...app, GITHUB_APP_ID: "app-1" }).success,
+    ).toBe(false);
+    expect(
+      githubAppEnvSchema.safeParse({ ...app, GITHUB_APP_SLUG: "Bad Slug" })
+        .success,
+    ).toBe(false);
   });
 });
 

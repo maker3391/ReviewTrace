@@ -97,6 +97,13 @@ const REASON_CODE = {
   /** 🔴 「옮기려는 Project 가 없다」는 「옮길 Repository 가 없다」와 다른 말이다. */
   MOVE_TARGET_PROJECT_NOT_FOUND: "NOT_FOUND",
   REPOSITORY_NOT_FOUND: "NOT_FOUND",
+  REPOSITORY_NOT_CONNECTED: "VALIDATION_ERROR",
+  REPOSITORY_PROJECT_MISMATCH: "CONFLICT",
+  REPOSITORY_IDENTITY_CONFLICT: "CONFLICT",
+  GITHUB_REPOSITORY_NOT_AUTHORIZED: "FORBIDDEN",
+  GITHUB_INSTALLATION_NOT_FOUND: "NOT_FOUND",
+  GITHUB_INSTALLATION_CONFLICT: "CONFLICT",
+  GITHUB_CALLBACK_INVALID: "VALIDATION_ERROR",
 
   KNOWLEDGE_PAGE_SLUG_RESERVED: "VALIDATION_ERROR",
   KNOWLEDGE_PAGE_SLUG_TAKEN: "CONFLICT",
@@ -266,6 +273,14 @@ const MACHINE_REASON_MESSAGE: Partial<Record<AppErrorReason, string>> = {
     "요청 본문에 저장할 수 없는 문자가 들어 있다 (NUL · 짝 없는 Surrogate).",
   // 🔴 받은 값을 되돌려 담지 않는다. 길이 규칙만 알린다.
   AGENT_IDEMPOTENCY_KEY_TOO_LONG: "Idempotency-Key 는 200자를 넘을 수 없다.",
+  REPOSITORY_NOT_CONNECTED:
+    "Repository가 아직 Project에 연결되지 않았습니다. Project를 지정하거나 먼저 Repository를 연결하세요.",
+  REPOSITORY_PROJECT_MISMATCH:
+    "Repository는 이미 다른 Project에 연결되어 있습니다. Repository Move 기능을 사용하세요.",
+  REPOSITORY_IDENTITY_CONFLICT:
+    "같은 owner/name에 다른 GitHub repository id가 연결되어 있습니다.",
+  GITHUB_REPOSITORY_NOT_AUTHORIZED:
+    "Workspace의 GitHub App installation이 이 Repository에 접근할 수 없습니다.",
 };
 
 /**

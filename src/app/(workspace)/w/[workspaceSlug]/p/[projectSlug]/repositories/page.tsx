@@ -26,6 +26,7 @@ export default async function ProjectRepositoriesPage({
   return (
     <RepositoryListScreen
       workspaceId={workspace.workspaceId}
+      workspaceSlug={workspace.slug}
       project={project}
       basePath={`/w/${workspace.slug}/p/${project.slug}/repositories` as Route}
       searchParams={searchParams}
