@@ -54,7 +54,14 @@ export const NARRATIVE_MARKDOWN =
   "실제 source snippet이 필요할 때만 fenced code block을 쓴다. 짧은 한 문장을 억지로 list로 만들지 않는다. " +
   "UI가 field heading을 제공하므로 field 안에 중복 heading을 쓰지 않고 장식을 위한 Markdown을 넣지 않는다.";
 
-const narrative = (purpose) => `${purpose}. ${NARRATIVE_MARKDOWN}`;
+export function reviewLanguageInstruction(reviewLanguage) {
+  return reviewLanguage === "ko"
+    ? "Narrative fields MUST be authored in Korean. Technical identifiers and code names remain unchanged."
+    : "Narrative fields MUST be authored in English. Technical identifiers and code names remain unchanged.";
+}
+
+const narrative = (purpose, reviewLanguage) =>
+  `${purpose}. ${reviewLanguageInstruction(reviewLanguage)} ${NARRATIVE_MARKDOWN}`;
 
 const evidenceItem = z.object({
   kind: z
@@ -86,37 +93,40 @@ const evidenceItem = z.object({
     ),
 });
 
-const decision = {
-  solution: z.string().optional().describe(narrative("무엇을 했는가")),
+function decisionFields(reviewLanguage) {
+  const describeNarrative = (purpose) => narrative(purpose, reviewLanguage);
+  return {
+  solution: z.string().optional().describe(describeNarrative("무엇을 했는가")),
   decisionReason: z
     .string()
     .optional()
-    .describe(narrative("왜 그것을 골랐는가")),
+    .describe(describeNarrative("왜 그것을 골랐는가")),
   alternatives: z
     .string()
     .optional()
-    .describe(narrative("무엇을 함께 검토했고 왜 버렸는가")),
+    .describe(describeNarrative("무엇을 함께 검토했고 왜 버렸는가")),
   tradeOff: z
     .string()
     .optional()
-    .describe(narrative("그 선택으로 무엇을 내주었는가")),
+    .describe(describeNarrative("그 선택으로 무엇을 내주었는가")),
   verification: z
     .string()
     .optional()
     .describe(
-      narrative(
+      describeNarrative(
         "고쳐졌음을 어떻게 확인했는가. test, lint, typecheck, build 등 여러 검증은 bullet list로 쓴다",
       ),
     ),
   regressionTest: z
     .string()
     .optional()
-    .describe(narrative("다시 무너지는 것을 무엇이 막는가")),
+    .describe(describeNarrative("다시 무너지는 것을 무엇이 막는가")),
   residualRisk: z
     .string()
     .optional()
-    .describe(narrative("그래도 남아 있는 위험")),
-};
+    .describe(describeNarrative("그래도 남아 있는 위험")),
+  };
+}
 
 /** Tool 인자의 판단 칸을 API 계약의 이름으로 옮긴다. 전부 비면 보내지 않는다. */
 function toDecision(args) {
@@ -151,7 +161,14 @@ const actorName = z
   .optional()
   .describe("이 기록을 남기는 Agent 이름 (예: claude-code, codex)");
 
-export function registerTools(server, client, state) {
+export function registerTools(
+  server,
+  client,
+  state,
+  { reviewLanguage = "en" } = {},
+) {
+  const describeNarrative = (purpose) => narrative(purpose, reviewLanguage);
+  const decision = decisionFields(reviewLanguage);
   /** 🔴 Repository 를 사람에게 묻지 않는다 — git remote 가 정본이다(스펙 7). */
   async function resolveRepository(fullName) {
     if (typeof fullName === "string" && fullName.trim() !== "") {
@@ -178,7 +195,7 @@ export function registerTools(server, client, state) {
         summary: z
           .string()
           .optional()
-          .describe("이번 Review 가 무엇을 봤는지 한두 줄"),
+          .describe(describeNarrative("이번 Review 가 무엇을 봤는지 한두 줄")),
         reviewer: actorName,
         repository: z
           .string()
@@ -282,17 +299,21 @@ export function registerTools(server, client, state) {
           .describe("생략하면 이 세션에서 마지막으로 연 Review"),
         severity,
         category,
-        title: z.string().describe("한 줄 제목"),
-        problem: z.string().optional().describe(narrative("무엇이 문제인가")),
+        title: z
+          .string()
+          .describe(
+            `한 줄 제목. ${reviewLanguageInstruction(reviewLanguage)}`,
+          ),
+        problem: z.string().optional().describe(describeNarrative("무엇이 문제인가")),
         rootCause: z
           .string()
           .optional()
-          .describe(narrative("왜 그렇게 됐는가")),
+          .describe(describeNarrative("왜 그렇게 됐는가")),
         failurePath: z
           .string()
           .optional()
           .describe(
-            narrative(
+            describeNarrative(
               "이 문제가 실제로 터지는 경로 (보안이면 공격 경로). 여러 단계는 ordered list로 쓴다",
             ),
           ),
@@ -307,7 +328,7 @@ export function registerTools(server, client, state) {
           .string()
           .optional()
           .describe(
-            narrative("이렇게 고치라는 제안. 여러 조치는 bullet list로 쓴다"),
+            describeNarrative("이렇게 고치라는 제안. 여러 조치는 bullet list로 쓴다"),
           ),
         tags: z.array(z.string()).optional(),
         externalId: z
@@ -378,7 +399,7 @@ export function registerTools(server, client, state) {
           .string()
           .optional()
           .describe("생략하면 마지막으로 다룬 Issue"),
-        summary: z.string().optional().describe(narrative("고침 시도의 요약")),
+        summary: z.string().optional().describe(describeNarrative("고침 시도의 요약")),
         commitSha: z.string().optional().describe("고친 commit"),
         actor: actorName,
         evidence: z.array(evidenceItem).optional(),
@@ -402,7 +423,7 @@ export function registerTools(server, client, state) {
         "검증까지 통과했으면 resolve_issue 를 부른다.",
       inputSchema: {
         issueId: z.string().optional(),
-        summary: z.string().optional().describe(narrative("다시 본 결과")),
+        summary: z.string().optional().describe(describeNarrative("다시 본 결과")),
         stillPresent: z
           .boolean()
           .optional()
@@ -470,7 +491,7 @@ export function registerTools(server, client, state) {
         "그것이 다음 Review 에서 다시 쓰이는 값이다.",
       inputSchema: {
         issueId: z.string().optional(),
-        resolution: z.string().describe(narrative("어떻게 해결했는가 (필수)")),
+        resolution: z.string().describe(describeNarrative("어떻게 해결했는가 (필수)")),
         commitSha: z.string().optional(),
         actor: actorName,
         evidence: z.array(evidenceItem).optional(),

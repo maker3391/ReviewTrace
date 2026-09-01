@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -96,7 +96,120 @@ describe("readRepositoryContext", () => {
       await rm(directory, { recursive: true, force: true });
     }
   });
+
+  it.each(["develop", "feature/source-context"])(
+    "captures current branch %s and immutable HEAD instead of defaultBranch",
+    async (branch) => {
+      const directory = await createRepository();
+      try {
+        await run("git", ["-C", directory, "switch", "-c", branch]);
+        const expectedHead = (
+          await run("git", ["-C", directory, "rev-parse", "HEAD"])
+        ).stdout.trim();
+
+        await expect(readRepositoryContext(directory)).resolves.toMatchObject({
+          defaultBranch: "main",
+          branch,
+          commitSha: expectedHead,
+        });
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("supports detached HEAD with a commit SHA and no invented branch", async () => {
+    const directory = await createRepository();
+    try {
+      const expectedHead = (
+        await run("git", ["-C", directory, "rev-parse", "HEAD"])
+      ).stdout.trim();
+      await run("git", ["-C", directory, "checkout", "--detach", expectedHead]);
+
+      await expect(readRepositoryContext(directory)).resolves.toMatchObject({
+        branch: null,
+        commitSha: expectedHead,
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps HEAD as source identity when the working tree has uncommitted changes", async () => {
+    const directory = await createRepository();
+    try {
+      const expectedHead = (
+        await run("git", ["-C", directory, "rev-parse", "HEAD"])
+      ).stdout.trim();
+      await writeFile(join(directory, "source.txt"), "local uncommitted AFTER\n", "utf8");
+
+      const context = await readRepositoryContext(directory);
+      expect(context.commitSha).toBe(expectedHead);
+      expect(context.branch).toBe("main");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("a later branch move does not mutate the commit captured for an earlier Review", async () => {
+    const directory = await createRepository();
+    try {
+      const reviewContext = await readRepositoryContext(directory);
+      await run("git", [
+        "-C",
+        directory,
+        "-c",
+        "user.name=ReviewTrace",
+        "-c",
+        "user.email=reviewtrace@example.test",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "next",
+      ]);
+      const movedContext = await readRepositoryContext(directory);
+
+      expect(movedContext.commitSha).not.toBe(reviewContext.commitSha);
+      expect(reviewContext.commitSha).toMatch(/^[0-9a-f]{40}$/u);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
 });
+
+async function createRepository() {
+  const directory = await mkdtemp(join(tmpdir(), "reviewtrace-source-"));
+  await run("git", ["init", "--initial-branch=main", directory]);
+  await run("git", [
+    "-C",
+    directory,
+    "remote",
+    "add",
+    "origin",
+    "git@github.com:acme/app.git",
+  ]);
+  await writeFile(join(directory, "source.txt"), "committed BEFORE\n", "utf8");
+  await run("git", ["-C", directory, "add", "source.txt"]);
+  await run("git", [
+    "-C",
+    directory,
+    "-c",
+    "user.name=ReviewTrace",
+    "-c",
+    "user.email=reviewtrace@example.test",
+    "commit",
+    "-m",
+    "initial",
+  ]);
+  await run("git", [
+    "-C",
+    directory,
+    "symbolic-ref",
+    "refs/remotes/origin/HEAD",
+    "refs/remotes/origin/main",
+  ]);
+  return directory;
+}
 
 /**
  * 🔴 되돌림 확인(2026-08-28): `parseRemote` 의 `.toLowerCase()` 를 떼면

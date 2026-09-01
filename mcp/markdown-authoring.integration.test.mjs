@@ -8,6 +8,7 @@ import { db } from "../src/db/index.ts";
 import {
   projects,
   repositories,
+  issueActivities,
   reviewIssues,
   reviewSessions,
   users,
@@ -97,7 +98,7 @@ describe.skipIf(!enabled)("MCP Markdown normal path", () => {
       );
 
       const description =
-        "첫 문단은 문제를 설명한다.\n\n- 원인 A\n- `project_id` 불일치";
+        "저장소 자동 인식 검증 — 개발 브랜치에서 생성한 리뷰\n\n- 원인 A\n- `project_id` 불일치";
       const failurePath =
         "1. `git remote`를 읽는다.\n2. Repository 없이 Workspace 전체를 조회한다.";
       await handlers.get("add_issue")({
@@ -107,10 +108,16 @@ describe.skipIf(!enabled)("MCP Markdown normal path", () => {
         problem: description,
         failurePath,
         suggestion: "- 공통 resolver를 쓴다.\n- `workspace_id`를 검증한다.",
+        solution: "공통 `RepositoryContextResolver`를 적용했다.",
+        decisionReason: "Credential 회전과 독립적인 Principal 설정을 유지한다.",
+        verification:
+          "- 한글 paragraph를 확인했다.\n- `ci_agent_` identifier를 유지했다.",
+        regressionTest: "UTF-8 JSON round-trip test가 재발을 막는다.",
       });
 
       const [stored] = await tx
         .select({
+          id: reviewIssues.id,
           description: reviewIssues.description,
           failurePath: reviewIssues.failurePath,
           suggestion: reviewIssues.suggestion,
@@ -125,6 +132,23 @@ describe.skipIf(!enabled)("MCP Markdown normal path", () => {
         .limit(1);
       expect(stored.description).toBe(description);
       expect(stored.failurePath).toBe(failurePath);
+      const [activity] = await tx
+        .select({
+          solution: issueActivities.solution,
+          decisionReason: issueActivities.decisionReason,
+          verification: issueActivities.verification,
+          regressionTest: issueActivities.regressionTest,
+        })
+        .from(issueActivities)
+        .where(eq(issueActivities.reviewIssueId, stored.id));
+      expect(activity).toEqual({
+        solution: "공통 `RepositoryContextResolver`를 적용했다.",
+        decisionReason:
+          "Credential 회전과 독립적인 Principal 설정을 유지한다.",
+        verification:
+          "- 한글 paragraph를 확인했다.\n- `ci_agent_` identifier를 유지했다.",
+        regressionTest: "UTF-8 JSON round-trip test가 재발을 막는다.",
+      });
       const markup = renderToStaticMarkup(
         createElement(MarkdownView, {
           content: `${stored.description}\n\n${stored.failurePath}`,
@@ -135,6 +159,7 @@ describe.skipIf(!enabled)("MCP Markdown normal path", () => {
       expect(markup).toContain("<ul");
       expect(markup).toContain("<ol");
       expect(markup).toContain("<code");
+      expect(markup).toContain("저장소 자동 인식 검증 — 개발 브랜치");
     });
   });
 });

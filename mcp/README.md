@@ -22,7 +22,7 @@ issue and wiki page you record belongs to exactly one.
 
 ### 2. Create one Agent credential
 
-Go to **`/w/{your-workspace}/settings` → Agent Credentials** and issue a credential. Grant its
+Go to **`/w/{your-workspace}/settings` → Agent connections** and create a connection. Allow its
 principal access only to the Workspaces it should use; a Workspace `OWNER` controls each grant.
 
 The credential looks like `ci_agent_…` and is **shown exactly once** — ReviewTrace stores only its

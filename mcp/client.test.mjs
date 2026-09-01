@@ -64,4 +64,27 @@ describe("Agent context errors", () => {
     const requestUrl = new URL(fetch.mock.calls[0][0]);
     expect(requestUrl.searchParams.get("workspaceSlug")).toBe("workspace-a");
   });
+
+  it("serializes Korean Review Knowledge as UTF-8 JSON without replacement", async () => {
+    const fetch = vi.fn().mockResolvedValue(
+      Response.json({ issues: [{ id: "issue-1", alreadyKnown: false }] }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const client = createClient({
+      apiUrl: "https://reviewtrace.example",
+      apiKey: "secret-not-logged",
+    });
+    const description =
+      "저장소 자동 인식 검증 — 개발 브랜치에서 생성한 리뷰\n\n- `workspaceId` 유지";
+
+    await client.appendIssues("review-1", [{ description }]);
+
+    const request = fetch.mock.calls[0][1];
+    expect(request.headers["content-type"]).toBe("application/json");
+    expect(JSON.parse(request.body)).toEqual({ issues: [{ description }] });
+    expect(Buffer.from(request.body, "utf8").toString("utf8")).toContain(
+      "저장소 자동 인식 검증 — 개발 브랜치",
+    );
+    expect(request.body).not.toContain("?");
+  });
 });

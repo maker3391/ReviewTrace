@@ -155,6 +155,7 @@ export function createClient({ apiUrl, apiKey }) {
   }
 
   return {
+    agentContext: () => call("GET", "/agent/context"),
     createReview: (body, idempotencyKey, workspaceSlug) =>
       call("POST", "/reviews", {
         body,
@@ -204,13 +205,13 @@ function toApiError(status, parsed) {
 
   if (status === 401) {
     return new ApiError(
-      "ReviewTrace credential이 유효하지 않습니다(없음·폐기됨·만료됨). Settings > Agent Credentials에서 확인하세요.",
+      "ReviewTrace Agent 인증 정보가 유효하지 않습니다(없음·폐기됨·만료됨). Settings > Agent 연결에서 확인하세요.",
       details,
     );
   }
   if (status === 403) {
     return new ApiError(
-      "이 작업에 필요한 capability 또는 Workspace 접근 권한이 없습니다.",
+      "이 작업에 필요한 Agent 권한 또는 Workspace 접근 권한이 없습니다.",
       details,
     );
   }
@@ -222,7 +223,7 @@ function toApiError(status, parsed) {
       );
     }
     return new ApiError(
-      "대상을 찾지 못했거나 현재 credential의 허용 범위 밖입니다.",
+      "대상을 찾지 못했거나 현재 Agent 연결의 허용 범위 밖입니다.",
       details,
     );
   }

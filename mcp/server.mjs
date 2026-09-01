@@ -6,7 +6,11 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 
 import { createClient } from "./client.mjs";
 import { ConfigError, loadConfig } from "./config.mjs";
-import { NARRATIVE_MARKDOWN, registerTools } from "./tools.mjs";
+import {
+  NARRATIVE_MARKDOWN,
+  registerTools,
+  reviewLanguageInstruction,
+} from "./tools.mjs";
 
 /**
  * ReviewTrace MCP Server (스펙 1·9·10).
@@ -66,6 +70,13 @@ async function main() {
     throw error;
   }
 
+  const client = createClient(config);
+  const agentContext = await client.agentContext();
+  const reviewLanguage = agentContext?.reviewLanguage;
+  if (reviewLanguage !== "ko" && reviewLanguage !== "en") {
+    throw new Error("ReviewTrace 서버가 유효한 리뷰 언어를 반환하지 않았다.");
+  }
+
   const server = new McpServer(
     { name: NAME, version: VERSION },
     {
@@ -75,6 +86,8 @@ async function main() {
         "고쳤으면 add_fix_attempt, 다시 봤으면 review_again, 검증까지 끝났으면 resolve_issue 다. " +
         "코드를 고치기 전에 get_repository_knowledge 나 search_issues 로 과거에 같은 문제가 있었는지 먼저 본다. " +
         "중요한 문제에는 Root Cause, 선택한 해결책, 선택 이유, 대안, Trade-off, Evidence 를 함께 남긴다. " +
+        reviewLanguageInstruction(reviewLanguage) +
+        " " +
         NARRATIVE_MARKDOWN +
         " " +
         "Code Evidence는 전체 함수나 컴포넌트가 아니라 문제·수정 line과 이해에 필요한 최소 context만 snapshot/startLine/endLine으로 보낸다.",
@@ -98,7 +111,7 @@ async function main() {
     pendingReviewFingerprint: null,
   };
 
-  registerTools(server, createClient(config), state);
+  registerTools(server, client, state, { reviewLanguage });
 
   await server.connect(new StdioServerTransport());
   console.error(`[reviewtrace-mcp] 연결됨 (${config.apiUrl})`);

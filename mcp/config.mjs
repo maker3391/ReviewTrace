@@ -65,7 +65,7 @@ export function loadConfig() {
   if (apiKey === undefined) {
     throw new ConfigError(
       "ReviewTrace API Key 가 없다. MCP Client 설정의 env 에 REVIEWTRACE_API_KEY 를 넣거나 " +
-        `${HOME_CONFIG} 에 {"apiKey": "..."} 를 적어라. Settings > Agent Credentials 에서 발급한다.`,
+        `${HOME_CONFIG} 에 {"apiKey": "..."} 를 적어라. Settings > Agent 연결에서 생성한다.`,
     );
   }
 

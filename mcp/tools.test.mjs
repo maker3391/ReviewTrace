@@ -6,7 +6,11 @@ vi.mock("./git.mjs", async (importOriginal) => {
 });
 
 const { readRepositoryContext } = await import("./git.mjs");
-const { NARRATIVE_MARKDOWN, registerTools } = await import("./tools.mjs");
+const {
+  NARRATIVE_MARKDOWN,
+  registerTools,
+  reviewLanguageInstruction,
+} = await import("./tools.mjs");
 
 /**
  * `get_repository_knowledge` 가 **어느 범위를 본 것인지 응답에 남기는가**.
@@ -35,14 +39,17 @@ function knowledgeContextResponse() {
 }
 
 /** `registerTool(name, meta, handler)` 를 받아 두었다가 핸들러를 직접 부를 수 있게 한다. */
-function captureTools(client) {
+function captureTools(client, options) {
   const handlers = new Map();
+  const metadata = new Map();
   const server = {
-    registerTool(name, _meta, handler) {
+    registerTool(name, meta, handler) {
       handlers.set(name, handler);
+      metadata.set(name, meta);
     },
   };
-  registerTools(server, client, { pendingReviewKey: null });
+  registerTools(server, client, { pendingReviewKey: null }, options);
+  handlers.metadata = metadata;
   return handlers;
 }
 
@@ -117,6 +124,38 @@ describe("get_repository_knowledge 의 범위 표시", () => {
   });
 });
 
+describe("create_review source context", () => {
+  it.each(["develop", "feature/source-context", null])(
+    "sends current branch=%s and immutable HEAD without substituting defaultBranch",
+    async (branch) => {
+      readRepositoryContext.mockResolvedValueOnce({
+        provider: "GITHUB",
+        owner: "acme",
+        name: "app",
+        fullName: "acme/app",
+        htmlUrl: "https://github.com/acme/app",
+        defaultBranch: "main",
+        commitSha: "a".repeat(40),
+        branch,
+        workspaceSlug: null,
+      });
+      const createReview = vi.fn(async () => ({ reviewSessionId: "review-1" }));
+      const handlers = captureTools({ createReview });
+
+      await handlers.get("create_review")({});
+
+      expect(createReview.mock.calls[0][0]).toMatchObject({
+        repository: { defaultBranch: "main" },
+        target: {
+          type: "COMMIT",
+          branch,
+          commitSha: "a".repeat(40),
+        },
+      });
+    },
+  );
+});
+
 describe("Review Knowledge Markdown authoring contract", () => {
   it("paragraph/list/ordered list/inline code 원문을 add_issue payload에 그대로 보존한다", async () => {
     const appendIssues = vi.fn(async () => ({
@@ -148,5 +187,36 @@ describe("Review Knowledge Markdown authoring contract", () => {
     expect(NARRATIVE_MARKDOWN).toContain("inline code");
     expect(NARRATIVE_MARKDOWN).toContain("fenced code block");
     expect(NARRATIVE_MARKDOWN).toContain("중복 heading");
+  });
+
+  it.each([
+    ["ko", "MUST be authored in Korean"],
+    ["en", "MUST be authored in English"],
+  ])("reviewLanguage=%s를 모든 narrative field 계약에 반영한다", (reviewLanguage, expected) => {
+    const handlers = captureTools({}, { reviewLanguage });
+    const addIssue = handlers.metadata.get("add_issue");
+    const addFixAttempt = handlers.metadata.get("add_fix_attempt");
+    const createReview = handlers.metadata.get("create_review");
+
+    expect(createReview.inputSchema.summary.description).toContain(expected);
+    expect(addIssue.inputSchema.title.description).toContain(expected);
+    expect(addIssue.inputSchema.problem.description).toContain(expected);
+    expect(addIssue.inputSchema.rootCause.description).toContain(expected);
+    expect(addIssue.inputSchema.failurePath.description).toContain(expected);
+    expect(addIssue.inputSchema.solution.description).toContain(expected);
+    expect(addFixAttempt.inputSchema.summary.description).toContain(expected);
+    expect(addFixAttempt.inputSchema.verification.description).toContain(
+      expected,
+    );
+    expect(addIssue.inputSchema.problem.description).toContain("inline code");
+  });
+
+  it("technical identifier를 번역하지 않는 언어 계약을 명시한다", () => {
+    expect(reviewLanguageInstruction("ko")).toContain(
+      "Technical identifiers and code names remain unchanged",
+    );
+    expect(reviewLanguageInstruction("en")).toContain(
+      "Technical identifiers and code names remain unchanged",
+    );
   });
 });
