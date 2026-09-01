@@ -308,7 +308,7 @@ export const issueActivities = pgTable(
  * 그러면 「무엇을 먼저 해 봤고 왜 그것으로는 안 됐는가」가 사라진다 — 그것이야말로
  * 다음 Review 에서 재사용되는 Knowledge 다. 그래서 판단은 **행위에 붙는다.**
  *
- * `review_issues.resolutionSummary` 는 그대로 남는다. 저것은 **최종 한 줄 요약**이고
+ * `review_issues.resolutionSummary` 는 그대로 남는다. 저것은 **최종 해결 요약 문서**이고
  * 이것은 **그 결론에 이른 각 판단**이다 — 겹치지 않는다.
  *
  * 대부분의 Activity(`COMMENT`·`REOPENED`)에는 전부 `NULL` 이다. 별도 표로 빼지 않는

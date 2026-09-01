@@ -110,7 +110,7 @@ export async function updateIssueStatus(
         description: update.resolutionSummary,
         commitSha: update.commitSha,
         /**
-         * 🔴 `resolutionSummary` 와 겹치지 않는다. 저것은 Issue 에 남는 최종 한 줄이고
+         * 🔴 `resolutionSummary` 와 겹치지 않는다. 저것은 Issue 에 남는 최종 해결 요약 문서이고
          * 이것은 그 결론에 이른 이번 판단이라 여기 남는다 — REOPENED 되어도 지워지지 않는다.
          */
         ...(update.decision ?? {}),

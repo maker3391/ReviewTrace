@@ -12,6 +12,17 @@ import { ISSUE_STATUSES } from "@/types/review";
  * 「RESOLVED 는 해결 요약 없이 통과하지 못한다」가 실패한다. 직접 확인했다.
  */
 describe("issueStatusUpdateSchema", () => {
+  it("resolutionSummary의 Markdown source를 임의로 재작성하지 않는다", () => {
+    const narrative =
+      "첫 번째 문장은 실제로 적용한 해결책과 바뀐 경계를 다음 리뷰가 이해하도록 충분히 자세하게 설명한다. 두 번째 문장은 확인한 동작과 실행한 검증 절차를 구체적으로 설명한다. 세 번째 문장은 아직 남아 있는 위험과 후속 확인 조건을 구체적으로 설명한다.";
+    const result = issueStatusUpdateSchema.parse({
+      status: "RESOLVED",
+      resolutionSummary: narrative,
+    });
+
+    expect(result.resolutionSummary).toBe(narrative);
+  });
+
   it("RESOLVED 는 해결 요약 없이 통과하지 못한다", () => {
     expect(issueStatusUpdateSchema.safeParse({ status: "RESOLVED" }).success).toBe(
       false,

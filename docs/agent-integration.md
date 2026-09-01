@@ -57,13 +57,21 @@ each attempt keeps its own reasoning instead of overwriting the last one.
 These fields are all optional. An empty field is better than an invented one. But when
 you *do* know the answer, write it — this is the whole value of the record.
 
+Knowledge fields contain Markdown source. Separate different ideas with a blank line
+instead of joining them into one long paragraph. Prefer an ordered list for a multi-step
+failure or attack path, and bullet lists for multiple suggestions, applied changes, or
+verification commands. Use inline code for identifiers. The server stores this Markdown
+source as text; it does not heuristically rewrite legacy one-line records.
+
 **`rootCause`** — why the code ended up this way, not what is wrong with it. "The
 transaction boundary was drawn around the whole service method" is a root cause.
-"External call inside a transaction" is a restatement of the title.
+"External call inside a transaction" is a restatement of the title. Separate the direct
+cause from the structural cause when both matter.
 
 **`failurePath`** — how this actually breaks in production. For security findings, the
 attack path. Concrete: "if the payment API slows to 3s, the connection pool drains and
-unrelated orders start timing out."
+unrelated orders start timing out." Prefer an ordered list when the path has multiple
+steps.
 
 **`decisionReason`** — why this fix and not another. If the reason is "it was the
 smallest change that worked," say that. That is a real reason.
@@ -76,7 +84,8 @@ choice reads this first.
 sit in PENDING if the payment call fails after commit."
 
 **`verification`** — how you know it works now. A test name, a load test result, a
-manual check. Not "fixed."
+manual check. Not "fixed." Use a bullet list when reporting test, lint, typecheck, build,
+or multiple manual checks.
 
 **`regressionTest`** — what stops it from coming back. Usually a test name.
 
@@ -93,6 +102,11 @@ that snapshot against GitHub at that commit and records the result separately �
 cannot mark your own evidence as verified. Only public repositories are checked; for a
 private repo, a deleted commit, or a missing file, the snapshot you sent is still kept and
 the record says `UNAVAILABLE` rather than pretending.
+
+Keep each Evidence range minimal: the problem or changed lines plus only the context
+needed to understand them. Do not send an entire function or component by habit. Set
+`startLine` and `endLine` to the exact snapshot range. Existing wide snapshots remain
+valid and are not rewritten.
 
 Point at a commit SHA, never a branch name. Branches move; the evidence should not.
 

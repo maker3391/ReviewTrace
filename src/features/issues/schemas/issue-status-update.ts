@@ -6,6 +6,7 @@ import {
  optionalDecisionRecordSchema,
 } from "@/features/issues/schemas/decision-record";
 import { rule } from "@/lib/validation/validation-rule";
+import { narrativeDescription } from "@/lib/markdown/narrative";
 import {
  ISSUE_STATUSES,
  type IssueActivityType,
@@ -52,9 +53,8 @@ export const issueStatusUpdateSchema = z
 .trim()
 .max(RESOLUTION_SUMMARY_MAX)
 .nullish()
-.transform((value) =>
- value === undefined || value === "" ? null : value,
-),
+ .transform((value) => (value === undefined || value === "" ? null : value))
+ .describe(narrativeDescription("어떻게 해결했는가.")),
  /**
  * 누가 바꿨는가. Server Action 은 로그인 세션을 붙이고 Agent Route 는 이 입력값을
  * 인증된 API Key 의 AGENT 신원으로 덮어쓴다.
@@ -70,7 +70,7 @@ export const issueStatusUpdateSchema = z
  /**
  * 이 전이가 내린 판단(스펙 4).
  *
- * 🔴 `resolutionSummary` 와 겹치지 않는다. 저것은 Issue 에 남는 **최종 한 줄 요약**
+ * 🔴 `resolutionSummary` 와 겹치지 않는다. 저것은 Issue 에 남는 **최종 해결 요약 문서**
  * 이고, 이것은 그 결론에 이른 **이번 판단**이라 Activity 에 남는다.
  */
  decision: optionalDecisionRecordSchema,

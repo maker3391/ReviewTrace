@@ -12,6 +12,7 @@ import {
  optionalDecisionRecordSchema,
 } from "@/features/issues/schemas/decision-record";
 import { TAG_NAME_MAX_LENGTH } from "@/features/reviews/utils/tag-name";
+import { narrativeDescription } from "@/lib/markdown/narrative";
 import { rule } from "@/lib/validation/validation-rule";
 
 /**
@@ -169,15 +170,25 @@ export const reviewIssueInputSchema = z
  patternKey: optionalText(IDENTIFIER_MAX),
  title: nonEmpty(TITLE_MAX),
  /** 무엇이 문제인가. */
- description: optionalText(DESCRIPTION_MAX),
+ description: optionalText(DESCRIPTION_MAX).describe(
+ narrativeDescription("무엇이 문제인가."),
+ ),
  /** 왜 그렇게 됐는가. `description` 과 다른 질문에 답한다(스펙 4). */
- rootCause: optionalText(DESCRIPTION_MAX),
+ rootCause: optionalText(DESCRIPTION_MAX).describe(
+ narrativeDescription("왜 그렇게 됐는가."),
+ ),
  /** 이 문제가 실제로 터지는 경로. SECURITY 면 공격 경로, 그 밖이면 실패 경로다. */
- failurePath: optionalText(DESCRIPTION_MAX),
+ failurePath: optionalText(DESCRIPTION_MAX).describe(
+ narrativeDescription(
+ "문제가 실제로 터지는 경로. 여러 단계라면 ordered list를 우선 사용한다.",
+ ),
+ ),
  filePath: optionalText(1024),
  startLine: optionalPositiveInt(),
  endLine: optionalPositiveInt(),
- suggestion: optionalText(DESCRIPTION_MAX),
+ suggestion: optionalText(DESCRIPTION_MAX).describe(
+ narrativeDescription("어떻게 고칠지에 대한 제안. 여러 조치는 bullet list로 쓴다."),
+ ),
  /** 이 Issue 를 만든 바깥 시스템과 그쪽 식별자(스펙 23). 없으면 우리가 처음 만든 것이다. */
  source: optionalText(IDENTIFIER_MAX),
  externalId: optionalText(IDENTIFIER_MAX),

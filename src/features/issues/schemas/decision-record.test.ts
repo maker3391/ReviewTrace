@@ -51,6 +51,22 @@ describe("codeEvidenceSchema", () => {
 });
 
 describe("optionalDecisionRecordSchema", () => {
+  it("Decision Record의 Markdown source를 임의로 재작성하지 않는다", () => {
+    const narrative =
+      "첫 번째 문장은 적용한 해결책과 변경된 경계를 다음 리뷰가 이해할 수 있도록 충분히 자세하게 설명한다. 두 번째 문장은 이 방법을 선택한 이유와 함께 검토한 대안을 구체적으로 설명한다. 세 번째 문장은 검증 결과와 아직 남아 있는 위험을 구체적으로 설명한다.";
+    const result = optionalDecisionRecordSchema.parse({
+      solution: narrative,
+      decisionReason: narrative,
+      alternativesConsidered: narrative,
+      tradeOff: narrative,
+      verification: narrative,
+      regressionTest: narrative,
+      residualRisk: narrative,
+    });
+
+    for (const value of Object.values(result ?? {})) expect(value).toBe(narrative);
+  });
+
   it("빈 칸 일곱 개는 없는 것과 같다 — 빈 판단을 남기지 않는다", () => {
     expect(optionalDecisionRecordSchema.parse({ solution: "" })).toBeNull();
     expect(optionalDecisionRecordSchema.parse(undefined)).toBeNull();

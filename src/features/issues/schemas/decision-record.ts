@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { rule } from "@/lib/validation/validation-rule";
+import { narrativeDescription } from "@/lib/markdown/narrative";
 import { CODE_EVIDENCE_KINDS } from "@/types/review";
 
 /**
@@ -32,13 +33,14 @@ export const MAX_EVIDENCE_PER_ISSUE = 20;
 /** Snapshot 한 조각의 상한. 줄 범위를 담는 값이지 파일을 담는 값이 아니다. */
 export const SNAPSHOT_MAX = 20_000;
 
-const narrative = () =>
+const narrative = (purpose: string) =>
  z
 .string()
 .trim()
 .max(NARRATIVE_MAX)
 .nullish()
-.transform((value) => (value === undefined || value === "" ? null : value));
+.transform((value) => (value === undefined || value === "" ? null : value))
+ .describe(narrativeDescription(purpose));
 
 /**
  * 한 번의 판단.
@@ -48,19 +50,21 @@ const narrative = () =>
  */
 export const decisionRecordSchema = z.object({
  /** 무엇을 했는가. `suggestion`(해 보라)과 다르다 — 이것은 「했다」다. */
- solution: narrative(),
+ solution: narrative("무엇을 했는가."),
  /** 왜 그것을 골랐는가. */
- decisionReason: narrative(),
+ decisionReason: narrative("왜 그것을 골랐는가."),
  /** 무엇을 함께 검토했고 왜 버렸는가. */
- alternativesConsidered: narrative(),
+ alternativesConsidered: narrative("무엇을 함께 검토했고 왜 버렸는가."),
  /** 그 선택으로 무엇을 내주었는가. */
- tradeOff: narrative(),
+ tradeOff: narrative("그 선택으로 무엇을 내주었는가."),
  /** 고쳐졌음을 어떻게 확인했는가. */
- verification: narrative(),
+ verification: narrative(
+ "고쳐졌음을 어떻게 확인했는가. test, lint, typecheck, build 등 여러 검증은 bullet list로 쓴다.",
+ ),
  /** 다시 무너지는 것을 무엇이 막는가. */
- regressionTest: narrative(),
+ regressionTest: narrative("다시 무너지는 것을 무엇이 막는가."),
  /** 그래도 남아 있는 위험. */
- residualRisk: narrative(),
+ residualRisk: narrative("그래도 남아 있는 위험."),
 });
 
 export type DecisionRecordInput = z.infer<typeof decisionRecordSchema>;
@@ -88,8 +92,18 @@ export const codeEvidenceSchema = z
  kind: z.enum(CODE_EVIDENCE_KINDS),
  commitSha: z.string().trim().min(1).max(SHA_MAX),
  filePath: z.string().trim().min(1).max(PATH_MAX),
- startLine: z.int().positive().nullish().transform((v) => v ?? null),
- endLine: z.int().positive().nullish().transform((v) => v ?? null),
+ startLine: z
+ .int()
+ .positive()
+ .nullish()
+ .transform((v) => v ?? null)
+ .describe("snapshot 첫 줄. 문제·수정 line과 필요한 최소 context로 범위를 좁힌다."),
+ endLine: z
+ .int()
+ .positive()
+ .nullish()
+ .transform((v) => v ?? null)
+ .describe("snapshot 마지막 줄. 전체 함수/컴포넌트를 습관적으로 포함하지 않는다."),
  /**
  * Agent 가 읽은 코드 조각.
  *
@@ -107,9 +121,12 @@ export const codeEvidenceSchema = z
 .string()
 .max(SNAPSHOT_MAX)
 .nullish()
-.transform((v) =>
+ .transform((v) =>
  v === undefined || v === null || v.trim() === "" ? null : v,
-),
+ )
+ .describe(
+ "문제·수정 line과 이해에 필요한 소량의 context만 담은 원본 코드. 전체 함수/컴포넌트를 습관적으로 포함하지 않는다.",
+ ),
  })
 .refine(
  (e) => e.startLine === null || e.endLine === null || e.endLine >= e.startLine,

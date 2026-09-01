@@ -119,6 +119,10 @@ the server remembers the review you just opened and the issue you last touched.
 | `add_fix_attempt` | Record that this was fixed this way, and why | `issueId`, `summary`, `commitSha`, `solution`, `decisionReason`, `evidence` |
 | `review_again` | Record a re-review. `stillPresent: true` reopens a closed issue | `issueId`, `summary`, `stillPresent` |
 | `resolve_issue` | Close a verified issue. `resolution` is required | `issueId`, `resolution`, `verification`, `commitSha` |
+
+Evidence snapshots should contain the problem or changed lines plus only the context
+needed to understand them. Send exact `startLine`/`endLine` values; do not include an
+entire function or component by default.
 | `get_issue` | Read one issue with its full history | `issueId` |
 
 `severity` is `CRITICAL · HIGH · MEDIUM · LOW · INFO`.
@@ -147,13 +151,13 @@ add_issue {
   "severity": "HIGH",
   "category": "TRANSACTION",
   "title": "환불 트랜잭션 안에서 PG 사 API 를 호출한다",
-  "problem": "PG 응답이 늦으면 커넥션을 잡은 채 트랜잭션이 열려 있다",
-  "rootCause": "결제 취소와 원장 기록을 한 메서드에 묶으면서 외부 호출이 안으로 들어왔다",
+  "problem": "PG 응답이 늦으면 커넥션을 잡은 채 트랜잭션이 열려 있다.\n\n영향:\n\n- 취소 요청이 몰리면 pool이 고갈된다\n- 다른 결제 요청까지 대기한다",
+  "rootCause": "결제 취소와 원장 기록을 한 메서드에 묶었다.\n\n그 결과 `requestRefund()` 외부 호출이 transaction 안으로 들어왔다.",
   "patternKey": "EXTERNAL_IO_IN_TRANSACTION",
   "filePath": "src/billing/refund-service.ts",
   "startLine": 82,
   "externalId": "refund-service-82-ext-io",
-  "suggestion": "PG 호출을 트랜잭션 밖으로 빼고 결과를 별도 커밋으로 반영한다"
+  "suggestion": "PG 호출을 트랜잭션 밖으로 뺀다.\n\n- 외부 응답을 먼저 받는다\n- 원장 기록만 별도 transaction으로 커밋한다"
 }
 // -> { issueId: "…", alreadyKnown: false }
 
@@ -168,7 +172,7 @@ add_fix_attempt {
 // 5. Once it is actually verified.
 resolve_issue {
   "resolution": "트랜잭션 경계 축소로 외부 호출이 밖으로 나갔다",
-  "verification": "동시 취소 20건 부하에서 커넥션 고갈 재현 안 됨",
+  "verification": "다음 검증을 통과했다.\n\n- 동시 취소 20건에서 pool 고갈이 재현되지 않음\n- 실패 응답에서 원장 변경이 rollback됨",
   "commitSha": "9d2b71e"
 }
 ```

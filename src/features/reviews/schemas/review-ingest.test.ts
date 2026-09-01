@@ -41,6 +41,28 @@ const validPayload = {
 };
 
 describe("reviewIngestSchema", () => {
+  it("Agent narrative의 Markdown source를 임의로 재작성하지 않는다", () => {
+    const narrative =
+      "첫 번째 문장은 발견된 증상과 영향을 구체적으로 설명해서 다음 리뷰가 맥락을 다시 찾지 않아도 되게 한다. 두 번째 문장은 그 증상이 발생한 근본 원인과 계층 사이의 잘못된 계약을 자세히 설명한다. 세 번째 문장은 실패 경로와 검증해야 할 조건을 구체적으로 설명한다.";
+    const result = reviewIngestSchema.parse({
+      ...validPayload,
+      issues: [
+        {
+          ...validPayload.issues[0],
+          description: narrative,
+          rootCause: narrative,
+          failurePath: narrative,
+          suggestion: narrative,
+        },
+      ],
+    });
+
+    expect(result.issues[0]?.description).toBe(narrative);
+    expect(result.issues[0]?.rootCause).toBe(narrative);
+    expect(result.issues[0]?.failurePath).toBe(narrative);
+    expect(result.issues[0]?.suggestion).toBe(narrative);
+  });
+
   it("스펙 29 의 Payload 를 그대로 받는다", () => {
     const result = reviewIngestSchema.safeParse(validPayload);
 

@@ -42,30 +42,64 @@ const category = z.enum([
  "RELIABILITY",
 ]);
 
+const NARRATIVE_MARKDOWN =
+ "Markdown으로 쓴다. 서로 다른 의미는 빈 줄로 문단을 나누고, 여러 항목은 목록으로 쓰며, 코드 식별자는 inline code로 표시한다. 여러 의미를 한 문단에 이어 붙이지 않는다.";
+
+const narrative = (purpose) => `${purpose}. ${NARRATIVE_MARKDOWN}`;
+
 const evidenceItem = z.object({
  kind: z
 .enum(["BEFORE", "AFTER"])
 .describe("BEFORE = 문제가 있던 코드, AFTER = 고친 뒤의 코드"),
  commitSha: z.string().describe("이 코드가 존재하는 commit SHA"),
  filePath: z.string().describe("저장소 루트 기준 경로"),
- startLine: z.number().int().positive().optional(),
- endLine: z.number().int().positive().optional(),
+ startLine: z
+ .number()
+ .int()
+ .positive()
+ .optional()
+ .describe("snapshot 첫 줄. 문제·수정 line과 필요한 최소 context로 범위를 좁힌다"),
+ endLine: z
+ .number()
+ .int()
+ .positive()
+ .optional()
+ .describe("snapshot 마지막 줄. 전체 함수/컴포넌트를 습관적으로 포함하지 않는다"),
  snapshot: z
 .string()
 .optional()
 .describe(
- "그 줄 범위의 실제 코드. 서버가 GitHub 에서 대조해 확인 여부를 따로 기록한다.",
+ "그 줄 범위의 실제 코드. 문제·수정 line과 이해에 필요한 소량의 context만 포함한다. 전체 함수/컴포넌트를 습관적으로 보내지 않는다. 서버가 GitHub에서 대조해 확인 여부를 따로 기록한다.",
 ),
 });
 
 const decision = {
- solution: z.string().optional().describe("무엇을 했는가"),
- decisionReason: z.string().optional().describe("왜 그것을 골랐는가"),
- alternatives: z.string().optional().describe("무엇을 함께 검토했고 왜 버렸는가"),
- tradeOff: z.string().optional().describe("그 선택으로 무엇을 내주었는가"),
- verification: z.string().optional().describe("고쳐졌음을 어떻게 확인했는가"),
- regressionTest: z.string().optional().describe("다시 무너지는 것을 무엇이 막는가"),
- residualRisk: z.string().optional().describe("그래도 남아 있는 위험"),
+ solution: z.string().optional().describe(narrative("무엇을 했는가")),
+ decisionReason: z.string().optional().describe(narrative("왜 그것을 골랐는가")),
+ alternatives: z
+ .string()
+ .optional()
+ .describe(narrative("무엇을 함께 검토했고 왜 버렸는가")),
+ tradeOff: z
+ .string()
+ .optional()
+ .describe(narrative("그 선택으로 무엇을 내주었는가")),
+ verification: z
+ .string()
+ .optional()
+ .describe(
+ narrative(
+ "고쳐졌음을 어떻게 확인했는가. test, lint, typecheck, build 등 여러 검증은 bullet list로 쓴다",
+ ),
+ ),
+ regressionTest: z
+ .string()
+ .optional()
+ .describe(narrative("다시 무너지는 것을 무엇이 막는가")),
+ residualRisk: z
+ .string()
+ .optional()
+ .describe(narrative("그래도 남아 있는 위험")),
 };
 
 /** Tool 인자의 판단 칸을 API 계약의 이름으로 옮긴다. 전부 비면 보내지 않는다. */
@@ -231,12 +265,16 @@ export function registerTools(server, client, state) {
  severity,
  category,
  title: z.string().describe("한 줄 제목"),
- problem: z.string().optional().describe("무엇이 문제인가"),
- rootCause: z.string().optional().describe("왜 그렇게 됐는가"),
+ problem: z.string().optional().describe(narrative("무엇이 문제인가")),
+ rootCause: z.string().optional().describe(narrative("왜 그렇게 됐는가")),
  failurePath: z
 .string()
 .optional()
-.describe("이 문제가 실제로 터지는 경로 (보안이면 공격 경로)"),
+.describe(
+ narrative(
+ "이 문제가 실제로 터지는 경로 (보안이면 공격 경로). 여러 단계는 ordered list로 쓴다",
+ ),
+ ),
  patternKey: z
 .string()
 .optional()
@@ -244,7 +282,10 @@ export function registerTools(server, client, state) {
  filePath: z.string().optional(),
  startLine: z.number().int().positive().optional(),
  endLine: z.number().int().positive().optional(),
- suggestion: z.string().optional().describe("이렇게 고치라는 제안"),
+ suggestion: z
+ .string()
+ .optional()
+ .describe(narrative("이렇게 고치라는 제안. 여러 조치는 bullet list로 쓴다")),
  tags: z.array(z.string()).optional(),
  externalId: z
 .string()
@@ -311,7 +352,7 @@ export function registerTools(server, client, state) {
  "다음 시도가 이 판단을 덮어쓰지 않고 나란히 쌓인다.",
  inputSchema: {
  issueId: z.string().optional().describe("생략하면 마지막으로 다룬 Issue"),
- summary: z.string().optional().describe("한 줄 요약"),
+ summary: z.string().optional().describe(narrative("고침 시도의 요약")),
  commitSha: z.string().optional().describe("고친 commit"),
  actor: actorName,
  evidence: z.array(evidenceItem).optional(),
@@ -335,7 +376,7 @@ export function registerTools(server, client, state) {
  "검증까지 통과했으면 resolve_issue 를 부른다.",
  inputSchema: {
  issueId: z.string().optional(),
- summary: z.string().optional().describe("다시 본 결과"),
+ summary: z.string().optional().describe(narrative("다시 본 결과")),
  stillPresent: z
 .boolean()
 .optional()
@@ -397,7 +438,7 @@ export function registerTools(server, client, state) {
  "그것이 다음 Review 에서 다시 쓰이는 값이다.",
  inputSchema: {
  issueId: z.string().optional(),
- resolution: z.string().describe("어떻게 해결했는가 (필수)"),
+ resolution: z.string().describe(narrative("어떻게 해결했는가 (필수)")),
  commitSha: z.string().optional(),
  actor: actorName,
  evidence: z.array(evidenceItem).optional(),

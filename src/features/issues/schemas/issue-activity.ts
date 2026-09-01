@@ -5,6 +5,7 @@ import {
  optionalDecisionRecordSchema,
 } from "@/features/issues/schemas/decision-record";
 import { ISSUE_ACTIVITY_TYPES, REVIEWER_TYPES } from "@/types/review";
+import { narrativeDescription } from "@/lib/markdown/narrative";
 
 /**
  * `POST /api/v1/issues/{issueId}/activities` 의 Payload 계약(스펙 32).
@@ -30,7 +31,8 @@ export const issueActivitySchema = z.object({
 .trim()
 .max(DESCRIPTION_MAX)
 .nullish()
-.transform((value) => (value === undefined || value === "" ? null : value)),
+.transform((value) => (value === undefined || value === "" ? null : value))
+ .describe(narrativeDescription("Activity의 내용을 설명한다.")),
  /**
  * 이 Activity 가 가리키는 Commit.
  *

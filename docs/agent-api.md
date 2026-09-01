@@ -67,6 +67,12 @@ the request un-deduplicated while the caller believed it was protected.
 
 **Issue fields**
 
+Narrative fields (`description`, `rootCause`, `failurePath`, `suggestion`, resolution
+summaries, activity descriptions, and decision-record fields) accept Markdown source.
+Use blank lines between concepts, ordered lists for multi-step failure paths, and bullet
+lists for multiple changes or checks. Raw HTML is not part of the supported content model.
+The API preserves the submitted text rather than heuristically reformatting legacy prose.
+
 | Field | Required | Notes |
 |---|---|---|
 | `severity` | yes | `CRITICAL` · `HIGH` · `MEDIUM` · `LOW` · `INFO` |
@@ -200,8 +206,12 @@ reasoning instead of overwriting the first — that history is the reusable part
 `regressionTest` · `residualRisk`. All optional, each ≤10,000 chars. Sending seven empty
 strings stores nothing.
 
-`review_issues.resolutionSummary` is separate: it is the one-line conclusion on the
-issue, while a decision record is one step on the way there.
+These values are Markdown source. Put separate ideas in separate paragraphs; use bullet
+lists for multiple verification steps, alternatives, trade-offs, regression checks, or
+residual risks.
+
+`review_issues.resolutionSummary` is separate: it is the issue's final Markdown resolution
+summary, while a decision record is one step on the way there.
 
 ---
 
@@ -212,12 +222,15 @@ issue, while a decision record is one step on the way there.
 | `kind` | yes | `BEFORE` · `AFTER` |
 | `commitSha` | yes | A commit, never a branch |
 | `filePath` | yes | |
-| `startLine` / `endLine` | no | |
-| `snapshot` | no | The actual lines, ≤20,000 chars |
+| `startLine` / `endLine` | no | Exact range of the minimal relevant snippet |
+| `snapshot` | no | Problem/changed lines plus only necessary context, ≤20,000 chars |
 
 The server checks the snapshot against GitHub at that commit **after** the response is
 sent, so verification never delays your request. The result is recorded separately —
 a client cannot mark its own evidence as verified.
+
+The API stores the submitted range verbatim; it does not expand the snippet. Callers
+should not submit an entire function or component when a smaller changed range is enough.
 
 | `verification` | Meaning |
 |---|---|

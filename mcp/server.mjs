@@ -74,7 +74,9 @@ async function main() {
         "리뷰를 시작할 때 create_review, 문제를 찾을 때마다 add_issue 를 부른다. " +
         "고쳤으면 add_fix_attempt, 다시 봤으면 review_again, 검증까지 끝났으면 resolve_issue 다. " +
         "코드를 고치기 전에 get_repository_knowledge 나 search_issues 로 과거에 같은 문제가 있었는지 먼저 본다. " +
-        "중요한 문제에는 Root Cause, 선택한 해결책, 선택 이유, 대안, Trade-off, Evidence 를 함께 남긴다.",
+        "중요한 문제에는 Root Cause, 선택한 해결책, 선택 이유, 대안, Trade-off, Evidence 를 함께 남긴다. " +
+        "서술 필드는 Markdown으로 작성한다. 서로 다른 의미는 빈 줄로 문단을 나누고, 실패·공격 흐름은 ordered list, 여러 조치·검증 항목은 bullet list로 쓰며, 코드 식별자는 inline code로 표시한다. 여러 의미를 한 문단에 이어 붙이지 않는다. " +
+        "Code Evidence는 전체 함수나 컴포넌트가 아니라 문제·수정 line과 이해에 필요한 최소 context만 snapshot/startLine/endLine으로 보낸다.",
     },
   );
 
