@@ -20,18 +20,18 @@ Open your ReviewTrace instance and sign in with GitHub. First sign-in is sign-up
 personal Workspace and become its `OWNER`. A Workspace is the tenant boundary — every review,
 issue and wiki page you record belongs to exactly one.
 
-### 2. Create a Workspace API key
+### 2. Create one Agent credential
 
-Go to **`/w/{your-workspace}/settings` → API Keys → 발급 (Issue)**. Only a Workspace `OWNER`
-can issue one.
+Go to **`/w/{your-workspace}/settings` → Agent Credentials** and issue a credential. Grant its
+principal access only to the Workspaces it should use; a Workspace `OWNER` controls each grant.
 
-The key looks like `ci_…` and is **shown exactly once** — ReviewTrace stores only its
+The credential looks like `ci_agent_…` and is **shown exactly once** — ReviewTrace stores only its
 SHA-256 hash and can never show it again. Copy it now; if you lose it, revoke it and issue
 a new one.
 
-The key is what selects the Workspace. There is no workspace id or slug anywhere in this
-server's configuration or in any tool argument — a key can only ever reach its own
-Workspace's data.
+Configure it once. The credential authenticates a principal; the current git remote resolves the
+Repository, Project, and Workspace inside that principal's live grants. Legacy `ci_…` Workspace
+API keys still work with their existing one-Workspace behavior.
 
 ### 3. Register the server with your agent
 
@@ -119,6 +119,16 @@ connected, the current git remote resolves Repository → Project → Workspace 
 argument. For a first connection through MCP, pass an existing `project` slug; ReviewTrace verifies
 the Repository against that Workspace's GitHub App installation. Without either a registration or
 `project`, `create_review` fails instead of creating a Default Project.
+
+If the same GitHub Repository is intentionally connected to two Workspaces that the principal may
+access, ReviewTrace refuses to guess. Select the Workspace only for that checkout:
+
+```bash
+git config --local reviewtrace.workspace workspace-slug
+```
+
+Do not set this globally. The hint is accepted only when the principal is already authorized and
+the Repository is connected in that Workspace.
 
 | Tool                       | What it does                                                                                          | Key arguments                                                                                                                          |
 | -------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |

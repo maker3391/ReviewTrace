@@ -7,11 +7,20 @@ not there.
 ## Authentication
 
 ```
-Authorization: Bearer ci_xxxxxxxx
+Authorization: Bearer ci_agent_xxxxxxxx
 ```
 
-The key determines the workspace. There is no `workspaceId` field in any request body or
-query string, and one sent anyway is stripped before validation.
+New Agent credentials authenticate a principal; they do not choose a Workspace. The effective
+scope is the principal's explicit Workspace grants intersected with live membership for a
+`USER_AGENT`. Repository identity then resolves Repository -> Project -> Workspace only inside
+that scope. One credential can therefore follow the current repository across Workspaces.
+
+Legacy `ci_...` Workspace API keys remain supported and expose exactly their original one-Workspace
+scope. Existing secrets are not converted or reassigned.
+
+`workspaceSlug` is an optional context hint, never authority. The server first verifies that the
+hint is in the credential's effective scope and matches a Repository candidate. MCP reads it only
+from repository-local `git config reviewtrace.workspace`; normal repositories do not need it.
 
 Bad format, unknown key, revoked key, and expired key all return the same `401`. The
 distinction would itself leak whether a key exists.
@@ -29,9 +38,18 @@ distinction would itself leak whether a key exists.
 | `UNAUTHORIZED`      | 401    |
 | `FORBIDDEN`         | 403    |
 | `NOT_FOUND`         | 404    |
+| `CONFLICT`          | 409    |
 | `INTERNAL_ERROR`    | 500    |
 
-Objects outside your workspace return `404`, never `403`.
+Objects outside the credential's authorized Workspace set return `404`, never `403`.
+
+Repository context failures add `error.resolutionStatus`:
+
+- `NOT_CONNECTED_OR_NOT_AUTHORIZED`: no candidate in the authorized scope. Existence elsewhere is
+  not disclosed and the query is not widened to Workspace-wide Knowledge.
+- `REPOSITORY_CONTEXT_AMBIGUOUS`: two or more authorized candidates. The response contains only
+  those authorized Workspace/Project candidates; no write occurs.
+- `CONTEXT_REQUIRED`: a Workspace-wide request cannot choose among multiple authorized Workspaces.
 
 Responses never contain stack traces, SQL, or internal paths.
 
@@ -214,8 +232,10 @@ What a repository has learned. Read this before starting work.
 When `repository` is present and `projectSlug` is absent, scope is resolved as
 Repository → `project_id` → Project → Workspace. `scope.repository.requested` and
 `scope.repository.resolved` distinguish a git-remote string from a DB row;
-`scope.project.resolutionSource` is `REPOSITORY`, `PROJECT_SLUG`, or `null`. An unknown Repository
-returns empty Knowledge with `resolved=false`; it is never widened to Workspace scope.
+`scope.project.resolutionSource` is `REPOSITORY`, `PROJECT_SLUG`, or `null`.
+`scope.workspace.id`/`slug`, `scope.repository.externalRepositoryId`, and
+`scope.resolutionStatus` make the resolved tenant explicit. An unknown Repository returns
+`404 NOT_CONNECTED_OR_NOT_AUTHORIZED`; it is never widened to Workspace scope.
 
 ---
 
@@ -267,7 +287,7 @@ no snapshot it stores nothing — ReviewTrace keeps review knowledge, not a copy
 source.
 
 Public repositories can be read anonymously. Private repositories are read only through a
-short-lived installation token whose installation belongs to the API Key's Workspace and whose
+short-lived installation token whose installation belongs to the resolved Repository's Workspace and whose
 repository grant includes the stored numeric GitHub repository id. An `owner/name` string or a
 client-supplied numeric id alone never authorizes a read.
 

@@ -31,6 +31,28 @@ You almost never pass IDs. `create_review` reads the repository and commit from 
 `add_issue` attaches to the review you just opened. `add_fix_attempt`, `review_again`,
 and `resolve_issue` default to the issue you last touched.
 
+## Credential and Workspace resolution
+
+Create one Agent credential in ReviewTrace and grant its principal only the Workspaces it may use.
+The same credential can remain configured in Codex or Claude Code while you change repositories:
+
+```text
+Agent credential -> principal -> live Workspace grants -> current git remote
+  -> Repository -> Project -> Workspace
+```
+
+The server searches Repository candidates inside the authorized Workspace set from the start. A
+single candidate resolves automatically. No candidate returns one indistinguishable
+"not connected or not authorized" error; multiple candidates return an ambiguity error and do not
+write anything. For that exceptional case only, set a repository-local hint:
+
+```bash
+git config --local reviewtrace.workspace workspace-slug
+```
+
+The hint is checked against both the principal grant and the Repository candidate. Do not set it
+globally. Legacy Workspace API keys still work with their original one-Workspace scope.
+
 ## The lifecycle
 
 ```
@@ -131,10 +153,12 @@ Tool errors are written for you to act on, not for a human to debug:
 
 | Message                                 | What to do                                                 |
 | --------------------------------------- | ---------------------------------------------------------- |
-| API key is not valid                    | Stop. The user must issue a new key in Workspace Settings. |
+| Credential is not valid                 | Stop. Issue or rotate it in Settings > Agent Credentials.  |
 | Could not reach the ReviewTrace server  | Stop. The server or `REVIEWTRACE_API_URL` is wrong.        |
 | Not a git repository / no origin remote | Pass `repository` as `owner/name` explicitly.              |
-| Could not find the target               | The issue or review is not in this API key's workspace.    |
+| Repository not connected or authorized  | Connect it or ask a Workspace owner for an explicit grant. |
+| Repository context is ambiguous         | Set repository-local `reviewtrace.workspace`.              |
+| Could not find the target               | It is outside the credential's authorized Workspace set.   |
 | No open review                          | Call `create_review` first.                                |
 
 Errors never contain stack traces, SQL, or the API key.
