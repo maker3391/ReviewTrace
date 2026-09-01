@@ -5,46 +5,46 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
- --color-background: var(--background);
- --color-foreground: var(--foreground);
- /*
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /*
  * 🔴 한글은 Geist 에 글리프가 없어 «두 번째» 폰트가 받는다.
  * 브라우저는 글자마다 글리프가 있는 첫 폰트를 고르므로 라틴은 Geist 그대로다.
  */
- --font-sans: var(--font-sans), var(--font-sans-kr);
- --font-mono: var(--font-geist-mono);
- --font-heading: var(--font-sans);
- --color-sidebar-ring: var(--sidebar-ring);
- --color-sidebar-border: var(--sidebar-border);
- --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
- --color-sidebar-accent: var(--sidebar-accent);
- --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
- --color-sidebar-primary: var(--sidebar-primary);
- --color-sidebar-foreground: var(--sidebar-foreground);
- --color-sidebar: var(--sidebar);
- --color-chart-5: var(--chart-5);
- --color-chart-4: var(--chart-4);
- --color-chart-3: var(--chart-3);
- --color-chart-2: var(--chart-2);
- --color-chart-1: var(--chart-1);
- --color-ring: var(--ring);
- --color-input: var(--input);
- --color-border: var(--border);
- --color-destructive: var(--destructive);
- --color-accent-foreground: var(--accent-foreground);
- --color-accent: var(--accent);
- --color-muted-foreground: var(--muted-foreground);
- --color-muted: var(--muted);
- --color-secondary-foreground: var(--secondary-foreground);
- --color-secondary: var(--secondary);
- --color-primary-foreground: var(--primary-foreground);
- --color-primary: var(--primary);
- --color-popover-foreground: var(--popover-foreground);
- --color-popover: var(--popover);
- --color-card-foreground: var(--card-foreground);
- --color-card: var(--card);
+  --font-sans: var(--font-sans), var(--font-sans-kr);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
 
- /*
+  /*
  * 표면 단계(Surface level).
  *
  * 🔴 **모든 영역을 border 로만 가르지 않는다**. 배경 톤이 한 단계씩
@@ -53,140 +53,140 @@
  *
  * page(--background) < subtle(--surface-muted) < raised(--card)
  */
- --color-surface-muted: var(--surface-muted);
- --color-surface-raised: var(--card);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-raised: var(--card);
 
- /* 브랜드 색. 🔴 넓은 면적에 쓰지 않는다 — 강조와 선택 상태에만. */
- --color-brand: var(--brand);
- --color-brand-foreground: var(--brand-foreground);
- --color-brand-subtle: var(--brand-subtle);
- --radius-sm: calc(var(--radius) * 0.6);
- --radius-md: calc(var(--radius) * 0.8);
- --radius-lg: var(--radius);
- --radius-xl: calc(var(--radius) * 1.4);
- --radius-2xl: calc(var(--radius) * 1.8);
- --radius-3xl: calc(var(--radius) * 2.2);
- --radius-4xl: calc(var(--radius) * 2.6);
+  /* 브랜드 색. 🔴 넓은 면적에 쓰지 않는다 — 강조와 선택 상태에만. */
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-subtle: var(--brand-subtle);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
- /*
+  /*
  * 🔴 **브라우저가 스스로 그리는 것들(스크롤 막대·기본 form 컨트롤·`autofill` 배경)에도
  * 테마를 알려 준다.** 이것이 없으면 어두운 화면에 흰 스크롤 막대가 남는다.
  */
- color-scheme: light;
- /*
+  color-scheme: light;
+  /*
  * 🔴 **완전한 흰색을 페이지 바탕으로 쓰지 않는다.** 카드가 흰색이라 바탕도 흰색이면
  * 층이 사라진다. 아주 옅은 한색을 깔아 카드가 «떠 보이게» 한다.
  */
- --background: oklch(0.984 0.003 265);
- --foreground: oklch(0.18 0.012 265);
- /* 올라온 표면. 이것만 순백이라 자연히 앞으로 나온다. */
- --card: oklch(1 0 0);
- --card-foreground: oklch(0.18 0.012 265);
- /* 바탕과 카드 사이의 한 단계. Section 머리·Table 머리에 쓴다. */
- --surface-muted: oklch(0.968 0.004 265);
- --popover: oklch(1 0 0);
- --popover-foreground: oklch(0.18 0.012 265);
- /*
+  --background: oklch(0.984 0.003 265);
+  --foreground: oklch(0.18 0.012 265);
+  /* 올라온 표면. 이것만 순백이라 자연히 앞으로 나온다. */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.012 265);
+  /* 바탕과 카드 사이의 한 단계. Section 머리·Table 머리에 쓴다. */
+  --surface-muted: oklch(0.968 0.004 265);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.012 265);
+  /*
  * Primary — 이 제품의 인상을 만드는 유일한 색이다.
  *
  * 🔴 넓은 면적에 반복하지 않는다. Primary Action · 선택 상태 · Focus ring 에만 쓴다
  *. 채도를 더 올리면 데이터보다 버튼이 먼저 눈에 들어온다.
  */
- --primary: oklch(0.53 0.176 275);
- --primary-foreground: oklch(0.99 0.005 275);
- --brand: oklch(0.53 0.176 275);
- --brand-foreground: oklch(0.99 0.005 275);
- /* 선택된 항목의 배경. 🔴 강한 색을 깔지 않는다 — 글자가 읽혀야 한다. */
- --brand-subtle: oklch(0.955 0.022 275);
- --secondary: oklch(0.968 0.004 265);
- --secondary-foreground: oklch(0.24 0.014 265);
- --muted: oklch(0.968 0.004 265);
- /* 보조 정보. 🔴 이것을 모든 글자에 쓰지 않는다 — 대비가 사라지면 계층이 죽는다. */
- --muted-foreground: oklch(0.545 0.016 265);
- --accent: oklch(0.955 0.012 275);
- --accent-foreground: oklch(0.32 0.09 275);
- --destructive: oklch(0.577 0.223 27);
- /* 선은 한 톤 옅게. 구조를 나누되 먼저 눈에 띄지 않는다. */
- --border: oklch(0.925 0.006 265);
- --input: oklch(0.905 0.008 265);
- --ring: oklch(0.53 0.176 275);
- --chart-1: oklch(0.87 0 0);
- --chart-2: oklch(0.556 0 0);
- --chart-3: oklch(0.439 0 0);
- --chart-4: oklch(0.371 0 0);
- --chart-5: oklch(0.269 0 0);
- /*
+  --primary: oklch(0.53 0.176 275);
+  --primary-foreground: oklch(0.99 0.005 275);
+  --brand: oklch(0.53 0.176 275);
+  --brand-foreground: oklch(0.99 0.005 275);
+  /* 선택된 항목의 배경. 🔴 강한 색을 깔지 않는다 — 글자가 읽혀야 한다. */
+  --brand-subtle: oklch(0.955 0.022 275);
+  --secondary: oklch(0.968 0.004 265);
+  --secondary-foreground: oklch(0.24 0.014 265);
+  --muted: oklch(0.968 0.004 265);
+  /* 보조 정보. 🔴 이것을 모든 글자에 쓰지 않는다 — 대비가 사라지면 계층이 죽는다. */
+  --muted-foreground: oklch(0.545 0.016 265);
+  --accent: oklch(0.955 0.012 275);
+  --accent-foreground: oklch(0.32 0.09 275);
+  --destructive: oklch(0.577 0.223 27);
+  /* 선은 한 톤 옅게. 구조를 나누되 먼저 눈에 띄지 않는다. */
+  --border: oklch(0.925 0.006 265);
+  --input: oklch(0.905 0.008 265);
+  --ring: oklch(0.53 0.176 275);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  /*
  * Radius.
  *
  * 🔴 **한 값으로 고정해 두고 전부 각지게 만들지 않는다.** 여기서 나오는 단계
  * (`rounded-md` 버튼 · `rounded-lg` 카드 · `rounded-xl` 큰 패널)를 화면 성격에 맞게 쓴다.
  */
- --radius: 0.625rem;
- /* 사이드바는 본문보다 한 단계 뒤로 물러난 톤이다. 선 하나로 가르지 않는다. */
- --sidebar: oklch(0.973 0.005 265);
- --sidebar-foreground: oklch(0.24 0.014 265);
- --sidebar-primary: oklch(0.53 0.176 275);
- --sidebar-primary-foreground: oklch(0.99 0.005 275);
- --sidebar-accent: oklch(0.955 0.022 275);
- --sidebar-accent-foreground: oklch(0.32 0.09 275);
- --sidebar-border: oklch(0.918 0.007 265);
- --sidebar-ring: oklch(0.53 0.176 275);
+  --radius: 0.625rem;
+  /* 사이드바는 본문보다 한 단계 뒤로 물러난 톤이다. 선 하나로 가르지 않는다. */
+  --sidebar: oklch(0.973 0.005 265);
+  --sidebar-foreground: oklch(0.24 0.014 265);
+  --sidebar-primary: oklch(0.53 0.176 275);
+  --sidebar-primary-foreground: oklch(0.99 0.005 275);
+  --sidebar-accent: oklch(0.955 0.022 275);
+  --sidebar-accent-foreground: oklch(0.32 0.09 275);
+  --sidebar-border: oklch(0.918 0.007 265);
+  --sidebar-ring: oklch(0.53 0.176 275);
 }
 
 .dark {
- color-scheme: dark;
- --background: oklch(0.155 0.012 265);
- --foreground: oklch(0.975 0.004 265);
- /* Dark 에서는 «밝을수록» 앞으로 나온다. 층의 방향만 뒤집고 뜻은 같다. */
- --card: oklch(0.205 0.014 265);
- --card-foreground: oklch(0.975 0.004 265);
- --surface-muted: oklch(0.185 0.013 265);
- --popover: oklch(0.205 0.014 265);
- --popover-foreground: oklch(0.975 0.004 265);
- --primary: oklch(0.68 0.16 275);
- --primary-foreground: oklch(0.17 0.03 275);
- --brand: oklch(0.68 0.16 275);
- --brand-foreground: oklch(0.17 0.03 275);
- --brand-subtle: oklch(0.28 0.055 275);
- --secondary: oklch(0.262 0.014 265);
- --secondary-foreground: oklch(0.975 0.004 265);
- --muted: oklch(0.262 0.014 265);
- --muted-foreground: oklch(0.712 0.018 265);
- --accent: oklch(0.28 0.055 275);
- --accent-foreground: oklch(0.9 0.06 275);
- --destructive: oklch(0.68 0.19 25);
- --border: oklch(1 0 0 / 11%);
- --input: oklch(1 0 0 / 16%);
- --ring: oklch(0.68 0.16 275);
- --chart-1: oklch(0.87 0 0);
- --chart-2: oklch(0.556 0 0);
- --chart-3: oklch(0.439 0 0);
- --chart-4: oklch(0.371 0 0);
- --chart-5: oklch(0.269 0 0);
- --sidebar: oklch(0.178 0.013 265);
- --sidebar-foreground: oklch(0.945 0.006 265);
- --sidebar-primary: oklch(0.68 0.16 275);
- --sidebar-primary-foreground: oklch(0.17 0.03 275);
- --sidebar-accent: oklch(0.28 0.055 275);
- --sidebar-accent-foreground: oklch(0.9 0.06 275);
- --sidebar-border: oklch(1 0 0 / 9%);
- --sidebar-ring: oklch(0.68 0.16 275);
+  color-scheme: dark;
+  --background: oklch(0.155 0.012 265);
+  --foreground: oklch(0.975 0.004 265);
+  /* Dark 에서는 «밝을수록» 앞으로 나온다. 층의 방향만 뒤집고 뜻은 같다. */
+  --card: oklch(0.205 0.014 265);
+  --card-foreground: oklch(0.975 0.004 265);
+  --surface-muted: oklch(0.185 0.013 265);
+  --popover: oklch(0.205 0.014 265);
+  --popover-foreground: oklch(0.975 0.004 265);
+  --primary: oklch(0.68 0.16 275);
+  --primary-foreground: oklch(0.17 0.03 275);
+  --brand: oklch(0.68 0.16 275);
+  --brand-foreground: oklch(0.17 0.03 275);
+  --brand-subtle: oklch(0.28 0.055 275);
+  --secondary: oklch(0.262 0.014 265);
+  --secondary-foreground: oklch(0.975 0.004 265);
+  --muted: oklch(0.262 0.014 265);
+  --muted-foreground: oklch(0.712 0.018 265);
+  --accent: oklch(0.28 0.055 275);
+  --accent-foreground: oklch(0.9 0.06 275);
+  --destructive: oklch(0.68 0.19 25);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.68 0.16 275);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.178 0.013 265);
+  --sidebar-foreground: oklch(0.945 0.006 265);
+  --sidebar-primary: oklch(0.68 0.16 275);
+  --sidebar-primary-foreground: oklch(0.17 0.03 275);
+  --sidebar-accent: oklch(0.28 0.055 275);
+  --sidebar-accent-foreground: oklch(0.9 0.06 275);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.68 0.16 275);
 }
 
 @layer base {
- * {
- @apply border-border outline-ring/50;
- }
- body {
- @apply bg-background text-foreground;
- }
- html {
- @apply font-sans;
- }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 
- /*
+  /*
  * 🔴 **키보드 초점의 «최저선»이다.** 목록의 이름 링크처럼 Button 을 쓰지 않는
  * 누를 자리가 수십 곳인데, 그것들은 브라우저 기본 outline 하나에 기대고 있었다 —
  * 굵기도 offset 도 브라우저마다 달라 「분명히 보인다」를 보장하지 못한다.
@@ -202,14 +202,14 @@
  * CodeMirror 의 contenteditable(`.cm-content`)까지 잡혀, 바깥 표면이 이미 그리는
  * `focus-within:ring` 위에 두 겹으로 그려진다.
  */
- a:focus-visible,
- button:focus-visible,
- [role="button"]:focus-visible {
- outline: 2px solid var(--ring);
- outline-offset: 2px;
- }
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
 
- /*
+  /*
  * 🔴 **Tailwind 4 는 `button { cursor: pointer }` 를 걷어냈다.** v3 의 Preflight 에
  * 있던 그 한 줄이 v4 에서 사라졌다(`tailwindcss/preflight.css` 를 직접 열어 확인했다 —
  * `button` 규칙에 `cursor` 가 없다). 그래서 이 앱의 «모든» Button 이 화살표 커서였고,
@@ -221,8 +221,8 @@
  *
  * 🔴 **`disabled` 는 제외한다.** 누를 수 없는 것에 누를 수 있다는 커서를 주지 않는다.
  */
- button:not(:disabled):not([disabled]),
- [role="button"]:not([disabled]):not([aria-disabled="true"]) {
- cursor: pointer;
- }
+  button:not(:disabled):not([disabled]),
+  [role="button"]:not([disabled]):not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
 }

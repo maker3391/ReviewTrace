@@ -1,9 +1,9 @@
 import {
- isAppError,
- type AppErrorMessages,
- type AppErrorMeta,
- type AppErrorReason,
- type PublicError,
+  isAppError,
+  type AppErrorMessages,
+  type AppErrorMeta,
+  type AppErrorReason,
+  type PublicError,
 } from "@/lib/errors";
 
 /**
@@ -40,33 +40,33 @@ import {
  * 남기고 일반 문구로 내려간다.
  */
 function missing(reason: string, fallback: string): string {
- if (process.env.NODE_ENV !== "production") {
- throw new Error(`오류 문구가 사전에 없다: ${reason}`);
- }
- console.error("[app-error] 오류 문구가 사전에 없다", reason);
- return fallback;
+  if (process.env.NODE_ENV !== "production") {
+    throw new Error(`오류 문구가 사전에 없다: ${reason}`);
+  }
+  console.error("[app-error] 오류 문구가 사전에 없다", reason);
+  return fallback;
 }
 
 function messageFor(
- reason: AppErrorReason,
- meta: AppErrorMeta | undefined,
- errors: AppErrorMessages,
+  reason: AppErrorReason,
+  meta: AppErrorMeta | undefined,
+  errors: AppErrorMessages,
 ): string {
- const entry: unknown = errors[reason];
+  const entry: unknown = errors[reason];
 
- if (typeof entry === "string") {
- return entry;
- }
- if (typeof entry === "function") {
- /*
+  if (typeof entry === "string") {
+    return entry;
+  }
+  if (typeof entry === "function") {
+    /*
  값이 필요한 오류는 생성자가 이미 값을 요구했다(`AppErrorArgs`). 사전 쪽 타입은
  reason 마다 다른 인자를 갖는데 여기 오는 reason 은 union 이라, 짝을 다시 세우는
  대신 **이 한 자리에서만** 좁힌다.
  */
- return (entry as (value: AppErrorMeta | undefined) => string)(meta);
- }
+    return (entry as (value: AppErrorMeta | undefined) => string)(meta);
+  }
 
- return missing(reason, errors.UNEXPECTED);
+  return missing(reason, errors.UNEXPECTED);
 }
 
 /**
@@ -76,15 +76,15 @@ function messageFor(
  * 실려 오므로 화면에 흘리지 않는다. 원인은 부르는 쪽이 서버 Log 에 남긴다.
  */
 export function localizedPublicError(
- error: unknown,
- errors: AppErrorMessages,
+  error: unknown,
+  errors: AppErrorMessages,
 ): PublicError {
- if (!isAppError(error)) {
- return { code: "INTERNAL_ERROR", message: errors.UNEXPECTED };
- }
+  if (!isAppError(error)) {
+    return { code: "INTERNAL_ERROR", message: errors.UNEXPECTED };
+  }
 
- return {
- code: error.code,
- message: messageFor(error.reason, error.meta, errors),
- };
+  return {
+    code: error.code,
+    message: messageFor(error.reason, error.meta, errors),
+  };
 }

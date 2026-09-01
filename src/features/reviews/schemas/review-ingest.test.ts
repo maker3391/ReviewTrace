@@ -96,7 +96,10 @@ describe("reviewIngestSchema", () => {
     const repository: Record<string, unknown> = { ...validPayload.repository };
     delete repository.externalRepositoryId;
 
-    const result = reviewIngestSchema.safeParse({ ...validPayload, repository });
+    const result = reviewIngestSchema.safeParse({
+      ...validPayload,
+      repository,
+    });
 
     expect(result.success).toBe(true);
     // 없는 값은 `null` 하나로 모인다 — `undefined` 와 갈라지면 저장 코드가 둘을 다 본다.
@@ -107,7 +110,10 @@ describe("reviewIngestSchema", () => {
     const repository: Record<string, unknown> = { ...validPayload.repository };
     repository.fullName = "";
 
-    const result = reviewIngestSchema.safeParse({ ...validPayload, repository });
+    const result = reviewIngestSchema.safeParse({
+      ...validPayload,
+      repository,
+    });
 
     expect(result.success).toBe(false);
   });
@@ -138,7 +144,10 @@ describe("reviewIngestSchema", () => {
   });
 
   it("문제를 찾지 못한 Review 도 받는다 — 「깨끗했다」도 Knowledge 다", () => {
-    const result = reviewIngestSchema.safeParse({ ...validPayload, issues: [] });
+    const result = reviewIngestSchema.safeParse({
+      ...validPayload,
+      issues: [],
+    });
 
     expect(result.success).toBe(true);
     expect(result.data?.issues).toEqual([]);
@@ -207,7 +216,8 @@ describe("reviewIngestSchema", () => {
         reviewIngestSchema.safeParse(withUrl("https://github.com/a/b")).success,
       ).toBe(true);
       expect(
-        reviewIngestSchema.safeParse(withUrl("http://git.internal/a/b")).success,
+        reviewIngestSchema.safeParse(withUrl("http://git.internal/a/b"))
+          .success,
       ).toBe(true);
     });
 
@@ -216,8 +226,9 @@ describe("reviewIngestSchema", () => {
         reviewIngestSchema.safeParse(withUrl("javascript:alert(1)")).success,
       ).toBe(false);
       expect(
-        reviewIngestSchema.safeParse(withUrl("data:text/html,<script>x</script>"))
-          .success,
+        reviewIngestSchema.safeParse(
+          withUrl("data:text/html,<script>x</script>"),
+        ).success,
       ).toBe(false);
       expect(
         reviewIngestSchema.safeParse(withUrl("vbscript:msgbox(1)")).success,

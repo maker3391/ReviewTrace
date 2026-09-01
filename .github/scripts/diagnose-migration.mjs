@@ -28,11 +28,15 @@ const FOLDER = "src/db/migrations";
 const raw = process.env.DATABASE_URL ?? "";
 
 if (raw === "") {
-  console.log("DATABASE_URL 이 비어 있다 — Secret 이 등록되지 않았거나 이름이 다르다.");
+  console.log(
+    "DATABASE_URL 이 비어 있다 — Secret 이 등록되지 않았거나 이름이 다르다.",
+  );
   process.exit(1);
 }
 
-const journal = JSON.parse(fs.readFileSync(`${FOLDER}/meta/_journal.json`, "utf8"));
+const journal = JSON.parse(
+  fs.readFileSync(`${FOLDER}/meta/_journal.json`, "utf8"),
+);
 
 /** 파일 하나를 drizzle 과 «같은 방식»으로 자른다. */
 function statementsOf(tag) {
@@ -69,7 +73,11 @@ try {
   );
   console.log("");
   console.log(`## public 표 ${tables.rowCount}개`);
-  console.log(tables.rowCount === 0 ? "  (비어 있다)" : `  ${tables.rows.map((t) => t.table_name).join(", ")}`);
+  console.log(
+    tables.rowCount === 0
+      ? "  (비어 있다)"
+      : `  ${tables.rows.map((t) => t.table_name).join(", ")}`,
+  );
 
   // ── 3. Migration 이력 ─────────────────────────────────────────────
   const historyExists = await client.query(
@@ -80,15 +88,21 @@ try {
 
   let lastAppliedAt = 0;
   if (!historyExists.rows[0].present) {
-    console.log("  drizzle.__drizzle_migrations 가 없다 — 아직 한 번도 적용되지 않았다.");
+    console.log(
+      "  drizzle.__drizzle_migrations 가 없다 — 아직 한 번도 적용되지 않았다.",
+    );
   } else {
     const applied = await client.query(
       "select hash, created_at from drizzle.__drizzle_migrations order by created_at asc",
     );
     console.log(`  적용된 행 ${applied.rowCount}개`);
     for (const entry of applied.rows) {
-      const known = journal.entries.find((e) => String(e.when) === String(entry.created_at));
-      console.log(`    ${String(entry.created_at).padEnd(15)} ${String(entry.hash).slice(0, 12)}…  ${known ? known.tag : "(journal 에 없는 행)"}`);
+      const known = journal.entries.find(
+        (e) => String(e.when) === String(entry.created_at),
+      );
+      console.log(
+        `    ${String(entry.created_at).padEnd(15)} ${String(entry.hash).slice(0, 12)}…  ${known ? known.tag : "(journal 에 없는 행)"}`,
+      );
     }
     if (applied.rowCount > 0) {
       lastAppliedAt = Number(applied.rows[applied.rowCount - 1].created_at);
@@ -96,7 +110,9 @@ try {
   }
 
   // ── 4. 남은 것 ────────────────────────────────────────────────────
-  const pending = journal.entries.filter((entry) => Number(entry.when) > lastAppliedAt);
+  const pending = journal.entries.filter(
+    (entry) => Number(entry.when) > lastAppliedAt,
+  );
   console.log("");
   console.log(`## 적용 대상 ${pending.length}개`);
   if (pending.length === 0) {
@@ -117,7 +133,13 @@ try {
       try {
         await client.query(statement);
       } catch (error) {
-        failed = { tag: entry.tag, index: index + 1, total: statements.length, statement, error };
+        failed = {
+          tag: entry.tag,
+          index: index + 1,
+          total: statements.length,
+          statement,
+          error,
+        };
         break outer;
       }
     }
@@ -129,16 +151,23 @@ try {
   console.log("");
   if (failed === null) {
     console.log("🔴 재생은 «전부 통과»했다.");
-    console.log("   즉 SQL 자체는 이 Database 에서 돈다 — 실패는 drizzle 의 이력 기록이나");
-    console.log("   문장 분리 등 다른 지점이다. 위의 이력·표 목록을 함께 보라.");
+    console.log(
+      "   즉 SQL 자체는 이 Database 에서 돈다 — 실패는 drizzle 의 이력 기록이나",
+    );
+    console.log(
+      "   문장 분리 등 다른 지점이다. 위의 이력·표 목록을 함께 보라.",
+    );
   } else {
-    console.log(`🔴 실패: ${failed.tag} — ${failed.index}/${failed.total} 번째 문장`);
+    console.log(
+      `🔴 실패: ${failed.tag} — ${failed.index}/${failed.total} 번째 문장`,
+    );
     console.log("");
     console.log(`  code    : ${failed.error.code ?? "(없음)"}`);
     console.log(`  message : ${failed.error.message}`);
     if (failed.error.detail) console.log(`  detail  : ${failed.error.detail}`);
     if (failed.error.hint) console.log(`  hint    : ${failed.error.hint}`);
-    if (failed.error.position) console.log(`  position: ${failed.error.position}`);
+    if (failed.error.position)
+      console.log(`  position: ${failed.error.position}`);
     console.log("");
     console.log(`  SQL     : ${shorten(failed.statement)}`);
   }

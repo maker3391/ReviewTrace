@@ -14,18 +14,14 @@ import { WORKSPACE_ROLES } from "@/types/review";
 const NAME_MAX = 100;
 
 export const createWorkspaceSchema = z.object({
- name: z
-.string()
-.trim()
-.min(1)
-.max(NAME_MAX),
+  name: z.string().trim().min(1).max(NAME_MAX),
 });
 
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;
 
 export const changeMemberRoleSchema = z.object({
- userId: z.uuid(),
- role: z.enum(WORKSPACE_ROLES),
+  userId: z.uuid(),
+  role: z.enum(WORKSPACE_ROLES),
 });
 
 export type ChangeMemberRoleInput = z.infer<typeof changeMemberRoleSchema>;

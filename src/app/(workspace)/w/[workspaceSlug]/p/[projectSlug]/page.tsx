@@ -24,7 +24,10 @@ export default async function ProjectDashboardPage({
   params: Promise<{ workspaceSlug: string; projectSlug: string }>;
 }) {
   const { workspaceSlug, projectSlug } = await params;
-  const { workspace, project } = await requireProject(workspaceSlug, projectSlug);
+  const { workspace, project } = await requireProject(
+    workspaceSlug,
+    projectSlug,
+  );
 
   return (
     <ProjectDashboardScreen

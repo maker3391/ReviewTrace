@@ -26,7 +26,10 @@ services:
       - code-intelligence-postgres-data:/var/lib/postgresql/data
     healthcheck:
       test:
-        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-code_intelligence} -d ${POSTGRES_DB:-code_intelligence}"]
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-code_intelligence} -d ${POSTGRES_DB:-code_intelligence}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10

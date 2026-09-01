@@ -3,12 +3,12 @@ import "server-only";
 import type { z } from "zod";
 
 import {
- authEnvSchema,
- githubEnvSchema,
- serverEnvSchema,
- type AuthEnv,
- type GithubEnv,
- type ServerEnv,
+  authEnvSchema,
+  githubEnvSchema,
+  serverEnvSchema,
+  type AuthEnv,
+  type GithubEnv,
+  type ServerEnv,
 } from "@/lib/env.schema";
 
 /**
@@ -24,16 +24,16 @@ import {
  * 접속 문자열과 Secret 이 로그·오류 화면으로 새어 나간다.
  */
 function parseOrThrow<T extends z.ZodType>(schema: T): z.infer<T> {
- const parsed = schema.safeParse(process.env);
+  const parsed = schema.safeParse(process.env);
 
- if (!parsed.success) {
- const invalidKeys = [
-...new Set(parsed.error.issues.map((issue) => String(issue.path[0]))),
- ].join(", ");
- throw new Error(`환경 변수가 올바르지 않다: ${invalidKeys}`);
- }
+  if (!parsed.success) {
+    const invalidKeys = [
+      ...new Set(parsed.error.issues.map((issue) => String(issue.path[0]))),
+    ].join(", ");
+    throw new Error(`환경 변수가 올바르지 않다: ${invalidKeys}`);
+  }
 
- return parsed.data;
+  return parsed.data;
 }
 
 let cachedServerEnv: ServerEnv | null = null;
@@ -41,18 +41,18 @@ let cachedAuthEnv: AuthEnv | null = null;
 let cachedGithubEnv: GithubEnv | null = null;
 
 export function serverEnv(): ServerEnv {
- cachedServerEnv ??= parseOrThrow(serverEnvSchema);
- return cachedServerEnv;
+  cachedServerEnv ??= parseOrThrow(serverEnvSchema);
+  return cachedServerEnv;
 }
 
 /** 인증 경로에서만 부른다. Database 만 쓰는 코드가 OAuth Secret 을 요구하지 않게 한다. */
 export function authEnv(): AuthEnv {
- cachedAuthEnv ??= parseOrThrow(authEnvSchema);
- return cachedAuthEnv;
+  cachedAuthEnv ??= parseOrThrow(authEnvSchema);
+  return cachedAuthEnv;
 }
 
 /** Evidence 확인 경로에서만 부른다. Token 이 없어도 통과한다 — 값이 전부 선택이다. */
 export function githubEnv(): GithubEnv {
- cachedGithubEnv ??= parseOrThrow(githubEnvSchema);
- return cachedGithubEnv;
+  cachedGithubEnv ??= parseOrThrow(githubEnvSchema);
+  return cachedGithubEnv;
 }

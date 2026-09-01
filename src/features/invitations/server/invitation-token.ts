@@ -21,20 +21,20 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 const TOKEN_BYTES = 32;
 
 export interface GeneratedInvitationToken {
- /** 사용자에게 링크로 한 번만 보여 주는 값. */
- token: string;
- /** Database 에 저장하는 값. */
- tokenHash: string;
+  /** 사용자에게 링크로 한 번만 보여 주는 값. */
+  token: string;
+  /** Database 에 저장하는 값. */
+  tokenHash: string;
 }
 
 export function generateInvitationToken(): GeneratedInvitationToken {
- // base64url 이라 주소에 그대로 넣어도 인코딩되지 않는다.
- const token = randomBytes(TOKEN_BYTES).toString("base64url");
- return { token, tokenHash: hashInvitationToken(token) };
+  // base64url 이라 주소에 그대로 넣어도 인코딩되지 않는다.
+  const token = randomBytes(TOKEN_BYTES).toString("base64url");
+  return { token, tokenHash: hashInvitationToken(token) };
 }
 
 export function hashInvitationToken(token: string): string {
- return createHash("sha256").update(token, "utf8").digest("hex");
+  return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
 /**
@@ -43,13 +43,16 @@ export function hashInvitationToken(token: string): string {
  * 조회는 unique index 로 하므로 대부분 이 함수를 거치지 않지만, 값을 직접 맞대는 자리에서는
  * 앞에서부터 한 글자씩 끊는 비교가 응답 시간으로 정답을 흘린다.
  */
-export function invitationTokenHashEquals(left: string, right: string): boolean {
- const leftBuffer = Buffer.from(left, "utf8");
- const rightBuffer = Buffer.from(right, "utf8");
+export function invitationTokenHashEquals(
+  left: string,
+  right: string,
+): boolean {
+  const leftBuffer = Buffer.from(left, "utf8");
+  const rightBuffer = Buffer.from(right, "utf8");
 
- if (leftBuffer.length !== rightBuffer.length) {
- return false;
- }
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
 
- return timingSafeEqual(leftBuffer, rightBuffer);
+  return timingSafeEqual(leftBuffer, rightBuffer);
 }

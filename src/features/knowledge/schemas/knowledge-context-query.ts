@@ -16,53 +16,53 @@ export const KNOWLEDGE_LIMIT_DEFAULT = 20;
 export const KNOWLEDGE_LIMIT_MAX = 100;
 
 const optionalTrimmed = (max: number) =>
- z
-.string()
-.trim()
-.max(max)
-.nullish()
-.transform((value) => (value === undefined || value === "" ? null : value));
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullish()
+    .transform((value) => (value === undefined || value === "" ? null : value));
 
 export const knowledgeContextQuerySchema = z.object({
- /**
- * Project Scope(스펙 10).
- *
- * 🔴 **Filter 일 뿐 권한 근거가 아니다.** 다른 Workspace 의 Project slug 를 넣어도
- * 조회는 API Key 의 Workspace 안에서만 돌고, 그 안에 없는 slug 면 아무것도 나오지 않는다.
- *
- * 지정하면 그 Project 의 Review Knowledge 로 좁히고, Wiki 는 **Workspace 공통 규칙과
- * 그 Project 문서를 함께** 준다 — Agent 는 둘 다 지켜야 한다.
- */
- projectSlug: optionalTrimmed(200),
- /**
- * `owner/name` 으로 좁히기(스펙 6).
- *
- * 🔴 **Agent 는 우리 UUID 를 모른다.** 아는 것은 git remote 뿐이다 — 내부 ID 를
- * 알아야 쓸 수 있는 조회는 Agent 에게 없는 것과 같다. `repositoryId` 는 화면과
- * 기존 Client 를 위해 남겨 둔다.
- */
- repository: optionalTrimmed(401),
- repositoryId: z
-.uuid()
-.nullish()
-.transform((value) => value ?? null),
- category: z
-.enum(ISSUE_CATEGORIES)
-.nullish()
-.transform((value) => value ?? null),
- /** Pattern Key 정확히 일치. 부분 검색이 필요해지면 그때 별도 Filter 를 만든다. */
- pattern: optionalTrimmed(200),
- severity: z
-.enum(ISSUE_SEVERITIES)
-.nullish()
-.transform((value) => value ?? null),
- limit: z
-.coerce.number()
-.int()
-.min(1)
-.max(KNOWLEDGE_LIMIT_MAX)
-.nullish()
-.transform((value) => value ?? KNOWLEDGE_LIMIT_DEFAULT),
+  /**
+   * Project Scope(스펙 10).
+   *
+   * 🔴 **Filter 일 뿐 권한 근거가 아니다.** 다른 Workspace 의 Project slug 를 넣어도
+   * 조회는 API Key 의 Workspace 안에서만 돌고, 그 안에 없는 slug 면 아무것도 나오지 않는다.
+   *
+   * 지정하면 그 Project 의 Review Knowledge 로 좁히고, Wiki 는 **Workspace 공통 규칙과
+   * 그 Project 문서를 함께** 준다 — Agent 는 둘 다 지켜야 한다.
+   */
+  projectSlug: optionalTrimmed(200),
+  /**
+   * `owner/name` 으로 좁히기(스펙 6).
+   *
+   * 🔴 **Agent 는 우리 UUID 를 모른다.** 아는 것은 git remote 뿐이다 — 내부 ID 를
+   * 알아야 쓸 수 있는 조회는 Agent 에게 없는 것과 같다. `repositoryId` 는 화면과
+   * 기존 Client 를 위해 남겨 둔다.
+   */
+  repository: optionalTrimmed(401),
+  repositoryId: z
+    .uuid()
+    .nullish()
+    .transform((value) => value ?? null),
+  category: z
+    .enum(ISSUE_CATEGORIES)
+    .nullish()
+    .transform((value) => value ?? null),
+  /** Pattern Key 정확히 일치. 부분 검색이 필요해지면 그때 별도 Filter 를 만든다. */
+  pattern: optionalTrimmed(200),
+  severity: z
+    .enum(ISSUE_SEVERITIES)
+    .nullish()
+    .transform((value) => value ?? null),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(KNOWLEDGE_LIMIT_MAX)
+    .nullish()
+    .transform((value) => value ?? KNOWLEDGE_LIMIT_DEFAULT),
 });
 
 export type KnowledgeContextQuery = z.infer<typeof knowledgeContextQuerySchema>;
@@ -74,26 +74,26 @@ export type KnowledgeContextQuery = z.infer<typeof knowledgeContextQuerySchema>;
  * 거절해, 「Filter 를 안 걸었다」가 「잘못된 요청」이 된다.
  */
 export function readKnowledgeContextQuery(
- params: URLSearchParams,
+  params: URLSearchParams,
 ): Record<string, string> {
- const raw: Record<string, string> = {};
+  const raw: Record<string, string> = {};
 
- const keys = [
- "projectSlug",
- "repository",
- "repositoryId",
- "category",
- "pattern",
- "severity",
- "limit",
- ];
+  const keys = [
+    "projectSlug",
+    "repository",
+    "repositoryId",
+    "category",
+    "pattern",
+    "severity",
+    "limit",
+  ];
 
- for (const key of keys) {
- const value = params.get(key);
- if (value !== null && value !== "") {
- raw[key] = value;
- }
- }
+  for (const key of keys) {
+    const value = params.get(key);
+    if (value !== null && value !== "") {
+      raw[key] = value;
+    }
+  }
 
- return raw;
+  return raw;
 }

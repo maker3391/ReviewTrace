@@ -12,24 +12,24 @@ import { readLocale, readTheme } from "@/lib/ui/appearance";
  * 보낸다. 그 대응을 여기 한 곳에 두어 상단 바와 로그인 화면이 갈라지지 않게 한다.
  */
 export async function AppearanceControls() {
- const [locale, theme] = await Promise.all([readLocale(), readTheme()]);
- const t = messages(locale).appearance;
+  const [locale, theme] = await Promise.all([readLocale(), readTheme()]);
+  const t = messages(locale).appearance;
 
- return (
- <div className="flex items-center gap-0.5">
- <LocaleToggle
- locale={locale}
- labels={{ language: t.language, ko: t.localeKo, en: t.localeEn }}
- />
- <ThemeToggle
- theme={theme}
- labels={{
- theme: t.theme,
- light: t.themeLight,
- dark: t.themeDark,
- system: t.themeSystem,
- }}
- />
- </div>
-);
+  return (
+    <div className="flex items-center gap-0.5">
+      <LocaleToggle
+        locale={locale}
+        labels={{ language: t.language, ko: t.localeKo, en: t.localeEn }}
+      />
+      <ThemeToggle
+        theme={theme}
+        labels={{
+          theme: t.theme,
+          light: t.themeLight,
+          dark: t.themeDark,
+          system: t.themeSystem,
+        }}
+      />
+    </div>
+  );
 }

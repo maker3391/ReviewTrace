@@ -22,13 +22,13 @@ distinction would itself leak whether a key exists.
 { "error": { "code": "VALIDATION_ERROR", "message": "..." } }
 ```
 
-| Code | Status |
-|---|---|
-| `VALIDATION_ERROR` | 400 |
-| `UNAUTHORIZED` | 401 |
-| `FORBIDDEN` | 403 |
-| `NOT_FOUND` | 404 |
-| `INTERNAL_ERROR` | 500 |
+| Code               | Status |
+| ------------------ | ------ |
+| `VALIDATION_ERROR` | 400    |
+| `UNAUTHORIZED`     | 401    |
+| `FORBIDDEN`        | 403    |
+| `NOT_FOUND`        | 404    |
+| `INTERNAL_ERROR`   | 500    |
 
 Objects outside your workspace return `404`, never `403`.
 
@@ -48,22 +48,22 @@ the request un-deduplicated while the caller believed it was protected.
 
 **Body**
 
-| Field | Required | Notes |
-|---|---|---|
-| `project.slug` | no | Defaults to the workspace's `default` project, created on demand |
-| `project.name` | no | Only used when the project is created |
-| `repository.provider` | yes | `GITHUB` |
-| `repository.owner` / `name` / `fullName` | yes | |
-| `repository.externalRepositoryId` | no | GitHub's numeric id. Send it and renames keep one row; omit it and identity falls back to `owner/name` |
-| `repository.defaultBranch` | no | Defaults to `main` |
-| `repository.htmlUrl` | no | `http`/`https` only |
-| `target.type` | yes | `PULL_REQUEST` · `COMMIT` · `BRANCH` · `REPOSITORY` · `MANUAL` |
-| `target.branch` / `commitSha` / `pullRequestNumber` | no | |
-| `reviewer.type` | yes | `AGENT` · `HUMAN` · `SYSTEM` |
-| `reviewer.name` / `version` | yes / no | |
-| `summary` | no | |
-| `startedAt` / `completedAt` | no | ISO-8601 with offset |
-| `issues[]` | no | Max 500. An empty review is a valid record — "this commit was clean" |
+| Field                                               | Required | Notes                                                                                                  |
+| --------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `project.slug`                                      | no       | Defaults to the workspace's `default` project, created on demand                                       |
+| `project.name`                                      | no       | Only used when the project is created                                                                  |
+| `repository.provider`                               | yes      | `GITHUB`                                                                                               |
+| `repository.owner` / `name` / `fullName`            | yes      |                                                                                                        |
+| `repository.externalRepositoryId`                   | no       | GitHub's numeric id. Send it and renames keep one row; omit it and identity falls back to `owner/name` |
+| `repository.defaultBranch`                          | no       | Defaults to `main`                                                                                     |
+| `repository.htmlUrl`                                | no       | `http`/`https` only                                                                                    |
+| `target.type`                                       | yes      | `PULL_REQUEST` · `COMMIT` · `BRANCH` · `REPOSITORY` · `MANUAL`                                         |
+| `target.branch` / `commitSha` / `pullRequestNumber` | no       |                                                                                                        |
+| `reviewer.type`                                     | yes      | `AGENT` · `HUMAN` · `SYSTEM`                                                                           |
+| `reviewer.name` / `version`                         | yes / no |                                                                                                        |
+| `summary`                                           | no       |                                                                                                        |
+| `startedAt` / `completedAt`                         | no       | ISO-8601 with offset                                                                                   |
+| `issues[]`                                          | no       | Max 500. An empty review is a valid record — "this commit was clean"                                   |
 
 **Issue fields**
 
@@ -73,21 +73,21 @@ Use blank lines between concepts, ordered lists for multi-step failure paths, an
 lists for multiple changes or checks. Raw HTML is not part of the supported content model.
 The API preserves the submitted text rather than heuristically reformatting legacy prose.
 
-| Field | Required | Notes |
-|---|---|---|
-| `severity` | yes | `CRITICAL` · `HIGH` · `MEDIUM` · `LOW` · `INFO` |
-| `category` | yes | `ARCHITECTURE` · `SECURITY` · `PERFORMANCE` · `DATABASE` · `TRANSACTION` · `CONCURRENCY` · `API` · `VALIDATION` · `EXCEPTION_HANDLING` · `TESTING` · `CLEAN_CODE` · `RELIABILITY` |
-| `title` | yes | ≤500 |
-| `description` | no | What is wrong |
-| `rootCause` | no | Why it ended up this way |
-| `failurePath` | no | How it actually breaks; attack path for security findings |
-| `patternKey` | no | Normalised name of a recurring problem, e.g. `N_PLUS_ONE` |
-| `filePath` / `startLine` / `endLine` | no | `endLine` must be ≥ `startLine` |
-| `suggestion` | no | Proposed fix. Distinct from what was actually done |
-| `source` + `externalId` | no | Together they identify the issue. Resending both keeps one row and appends `REVIEWED_AGAIN` to its history |
-| `tags[]` | no | Max 20 |
-| `decision` | no | See [Decision record](#decision-record) |
-| `evidence[]` | no | Max 20. See [Code evidence](#code-evidence) |
+| Field                                | Required | Notes                                                                                                                                                                             |
+| ------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `severity`                           | yes      | `CRITICAL` · `HIGH` · `MEDIUM` · `LOW` · `INFO`                                                                                                                                   |
+| `category`                           | yes      | `ARCHITECTURE` · `SECURITY` · `PERFORMANCE` · `DATABASE` · `TRANSACTION` · `CONCURRENCY` · `API` · `VALIDATION` · `EXCEPTION_HANDLING` · `TESTING` · `CLEAN_CODE` · `RELIABILITY` |
+| `title`                              | yes      | ≤500                                                                                                                                                                              |
+| `description`                        | no       | What is wrong                                                                                                                                                                     |
+| `rootCause`                          | no       | Why it ended up this way                                                                                                                                                          |
+| `failurePath`                        | no       | How it actually breaks; attack path for security findings                                                                                                                         |
+| `patternKey`                         | no       | Normalised name of a recurring problem, e.g. `N_PLUS_ONE`                                                                                                                         |
+| `filePath` / `startLine` / `endLine` | no       | `endLine` must be ≥ `startLine`                                                                                                                                                   |
+| `suggestion`                         | no       | Proposed fix. Distinct from what was actually done                                                                                                                                |
+| `source` + `externalId`              | no       | Together they identify the issue. Resending both keeps one row and appends `REVIEWED_AGAIN` to its history                                                                        |
+| `tags[]`                             | no       | Max 20                                                                                                                                                                            |
+| `decision`                           | no       | See [Decision record](#decision-record)                                                                                                                                           |
+| `evidence[]`                         | no       | Max 20. See [Code evidence](#code-evidence)                                                                                                                                       |
 
 **Response** — `201` (or `200` on an idempotent replay)
 
@@ -95,8 +95,16 @@ The API preserves the submitted text rather than heuristically reformatting lega
 {
   "repositoryId": "…",
   "reviewSessionId": "…",
-  "issues": [{ "id": "…", "title": "…", "severity": "HIGH",
-               "category": "TRANSACTION", "status": "OPEN", "alreadyKnown": false }],
+  "issues": [
+    {
+      "id": "…",
+      "title": "…",
+      "severity": "HIGH",
+      "category": "TRANSACTION",
+      "status": "OPEN",
+      "alreadyKnown": false
+    }
+  ],
   "idempotentReplay": false
 }
 ```
@@ -120,14 +128,14 @@ reviewer are not accepted here; the session already fixed them.
 A state transition, not a column update. Status, `resolvedAt`, `resolutionSummary`, and a
 new activity row move together in one transaction.
 
-| Field | Required | Notes |
-|---|---|---|
-| `status` | yes | `OPEN` · `IN_PROGRESS` · `RESOLVED` · `IGNORED` · `FALSE_POSITIVE` · `REOPENED` |
-| `resolutionSummary` | when `RESOLVED` | |
-| `actor.type` / `actor.name` | no | Defaults to the API key's name |
-| `commitSha` | no | |
-| `decision` | no | |
-| `evidence[]` | no | |
+| Field                       | Required        | Notes                                                                           |
+| --------------------------- | --------------- | ------------------------------------------------------------------------------- |
+| `status`                    | yes             | `OPEN` · `IN_PROGRESS` · `RESOLVED` · `IGNORED` · `FALSE_POSITIVE` · `REOPENED` |
+| `resolutionSummary`         | when `RESOLVED` |                                                                                 |
+| `actor.type` / `actor.name` | no              | Defaults to the API key's name                                                  |
+| `commitSha`                 | no              |                                                                                 |
+| `decision`                  | no              |                                                                                 |
+| `evidence[]`                | no              |                                                                                 |
 
 Each status maps to one activity type: `RESOLVED` → `RESOLVED`, `IN_PROGRESS` →
 `FIX_ATTEMPTED`, `IGNORED`/`FALSE_POSITIVE` → `IGNORED`, `OPEN`/`REOPENED` → `REOPENED`.
@@ -144,14 +152,14 @@ written into the `RESOLVED` activity when the transition happened.
 
 Appends one line of history. Does not change status.
 
-| Field | Required | Notes |
-|---|---|---|
-| `type` | yes | `DETECTED` · `FIX_ATTEMPTED` · `REVIEWED_AGAIN` · `RESOLVED` · `REOPENED` · `IGNORED` · `COMMENT` |
-| `actor.type` / `actor.name` | yes | |
-| `description` | no | |
-| `commitSha` | no | |
-| `decision` | no | |
-| `evidence[]` | no | |
+| Field                       | Required | Notes                                                                                             |
+| --------------------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `type`                      | yes      | `DETECTED` · `FIX_ATTEMPTED` · `REVIEWED_AGAIN` · `RESOLVED` · `REOPENED` · `IGNORED` · `COMMENT` |
+| `actor.type` / `actor.name` | yes      |                                                                                                   |
+| `description`               | no       |                                                                                                   |
+| `commitSha`                 | no       |                                                                                                   |
+| `decision`                  | no       |                                                                                                   |
+| `evidence[]`                | no       |                                                                                                   |
 
 **Response** — `201` with `{ "activity": { … } }`.
 
@@ -168,13 +176,13 @@ own evidence, oldest first — the second fix attempt does not overwrite the fir
 
 ## `GET /api/v1/issues`
 
-| Query | Notes |
-|---|---|
-| `repository` | `owner/name`, case-insensitive. A filter, not an authorisation grant |
-| `status` · `severity` · `category` | Exact match |
-| `patternKey` | Exact match |
-| `q` | Substring over title, file path, pattern key |
-| `limit` | 1–50, default 20 |
+| Query                              | Notes                                                                |
+| ---------------------------------- | -------------------------------------------------------------------- |
+| `repository`                       | `owner/name`, case-insensitive. A filter, not an authorisation grant |
+| `status` · `severity` · `category` | Exact match                                                          |
+| `patternKey`                       | Exact match                                                          |
+| `q`                                | Substring over title, file path, pattern key                         |
+| `limit`                            | 1–50, default 20                                                     |
 
 **Response** — `200` with `{ "issues": [ … ] }`, newest first.
 
@@ -184,13 +192,13 @@ own evidence, oldest first — the second fix attempt does not overwrite the fir
 
 What a repository has learned. Read this before starting work.
 
-| Query | Notes |
-|---|---|
-| `repository` | `owner/name` |
-| `repositoryId` | UUID. Kept for existing clients; prefer `repository` |
-| `projectSlug` | Narrows review knowledge to one project; wiki still includes workspace-wide pages |
-| `category` · `severity` · `pattern` | |
-| `limit` | 1–100, default 20 |
+| Query                               | Notes                                                                             |
+| ----------------------------------- | --------------------------------------------------------------------------------- |
+| `repository`                        | `owner/name`                                                                      |
+| `repositoryId`                      | UUID. Kept for existing clients; prefer `repository`                              |
+| `projectSlug`                       | Narrows review knowledge to one project; wiki still includes workspace-wide pages |
+| `category` · `severity` · `pattern` |                                                                                   |
+| `limit`                             | 1–100, default 20                                                                 |
 
 **Response** — `200` with `scope`, `wiki`, `frequentPatterns`,
 `recentHighSeverityIssues`, `unresolvedIssues`, `pastResolutions`.
@@ -217,13 +225,13 @@ summary, while a decision record is one step on the way there.
 
 ## Code evidence
 
-| Field | Required | Notes |
-|---|---|---|
-| `kind` | yes | `BEFORE` · `AFTER` |
-| `commitSha` | yes | A commit, never a branch |
-| `filePath` | yes | |
-| `startLine` / `endLine` | no | Exact range of the minimal relevant snippet |
-| `snapshot` | no | Problem/changed lines plus only necessary context, ≤20,000 chars |
+| Field                   | Required | Notes                                                            |
+| ----------------------- | -------- | ---------------------------------------------------------------- |
+| `kind`                  | yes      | `BEFORE` · `AFTER`                                               |
+| `commitSha`             | yes      | A commit, never a branch                                         |
+| `filePath`              | yes      |                                                                  |
+| `startLine` / `endLine` | no       | Exact range of the minimal relevant snippet                      |
+| `snapshot`              | no       | Problem/changed lines plus only necessary context, ≤20,000 chars |
 
 The server checks the snapshot against GitHub at that commit **after** the response is
 sent, so verification never delays your request. The result is recorded separately —
@@ -232,12 +240,12 @@ a client cannot mark its own evidence as verified.
 The API stores the submitted range verbatim; it does not expand the snippet. Callers
 should not submit an entire function or component when a smaller changed range is enough.
 
-| `verification` | Meaning |
-|---|---|
-| `UNVERIFIED` | Not checked yet |
-| `VERIFIED` | Matched GitHub at that commit and line range. With no line range, the snippet was found in the file |
-| `MISMATCH` | The file exists at that commit but the content differs |
-| `UNAVAILABLE` | Could not look: private repo, no token, missing commit or file, rate limit, network failure |
+| `verification` | Meaning                                                                                             |
+| -------------- | --------------------------------------------------------------------------------------------------- |
+| `UNVERIFIED`   | Not checked yet                                                                                     |
+| `VERIFIED`     | Matched GitHub at that commit and line range. With no line range, the snippet was found in the file |
+| `MISMATCH`     | The file exists at that commit but the content differs                                              |
+| `UNAVAILABLE`  | Could not look: private repo, no token, missing commit or file, rate limit, network failure         |
 
 If no snapshot is sent and the lines are readable, the server fills it in from GitHub so
 the record survives the repository being deleted or going private. With no line range and

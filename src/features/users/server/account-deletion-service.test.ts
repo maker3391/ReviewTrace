@@ -59,10 +59,7 @@ const staleList = (role: "OWNER" | "MEMBER") =>
 const lockedWorkspaces = () => selects([{ id: WORKSPACE }]);
 
 /** 잠근 뒤에 다시 읽은 소속 행 전부 — 내 것과 남의 것이 함께 온다. */
-const lockedMembers = (
-  mine: "OWNER" | "MEMBER",
-  theirs: "OWNER" | "MEMBER",
-) =>
+const lockedMembers = (mine: "OWNER" | "MEMBER", theirs: "OWNER" | "MEMBER") =>
   selects([
     { workspaceId: WORKSPACE, userId: USER, role: mine },
     { workspaceId: WORKSPACE, userId: OTHER, role: theirs },
@@ -102,7 +99,9 @@ describe("deleteAccount — 마지막 OWNER 판정", () => {
       lockedMembers("OWNER", "MEMBER"),
     ]);
 
-    const error = await rejection(deleteAccount({ userId: USER }, fake.executor));
+    const error = await rejection(
+      deleteAccount({ userId: USER }, fake.executor),
+    );
 
     expect(isAppError(error) && error.code).toBe("CONFLICT");
     // 🔴 아무것도 지우지 않았다.
@@ -226,7 +225,11 @@ describe("deleteAccount — 잠그는 순서", () => {
           }),
         }),
       },
-      lockingSelect([{ id: WORKSPACE }], "lock-workspaces", '"workspaces"."id"'),
+      lockingSelect(
+        [{ id: WORKSPACE }],
+        "lock-workspaces",
+        '"workspaces"."id"',
+      ),
       lockingSelect(
         [{ id: USER, email: "me@example.test" }],
         "lock-user",

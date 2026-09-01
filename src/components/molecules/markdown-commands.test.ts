@@ -12,7 +12,11 @@ import {
  * 바로 이어 쓴다」가 되지 않아, 결국 손으로 치는 것과 같아진다.
  */
 
-function at(value: string, selectionStart: number, selectionEnd = selectionStart): EditorText {
+function at(
+  value: string,
+  selectionStart: number,
+  selectionEnd = selectionStart,
+): EditorText {
   return { value, selectionStart, selectionEnd };
 }
 
@@ -45,7 +49,10 @@ describe("applyMarkdownCommand", () => {
   });
 
   it("커서가 놓인 줄 전체에 제목 표식을 붙인다", () => {
-    const result = applyMarkdownCommand("heading", at("intro\nTransaction 경계\ntail", 9));
+    const result = applyMarkdownCommand(
+      "heading",
+      at("intro\nTransaction 경계\ntail", 9),
+    );
 
     expect(result.value).toBe("intro\n## Transaction 경계\ntail");
   });
@@ -57,13 +64,19 @@ describe("applyMarkdownCommand", () => {
   });
 
   it("여러 줄에 번호를 이어서 매긴다", () => {
-    const result = applyMarkdownCommand("numberedList", at("first\nsecond\nthird", 0, 18));
+    const result = applyMarkdownCommand(
+      "numberedList",
+      at("first\nsecond\nthird", 0, 18),
+    );
 
     expect(result.value).toBe("1. first\n2. second\n3. third");
   });
 
   it("글머리 목록을 번호 목록으로 바꿔도 표식이 겹치지 않는다", () => {
-    const result = applyMarkdownCommand("numberedList", at("- first\n- second", 0, 16));
+    const result = applyMarkdownCommand(
+      "numberedList",
+      at("- first\n- second", 0, 16),
+    );
 
     expect(result.value).toBe("1. first\n2. second");
   });
@@ -87,7 +100,10 @@ describe("applyMarkdownCommand", () => {
   });
 
   it("고른 것이 주소면 주소 자리에 넣고 글자 자리에 커서를 둔다", () => {
-    const result = applyMarkdownCommand("link", at("https://example.com", 0, 19));
+    const result = applyMarkdownCommand(
+      "link",
+      at("https://example.com", 0, 19),
+    );
 
     expect(result.value).toBe("[](https://example.com)");
     expect(result.selectionStart).toBe(1);

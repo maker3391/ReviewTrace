@@ -59,11 +59,11 @@ import type { ProjectScope, WorkspaceScope } from "@/types/tenant";
 export type IssueScope = WorkspaceScope | ProjectScope;
 
 export function issueInScope(scope: IssueScope): SQL {
- const inWorkspace = eq(reviewIssues.workspaceId, scope.workspaceId);
+  const inWorkspace = eq(reviewIssues.workspaceId, scope.workspaceId);
 
- if (!("projectId" in scope)) {
- return inWorkspace;
- }
+  if (!("projectId" in scope)) {
+    return inWorkspace;
+  }
 
- return sql`${inWorkspace} and exists (select 1 from ${repositories} where ${repositories.id} = ${reviewIssues.repositoryId} and ${repositories.workspaceId} = ${scope.workspaceId} and ${repositories.projectId} = ${scope.projectId})`;
+  return sql`${inWorkspace} and exists (select 1 from ${repositories} where ${repositories.id} = ${reviewIssues.repositoryId} and ${repositories.workspaceId} = ${scope.workspaceId} and ${repositories.projectId} = ${scope.projectId})`;
 }

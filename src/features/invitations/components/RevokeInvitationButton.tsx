@@ -21,45 +21,45 @@ import { revokeInvitationAction } from "@/features/invitations/actions/revoke-in
  * `revalidatePath` 가 이 화면을 서버에서 다시 그린다.
  */
 export function RevokeInvitationButton({
- workspaceSlug,
- invitationId,
- email,
- labels,
+  workspaceSlug,
+  invitationId,
+  email,
+  labels,
 }: {
- workspaceSlug: string;
- invitationId: string;
- email: string;
- /** 🔴 이 버튼이 실제로 그리는 낱말만 받는다. */
- labels: {
- revoke: string;
- cancel: string;
- confirmTitle: string;
- confirmDescription: string;
- };
+  workspaceSlug: string;
+  invitationId: string;
+  email: string;
+  /** 🔴 이 버튼이 실제로 그리는 낱말만 받는다. */
+  labels: {
+    revoke: string;
+    cancel: string;
+    confirmTitle: string;
+    confirmDescription: string;
+  };
 }) {
- const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false);
 
- return (
- <>
- <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
- {labels.revoke}
- </Button>
+  return (
+    <>
+      <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
+        {labels.revoke}
+      </Button>
 
- <ConfirmDialog
- open={open}
- onOpenChange={setOpen}
- title={labels.confirmTitle}
- description={
- <>
- <span className="font-medium text-foreground">{email}</span>
- <br />
- {labels.confirmDescription}
- </>
- }
- actionLabel={labels.revoke}
- cancelLabel={labels.cancel}
- onConfirm={() => revokeInvitationAction(workspaceSlug, invitationId)}
- />
- </>
-);
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={labels.confirmTitle}
+        description={
+          <>
+            <span className="font-medium text-foreground">{email}</span>
+            <br />
+            {labels.confirmDescription}
+          </>
+        }
+        actionLabel={labels.revoke}
+        cancelLabel={labels.cancel}
+        onConfirm={() => revokeInvitationAction(workspaceSlug, invitationId)}
+      />
+    </>
+  );
 }

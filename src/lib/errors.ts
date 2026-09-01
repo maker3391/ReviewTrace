@@ -30,20 +30,20 @@
  */
 
 export const ERROR_CODES = [
- "VALIDATION_ERROR",
- "UNAUTHORIZED",
- "FORBIDDEN",
- "NOT_FOUND",
- "CONFLICT",
- "INTERNAL_ERROR",
+  "VALIDATION_ERROR",
+  "UNAUTHORIZED",
+  "FORBIDDEN",
+  "NOT_FOUND",
+  "CONFLICT",
+  "INTERNAL_ERROR",
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
 /** 외부(화면·API)로 나가도 되는 오류 표현. 이 형태 밖의 것을 내보내지 않는다. */
 export interface PublicError {
- code: ErrorCode;
- message: string;
+  code: ErrorCode;
+  message: string;
 }
 
 /**
@@ -59,98 +59,100 @@ export interface PublicError {
  * 새어 나간다.
  */
 const REASON_CODE = {
- /**
- * 우리가 예상하지 못한 것. 불변식이 깨졌거나(넣었는데 돌아온 행이 없다) 원인을 모른다.
- * 🔴 사용자에게는 한 줄만 나가고 원인은 `cause` 로 서버 Log 에만 남는다.
- */
- UNEXPECTED: "INTERNAL_ERROR",
- /** 대상이 없다. 🔴 남의 것이어서 못 찾는 경우도 여기다 — `FORBIDDEN` 과 구분하지 않는다. */
- RESOURCE_NOT_FOUND: "NOT_FOUND",
+  /**
+   * 우리가 예상하지 못한 것. 불변식이 깨졌거나(넣었는데 돌아온 행이 없다) 원인을 모른다.
+   * 🔴 사용자에게는 한 줄만 나가고 원인은 `cause` 로 서버 Log 에만 남는다.
+   */
+  UNEXPECTED: "INTERNAL_ERROR",
+  /** 대상이 없다. 🔴 남의 것이어서 못 찾는 경우도 여기다 — `FORBIDDEN` 과 구분하지 않는다. */
+  RESOURCE_NOT_FOUND: "NOT_FOUND",
 
- /**
- * Agent API 인증 실패.
- * 🔴 형식 오류·없는 키·폐기·만료를 구분하지 않는다.
- */
- AGENT_UNAUTHORIZED: "UNAUTHORIZED",
- /** 🔴 Agent 가 읽는다. 본문이 JSON 이 아니면 500 이 아니라 400 이다. */
- AGENT_BODY_NOT_JSON: "VALIDATION_ERROR",
- /** PostgreSQL `text` 가 받지 못하는 문자(NUL · 짝 없는 Surrogate)가 본문에 들어 있다. */
- AGENT_BODY_UNSTORABLE_TEXT: "VALIDATION_ERROR",
- /**
- * `Idempotency-Key` 가 상한을 넘었다.
- * 🔴 **조용히 버리지 않는다** — 버리면 Agent 는 Dedup 이 걸린 줄 알고 재전송해
- * ReviewSession 을 하나 더 만든다(`lib/api/agent-route.ts`).
- */
- AGENT_IDEMPOTENCY_KEY_TOO_LONG: "VALIDATION_ERROR",
+  /**
+   * Agent API 인증 실패.
+   * 🔴 형식 오류·없는 키·폐기·만료를 구분하지 않는다.
+   */
+  AGENT_UNAUTHORIZED: "UNAUTHORIZED",
+  /** 🔴 Agent 가 읽는다. 본문이 JSON 이 아니면 500 이 아니라 400 이다. */
+  AGENT_BODY_NOT_JSON: "VALIDATION_ERROR",
+  /** PostgreSQL `text` 가 받지 못하는 문자(NUL · 짝 없는 Surrogate)가 본문에 들어 있다. */
+  AGENT_BODY_UNSTORABLE_TEXT: "VALIDATION_ERROR",
+  /**
+   * `Idempotency-Key` 가 상한을 넘었다.
+   * 🔴 **조용히 버리지 않는다** — 버리면 Agent 는 Dedup 이 걸린 줄 알고 재전송해
+   * ReviewSession 을 하나 더 만든다(`lib/api/agent-route.ts`).
+   */
+  AGENT_IDEMPOTENCY_KEY_TOO_LONG: "VALIDATION_ERROR",
 
- API_KEY_NAME_INVALID: "VALIDATION_ERROR",
+  API_KEY_NAME_INVALID: "VALIDATION_ERROR",
 
- /** 🔴 `slug` 가 문장에 들어간다 — 무엇을 고쳐야 하는지 알려면 그 값이 필요하다. */
- PROJECT_SLUG_RESERVED: "VALIDATION_ERROR",
- PROJECT_SLUG_TAKEN: "CONFLICT",
- /** 이름에서 유도한 slug 가 전부 막혔다 — slug 를 직접 정하면 된다. */
- PROJECT_NAME_TAKEN: "CONFLICT",
- PROJECT_NOT_FOUND: "NOT_FOUND",
- /** 🔴 「옮기려는 Project 가 없다」는 「옮길 Repository 가 없다」와 다른 말이다. */
- MOVE_TARGET_PROJECT_NOT_FOUND: "NOT_FOUND",
- REPOSITORY_NOT_FOUND: "NOT_FOUND",
+  /** 🔴 `slug` 가 문장에 들어간다 — 무엇을 고쳐야 하는지 알려면 그 값이 필요하다. */
+  PROJECT_SLUG_RESERVED: "VALIDATION_ERROR",
+  PROJECT_SLUG_TAKEN: "CONFLICT",
+  /** 이름에서 유도한 slug 가 전부 막혔다 — slug 를 직접 정하면 된다. */
+  PROJECT_NAME_TAKEN: "CONFLICT",
+  PROJECT_NOT_FOUND: "NOT_FOUND",
+  /** 🔴 「옮기려는 Project 가 없다」는 「옮길 Repository 가 없다」와 다른 말이다. */
+  MOVE_TARGET_PROJECT_NOT_FOUND: "NOT_FOUND",
+  REPOSITORY_NOT_FOUND: "NOT_FOUND",
 
- KNOWLEDGE_PAGE_SLUG_RESERVED: "VALIDATION_ERROR",
- KNOWLEDGE_PAGE_SLUG_TAKEN: "CONFLICT",
- KNOWLEDGE_PAGE_NOT_FOUND: "NOT_FOUND",
+  KNOWLEDGE_PAGE_SLUG_RESERVED: "VALIDATION_ERROR",
+  KNOWLEDGE_PAGE_SLUG_TAKEN: "CONFLICT",
+  KNOWLEDGE_PAGE_NOT_FOUND: "NOT_FOUND",
 
- /** 없다·만료됐다·이미 쓰였다를 구분하지 않는다. */
- INVITATION_UNUSABLE: "NOT_FOUND",
- INVITATION_NOT_CANCELABLE: "NOT_FOUND",
- INVITATION_ALREADY_PENDING: "CONFLICT",
+  /** 없다·만료됐다·이미 쓰였다를 구분하지 않는다. */
+  INVITATION_UNUSABLE: "NOT_FOUND",
+  INVITATION_NOT_CANCELABLE: "NOT_FOUND",
+  INVITATION_ALREADY_PENDING: "CONFLICT",
 
- WORKSPACE_MEMBER_ALREADY: "CONFLICT",
- WORKSPACE_MEMBER_NOT_FOUND: "NOT_FOUND",
- WORKSPACE_NAME_REQUIRED: "VALIDATION_ERROR",
- /** 그 이름으로 쓸 수 있는 주소를 만들지 못했다. */
- WORKSPACE_NAME_UNUSABLE: "CONFLICT",
- /** 역할을 바꾸려는데 그 사람이 마지막 OWNER 다. */
- WORKSPACE_LAST_OWNER: "CONFLICT",
- PERSONAL_WORKSPACE_ROLE_FIXED: "CONFLICT",
- /**
-  * 자기 자신을 내보내려 했다.
-  * 🔴 **「나가기」와 다른 말이다** — 나가기는 아직 없는 기능이고, 있었더라도 사용자가
-  * 다음에 할 일이 다르다(`member-removal-plan.ts`).
-  */
- WORKSPACE_SELF_REMOVE: "CONFLICT",
- /**
-  * Personal Workspace 의 주인을 내보내려 했다.
-  * 🔴 조건이 아니라 **영구히** 내보낼 수 없다 — 빼면 그 사람이 자기 자리에 못 들어가고
-  * `personal_owner_id` unique 때문에 다시 만들어지지도 않는다.
-  */
- PERSONAL_WORKSPACE_OWNER_FIXED: "CONFLICT",
- /** 지우려는 Workspace 가 없거나 내 것이 아니다. 🔴 둘을 구분하지 않는다. */
- WORKSPACE_NOT_FOUND: "NOT_FOUND",
- /**
- * Workspace 삭제를 OWNER 가 아닌 사람이 시도했다.
- * 🔴 `FORBIDDEN` 이 아니라 `NOT_FOUND` 다 — `requireOwner` 가 `notFound()` 로 답하는
- * 것과 같은 판단이다.
- */
- WORKSPACE_OWNER_REQUIRED: "NOT_FOUND",
- /** 🔴 Personal Workspace 는 조건이 아니라 **영구히** 지울 수 없다. */
- PERSONAL_WORKSPACE_UNDELETABLE: "CONFLICT",
- /** 다른 멤버가 남아 있다. 🔴 멤버를 함께 지우지 않는다 — 사람이 먼저 내보낸다. */
- WORKSPACE_HAS_MEMBERS: "CONFLICT",
+  WORKSPACE_MEMBER_ALREADY: "CONFLICT",
+  WORKSPACE_MEMBER_NOT_FOUND: "NOT_FOUND",
+  WORKSPACE_NAME_REQUIRED: "VALIDATION_ERROR",
+  /** 그 이름으로 쓸 수 있는 주소를 만들지 못했다. */
+  WORKSPACE_NAME_UNUSABLE: "CONFLICT",
+  /** 역할을 바꾸려는데 그 사람이 마지막 OWNER 다. */
+  WORKSPACE_LAST_OWNER: "CONFLICT",
+  PERSONAL_WORKSPACE_ROLE_FIXED: "CONFLICT",
+  /**
+   * 자기 자신을 내보내려 했다.
+   * 🔴 **「나가기」와 다른 말이다** — 나가기는 아직 없는 기능이고, 있었더라도 사용자가
+   * 다음에 할 일이 다르다(`member-removal-plan.ts`).
+   */
+  WORKSPACE_SELF_REMOVE: "CONFLICT",
+  /**
+   * Personal Workspace 의 주인을 내보내려 했다.
+   * 🔴 조건이 아니라 **영구히** 내보낼 수 없다 — 빼면 그 사람이 자기 자리에 못 들어가고
+   * `personal_owner_id` unique 때문에 다시 만들어지지도 않는다.
+   */
+  PERSONAL_WORKSPACE_OWNER_FIXED: "CONFLICT",
+  /** 지우려는 Workspace 가 없거나 내 것이 아니다. 🔴 둘을 구분하지 않는다. */
+  WORKSPACE_NOT_FOUND: "NOT_FOUND",
+  /**
+   * Workspace 삭제를 OWNER 가 아닌 사람이 시도했다.
+   * 🔴 `FORBIDDEN` 이 아니라 `NOT_FOUND` 다 — `requireOwner` 가 `notFound()` 로 답하는
+   * 것과 같은 판단이다.
+   */
+  WORKSPACE_OWNER_REQUIRED: "NOT_FOUND",
+  /** 🔴 Personal Workspace 는 조건이 아니라 **영구히** 지울 수 없다. */
+  PERSONAL_WORKSPACE_UNDELETABLE: "CONFLICT",
+  /** 다른 멤버가 남아 있다. 🔴 멤버를 함께 지우지 않는다 — 사람이 먼저 내보낸다. */
+  WORKSPACE_HAS_MEMBERS: "CONFLICT",
 
- ACCOUNT_NOT_FOUND: "NOT_FOUND",
- /** 계정을 지우려는데 다른 멤버가 있는 Workspace 의 마지막 OWNER 다. */
- ACCOUNT_LAST_OWNER: "CONFLICT",
- /** 계정 삭제 중 Workspace 주소를 비우지 못했다 — 다시 시도하면 된다. */
- WORKSPACE_SLUG_RELEASE_FAILED: "CONFLICT",
+  ACCOUNT_NOT_FOUND: "NOT_FOUND",
+  /** 계정을 지우려는데 다른 멤버가 있는 Workspace 의 마지막 OWNER 다. */
+  ACCOUNT_LAST_OWNER: "CONFLICT",
+  /** 계정 삭제 중 Workspace 주소를 비우지 못했다 — 다시 시도하면 된다. */
+  WORKSPACE_SLUG_RELEASE_FAILED: "CONFLICT",
 } as const satisfies Record<string, ErrorCode>;
 
 export type AppErrorReason = keyof typeof REASON_CODE;
 
 /** 사전이 모든 오류를 덮는지 시험이 실제 목록으로 다시 확인한다. */
-export const APP_ERROR_REASONS = Object.keys(REASON_CODE) as readonly AppErrorReason[];
+export const APP_ERROR_REASONS = Object.keys(
+  REASON_CODE,
+) as readonly AppErrorReason[];
 
 export function errorCodeForReason(reason: AppErrorReason): ErrorCode {
- return REASON_CODE[reason];
+  return REASON_CODE[reason];
 }
 
 /**
@@ -165,8 +167,8 @@ export function errorCodeForReason(reason: AppErrorReason): ErrorCode {
  * 값이 필요 없는 오류는 여기 **없다** — 없는 것이 곧 「meta 를 넘기면 타입 오류」다.
  */
 export interface AppErrorMetaMap {
- PROJECT_SLUG_RESERVED: { slug: string };
- KNOWLEDGE_PAGE_SLUG_RESERVED: { slug: string };
+  PROJECT_SLUG_RESERVED: { slug: string };
+  KNOWLEDGE_PAGE_SLUG_RESERVED: { slug: string };
 }
 
 export type AppErrorMeta = AppErrorMetaMap[keyof AppErrorMetaMap];
@@ -183,9 +185,9 @@ export type AppErrorMeta = AppErrorMetaMap[keyof AppErrorMetaMap];
  * 문자열을 적어 두면 그것도 타입 오류다.
  */
 export type AppErrorMessages = {
- [R in AppErrorReason]: R extends keyof AppErrorMetaMap
- ? (meta: AppErrorMetaMap[R]) => string
- : string;
+  [R in AppErrorReason]: R extends keyof AppErrorMetaMap
+    ? (meta: AppErrorMetaMap[R]) => string
+    : string;
 };
 
 /**
@@ -195,9 +197,10 @@ export type AppErrorMessages = {
  * 두 번째 자리는 언제나 객체라 **`new AppError("한국어 문구")` 는 컴파일되지 않는다** —
  * 옛 방식이 조용히 되살아날 자리를 타입이 막는다.
  */
-export type AppErrorArgs<R extends AppErrorReason> = R extends keyof AppErrorMetaMap
- ? [reason: R, options: { meta: AppErrorMetaMap[R]; cause?: unknown }]
- : [reason: R, options?: { cause?: unknown }];
+export type AppErrorArgs<R extends AppErrorReason> =
+  R extends keyof AppErrorMetaMap
+    ? [reason: R, options: { meta: AppErrorMetaMap[R]; cause?: unknown }]
+    : [reason: R, options?: { cause?: unknown }];
 
 /**
  * 의도적으로 던지는 업무 오류.
@@ -208,26 +211,26 @@ export type AppErrorArgs<R extends AppErrorReason> = R extends keyof AppErrorMet
  * meta 에 담긴 값이 로그로 새어 나간다.
  */
 export class AppError extends Error {
- readonly code: ErrorCode;
- readonly reason: AppErrorReason;
- readonly meta: AppErrorMeta | undefined;
+  readonly code: ErrorCode;
+  readonly reason: AppErrorReason;
+  readonly meta: AppErrorMeta | undefined;
 
- constructor(...args: AppErrorArgs<AppErrorReason>) {
- const [reason, options] = args as [
- AppErrorReason,
- { meta?: AppErrorMeta; cause?: unknown } | undefined,
- ];
+  constructor(...args: AppErrorArgs<AppErrorReason>) {
+    const [reason, options] = args as [
+      AppErrorReason,
+      { meta?: AppErrorMeta; cause?: unknown } | undefined,
+    ];
 
- super(reason, { cause: options?.cause });
- this.name = "AppError";
- this.reason = reason;
- this.code = REASON_CODE[reason];
- this.meta = options?.meta;
- }
+    super(reason, { cause: options?.cause });
+    this.name = "AppError";
+    this.reason = reason;
+    this.code = REASON_CODE[reason];
+    this.meta = options?.meta;
+  }
 }
 
 export function isAppError(value: unknown): value is AppError {
- return value instanceof AppError;
+  return value instanceof AppError;
 }
 
 /**
@@ -238,12 +241,12 @@ export function isAppError(value: unknown): value is AppError {
  * 받을 수 없게 만들어 두는 것이 「locale 이 API 를 바꾸지 않는다」의 실제 보증이다.
  */
 const MACHINE_MESSAGE: Record<ErrorCode, string> = {
- VALIDATION_ERROR: "입력값이 올바르지 않습니다.",
- UNAUTHORIZED: "인증이 필요합니다.",
- FORBIDDEN: "권한이 없습니다.",
- NOT_FOUND: "대상을 찾을 수 없습니다.",
- CONFLICT: "이미 처리된 요청입니다.",
- INTERNAL_ERROR: "요청을 처리하지 못했습니다.",
+  VALIDATION_ERROR: "입력값이 올바르지 않습니다.",
+  UNAUTHORIZED: "인증이 필요합니다.",
+  FORBIDDEN: "권한이 없습니다.",
+  NOT_FOUND: "대상을 찾을 수 없습니다.",
+  CONFLICT: "이미 처리된 요청입니다.",
+  INTERNAL_ERROR: "요청을 처리하지 못했습니다.",
 };
 
 /**
@@ -253,11 +256,11 @@ const MACHINE_MESSAGE: Record<ErrorCode, string> = {
  * 여기 적지 않는다 — 그것은 사전이 갖는다.
  */
 const MACHINE_REASON_MESSAGE: Partial<Record<AppErrorReason, string>> = {
- AGENT_BODY_NOT_JSON: "요청 본문이 올바른 JSON 이 아니다.",
- AGENT_BODY_UNSTORABLE_TEXT:
- "요청 본문에 저장할 수 없는 문자가 들어 있다 (NUL · 짝 없는 Surrogate).",
- // 🔴 받은 값을 되돌려 담지 않는다. 길이 규칙만 알린다.
- AGENT_IDEMPOTENCY_KEY_TOO_LONG: "Idempotency-Key 는 200자를 넘을 수 없다.",
+  AGENT_BODY_NOT_JSON: "요청 본문이 올바른 JSON 이 아니다.",
+  AGENT_BODY_UNSTORABLE_TEXT:
+    "요청 본문에 저장할 수 없는 문자가 들어 있다 (NUL · 짝 없는 Surrogate).",
+  // 🔴 받은 값을 되돌려 담지 않는다. 길이 규칙만 알린다.
+  AGENT_IDEMPOTENCY_KEY_TOO_LONG: "Idempotency-Key 는 200자를 넘을 수 없다.",
 };
 
 /**
@@ -272,19 +275,20 @@ const MACHINE_REASON_MESSAGE: Partial<Record<AppErrorReason, string>> = {
  * 화면에 그릴 문구가 필요하면 이 함수가 아니라 `lib/format/app-error.ts` 다.
  */
 export function toPublicError(error: unknown): PublicError {
- if (!isAppError(error)) {
- return { code: "INTERNAL_ERROR", message: MACHINE_MESSAGE.INTERNAL_ERROR };
- }
+  if (!isAppError(error)) {
+    return { code: "INTERNAL_ERROR", message: MACHINE_MESSAGE.INTERNAL_ERROR };
+  }
 
- return {
- code: error.code,
- message: MACHINE_REASON_MESSAGE[error.reason] ?? MACHINE_MESSAGE[error.code],
- };
+  return {
+    code: error.code,
+    message:
+      MACHINE_REASON_MESSAGE[error.reason] ?? MACHINE_MESSAGE[error.code],
+  };
 }
 
 /** Agent API 가 code 만 알고 문구를 맡길 때. 🔴 화면에서 쓰지 않는다. */
 export function machineMessage(code: ErrorCode): string {
- return MACHINE_MESSAGE[code];
+  return MACHINE_MESSAGE[code];
 }
 
 /**
@@ -309,61 +313,61 @@ const LOG_QUERY_MAX = 200;
 const LOG_CAUSE_MAX_DEPTH = 5;
 
 function hasBoundParams(value: object): boolean {
- return Array.isArray((value as { params?: unknown }).params);
+  return Array.isArray((value as { params?: unknown }).params);
 }
 
 export function describeErrorForLog(error: unknown): string {
- /*
+  /*
  우리가 만든 것이라 그대로 남겨도 된다. 🔴 **`reason` 을 적고 `meta` 는 적지 않는다** —
  `reason` 은 우리가 고른 내부 이름이지만 `meta` 에는 사용자 값(`slug`)이 들어 있다.
  (`AppError.message` 도 `reason` 그대로다. 이 파일 위쪽 클래스 주석의 이유가 그것이다.)
  */
- if (isAppError(error)) {
- return `AppError(${error.code}): ${error.reason}`;
- }
+  if (isAppError(error)) {
+    return `AppError(${error.code}): ${error.reason}`;
+  }
 
- if (typeof error !== "object" || error === null) {
- return `non-error thrown: ${typeof error}`;
- }
+  if (typeof error !== "object" || error === null) {
+    return `non-error thrown: ${typeof error}`;
+  }
 
- const parts: string[] = [];
- const name = (error as { name?: unknown }).name;
- parts.push(typeof name === "string" && name !== "" ? name : "Error");
+  const parts: string[] = [];
+  const name = (error as { name?: unknown }).name;
+  parts.push(typeof name === "string" && name !== "" ? name : "Error");
 
- if (hasBoundParams(error)) {
- // 🔴 `message` 를 쓰지 않는다 — 거기에 params 가 붙어 있다.
- const query = (error as { query?: unknown }).query;
- if (typeof query === "string") {
- parts.push(`query=${query.slice(0, LOG_QUERY_MAX)}`);
- }
- parts.push("params=[redacted]");
- } else {
- const message = (error as { message?: unknown }).message;
- if (typeof message === "string" && message !== "") {
- parts.push(message);
- }
- }
+  if (hasBoundParams(error)) {
+    // 🔴 `message` 를 쓰지 않는다 — 거기에 params 가 붙어 있다.
+    const query = (error as { query?: unknown }).query;
+    if (typeof query === "string") {
+      parts.push(`query=${query.slice(0, LOG_QUERY_MAX)}`);
+    }
+    parts.push("params=[redacted]");
+  } else {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message !== "") {
+      parts.push(message);
+    }
+  }
 
- // SQLSTATE 는 값이 아니라 분류라 남긴다. 감싸인 안쪽까지 따라간다.
- let current: unknown = error;
- for (let depth = 0; depth <= LOG_CAUSE_MAX_DEPTH; depth += 1) {
- if (typeof current !== "object" || current === null) {
- break;
- }
- const code = (current as { code?: unknown }).code;
- if (typeof code === "string" && code !== "") {
- parts.push(`sqlstate=${code}`);
- break;
- }
- if (!("cause" in current)) {
- break;
- }
- const next = (current as { cause?: unknown }).cause;
- if (next === current) {
- break;
- }
- current = next;
- }
+  // SQLSTATE 는 값이 아니라 분류라 남긴다. 감싸인 안쪽까지 따라간다.
+  let current: unknown = error;
+  for (let depth = 0; depth <= LOG_CAUSE_MAX_DEPTH; depth += 1) {
+    if (typeof current !== "object" || current === null) {
+      break;
+    }
+    const code = (current as { code?: unknown }).code;
+    if (typeof code === "string" && code !== "") {
+      parts.push(`sqlstate=${code}`);
+      break;
+    }
+    if (!("cause" in current)) {
+      break;
+    }
+    const next = (current as { cause?: unknown }).cause;
+    if (next === current) {
+      break;
+    }
+    current = next;
+  }
 
- return parts.join(" | ");
+  return parts.join(" | ");
 }

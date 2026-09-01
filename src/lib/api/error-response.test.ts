@@ -64,7 +64,9 @@ describe("apiErrorFromUnknown", () => {
 
     expect(response.status).toBe(409);
 
-    const body = (await response.json()) as { error: { code: string; message: string } };
+    const body = (await response.json()) as {
+      error: { code: string; message: string };
+    };
 
     expect(body.error.code).toBe("CONFLICT");
     expect(body.error.message).not.toContain("PROJECT_SLUG_TAKEN");

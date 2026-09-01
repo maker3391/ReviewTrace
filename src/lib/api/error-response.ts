@@ -1,8 +1,8 @@
 import {
- ERROR_CODES,
- machineMessage,
- toPublicError,
- type ErrorCode,
+  ERROR_CODES,
+  machineMessage,
+  toPublicError,
+  type ErrorCode,
 } from "@/lib/errors";
 
 /**
@@ -21,23 +21,23 @@ import {
 
 /** Error Code ↔ HTTP Status. 🔴 이 대응은 **한 곳**이다 — Route 마다 숫자를 적지 않는다. */
 const STATUS_BY_CODE: Record<ErrorCode, number> = {
- VALIDATION_ERROR: 400,
- UNAUTHORIZED: 401,
- FORBIDDEN: 403,
- NOT_FOUND: 404,
- CONFLICT: 409,
- INTERNAL_ERROR: 500,
+  VALIDATION_ERROR: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  INTERNAL_ERROR: 500,
 };
 
 /** 계약이 요구하는 Error Code 가 전부 Status 를 갖는지 테스트가 확인한다. */
 export const API_ERROR_CODES = ERROR_CODES;
 
 export function statusForErrorCode(code: ErrorCode): number {
- return STATUS_BY_CODE[code];
+  return STATUS_BY_CODE[code];
 }
 
 export interface ApiErrorBody {
- error: { code: ErrorCode; message: string };
+  error: { code: ErrorCode; message: string };
 }
 
 /**
@@ -51,14 +51,14 @@ export interface ApiErrorBody {
  * 사람이 보는 문구는 이 길로 나가지 않는다(`lib/format/app-error.ts`).
  */
 export function apiErrorBody(code: ErrorCode, message?: string): ApiErrorBody {
- return { error: { code, message: message ?? machineMessage(code) } };
+  return { error: { code, message: message ?? machineMessage(code) } };
 }
 
 /** 밖으로 나가는 오류 응답 하나. Route Handler 는 이것만 돌려준다. */
 export function apiError(code: ErrorCode, message?: string): Response {
- return Response.json(apiErrorBody(code, message), {
- status: statusForErrorCode(code),
- });
+  return Response.json(apiErrorBody(code, message), {
+    status: statusForErrorCode(code),
+  });
 }
 
 /**
@@ -68,9 +68,9 @@ export function apiError(code: ErrorCode, message?: string): Response {
  * message 에 담아 던지는 경우가 있다. 그 판단은 `toPublicError` 한 곳이 한다.
  */
 export function apiErrorFromUnknown(error: unknown): Response {
- const publicError = toPublicError(error);
- return Response.json(
- { error: publicError },
- { status: statusForErrorCode(publicError.code) },
-);
+  const publicError = toPublicError(error);
+  return Response.json(
+    { error: publicError },
+    { status: statusForErrorCode(publicError.code) },
+  );
 }

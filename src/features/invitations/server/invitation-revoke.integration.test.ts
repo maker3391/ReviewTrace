@@ -58,7 +58,9 @@ beforeAll(() => {
 class Rollback extends Error {}
 
 /** 되돌려지는 Transaction 안에서 돌린다. 끝나면 행이 하나도 남지 않는다. */
-async function rolledBack(run: (tx: DbExecutor) => Promise<void>): Promise<void> {
+async function rolledBack(
+  run: (tx: DbExecutor) => Promise<void>,
+): Promise<void> {
   try {
     await db().transaction(async (tx) => {
       await run(tx);
@@ -80,7 +82,10 @@ function unique(prefix: string): string {
 async function createUser(tx: DbExecutor, email?: string): Promise<string> {
   const rows = await tx
     .insert(users)
-    .values({ email: email ?? `${unique("user")}@example.test`, name: "Tester" })
+    .values({
+      email: email ?? `${unique("user")}@example.test`,
+      name: "Tester",
+    })
     .returning({ id: users.id });
 
   const id = rows[0]?.id;
@@ -90,7 +95,10 @@ async function createUser(tx: DbExecutor, email?: string): Promise<string> {
   return id;
 }
 
-async function createWorkspace(tx: DbExecutor, ownerId: string): Promise<string> {
+async function createWorkspace(
+  tx: DbExecutor,
+  ownerId: string,
+): Promise<string> {
   const rows = await tx
     .insert(workspaces)
     .values({ slug: unique("rev-"), name: "Revoke", createdBy: ownerId })
@@ -387,14 +395,22 @@ describe.skipIf(!enabled)("초대 취소", () => {
       const workspace = await createWorkspace(tx, owner);
 
       await createInvitation(
-        { workspaceId: workspace, email: "  Guest@Example.TEST ", invitedBy: owner },
+        {
+          workspaceId: workspace,
+          email: "  Guest@Example.TEST ",
+          invitedBy: owner,
+        },
         tx,
       );
       const invitationId = await invitationIdOf(tx, workspace, GUEST);
       await revokeInvitation({ workspaceId: workspace, invitationId }, tx);
 
       await createInvitation(
-        { workspaceId: workspace, email: "GUEST@EXAMPLE.TEST", invitedBy: owner },
+        {
+          workspaceId: workspace,
+          email: "GUEST@EXAMPLE.TEST",
+          invitedBy: owner,
+        },
         tx,
       );
 
@@ -470,7 +486,10 @@ describe.skipIf(!enabled)("초대 취소", () => {
       expect(
         isAppError(
           await rejection(
-            revokeInvitation({ workspaceId: workspace, invitationId: firstId }, tx),
+            revokeInvitation(
+              { workspaceId: workspace, invitationId: firstId },
+              tx,
+            ),
           ),
         ),
       ).toBe(true);
@@ -552,7 +571,9 @@ describe.skipIf(!enabled)("초대 취소", () => {
         .from(workspaceInvitations)
         .where(eq(workspaceInvitations.workspaceId, workspace));
       expect(afterRevoke).toHaveLength(2);
-      expect(afterRevoke.filter((row) => row.revokedAt === null)).toHaveLength(1);
+      expect(afterRevoke.filter((row) => row.revokedAt === null)).toHaveLength(
+        1,
+      );
 
       // 살아 있는 것은 언제나 하나다.
       expect(await listPendingInvitations(workspace, tx)).toHaveLength(1);

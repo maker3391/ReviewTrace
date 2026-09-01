@@ -1,7 +1,7 @@
 # Agent Integration Guide
 
 This is the short version for coding agents. If you are an agent reading this: you do
-not need a long prompt. The tool schemas tell you the shape; this page tells you *when*
+not need a long prompt. The tool schemas tell you the shape; this page tells you _when_
 to call what, and what makes a record worth keeping.
 
 ## What ReviewTrace is
@@ -16,16 +16,16 @@ call, and here is why we moved the call out instead of adding a Saga" is.
 
 ## The eight tools
 
-| Tool | Call it when |
-|---|---|
+| Tool                       | Call it when                                                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `get_repository_knowledge` | **Before you start.** Shows recurring patterns, unresolved issues, and how past problems were solved in this repo. |
-| `search_issues` | You suspect the thing you just found already exists. Search by `patternKey` or a keyword. |
-| `create_review` | You are about to review something. Opens one session for this commit. |
-| `add_issue` | Each significant finding. Attach it to the open review. |
-| `add_fix_attempt` | You changed code to address an issue. Record what you did and why. |
-| `review_again` | You re-checked a fix. Say whether it holds. |
-| `resolve_issue` | Verification passed. `resolution` is required — that is the part that gets reused. |
-| `get_issue` | You need the full history of one issue, including every past attempt. |
+| `search_issues`            | You suspect the thing you just found already exists. Search by `patternKey` or a keyword.                          |
+| `create_review`            | You are about to review something. Opens one session for this commit.                                              |
+| `add_issue`                | Each significant finding. Attach it to the open review.                                                            |
+| `add_fix_attempt`          | You changed code to address an issue. Record what you did and why.                                                 |
+| `review_again`             | You re-checked a fix. Say whether it holds.                                                                        |
+| `resolve_issue`            | Verification passed. `resolution` is required — that is the part that gets reused.                                 |
+| `get_issue`                | You need the full history of one issue, including every past attempt.                                              |
 
 You almost never pass IDs. `create_review` reads the repository and commit from git.
 `add_issue` attaches to the review you just opened. `add_fix_attempt`, `review_again`,
@@ -55,7 +55,7 @@ each attempt keeps its own reasoning instead of overwriting the last one.
 ## Writing standards
 
 These fields are all optional. An empty field is better than an invented one. But when
-you *do* know the answer, write it — this is the whole value of the record.
+you _do_ know the answer, write it — this is the whole value of the record.
 
 Knowledge fields contain Markdown source. Separate different ideas with a blank line
 instead of joining them into one long paragraph. Prefer an ordered list for a multi-step
@@ -124,12 +124,12 @@ alternatives considered, trade-offs, and code evidence.
 
 Tool errors are written for you to act on, not for a human to debug:
 
-| Message | What to do |
-|---|---|
-| API key is not valid | Stop. The user must issue a new key in Workspace Settings. |
-| Could not reach the ReviewTrace server | Stop. The server or `REVIEWTRACE_API_URL` is wrong. |
-| Not a git repository / no origin remote | Pass `repository` as `owner/name` explicitly. |
-| Could not find the target | The issue or review is not in this API key's workspace. |
-| No open review | Call `create_review` first. |
+| Message                                 | What to do                                                 |
+| --------------------------------------- | ---------------------------------------------------------- |
+| API key is not valid                    | Stop. The user must issue a new key in Workspace Settings. |
+| Could not reach the ReviewTrace server  | Stop. The server or `REVIEWTRACE_API_URL` is wrong.        |
+| Not a git repository / no origin remote | Pass `repository` as `owner/name` explicitly.              |
+| Could not find the target               | The issue or review is not in this API key's workspace.    |
+| No open review                          | Call `create_review` first.                                |
 
 Errors never contain stack traces, SQL, or the API key.

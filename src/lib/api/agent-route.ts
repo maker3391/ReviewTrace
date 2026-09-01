@@ -35,15 +35,15 @@ const IDEMPOTENCY_KEY_MAX = 200;
  * @throws AppError `VALIDATION_ERROR`
  */
 export function readIdempotencyKey(request: Request): string | null {
- const raw = request.headers.get(IDEMPOTENCY_KEY_HEADER)?.trim() ?? "";
- if (raw === "") {
- return null;
- }
- if (raw.length > IDEMPOTENCY_KEY_MAX) {
- // 🔴 받은 값을 응답에 되돌려 담지 않는다. 길이 규칙만 알린다.
- throw new AppError("AGENT_IDEMPOTENCY_KEY_TOO_LONG");
- }
- return raw;
+  const raw = request.headers.get(IDEMPOTENCY_KEY_HEADER)?.trim() ?? "";
+  if (raw === "") {
+    return null;
+  }
+  if (raw.length > IDEMPOTENCY_KEY_MAX) {
+    // 🔴 받은 값을 응답에 되돌려 담지 않는다. 길이 규칙만 알린다.
+    throw new AppError("AGENT_IDEMPOTENCY_KEY_TOO_LONG");
+  }
+  return raw;
 }
 
 /**
@@ -53,18 +53,21 @@ export function readIdempotencyKey(request: Request): string | null {
  * 원인은 서버 Log 에 남기고, 밖으로는 `INTERNAL_ERROR` 한 줄만 나간다.
  */
 export async function runAgentRoute(
- handler: () => Promise<Response>,
+  handler: () => Promise<Response>,
 ): Promise<Response> {
- try {
- return await handler();
- } catch (error) {
- if (!isAppError(error)) {
- // 🔴 오류 객체를 그대로 넘기지 않는다 — Drizzle 이 바인딩된 값(API Key Hash·Payload)을
- // message 에 싣는다(`describeErrorForLog`).
- console.error("[agent-api] 처리하지 못한 오류:", describeErrorForLog(error));
- }
- return apiErrorFromUnknown(error);
- }
+  try {
+    return await handler();
+  } catch (error) {
+    if (!isAppError(error)) {
+      // 🔴 오류 객체를 그대로 넘기지 않는다 — Drizzle 이 바인딩된 값(API Key Hash·Payload)을
+      // message 에 싣는다(`describeErrorForLog`).
+      console.error(
+        "[agent-api] 처리하지 못한 오류:",
+        describeErrorForLog(error),
+      );
+    }
+    return apiErrorFromUnknown(error);
+  }
 }
 
 /**
@@ -85,20 +88,20 @@ export async function runAgentRoute(
  * @throws AppError `VALIDATION_ERROR`
  */
 export async function readJsonBody(request: Request): Promise<unknown> {
- let body: unknown;
+  let body: unknown;
 
- try {
- body = await request.json();
- } catch {
- throw new AppError("AGENT_BODY_NOT_JSON");
- }
+  try {
+    body = await request.json();
+  } catch {
+    throw new AppError("AGENT_BODY_NOT_JSON");
+  }
 
- if (hasUnstorableText(body)) {
- // 🔴 어느 값이 문제였는지 되돌려 담지 않는다 — 받은 값을 응답에 싣지 않는다.
- throw new AppError("AGENT_BODY_UNSTORABLE_TEXT");
- }
+  if (hasUnstorableText(body)) {
+    // 🔴 어느 값이 문제였는지 되돌려 담지 않는다 — 받은 값을 응답에 싣지 않는다.
+    throw new AppError("AGENT_BODY_UNSTORABLE_TEXT");
+  }
 
- return body;
+  return body;
 }
 
 /**
@@ -108,14 +111,16 @@ export async function readJsonBody(request: Request): Promise<unknown> {
  * 않는다. 반대로 값 자체는 담지 않는다(요청에 담긴 값을 되돌려 보내지 않는다).
  */
 export function validationErrorResponse(error: z.ZodError): Response {
- const paths = error.issues
-.slice(0, 5)
-.map((issue) => (issue.path.length === 0 ? "(root)" : issue.path.join(".")));
+  const paths = error.issues
+    .slice(0, 5)
+    .map((issue) =>
+      issue.path.length === 0 ? "(root)" : issue.path.join("."),
+    );
 
- return apiError(
- "VALIDATION_ERROR",
- `요청 형식이 올바르지 않다: ${[...new Set(paths)].join(", ")}`,
-);
+  return apiError(
+    "VALIDATION_ERROR",
+    `요청 형식이 올바르지 않다: ${[...new Set(paths)].join(", ")}`,
+  );
 }
 
 /** Path 의 `{issueId}`. UUID 가 아니면 조회조차 하지 않는다 — Driver 가 던지면 500 이 된다. */

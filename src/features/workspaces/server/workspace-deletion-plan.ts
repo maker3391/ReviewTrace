@@ -41,31 +41,31 @@ import type { WorkspaceRole } from "@/types/review";
 
 /** 왜 지울 수 없는가. `null` 이 아니면 삭제가 서지 않는다. */
 export type WorkspaceDeletionBlock =
- /** 부르는 사람이 OWNER 가 아니다. */
- | "NOT_OWNER"
- /** Personal Workspace 다 — 조건이 아니라 **영구히** 지울 수 없다. */
- | "PERSONAL"
- /** 나 말고 멤버가 남아 있다. 먼저 내보내야 한다. */
- | "HAS_MEMBERS";
+  /** 부르는 사람이 OWNER 가 아니다. */
+  | "NOT_OWNER"
+  /** Personal Workspace 다 — 조건이 아니라 **영구히** 지울 수 없다. */
+  | "PERSONAL"
+  /** 나 말고 멤버가 남아 있다. 먼저 내보내야 한다. */
+  | "HAS_MEMBERS";
 
 /** 판정에 필요한 사실. 🔴 판단은 하나도 들어 있지 않다. */
 export interface WorkspaceDeletionFacts {
- /**
- * `workspaces.personal_owner_id` 가 채워져 있는가.
- *
- * 🔴 **「그 값이 나인가」가 아니다.** 남의 Personal Workspace 도 Personal Workspace 다.
- */
- isPersonal: boolean;
- /** 부르는 사람의 이 Workspace 안 역할. */
- role: WorkspaceRole;
- /** 부르는 사람을 뺀 멤버 수. */
- otherMembers: number;
+  /**
+   * `workspaces.personal_owner_id` 가 채워져 있는가.
+   *
+   * 🔴 **「그 값이 나인가」가 아니다.** 남의 Personal Workspace 도 Personal Workspace 다.
+   */
+  isPersonal: boolean;
+  /** 부르는 사람의 이 Workspace 안 역할. */
+  role: WorkspaceRole;
+  /** 부르는 사람을 뺀 멤버 수. */
+  otherMembers: number;
 }
 
 export interface WorkspaceDeletionPlan {
- deletable: boolean;
- /** 지울 수 있으면 `null`. */
- block: WorkspaceDeletionBlock | null;
+  deletable: boolean;
+  /** 지울 수 있으면 `null`. */
+  block: WorkspaceDeletionBlock | null;
 }
 
 /**
@@ -76,27 +76,27 @@ export interface WorkspaceDeletionPlan {
  * 「멤버를 내보내세요」라고 말하면 그가 할 수 없는 일을 시키는 것이 된다.
  */
 export function planWorkspaceDeletion(
- facts: WorkspaceDeletionFacts,
+  facts: WorkspaceDeletionFacts,
 ): WorkspaceDeletionPlan {
- const block = findBlock(facts);
+  const block = findBlock(facts);
 
- return { deletable: block === null, block };
+  return { deletable: block === null, block };
 }
 
 function findBlock(
- facts: WorkspaceDeletionFacts,
+  facts: WorkspaceDeletionFacts,
 ): WorkspaceDeletionBlock | null {
- if (facts.role !== "OWNER") {
- return "NOT_OWNER";
- }
+  if (facts.role !== "OWNER") {
+    return "NOT_OWNER";
+  }
 
- if (facts.isPersonal) {
- return "PERSONAL";
- }
+  if (facts.isPersonal) {
+    return "PERSONAL";
+  }
 
- if (facts.otherMembers > 0) {
- return "HAS_MEMBERS";
- }
+  if (facts.otherMembers > 0) {
+    return "HAS_MEMBERS";
+  }
 
- return null;
+  return null;
 }

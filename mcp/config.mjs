@@ -31,8 +31,14 @@ const KEY_PREFIX = "ci_";
 export function loadConfig() {
   const fromFile = readHomeConfig();
 
-  const apiUrl = firstNonEmpty(process.env.REVIEWTRACE_API_URL, fromFile.apiUrl);
-  const apiKey = firstNonEmpty(process.env.REVIEWTRACE_API_KEY, fromFile.apiKey);
+  const apiUrl = firstNonEmpty(
+    process.env.REVIEWTRACE_API_URL,
+    fromFile.apiUrl,
+  );
+  const apiKey = firstNonEmpty(
+    process.env.REVIEWTRACE_API_KEY,
+    fromFile.apiKey,
+  );
 
   /*
     🔴 **기본값을 두지 않는다.** 예전에는 `http://localhost:3000` 으로 떨어졌는데,

@@ -44,7 +44,8 @@ export function githubProfileToUser(profile: GitHubProfile): User {
      * (`Maker3391`) 그대로 두면 이메일을 공개하지 않은 사용자만 갈라진다.
      */
     email: normalizeEmail(
-      profile.email ?? `${profile.id}+${profile.login}@users.noreply.github.com`,
+      profile.email ??
+        `${profile.id}+${profile.login}@users.noreply.github.com`,
     ),
     image: profile.avatar_url,
   };

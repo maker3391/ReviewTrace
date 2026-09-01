@@ -105,11 +105,13 @@ function orderedUuid(rank: number): string {
 
 async function makeUser(rank: number, label: string): Promise<string> {
   const id = orderedUuid(rank);
-  await db().insert(users).values({
-    id,
-    email: `${unique("mrmlock-")}@example.test`,
-    name: `mrmlock-${label}`,
-  });
+  await db()
+    .insert(users)
+    .values({
+      id,
+      email: `${unique("mrmlock-")}@example.test`,
+      name: `mrmlock-${label}`,
+    });
   created.userIds.push(id);
   return id;
 }
@@ -127,7 +129,12 @@ async function makeWorkspace(
   const id = orderedUuid(9);
   await db()
     .insert(workspaces)
-    .values({ id, slug: unique("mrmlock-"), name: "mrmlock", createdBy: ownerId });
+    .values({
+      id,
+      slug: unique("mrmlock-"),
+      name: "mrmlock",
+      createdBy: ownerId,
+    });
   created.workspaceIds.push(id);
 
   for (const member of members) {
@@ -276,7 +283,9 @@ function isDeadlock(error: unknown): boolean {
 }
 
 /** 🔴 실패해도 «교착만 아니면» 된다 — 상대가 먼저 끝내 대상이 사라지는 것은 정상이다. */
-function expectNoDeadlock(results: readonly PromiseSettledResult<unknown>[]): void {
+function expectNoDeadlock(
+  results: readonly PromiseSettledResult<unknown>[],
+): void {
   for (const result of results) {
     if (result.status === "rejected" && isDeadlock(result.reason)) {
       throw new Error(
@@ -299,186 +308,196 @@ async function holdMemberRow(
   );
 }
 
-describe.skipIf(!enabled)("workspace_members 행 잠금 순서 (실제 연결 여럿)", () => {
-  /**
-   * # F1 — `removeMember` × `changeMemberRole`
-   *
-   * 🔴 **이 배치는 planner 에 기대지 않는다.** 고친 뒤의 `changeMemberRole` 은 대상까지
-   * **한 문장 안에서** PK 순으로 잠그지만, 고치기 전에는 대상 행을 **맨 마지막 UPDATE**
-   * 로 집었다 — 그 위치는 scan 방식과 무관한 «구조»다. 그래서 되돌리면 반드시 어긋난다.
-   *
-   * ```
-   * 1. X 가 Ob 를 쥔다
-   * 2. C(changeMemberRole, 대상 T) 가 Ob 에서 막힌다      — 고치기 전이면 Oa 만 쥔 채
-   * 3. R(removeMember, 행위자 Oa, 대상 T) 가 막힌다        — T 를 쥔 채 Oa 를 기다린다
-   * 4. X 가 놓는다  ->  고치기 전: C 가 T 를 기다려 «고리»가 닫힌다
-   * ```
-   */
-  it("🔴 내보내기와 역할 변경을 부딪혀도 교착이 나지 않는다", async () => {
-    const targetId = await makeUser(1, "target");
-    const actorId = await makeUser(2, "actor");
-    const otherOwnerId = await makeUser(3, "other-owner");
+describe.skipIf(!enabled)(
+  "workspace_members 행 잠금 순서 (실제 연결 여럿)",
+  () => {
+    /**
+     * # F1 — `removeMember` × `changeMemberRole`
+     *
+     * 🔴 **이 배치는 planner 에 기대지 않는다.** 고친 뒤의 `changeMemberRole` 은 대상까지
+     * **한 문장 안에서** PK 순으로 잠그지만, 고치기 전에는 대상 행을 **맨 마지막 UPDATE**
+     * 로 집었다 — 그 위치는 scan 방식과 무관한 «구조»다. 그래서 되돌리면 반드시 어긋난다.
+     *
+     * ```
+     * 1. X 가 Ob 를 쥔다
+     * 2. C(changeMemberRole, 대상 T) 가 Ob 에서 막힌다      — 고치기 전이면 Oa 만 쥔 채
+     * 3. R(removeMember, 행위자 Oa, 대상 T) 가 막힌다        — T 를 쥔 채 Oa 를 기다린다
+     * 4. X 가 놓는다  ->  고치기 전: C 가 T 를 기다려 «고리»가 닫힌다
+     * ```
+     */
+    it("🔴 내보내기와 역할 변경을 부딪혀도 교착이 나지 않는다", async () => {
+      const targetId = await makeUser(1, "target");
+      const actorId = await makeUser(2, "actor");
+      const otherOwnerId = await makeUser(3, "other-owner");
 
-    const workspaceId = await makeWorkspace(actorId, [
-      { userId: targetId, role: "MEMBER" },
-      { userId: actorId, role: "OWNER" },
-      { userId: otherOwnerId, role: "OWNER" },
-    ]);
+      const workspaceId = await makeWorkspace(actorId, [
+        { userId: targetId, role: "MEMBER" },
+        { userId: actorId, role: "OWNER" },
+        { userId: otherOwnerId, role: "OWNER" },
+      ]);
 
-    const holder = await connect("holder");
-    const changer = await connect("changer");
-    const remover = await connect("remover");
+      const holder = await connect("holder");
+      const changer = await connect("changer");
+      const remover = await connect("remover");
 
-    try {
-      await holdMemberRow(holder, workspaceId, otherOwnerId);
+      try {
+        await holdMemberRow(holder, workspaceId, otherOwnerId);
 
-      const changing = changeMemberRole(
-        { workspaceId, userId: targetId, role: "MEMBER" },
-        changer.db,
-      );
-      await awaitBlocked(changer, [holder]);
-
-      const removing = removeMember(
-        { workspaceId, actorUserId: actorId, targetUserId: targetId },
-        remover.db,
-      );
-      // 🔴 배리어가 「누구 때문에」까지 본다 — 고치기 전이든 후든 막는 쪽은 C 다.
-      await awaitBlocked(remover, [holder, changer]);
-
-      await holder.client.query("rollback");
-
-      const results = await Promise.allSettled([changing, removing]);
-      expectNoDeadlock(results);
-
-      // 둘 다 끝까지 갔다 — 대상은 더 이상 멤버가 아니다.
-      const left = await db()
-        .select({ userId: workspaceMembers.userId })
-        .from(workspaceMembers)
-        .where(
-          and(
-            eq(workspaceMembers.workspaceId, workspaceId),
-            eq(workspaceMembers.userId, targetId),
-          ),
+        const changing = changeMemberRole(
+          { workspaceId, userId: targetId, role: "MEMBER" },
+          changer.db,
         );
-      expect(left).toEqual([]);
-    } finally {
-      await disconnect(holder, changer, remover);
-    }
-  });
+        await awaitBlocked(changer, [holder]);
 
-  /**
-   * # F2 — `removeMember` × `deleteWorkspace`
-   *
-   * `deleteWorkspace` 는 `workspaces` 를 먼저 잠그지만 `removeMember` 는 그 행을 잠그지
-   * 않는다 — **뒤에 줄 서지 않고 곧바로 멤버 행을 집는다.** 그래서 둘의 안전은 오로지
-   * **멤버 행 순서**에 달려 있다.
-   *
-   * 🔴 여기서는 **물리 순서**(insert 순)를 `user_id` 순과 «거꾸로» 만들어 둔다 —
-   * 순서를 적지 않은 질의가 seq scan 순서를 잠금 순서로 쓰던 시절을 재현하기 위해서다.
-   */
-  it("🔴 내보내기와 Workspace 삭제를 부딪혀도 교착이 나지 않는다", async () => {
-    const actorId = await makeUser(1, "actor");
-    const targetId = await makeUser(2, "target");
+        const removing = removeMember(
+          { workspaceId, actorUserId: actorId, targetUserId: targetId },
+          remover.db,
+        );
+        // 🔴 배리어가 「누구 때문에」까지 본다 — 고치기 전이든 후든 막는 쪽은 C 다.
+        await awaitBlocked(remover, [holder, changer]);
 
-    // 🔴 물리 순서는 target -> actor 인데 user_id 순서는 actor -> target 이다.
-    const workspaceId = await makeWorkspace(actorId, [
-      { userId: targetId, role: "MEMBER" },
-      { userId: actorId, role: "OWNER" },
-    ]);
+        await holder.client.query("rollback");
 
-    const holder = await connect("holder");
-    const deleter = await connect("deleter");
-    const remover = await connect("remover");
+        const results = await Promise.allSettled([changing, removing]);
+        expectNoDeadlock(results);
 
-    try {
-      await holdMemberRow(holder, workspaceId, targetId);
+        // 둘 다 끝까지 갔다 — 대상은 더 이상 멤버가 아니다.
+        const left = await db()
+          .select({ userId: workspaceMembers.userId })
+          .from(workspaceMembers)
+          .where(
+            and(
+              eq(workspaceMembers.workspaceId, workspaceId),
+              eq(workspaceMembers.userId, targetId),
+            ),
+          );
+        expect(left).toEqual([]);
+      } finally {
+        await disconnect(holder, changer, remover);
+      }
+    });
 
-      const deleting = deleteWorkspace({ workspaceId, userId: actorId }, deleter.db);
-      await awaitBlocked(deleter, [holder]);
+    /**
+     * # F2 — `removeMember` × `deleteWorkspace`
+     *
+     * `deleteWorkspace` 는 `workspaces` 를 먼저 잠그지만 `removeMember` 는 그 행을 잠그지
+     * 않는다 — **뒤에 줄 서지 않고 곧바로 멤버 행을 집는다.** 그래서 둘의 안전은 오로지
+     * **멤버 행 순서**에 달려 있다.
+     *
+     * 🔴 여기서는 **물리 순서**(insert 순)를 `user_id` 순과 «거꾸로» 만들어 둔다 —
+     * 순서를 적지 않은 질의가 seq scan 순서를 잠금 순서로 쓰던 시절을 재현하기 위해서다.
+     */
+    it("🔴 내보내기와 Workspace 삭제를 부딪혀도 교착이 나지 않는다", async () => {
+      const actorId = await makeUser(1, "actor");
+      const targetId = await makeUser(2, "target");
 
-      const removing = removeMember(
-        { workspaceId, actorUserId: actorId, targetUserId: targetId },
-        remover.db,
-      );
-      await awaitBlocked(remover, [holder, deleter]);
+      // 🔴 물리 순서는 target -> actor 인데 user_id 순서는 actor -> target 이다.
+      const workspaceId = await makeWorkspace(actorId, [
+        { userId: targetId, role: "MEMBER" },
+        { userId: actorId, role: "OWNER" },
+      ]);
 
-      await holder.client.query("rollback");
+      const holder = await connect("holder");
+      const deleter = await connect("deleter");
+      const remover = await connect("remover");
 
-      /*
-       * 🔴 **둘 다 성공하기를 기대하지 않는다.** 삭제가 먼저 끝나면 내보낼 Workspace 가
-       * 사라져 `WORKSPACE_NOT_FOUND` 다 — 그것은 정상이고, 재는 것은 «교착이 없는가» 다.
-       */
-      expectNoDeadlock(await Promise.allSettled([deleting, removing]));
-    } finally {
-      await disconnect(holder, deleter, remover);
-    }
-  });
+      try {
+        await holdMemberRow(holder, workspaceId, targetId);
 
-  /**
-   * # F5 — `changeMemberRole` × `changeMemberRole`
-   *
-   * 🔴 **내가 만든 문제가 아니라 원래 있던 것이다.** 두 걸음(「OWNER 행을 잠그고」 →
-   * 「대상을 UPDATE」)이면 서로의 대상을 강등하는 두 요청이 각자 상대의 대상을 이미 쥔
-   * 채로 만난다. 대상까지 한 문장에 넣으면 함께 풀린다.
-   */
-  it("🔴 서로를 동시에 강등해도 교착이 나지 않는다", async () => {
-    const firstId = await makeUser(1, "owner-a");
-    const secondId = await makeUser(2, "owner-b");
-    const thirdId = await makeUser(3, "owner-c");
+        const deleting = deleteWorkspace(
+          { workspaceId, userId: actorId },
+          deleter.db,
+        );
+        await awaitBlocked(deleter, [holder]);
 
-    const workspaceId = await makeWorkspace(firstId, [
-      { userId: firstId, role: "OWNER" },
-      { userId: secondId, role: "OWNER" },
-      { userId: thirdId, role: "OWNER" },
-    ]);
+        const removing = removeMember(
+          { workspaceId, actorUserId: actorId, targetUserId: targetId },
+          remover.db,
+        );
+        await awaitBlocked(remover, [holder, deleter]);
 
-    const holder = await connect("holder");
-    const left = await connect("left");
-    const right = await connect("right");
+        await holder.client.query("rollback");
 
-    try {
-      // 🔴 셋째 OWNER 를 쥐어 두 요청을 «같은 자리»에서 멈춰 세운다.
-      await holdMemberRow(holder, workspaceId, thirdId);
+        /*
+         * 🔴 **둘 다 성공하기를 기대하지 않는다.** 삭제가 먼저 끝나면 내보낼 Workspace 가
+         * 사라져 `WORKSPACE_NOT_FOUND` 다 — 그것은 정상이고, 재는 것은 «교착이 없는가» 다.
+         */
+        expectNoDeadlock(await Promise.allSettled([deleting, removing]));
+      } finally {
+        await disconnect(holder, deleter, remover);
+      }
+    });
 
-      const demotingSecond = changeMemberRole(
-        { workspaceId, userId: secondId, role: "MEMBER" },
-        left.db,
-      );
-      await awaitBlocked(left, [holder]);
+    /**
+     * # F5 — `changeMemberRole` × `changeMemberRole`
+     *
+     * 🔴 **내가 만든 문제가 아니라 원래 있던 것이다.** 두 걸음(「OWNER 행을 잠그고」 →
+     * 「대상을 UPDATE」)이면 서로의 대상을 강등하는 두 요청이 각자 상대의 대상을 이미 쥔
+     * 채로 만난다. 대상까지 한 문장에 넣으면 함께 풀린다.
+     */
+    it("🔴 서로를 동시에 강등해도 교착이 나지 않는다", async () => {
+      const firstId = await makeUser(1, "owner-a");
+      const secondId = await makeUser(2, "owner-b");
+      const thirdId = await makeUser(3, "owner-c");
 
-      const demotingFirst = changeMemberRole(
-        { workspaceId, userId: firstId, role: "MEMBER" },
-        right.db,
-      );
-      await awaitBlocked(right, [holder, left]);
+      const workspaceId = await makeWorkspace(firstId, [
+        { userId: firstId, role: "OWNER" },
+        { userId: secondId, role: "OWNER" },
+        { userId: thirdId, role: "OWNER" },
+      ]);
 
-      await holder.client.query("rollback");
+      const holder = await connect("holder");
+      const left = await connect("left");
+      const right = await connect("right");
 
-      expectNoDeadlock(await Promise.allSettled([demotingSecond, demotingFirst]));
-    } finally {
-      await disconnect(holder, left, right);
-    }
-  });
+      try {
+        // 🔴 셋째 OWNER 를 쥐어 두 요청을 «같은 자리»에서 멈춰 세운다.
+        await holdMemberRow(holder, workspaceId, thirdId);
 
-  /**
-   * 🔴 **이 파일이 만든 행이 남지 않았는지 마지막에 직접 확인한다.** 이 파일은 commit 을
-   * 쓰므로 「돌았다」와 「남지 않았다」가 정말 다른 사실이다.
-   */
-  it("시험이 만든 행이 하나도 남지 않았다", async () => {
-    await cleanUp();
-    created.userIds = [];
-    created.workspaceIds = [];
+        const demotingSecond = changeMemberRole(
+          { workspaceId, userId: secondId, role: "MEMBER" },
+          left.db,
+        );
+        await awaitBlocked(left, [holder]);
 
-    const leftoverWorkspaces = await db()
-      .select({ slug: workspaces.slug })
-      .from(workspaces);
-    expect(
-      leftoverWorkspaces.filter((row) => row.slug.startsWith("mrmlock-")),
-    ).toEqual([]);
+        const demotingFirst = changeMemberRole(
+          { workspaceId, userId: firstId, role: "MEMBER" },
+          right.db,
+        );
+        await awaitBlocked(right, [holder, left]);
 
-    const leftoverUsers = await db().select({ email: users.email }).from(users);
-    expect(
-      leftoverUsers.filter((row) => row.email.startsWith("mrmlock-")),
-    ).toEqual([]);
-  });
-});
+        await holder.client.query("rollback");
+
+        expectNoDeadlock(
+          await Promise.allSettled([demotingSecond, demotingFirst]),
+        );
+      } finally {
+        await disconnect(holder, left, right);
+      }
+    });
+
+    /**
+     * 🔴 **이 파일이 만든 행이 남지 않았는지 마지막에 직접 확인한다.** 이 파일은 commit 을
+     * 쓰므로 「돌았다」와 「남지 않았다」가 정말 다른 사실이다.
+     */
+    it("시험이 만든 행이 하나도 남지 않았다", async () => {
+      await cleanUp();
+      created.userIds = [];
+      created.workspaceIds = [];
+
+      const leftoverWorkspaces = await db()
+        .select({ slug: workspaces.slug })
+        .from(workspaces);
+      expect(
+        leftoverWorkspaces.filter((row) => row.slug.startsWith("mrmlock-")),
+      ).toEqual([]);
+
+      const leftoverUsers = await db()
+        .select({ email: users.email })
+        .from(users);
+      expect(
+        leftoverUsers.filter((row) => row.email.startsWith("mrmlock-")),
+      ).toEqual([]);
+    });
+  },
+);

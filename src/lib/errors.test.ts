@@ -23,7 +23,11 @@ import { AppError, describeErrorForLog, toPublicError } from "@/lib/errors";
 const KEY_HASH = "a3f1".repeat(16);
 
 /** 실제 `DrizzleQueryError` 와 같은 모양: message 에 params 가 붙고, 원본은 cause 에 있다. */
-function drizzleQueryError(query: string, params: unknown[], cause: unknown): Error {
+function drizzleQueryError(
+  query: string,
+  params: unknown[],
+  cause: unknown,
+): Error {
   const error = new Error(`Failed query: ${query}\nparams: ${params}`);
   Object.assign(error, { query, params, cause });
   return error;

@@ -76,10 +76,10 @@ with a message instead, rather than starting a server that cannot authenticate.
 
 ## Configuration
 
-| Variable | Required |
-|---|---|
-| `REVIEWTRACE_API_KEY` | **yes** |
-| `REVIEWTRACE_API_URL` | **yes** |
+| Variable              | Required |
+| --------------------- | -------- |
+| `REVIEWTRACE_API_KEY` | **yes**  |
+| `REVIEWTRACE_API_URL` | **yes**  |
 
 **Both are required. There is no default URL.** `REVIEWTRACE_API_URL` is the origin of your
 instance — the server appends `/api/v1` itself.
@@ -110,15 +110,15 @@ The repository and commit come from the **current git repository** (`origin` rem
 `HEAD`), so no tool asks you for a repository id. `reviewId` and `issueId` may be omitted —
 the server remembers the review you just opened and the issue you last touched.
 
-| Tool | What it does | Key arguments |
-|---|---|---|
-| `get_repository_knowledge` | Past patterns, open issues and past resolutions for this repository. Read this *before* changing code | `repository`, `limit` |
-| `search_issues` | Find issues by status, severity, category, pattern or keyword | `status`, `severity`, `category`, `patternKey`, `q`, `limit` |
-| `create_review` | Open one review for this repository and commit | `summary`, `reviewer`, `project` |
-| `add_issue` | Record one finding on the open review | `severity`, `category`, `title`, `problem`, `rootCause`, `filePath`, `startLine`, `patternKey`, `suggestion`, `externalId`, `evidence` |
-| `add_fix_attempt` | Record that this was fixed this way, and why | `issueId`, `summary`, `commitSha`, `solution`, `decisionReason`, `evidence` |
-| `review_again` | Record a re-review. `stillPresent: true` reopens a closed issue | `issueId`, `summary`, `stillPresent` |
-| `resolve_issue` | Close a verified issue. `resolution` is required | `issueId`, `resolution`, `verification`, `commitSha` |
+| Tool                       | What it does                                                                                          | Key arguments                                                                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_repository_knowledge` | Past patterns, open issues and past resolutions for this repository. Read this _before_ changing code | `repository`, `limit`                                                                                                                  |
+| `search_issues`            | Find issues by status, severity, category, pattern or keyword                                         | `status`, `severity`, `category`, `patternKey`, `q`, `limit`                                                                           |
+| `create_review`            | Open one review for this repository and commit                                                        | `summary`, `reviewer`, `project`                                                                                                       |
+| `add_issue`                | Record one finding on the open review                                                                 | `severity`, `category`, `title`, `problem`, `rootCause`, `filePath`, `startLine`, `patternKey`, `suggestion`, `externalId`, `evidence` |
+| `add_fix_attempt`          | Record that this was fixed this way, and why                                                          | `issueId`, `summary`, `commitSha`, `solution`, `decisionReason`, `evidence`                                                            |
+| `review_again`             | Record a re-review. `stillPresent: true` reopens a closed issue                                       | `issueId`, `summary`, `stillPresent`                                                                                                   |
+| `resolve_issue`            | Close a verified issue. `resolution` is required                                                      | `issueId`, `resolution`, `verification`, `commitSha`                                                                                   |
 
 Evidence snapshots should contain the problem or changed lines plus only the context
 needed to understand them. Send exact `startLine`/`endLine` values; do not include an

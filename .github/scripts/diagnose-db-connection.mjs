@@ -19,7 +19,9 @@ import { Client } from "pg";
 const raw = process.env.DATABASE_URL ?? "";
 
 if (raw === "") {
-  console.log("DATABASE_URL 이 비어 있다 — Secret 이 등록되지 않았거나 이름이 다르다.");
+  console.log(
+    "DATABASE_URL 이 비어 있다 — Secret 이 등록되지 않았거나 이름이 다르다.",
+  );
   process.exit(1);
 }
 

@@ -17,13 +17,9 @@ export const API_KEY_EXPIRY_OPTIONS = ["30", "90", "365", "NEVER"] as const;
 export type ApiKeyExpiry = (typeof API_KEY_EXPIRY_OPTIONS)[number];
 
 export const issueApiKeySchema = z.object({
- /** `codex-ci` 처럼 **어느 Agent 의 키인지** 알아볼 이름. 목록에서 이것으로 고른다. */
- name: z
-.string()
-.trim()
-.min(1)
-.max(NAME_MAX),
- expiry: z.enum(API_KEY_EXPIRY_OPTIONS).default("NEVER"),
+  /** `codex-ci` 처럼 **어느 Agent 의 키인지** 알아볼 이름. 목록에서 이것으로 고른다. */
+  name: z.string().trim().min(1).max(NAME_MAX),
+  expiry: z.enum(API_KEY_EXPIRY_OPTIONS).default("NEVER"),
 });
 
 export type IssueApiKeyFormValues = z.input<typeof issueApiKeySchema>;
@@ -38,10 +34,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * 시험이 시간에 흔들린다.
  */
 export function resolveExpiresAt(expiry: ApiKeyExpiry, now: Date): Date | null {
- if (expiry === "NEVER") {
- return null;
- }
- return new Date(now.getTime() + Number(expiry) * DAY_MS);
+  if (expiry === "NEVER") {
+    return null;
+  }
+  return new Date(now.getTime() + Number(expiry) * DAY_MS);
 }
 
 /*

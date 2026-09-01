@@ -3,20 +3,17 @@
 import { revalidatePath } from "next/cache";
 
 import {
- knowledgePageSchema,
- type KnowledgePageInput,
+  knowledgePageSchema,
+  type KnowledgePageInput,
 } from "@/features/knowledge/schemas/knowledge-page";
 import {
- createKnowledgePage,
- deleteKnowledgePage,
- updateKnowledgePage,
- type KnowledgeScope,
+  createKnowledgePage,
+  deleteKnowledgePage,
+  updateKnowledgePage,
+  type KnowledgeScope,
 } from "@/features/knowledge/server/knowledge-page-service";
 import { actionFromError } from "@/lib/action/action-error";
-import {
- actionOk,
- type ActionResult,
-} from "@/lib/action/action-result";
+import { actionOk, type ActionResult } from "@/lib/action/action-result";
 import { parseActionInput } from "@/lib/action/parse-action-input";
 import { requireProject } from "@/lib/auth/require-project";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
@@ -37,118 +34,118 @@ import { requireWorkspace } from "@/lib/auth/require-workspace";
 
 /** 주소의 slug 를 소속이 확인된 Scope 로 바꾼다. 이 함수를 거치지 않고 Scope 를 만들지 않는다. */
 async function resolveScope(
- workspaceSlug: string,
- projectSlug: string | null,
+  workspaceSlug: string,
+  projectSlug: string | null,
 ): Promise<{ scope: KnowledgeScope; userId: string; basePath: string }> {
- if (projectSlug === null) {
- const { user, workspace } = await requireWorkspace(workspaceSlug);
- return {
- scope: { workspaceId: workspace.workspaceId, projectId: null },
- userId: user.id,
- basePath: `/w/${workspaceSlug}/wiki`,
- };
- }
+  if (projectSlug === null) {
+    const { user, workspace } = await requireWorkspace(workspaceSlug);
+    return {
+      scope: { workspaceId: workspace.workspaceId, projectId: null },
+      userId: user.id,
+      basePath: `/w/${workspaceSlug}/wiki`,
+    };
+  }
 
- const { user, workspace, project } = await requireProject(
- workspaceSlug,
- projectSlug,
-);
- return {
- scope: { workspaceId: workspace.workspaceId, projectId: project.projectId },
- userId: user.id,
- basePath: `/w/${workspaceSlug}/p/${projectSlug}/wiki`,
- };
+  const { user, workspace, project } = await requireProject(
+    workspaceSlug,
+    projectSlug,
+  );
+  return {
+    scope: { workspaceId: workspace.workspaceId, projectId: project.projectId },
+    userId: user.id,
+    basePath: `/w/${workspaceSlug}/p/${projectSlug}/wiki`,
+  };
 }
 
 export interface SavedKnowledgePage {
- slug: string;
+  slug: string;
 }
 
 export async function createKnowledgePageAction(
- target: { workspaceSlug: string; projectSlug: string | null },
- input: KnowledgePageInput,
+  target: { workspaceSlug: string; projectSlug: string | null },
+  input: KnowledgePageInput,
 ): Promise<ActionResult<SavedKnowledgePage>> {
- const parsed = await parseActionInput(knowledgePageSchema, input);
- if (!parsed.ok) {
- return parsed.failure;
- }
+  const parsed = await parseActionInput(knowledgePageSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
+  }
 
- try {
- const { scope, userId, basePath } = await resolveScope(
- target.workspaceSlug,
- target.projectSlug,
-);
+  try {
+    const { scope, userId, basePath } = await resolveScope(
+      target.workspaceSlug,
+      target.projectSlug,
+    );
 
- const slug = await createKnowledgePage({
- scope,
- createdBy: userId,
- input: parsed.data,
- });
+    const slug = await createKnowledgePage({
+      scope,
+      createdBy: userId,
+      input: parsed.data,
+    });
 
- // 목록을 브라우저에서 다시 불러오지 않는다 — 서버가 다시 그린다.
- revalidatePath(basePath);
+    // 목록을 브라우저에서 다시 불러오지 않는다 — 서버가 다시 그린다.
+    revalidatePath(basePath);
 
- return actionOk({ slug });
- } catch (error) {
- return actionFromError(error);
- }
+    return actionOk({ slug });
+  } catch (error) {
+    return actionFromError(error);
+  }
 }
 
 export async function updateKnowledgePageAction(
- target: {
- workspaceSlug: string;
- projectSlug: string | null;
- currentSlug: string;
- },
- input: KnowledgePageInput,
+  target: {
+    workspaceSlug: string;
+    projectSlug: string | null;
+    currentSlug: string;
+  },
+  input: KnowledgePageInput,
 ): Promise<ActionResult<SavedKnowledgePage>> {
- const parsed = await parseActionInput(knowledgePageSchema, input);
- if (!parsed.ok) {
- return parsed.failure;
- }
+  const parsed = await parseActionInput(knowledgePageSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
+  }
 
- try {
- const { scope, userId, basePath } = await resolveScope(
- target.workspaceSlug,
- target.projectSlug,
-);
+  try {
+    const { scope, userId, basePath } = await resolveScope(
+      target.workspaceSlug,
+      target.projectSlug,
+    );
 
- const slug = await updateKnowledgePage({
- scope,
- createdBy: userId,
- currentSlug: target.currentSlug,
- input: parsed.data,
- });
+    const slug = await updateKnowledgePage({
+      scope,
+      createdBy: userId,
+      currentSlug: target.currentSlug,
+      input: parsed.data,
+    });
 
- revalidatePath(basePath);
- // slug 가 바뀌었으면 옛 주소도 되살린다 — 캐시에 남은 옛 본문을 지운다.
- revalidatePath(`${basePath}/${target.currentSlug}`);
- revalidatePath(`${basePath}/${slug}`);
+    revalidatePath(basePath);
+    // slug 가 바뀌었으면 옛 주소도 되살린다 — 캐시에 남은 옛 본문을 지운다.
+    revalidatePath(`${basePath}/${target.currentSlug}`);
+    revalidatePath(`${basePath}/${slug}`);
 
- return actionOk({ slug });
- } catch (error) {
- return actionFromError(error);
- }
+    return actionOk({ slug });
+  } catch (error) {
+    return actionFromError(error);
+  }
 }
 
 export async function deleteKnowledgePageAction(target: {
- workspaceSlug: string;
- projectSlug: string | null;
- slug: string;
+  workspaceSlug: string;
+  projectSlug: string | null;
+  slug: string;
 }): Promise<ActionResult> {
- try {
- const { scope, basePath } = await resolveScope(
- target.workspaceSlug,
- target.projectSlug,
-);
+  try {
+    const { scope, basePath } = await resolveScope(
+      target.workspaceSlug,
+      target.projectSlug,
+    );
 
- await deleteKnowledgePage(scope, target.slug);
+    await deleteKnowledgePage(scope, target.slug);
 
- revalidatePath(basePath);
- revalidatePath(`${basePath}/${target.slug}`);
+    revalidatePath(basePath);
+    revalidatePath(`${basePath}/${target.slug}`);
 
- return actionOk();
- } catch (error) {
- return actionFromError(error);
- }
+    return actionOk();
+  } catch (error) {
+    return actionFromError(error);
+  }
 }

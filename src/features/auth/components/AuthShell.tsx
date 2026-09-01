@@ -22,10 +22,10 @@ import { ReviewTraceMark } from "@/features/auth/components/ReviewTraceMark";
  * 각 화면이 자기 폭을 정한다.
  */
 export function AuthShell({ children }: { children: ReactNode }) {
- return (
- <div className="flex flex-1 flex-col">
- <header className="flex items-center justify-between gap-4 px-4 py-4 sm:px-8 sm:py-6">
- {/*
+  return (
+    <div className="flex flex-1 flex-col">
+      <header className="flex items-center justify-between gap-4 px-4 py-4 sm:px-8 sm:py-6">
+        {/*
  🔴 **브랜드는 언제나 Home 으로 가는 문이다.** 마크와 이름이 «하나의» 클릭
  영역이라, 글자만 눌리거나 로고만 눌리는 자리가 생기지 않는다.
 
@@ -37,21 +37,21 @@ export function AuthShell({ children }: { children: ReactNode }) {
  이름이 «글자로» 옆에 있으므로 마크는 `decorative` 인 채로 둔다 — `aria-label` 을
  더하면 스크린 리더가 제품명을 두 번 읽는다.
  */}
- <Link
- href="/"
- className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
- >
- <ReviewTraceMark className="size-7 sm:size-8" />
- <span className="text-base font-semibold tracking-tight sm:text-lg">
- {APP_CONFIG.name}
- </span>
- </Link>
- <AppearanceControls />
- </header>
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <ReviewTraceMark className="size-7 sm:size-8" />
+          <span className="text-base font-semibold tracking-tight sm:text-lg">
+            {APP_CONFIG.name}
+          </span>
+        </Link>
+        <AppearanceControls />
+      </header>
 
- <div className="flex flex-1 items-center justify-center px-4 pb-10 pt-2 sm:px-8 sm:pb-14">
- {children}
- </div>
- </div>
-);
+      <div className="flex flex-1 items-center justify-center px-4 pb-10 pt-2 sm:px-8 sm:pb-14">
+        {children}
+      </div>
+    </div>
+  );
 }

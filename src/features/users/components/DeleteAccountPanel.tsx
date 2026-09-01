@@ -29,29 +29,29 @@ import { deleteAccountAction } from "@/features/users/actions/delete-account";
 
 /** 🔴 이 화면이 실제로 그리는 낱말만 받는다. */
 export interface DeleteAccountLabels {
- intro: string;
- willDelete: string;
- losses: string;
- statProjects: string;
- statIssues: string;
- statPages: string;
- statKeys: string;
- blockedTitle: string;
- blockedHint: string;
- delete: string;
- cancel: string;
- dialogTitle: string;
- dialogBody: string;
- confirmPrefix: string;
- confirmSuffix: string;
+  intro: string;
+  willDelete: string;
+  losses: string;
+  statProjects: string;
+  statIssues: string;
+  statPages: string;
+  statKeys: string;
+  blockedTitle: string;
+  blockedHint: string;
+  delete: string;
+  cancel: string;
+  dialogTitle: string;
+  dialogBody: string;
+  confirmPrefix: string;
+  confirmSuffix: string;
 }
 
 /** 🔴 서버가 그릴 것만 넘긴다 — 내부 id 를 화면으로 내리지 않는다. */
 export interface DeleteAccountWorkspace {
- slug: string;
- name: string;
- /** 남는 Workspace 인데 주소가 바뀌는가. */
- slugRotated?: boolean;
+  slug: string;
+  name: string;
+  /** 남는 Workspace 인데 주소가 바뀌는가. */
+  slugRotated?: boolean;
 }
 
 /**
@@ -60,160 +60,160 @@ export interface DeleteAccountWorkspace {
  * 표시뿐이다. 계약에서 빼면 그 계산이 화면 사정으로 조용히 죽는다.
  */
 export function DeleteAccountPanel({
- deleted,
- blocked,
- losses,
- confirmValue,
- labels,
+  deleted,
+  blocked,
+  losses,
+  confirmValue,
+  labels,
 }: {
- deleted: DeleteAccountWorkspace[];
- preserved: DeleteAccountWorkspace[];
- blocked: DeleteAccountWorkspace[];
- losses: {
- projects: number;
- reviewIssues: number;
- knowledgePages: number;
- apiKeys: number;
- };
- confirmValue: string;
- labels: DeleteAccountLabels;
+  deleted: DeleteAccountWorkspace[];
+  preserved: DeleteAccountWorkspace[];
+  blocked: DeleteAccountWorkspace[];
+  losses: {
+    projects: number;
+    reviewIssues: number;
+    knowledgePages: number;
+    apiKeys: number;
+  };
+  confirmValue: string;
+  labels: DeleteAccountLabels;
 }) {
- const router = useRouter();
- const [open, setOpen] = useState(false);
- const [typed, setTyped] = useState("");
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
 
- const isBlocked = blocked.length > 0;
+  const isBlocked = blocked.length > 0;
 
- async function onDelete() {
- const result = await deleteAccountAction();
+  async function onDelete() {
+    const result = await deleteAccountAction();
 
- if (result.ok) {
- /*
+    if (result.ok) {
+      /*
  🔴 **`refresh` 를 부르지 않는다.** 이 사람은 방금 사라졌다 — 지금 화면을 다시
  그리면 소속이 없어 404 로 떨어진다. 로그인 화면으로 «바꿔» 보낸다.
  */
- router.replace(LOGIN_PATH);
- }
+      router.replace(LOGIN_PATH);
+    }
 
- // 실패 사유는 Dialog 가 제 안에 그린다.
- return result;
- }
+    // 실패 사유는 Dialog 가 제 안에 그린다.
+    return result;
+  }
 
- return (
- <div className="flex flex-col gap-3 pt-3">
- <p className="text-xs text-muted-foreground">{labels.intro}</p>
+  return (
+    <div className="flex flex-col gap-3 pt-3">
+      <p className="text-xs text-muted-foreground">{labels.intro}</p>
 
- {isBlocked && (
- <div className="flex flex-col gap-1 border-l-2 border-destructive/60 pl-3">
- <p className="text-xs font-medium">{labels.blockedTitle}</p>
- <ul className="flex flex-col gap-0.5">
- {blocked.map((workspace) => (
- <li key={workspace.slug} className="text-xs">
- <span className="font-medium">{workspace.name}</span>{" "}
- <span className="font-mono text-[11px] text-muted-foreground">
- {workspace.slug}
- </span>
- </li>
-))}
- </ul>
- <p className="text-[11px] text-muted-foreground">
- {labels.blockedHint}
- </p>
- </div>
-)}
+      {isBlocked && (
+        <div className="flex flex-col gap-1 border-l-2 border-destructive/60 pl-3">
+          <p className="text-xs font-medium">{labels.blockedTitle}</p>
+          <ul className="flex flex-col gap-0.5">
+            {blocked.map((workspace) => (
+              <li key={workspace.slug} className="text-xs">
+                <span className="font-medium">{workspace.name}</span>{" "}
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {workspace.slug}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-muted-foreground">
+            {labels.blockedHint}
+          </p>
+        </div>
+      )}
 
- <dl className="grid grid-cols-[7rem_1fr] gap-x-6 gap-y-2 text-xs">
- <dt className="text-muted-foreground">{labels.willDelete}</dt>
- <dd className="flex flex-col gap-0.5">
- {deleted.length === 0 ? (
- <span className="text-muted-foreground">—</span>
-) : (
- deleted.map((workspace) => (
- <span key={workspace.slug}>
- <span className="font-medium">{workspace.name}</span>{" "}
- <span className="font-mono text-[11px] text-muted-foreground">
- {workspace.slug}
- </span>
- </span>
-))
-)}
- </dd>
+      <dl className="grid grid-cols-[7rem_1fr] gap-x-6 gap-y-2 text-xs">
+        <dt className="text-muted-foreground">{labels.willDelete}</dt>
+        <dd className="flex flex-col gap-0.5">
+          {deleted.length === 0 ? (
+            <span className="text-muted-foreground">—</span>
+          ) : (
+            deleted.map((workspace) => (
+              <span key={workspace.slug}>
+                <span className="font-medium">{workspace.name}</span>{" "}
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {workspace.slug}
+                </span>
+              </span>
+            ))
+          )}
+        </dd>
 
- {deleted.length > 0 && (
- <>
- <dt className="text-muted-foreground">{labels.losses}</dt>
- <dd className="flex flex-wrap items-baseline gap-2.5">
- <Loss label={labels.statProjects} value={losses.projects} />
- <Divider />
- <Loss label={labels.statIssues} value={losses.reviewIssues} />
- <Divider />
- <Loss label={labels.statPages} value={losses.knowledgePages} />
- <Divider />
- <Loss label={labels.statKeys} value={losses.apiKeys} />
- </dd>
- </>
-)}
- </dl>
+        {deleted.length > 0 && (
+          <>
+            <dt className="text-muted-foreground">{labels.losses}</dt>
+            <dd className="flex flex-wrap items-baseline gap-2.5">
+              <Loss label={labels.statProjects} value={losses.projects} />
+              <Divider />
+              <Loss label={labels.statIssues} value={losses.reviewIssues} />
+              <Divider />
+              <Loss label={labels.statPages} value={losses.knowledgePages} />
+              <Divider />
+              <Loss label={labels.statKeys} value={losses.apiKeys} />
+            </dd>
+          </>
+        )}
+      </dl>
 
- <div>
- <Button
- size="sm"
- variant="outline"
- disabled={isBlocked}
- onClick={() => setOpen(true)}
- >
- {labels.delete}
- </Button>
- </div>
+      <div>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={isBlocked}
+          onClick={() => setOpen(true)}
+        >
+          {labels.delete}
+        </Button>
+      </div>
 
- <ConfirmDialog
- open={open}
- onOpenChange={(next) => {
- setOpen(next);
- if (!next) {
- setTyped("");
- }
- }}
- title={labels.dialogTitle}
- description={labels.dialogBody}
- actionLabel={labels.delete}
- cancelLabel={labels.cancel}
- /* 🔴 신원을 그대로 적기 전에는 실행되지 않는다. */
- confirmDisabled={typed !== confirmValue}
- onConfirm={onDelete}
- >
- <div className="flex flex-col gap-1">
- <label className="text-xs" htmlFor="confirm-account-delete">
- {labels.confirmPrefix}
- <span className="font-mono font-medium">{confirmValue}</span>
- {labels.confirmSuffix}
- </label>
- <Input
- id="confirm-account-delete"
- className="font-mono"
- autoComplete="off"
- value={typed}
- onChange={(event) => setTyped(event.target.value)}
- />
- </div>
- </ConfirmDialog>
- </div>
-);
+      <ConfirmDialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) {
+            setTyped("");
+          }
+        }}
+        title={labels.dialogTitle}
+        description={labels.dialogBody}
+        actionLabel={labels.delete}
+        cancelLabel={labels.cancel}
+        /* 🔴 신원을 그대로 적기 전에는 실행되지 않는다. */
+        confirmDisabled={typed !== confirmValue}
+        onConfirm={onDelete}
+      >
+        <div className="flex flex-col gap-1">
+          <label className="text-xs" htmlFor="confirm-account-delete">
+            {labels.confirmPrefix}
+            <span className="font-mono font-medium">{confirmValue}</span>
+            {labels.confirmSuffix}
+          </label>
+          <Input
+            id="confirm-account-delete"
+            className="font-mono"
+            autoComplete="off"
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+          />
+        </div>
+      </ConfirmDialog>
+    </div>
+  );
 }
 
 function Loss({ label, value }: { label: string; value: number }) {
- return (
- <span className="flex items-baseline gap-1.5">
- <span className="text-muted-foreground">{label}</span>
- <span className="font-medium tabular-nums">{value}</span>
- </span>
-);
+  return (
+    <span className="flex items-baseline gap-1.5">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium tabular-nums">{value}</span>
+    </span>
+  );
 }
 
 function Divider() {
- return (
- <span aria-hidden className="text-border">
- ·
- </span>
-);
+  return (
+    <span aria-hidden className="text-border">
+      ·
+    </span>
+  );
 }

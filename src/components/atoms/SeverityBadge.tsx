@@ -23,32 +23,32 @@ import type { IssueSeverity } from "@/types/review";
 
 // Tailwind 는 클래스 문자열을 정적으로 훑는다. 조합해서 만들면 빌드에서 사라진다.
 const SEVERITY_CLASS: Record<IssueSeverity, string> = {
- CRITICAL: "bg-destructive text-white",
- HIGH: "bg-destructive/15 text-destructive",
- MEDIUM: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
- LOW: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
- INFO: "bg-muted text-muted-foreground",
+  CRITICAL: "bg-destructive text-white",
+  HIGH: "bg-destructive/15 text-destructive",
+  MEDIUM: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  LOW: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+  INFO: "bg-muted text-muted-foreground",
 };
 
 export async function SeverityBadge({
- severity,
- className,
+  severity,
+  className,
 }: {
- severity: IssueSeverity;
- className?: string;
+  severity: IssueSeverity;
+  className?: string;
 }) {
- const labels = (await readMessages()).enums.severity;
+  const labels = (await readMessages()).enums.severity;
 
- return (
- <Badge
- variant="outline"
- className={cn(
- "border-transparent text-[11px] tracking-tight",
- SEVERITY_CLASS[severity],
- className,
-)}
- >
- {labels[severity]}
- </Badge>
-);
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "border-transparent text-[11px] tracking-tight",
+        SEVERITY_CLASS[severity],
+        className,
+      )}
+    >
+      {labels[severity]}
+    </Badge>
+  );
 }

@@ -26,60 +26,60 @@ import { deleteKnowledgePageAction } from "@/features/knowledge/actions/knowledg
  * 제목을 끼워 넣는 일은 서버가 끝낸 뒤 «완성된 문자열»만 내려온다.
  */
 export function DeleteKnowledgePageButton({
- workspaceSlug,
- projectSlug,
- slug,
- listPath,
- labels,
+  workspaceSlug,
+  projectSlug,
+  slug,
+  listPath,
+  labels,
 }: {
- workspaceSlug: string;
- projectSlug: string | null;
- slug: string;
- listPath: Route;
- labels: {
- delete: string;
- cancel: string;
- confirmTitle: string;
- /** 🔴 문서 제목이 «이미 끼워진» 문장이다. */
- confirmDescription: string;
- confirmConsequence: string;
- };
+  workspaceSlug: string;
+  projectSlug: string | null;
+  slug: string;
+  listPath: Route;
+  labels: {
+    delete: string;
+    cancel: string;
+    confirmTitle: string;
+    /** 🔴 문서 제목이 «이미 끼워진» 문장이다. */
+    confirmDescription: string;
+    confirmConsequence: string;
+  };
 }) {
- const router = useRouter();
- const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
 
- return (
- <>
- <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
- {labels.delete}
- </Button>
+  return (
+    <>
+      <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
+        {labels.delete}
+      </Button>
 
- <ConfirmDialog
- open={open}
- onOpenChange={setOpen}
- title={labels.confirmTitle}
- /*
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={labels.confirmTitle}
+        /*
  🔴 **대상과 결과를 한 문단으로 붙이지 않는다.** 앞줄은 「무엇을 지우는가」이고
  뒷줄은 「그래서 어떻게 되는가」다 — 이어 붙이면 문서 제목 뒤에 경고가 묻힌다.
  */
- description={labels.confirmDescription}
- consequence={labels.confirmConsequence}
- actionLabel={labels.delete}
- cancelLabel={labels.cancel}
- onConfirm={async () => {
- const result = await deleteKnowledgePageAction({
- workspaceSlug,
- projectSlug,
- slug,
- });
+        description={labels.confirmDescription}
+        consequence={labels.confirmConsequence}
+        actionLabel={labels.delete}
+        cancelLabel={labels.cancel}
+        onConfirm={async () => {
+          const result = await deleteKnowledgePageAction({
+            workspaceSlug,
+            projectSlug,
+            slug,
+          });
 
- if (result.ok) {
- router.push(listPath);
- }
+          if (result.ok) {
+            router.push(listPath);
+          }
 
- return result;
- }}
- />
- </>
-);
+          return result;
+        }}
+      />
+    </>
+  );
 }

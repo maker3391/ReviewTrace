@@ -38,31 +38,31 @@ const PREFIX_SECRET_CHARS = 8;
 const SECRET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 export interface GeneratedApiKey {
- /** 🔴 **딱 한 번** 사용자에게 보여 주고 버린다. 어디에도 저장하지 않는다. */
- plainToken: string;
- /** 목록 표시용. `ci_` + 앞 8자. */
- keyPrefix: string;
- /** DB 에 남는 유일한 값. */
- keyHash: string;
+  /** 🔴 **딱 한 번** 사용자에게 보여 주고 버린다. 어디에도 저장하지 않는다. */
+  plainToken: string;
+  /** 목록 표시용. `ci_` + 앞 8자. */
+  keyPrefix: string;
+  /** DB 에 남는 유일한 값. */
+  keyHash: string;
 }
 
 export function generateApiKey(): GeneratedApiKey {
- const secret = randomBytes(SECRET_BYTES).toString("base64url");
- const plainToken = `${API_KEY_PREFIX}${secret}`;
+  const secret = randomBytes(SECRET_BYTES).toString("base64url");
+  const plainToken = `${API_KEY_PREFIX}${secret}`;
 
- return {
- plainToken,
- keyPrefix: keyPrefixOf(plainToken),
- keyHash: hashApiKey(plainToken),
- };
+  return {
+    plainToken,
+    keyPrefix: keyPrefixOf(plainToken),
+    keyHash: hashApiKey(plainToken),
+  };
 }
 
 export function keyPrefixOf(plainToken: string): string {
- return plainToken.slice(0, API_KEY_PREFIX.length + PREFIX_SECRET_CHARS);
+  return plainToken.slice(0, API_KEY_PREFIX.length + PREFIX_SECRET_CHARS);
 }
 
 export function hashApiKey(plainToken: string): string {
- return createHash("sha256").update(plainToken, "utf8").digest("hex");
+  return createHash("sha256").update(plainToken, "utf8").digest("hex");
 }
 
 /**
@@ -72,10 +72,10 @@ export function hashApiKey(plainToken: string): string {
  * 요청마다 인덱스를 한 번씩 태우게 된다.
  */
 export function isApiKeyFormat(value: string): boolean {
- if (!value.startsWith(API_KEY_PREFIX)) {
- return false;
- }
- return SECRET_PATTERN.test(value.slice(API_KEY_PREFIX.length));
+  if (!value.startsWith(API_KEY_PREFIX)) {
+    return false;
+  }
+  return SECRET_PATTERN.test(value.slice(API_KEY_PREFIX.length));
 }
 
 /**
@@ -85,18 +85,18 @@ export function isApiKeyFormat(value: string): boolean {
  * 그것이 곧 토큰을 로그에 남기는 길이다.
  */
 export function readBearerToken(authorization: string | null): string | null {
- if (authorization === null) {
- return null;
- }
+  if (authorization === null) {
+    return null;
+  }
 
- const match = /^Bearer[ ]+(\S+)$/.exec(authorization.trim());
- const token = match?.[1];
+  const match = /^Bearer[ ]+(\S+)$/.exec(authorization.trim());
+  const token = match?.[1];
 
- if (token === undefined || !isApiKeyFormat(token)) {
- return null;
- }
+  if (token === undefined || !isApiKeyFormat(token)) {
+    return null;
+  }
 
- return token;
+  return token;
 }
 
 /**
@@ -106,10 +106,10 @@ export function readBearerToken(authorization: string | null): string | null {
  * 자리는 길이가 같은 hex 두 개다 — 그럴 때 `===` 대신 이것을 쓰는 것이 기본이다.
  */
 export function apiKeyHashEquals(left: string, right: string): boolean {
- const a = Buffer.from(left, "utf8");
- const b = Buffer.from(right, "utf8");
- if (a.length !== b.length) {
- return false;
- }
- return timingSafeEqual(a, b);
+  const a = Buffer.from(left, "utf8");
+  const b = Buffer.from(right, "utf8");
+  if (a.length !== b.length) {
+    return false;
+  }
+  return timingSafeEqual(a, b);
 }

@@ -17,13 +17,13 @@ import type { PublicError } from "@/lib/errors";
  * 이 타입을 `import type` 하는 Client Component 가 `next/headers` 를 끌고 간다.
  */
 export type ActionResult<T = void> =
- | { ok: true; data: T }
- | { ok: false; error: PublicError; fieldErrors?: Record<string, string[]> };
+  | { ok: true; data: T }
+  | { ok: false; error: PublicError; fieldErrors?: Record<string, string[]> };
 
 export function actionOk(): ActionResult;
 export function actionOk<T>(data: T): ActionResult<T>;
 export function actionOk<T>(data?: T): ActionResult<T | undefined> {
- return { ok: true, data };
+  return { ok: true, data };
 }
 
 /**
@@ -37,28 +37,28 @@ export function actionOk<T>(data?: T): ActionResult<T | undefined> {
  * 골라서** 넘긴다(`lib/action/parse-action-input.ts`).
  */
 export function actionValidationFailed<T = never>(
- error: z.ZodError,
- message: string,
+  error: z.ZodError,
+  message: string,
 ): ActionResult<T> {
- const fieldErrors: Record<string, string[]> = {};
+  const fieldErrors: Record<string, string[]> = {};
 
- for (const issue of error.issues) {
- // 중첩 필드는 `parent.child` 로 평탄화한다 — RHF 가 그 이름으로 오류를 붙인다.
- const field = issue.path.map(String).join(".");
- if (field === "") {
- continue;
- }
- const messages = fieldErrors[field];
- if (messages === undefined) {
- fieldErrors[field] = [issue.message];
- } else {
- messages.push(issue.message);
- }
- }
+  for (const issue of error.issues) {
+    // 중첩 필드는 `parent.child` 로 평탄화한다 — RHF 가 그 이름으로 오류를 붙인다.
+    const field = issue.path.map(String).join(".");
+    if (field === "") {
+      continue;
+    }
+    const messages = fieldErrors[field];
+    if (messages === undefined) {
+      fieldErrors[field] = [issue.message];
+    } else {
+      messages.push(issue.message);
+    }
+  }
 
- return {
- ok: false,
- error: { code: "VALIDATION_ERROR", message },
- fieldErrors,
- };
+  return {
+    ok: false,
+    error: { code: "VALIDATION_ERROR", message },
+    fieldErrors,
+  };
 }

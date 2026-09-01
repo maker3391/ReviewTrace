@@ -5,7 +5,11 @@ import {
   optionalDecisionRecordSchema,
 } from "@/features/issues/schemas/decision-record";
 
-const base = { kind: "BEFORE" as const, commitSha: "a81f3c2", filePath: "src/a.ts" };
+const base = {
+  kind: "BEFORE" as const,
+  commitSha: "a81f3c2",
+  filePath: "src/a.ts",
+};
 
 /**
  * 🔴 이 시험이 지키는 것은 **「가리킨 곳과 확인한 곳이 같아야 한다」** 이다.
@@ -15,14 +19,15 @@ const base = { kind: "BEFORE" as const, commitSha: "a81f3c2", filePath: "src/a.t
  */
 describe("codeEvidenceSchema", () => {
   it("commitSha 없이 거절한다 — 없으면 이 코드가 언제의 것인지 알 수 없다", () => {
-    expect(codeEvidenceSchema.safeParse({ ...base, commitSha: "" }).success).toBe(
-      false,
-    );
+    expect(
+      codeEvidenceSchema.safeParse({ ...base, commitSha: "" }).success,
+    ).toBe(false);
   });
 
   it("endLine 이 startLine 보다 작으면 거절한다", () => {
     expect(
-      codeEvidenceSchema.safeParse({ ...base, startLine: 10, endLine: 3 }).success,
+      codeEvidenceSchema.safeParse({ ...base, startLine: 10, endLine: 3 })
+        .success,
     ).toBe(false);
   });
 
@@ -64,7 +69,8 @@ describe("optionalDecisionRecordSchema", () => {
       residualRisk: narrative,
     });
 
-    for (const value of Object.values(result ?? {})) expect(value).toBe(narrative);
+    for (const value of Object.values(result ?? {}))
+      expect(value).toBe(narrative);
   });
 
   it("빈 칸 일곱 개는 없는 것과 같다 — 빈 판단을 남기지 않는다", () => {
@@ -74,13 +80,19 @@ describe("optionalDecisionRecordSchema", () => {
 
   it("하나라도 적혔으면 남긴다", () => {
     expect(
-      optionalDecisionRecordSchema.parse({ tradeOff: "주문이 잠깐 PENDING 이다" }),
+      optionalDecisionRecordSchema.parse({
+        tradeOff: "주문이 잠깐 PENDING 이다",
+      }),
     ).toMatchObject({ tradeOff: "주문이 잠깐 PENDING 이다", solution: null });
   });
 });
 
 describe("codeEvidenceSchema — 빈 조각", () => {
-  const base = { kind: "BEFORE" as const, commitSha: "a81f3c2", filePath: "src/a.ts" };
+  const base = {
+    kind: "BEFORE" as const,
+    commitSha: "a81f3c2",
+    filePath: "src/a.ts",
+  };
 
   /**
    * 🔴 되돌림 확인(2026-08-28): `snapshot` 의 `v.trim() === ""` 를 `v === ""` 로 되돌리면
@@ -91,14 +103,21 @@ describe("codeEvidenceSchema — 빈 조각", () => {
    * 즉 아무 코드도 안 보내고 `VERIFIED` 를 받아 낼 수 있었다.
    */
   it("🔴 공백뿐인 snapshot 은 없는 것과 같다", () => {
-    expect(codeEvidenceSchema.parse({ ...base, snapshot: "   " }).snapshot).toBeNull();
-    expect(codeEvidenceSchema.parse({ ...base, snapshot: "\n\t " }).snapshot).toBeNull();
-    expect(codeEvidenceSchema.parse({ ...base, snapshot: "" }).snapshot).toBeNull();
+    expect(
+      codeEvidenceSchema.parse({ ...base, snapshot: "   " }).snapshot,
+    ).toBeNull();
+    expect(
+      codeEvidenceSchema.parse({ ...base, snapshot: "\n\t " }).snapshot,
+    ).toBeNull();
+    expect(
+      codeEvidenceSchema.parse({ ...base, snapshot: "" }).snapshot,
+    ).toBeNull();
   });
 
   it("진짜 코드는 그대로 둔다 — 들여쓰기는 의미다", () => {
-    expect(codeEvidenceSchema.parse({ ...base, snapshot: "  const a = 1;" }).snapshot).toBe(
-      "  const a = 1;",
-    );
+    expect(
+      codeEvidenceSchema.parse({ ...base, snapshot: "  const a = 1;" })
+        .snapshot,
+    ).toBe("  const a = 1;");
   });
 });

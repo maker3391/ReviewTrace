@@ -36,11 +36,11 @@
  * 여기서는 Code Unit 단위로 보고 앞뒤 짝을 직접 확인해야 한다.
  */
 const UNSTORABLE =
- /\u0000|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+  /\u0000|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 
 /** PostgreSQL `text` 에 그대로 저장할 수 있는 문자열인가. */
 export function isStorableText(value: string): boolean {
- return !UNSTORABLE.test(value);
+  return !UNSTORABLE.test(value);
 }
 
 /**
@@ -53,19 +53,19 @@ export function isStorableText(value: string): boolean {
  * Key 도 본다 — Key 가 그대로 저장되는 자리(`rawPayload` JSONB)가 있다.
  */
 export function hasUnstorableText(value: unknown): boolean {
- if (typeof value === "string") {
- return !isStorableText(value);
- }
+  if (typeof value === "string") {
+    return !isStorableText(value);
+  }
 
- if (Array.isArray(value)) {
- return value.some(hasUnstorableText);
- }
+  if (Array.isArray(value)) {
+    return value.some(hasUnstorableText);
+  }
 
- if (typeof value === "object" && value !== null) {
- return Object.entries(value).some(
- ([key, child]) => !isStorableText(key) || hasUnstorableText(child),
-);
- }
+  if (typeof value === "object" && value !== null) {
+    return Object.entries(value).some(
+      ([key, child]) => !isStorableText(key) || hasUnstorableText(child),
+    );
+  }
 
- return false;
+  return false;
 }

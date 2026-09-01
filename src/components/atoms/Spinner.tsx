@@ -27,5 +27,7 @@ import { cn } from "@/lib/utils";
  *.
  */
 export function Spinner({ className }: { className?: string }) {
- return <LoaderCircleIcon aria-hidden className={cn("animate-spin", className)} />;
+  return (
+    <LoaderCircleIcon aria-hidden className={cn("animate-spin", className)} />
+  );
 }

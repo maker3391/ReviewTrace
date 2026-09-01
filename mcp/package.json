@@ -2,7 +2,14 @@
   "name": "reviewtrace-mcp",
   "version": "0.1.0",
   "description": "ReviewTrace MCP server - record and recall code review knowledge from Claude Code, Codex, and other coding agents",
-  "keywords": ["mcp", "modelcontextprotocol", "code-review", "claude-code", "codex", "reviewtrace"],
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "code-review",
+    "claude-code",
+    "codex",
+    "reviewtrace"
+  ],
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

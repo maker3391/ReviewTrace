@@ -53,11 +53,15 @@ function resultOf(toolResult) {
 
 describe("get_repository_knowledge 의 범위 표시", () => {
   it("저장소를 좁혔으면 그 이름을 남기고, 서버가 준 칸을 하나도 잃지 않는다", async () => {
-    const client = { knowledgeContext: vi.fn(async () => knowledgeContextResponse()) };
+    const client = {
+      knowledgeContext: vi.fn(async () => knowledgeContextResponse()),
+    };
     const handlers = captureTools(client);
 
     const result = resultOf(
-      await handlers.get("get_repository_knowledge")({ repository: "acme/app" }),
+      await handlers.get("get_repository_knowledge")({
+        repository: "acme/app",
+      }),
     );
 
     expect(result.repository).toBe("acme/app");
@@ -78,8 +82,12 @@ describe("get_repository_knowledge 의 범위 표시", () => {
   });
 
   it("🔴 git 을 못 읽어 좁히지 못하면 (전체) 라고 알린다", async () => {
-    readRepositoryContext.mockRejectedValueOnce(new Error("not a git repository"));
-    const client = { knowledgeContext: vi.fn(async () => knowledgeContextResponse()) };
+    readRepositoryContext.mockRejectedValueOnce(
+      new Error("not a git repository"),
+    );
+    const client = {
+      knowledgeContext: vi.fn(async () => knowledgeContextResponse()),
+    };
     const handlers = captureTools(client);
 
     const result = resultOf(await handlers.get("get_repository_knowledge")({}));
@@ -104,7 +112,9 @@ describe("get_repository_knowledge 의 범위 표시", () => {
     const handlers = captureTools(client);
 
     const result = resultOf(
-      await handlers.get("get_repository_knowledge")({ repository: "acme/app" }),
+      await handlers.get("get_repository_knowledge")({
+        repository: "acme/app",
+      }),
     );
 
     // 표시를 spread 앞으로 되돌리면 여기서 "서버가-보낸-다른-값" 이 된다.

@@ -5,9 +5,9 @@ import { notFound, redirect } from "next/navigation";
 import { LOGIN_PATH } from "@/config/routes";
 import { currentUser } from "@/lib/auth/session";
 import {
- findMembership,
- type SessionUser,
- type WorkspaceContext,
+  findMembership,
+  type SessionUser,
+  type WorkspaceContext,
 } from "@/lib/auth/workspace-context";
 
 /**
@@ -19,18 +19,18 @@ import {
 
 /** 로그인만 확인한다. Workspace 를 아직 고르지 않은 화면(랜딩·초대 수락)이 쓴다. */
 export async function requireUser(): Promise<SessionUser> {
- const user = await currentUser();
+  const user = await currentUser();
 
- if (user === null) {
- redirect(LOGIN_PATH);
- }
+  if (user === null) {
+    redirect(LOGIN_PATH);
+  }
 
- return user;
+  return user;
 }
 
 export interface AuthorizedWorkspace {
- user: SessionUser;
- workspace: WorkspaceContext;
+  user: SessionUser;
+  workspace: WorkspaceContext;
 }
 
 /**
@@ -41,16 +41,16 @@ export interface AuthorizedWorkspace {
  * 없는 Workspace 와 남의 Workspace 는 밖에서 구분되지 않아야 한다.
  */
 export async function requireWorkspace(
- workspaceSlug: string,
+  workspaceSlug: string,
 ): Promise<AuthorizedWorkspace> {
- const user = await requireUser();
- const workspace = await findMembership(user.id, workspaceSlug);
+  const user = await requireUser();
+  const workspace = await findMembership(user.id, workspaceSlug);
 
- if (workspace === null) {
- notFound();
- }
+  if (workspace === null) {
+    notFound();
+  }
 
- return { user, workspace };
+  return { user, workspace };
 }
 
 /**
@@ -59,7 +59,7 @@ export async function requireWorkspace(
  * 화면에서 버튼을 감추는 것은 편의일 뿐이다. 서버가 같은 판정을 반드시 다시 한다.
  */
 export function requireOwner(workspace: WorkspaceContext): void {
- if (workspace.role !== "OWNER") {
- notFound();
- }
+  if (workspace.role !== "OWNER") {
+    notFound();
+  }
 }

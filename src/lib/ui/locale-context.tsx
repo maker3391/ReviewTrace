@@ -32,13 +32,13 @@ import { DEFAULT_LOCALE, type Locale } from "@/config/i18n";
 const LocaleContext = createContext<Locale>(DEFAULT_LOCALE);
 
 export function LocaleProvider({
- locale,
- children,
+  locale,
+  children,
 }: {
- locale: Locale;
- children: ReactNode;
+  locale: Locale;
+  children: ReactNode;
 }) {
- return <LocaleContext value={locale}>{children}</LocaleContext>;
+  return <LocaleContext value={locale}>{children}</LocaleContext>;
 }
 
 /**
@@ -48,5 +48,5 @@ export function LocaleProvider({
  * **없을 때 기본 언어로 그려지는 편**이 다시 죽는 것보다 낫다.
  */
 export function useLocale(): Locale {
- return use(LocaleContext);
+  return use(LocaleContext);
 }

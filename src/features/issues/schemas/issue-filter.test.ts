@@ -123,18 +123,21 @@ describe("issueFilterFormSchema", () => {
   it.each([
     ["ko" as const, "200자"],
     ["en" as const, "200 characters"],
-  ])("%s 로 parse 하면 그 언어로 적히고 상한이 문구에 남는다", (locale, part) => {
-    const result = issueFilterFormSchema.safeParse(
-      {
-        q: "x".repeat(201),
-        severity: FILTER_ALL,
-        category: FILTER_ALL,
-        status: FILTER_ALL,
-      },
-      parseOptions(locale),
-    );
+  ])(
+    "%s 로 parse 하면 그 언어로 적히고 상한이 문구에 남는다",
+    (locale, part) => {
+      const result = issueFilterFormSchema.safeParse(
+        {
+          q: "x".repeat(201),
+          severity: FILTER_ALL,
+          category: FILTER_ALL,
+          status: FILTER_ALL,
+        },
+        parseOptions(locale),
+      );
 
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toContain(part);
-  });
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.message).toContain(part);
+    },
+  );
 });

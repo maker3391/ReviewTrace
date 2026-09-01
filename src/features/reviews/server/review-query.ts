@@ -5,17 +5,13 @@ import { and, count, desc, eq, sql, type SQL } from "drizzle-orm";
 import { db, type DbExecutor } from "@/db";
 import { asCount } from "@/db/raw-value";
 import { repositories, reviewIssues, reviewSessions } from "@/db/schema";
-import {
- paginate,
- type PageRequest,
- type PageResult,
-} from "@/lib/pagination";
+import { paginate, type PageRequest, type PageResult } from "@/lib/pagination";
 import type {
- IssueCategory,
- IssueSeverity,
- IssueStatus,
- ReviewerType,
- ReviewTargetType,
+  IssueCategory,
+  IssueSeverity,
+  IssueStatus,
+  ReviewerType,
+  ReviewTargetType,
 } from "@/types/review";
 import type { ProjectScope } from "@/types/tenant";
 
@@ -30,43 +26,43 @@ import type { ProjectScope } from "@/types/tenant";
  */
 
 export interface ReviewListItem {
- id: string;
- reviewerName: string;
- reviewerType: ReviewerType;
- repositoryFullName: string;
- targetType: ReviewTargetType;
- branch: string | null;
- commitSha: string | null;
- issueCount: number;
- createdAt: Date;
+  id: string;
+  reviewerName: string;
+  reviewerType: ReviewerType;
+  repositoryFullName: string;
+  targetType: ReviewTargetType;
+  branch: string | null;
+  commitSha: string | null;
+  issueCount: number;
+  createdAt: Date;
 }
 
 /** 한 Review 가 남긴 Issue 한 줄. 상세 화면에서 펼친다. */
 export interface ReviewIssueRow {
- id: string;
- title: string;
- severity: IssueSeverity;
- category: IssueCategory;
- status: IssueStatus;
- patternKey: string | null;
- filePath: string | null;
- startLine: number | null;
- endLine: number | null;
+  id: string;
+  title: string;
+  severity: IssueSeverity;
+  category: IssueCategory;
+  status: IssueStatus;
+  patternKey: string | null;
+  filePath: string | null;
+  startLine: number | null;
+  endLine: number | null;
 }
 
 export interface ReviewDetail extends ReviewListItem {
- repositoryId: string;
- reviewerVersion: string | null;
- pullRequestNumber: number | null;
- summary: string | null;
- startedAt: Date;
- completedAt: Date | null;
- /**
- * 🔴 **한 쪽만 담는다.** Agent API 는 한 Review 에 **최대 500건**을 받으므로
- * 전부 그리면 행 500개가 한 화면에 쏟아진다 — 목록 화면 전부에
- * 이동 줄을 넣으면서 이 자리만 빠져 있었다.
- */
- issues: PageResult<ReviewIssueRow>;
+  repositoryId: string;
+  reviewerVersion: string | null;
+  pullRequestNumber: number | null;
+  summary: string | null;
+  startedAt: Date;
+  completedAt: Date | null;
+  /**
+   * 🔴 **한 쪽만 담는다.** Agent API 는 한 Review 에 **최대 500건**을 받으므로
+   * 전부 그리면 행 500개가 한 화면에 쏟아진다 — 목록 화면 전부에
+   * 이동 줄을 넣으면서 이 자리만 빠져 있었다.
+   */
+  issues: PageResult<ReviewIssueRow>;
 }
 
 /**
@@ -95,38 +91,40 @@ const issueCount = sql<number>`(
  * 표에 12줄이 있는데 「38건」이라고 적히는 화면이 된다.
  */
 function projectScopeConditions(scope: ProjectScope): SQL[] {
- return [
- eq(reviewSessions.workspaceId, scope.workspaceId),
- eq(repositories.projectId, scope.projectId),
- ];
+  return [
+    eq(reviewSessions.workspaceId, scope.workspaceId),
+    eq(repositories.projectId, scope.projectId),
+  ];
 }
 
 /** 목록 한 쪽을 읽는다. 🔴 Dashboard 의 「최근 N건」과 **같은 select** 를 쓴다. */
 function selectReviewList(
- executor: DbExecutor,
- conditions: SQL[],
- limit: number,
- offset: number,
+  executor: DbExecutor,
+  conditions: SQL[],
+  limit: number,
+  offset: number,
 ) {
- return executor
-.select({
- id: reviewSessions.id,
- reviewerName: reviewSessions.reviewerName,
- reviewerType: reviewSessions.reviewerType,
- repositoryFullName: repositories.fullName,
- targetType: reviewSessions.targetType,
- branch: reviewSessions.branch,
- commitSha: reviewSessions.commitSha,
- issueCount,
- createdAt: reviewSessions.createdAt,
- })
-.from(reviewSessions)
-.innerJoin(repositories, eq(repositories.id, reviewSessions.repositoryId))
-.where(and(...conditions))
- // 같은 시각의 행이 쪽마다 뒤바뀌지 않게 id 로 한 번 더 고정한다.
-.orderBy(desc(reviewSessions.createdAt), desc(reviewSessions.id))
-.limit(limit)
-.offset(offset);
+  return (
+    executor
+      .select({
+        id: reviewSessions.id,
+        reviewerName: reviewSessions.reviewerName,
+        reviewerType: reviewSessions.reviewerType,
+        repositoryFullName: repositories.fullName,
+        targetType: reviewSessions.targetType,
+        branch: reviewSessions.branch,
+        commitSha: reviewSessions.commitSha,
+        issueCount,
+        createdAt: reviewSessions.createdAt,
+      })
+      .from(reviewSessions)
+      .innerJoin(repositories, eq(repositories.id, reviewSessions.repositoryId))
+      .where(and(...conditions))
+      // 같은 시각의 행이 쪽마다 뒤바뀌지 않게 id 로 한 번 더 고정한다.
+      .orderBy(desc(reviewSessions.createdAt), desc(reviewSessions.id))
+      .limit(limit)
+      .offset(offset)
+  );
 }
 
 /**
@@ -138,11 +136,11 @@ function selectReviewList(
 const LIST_LIMIT = 50;
 
 export async function listProjectReviews(
- scope: ProjectScope,
- executor: DbExecutor = db(),
- limit: number = LIST_LIMIT,
+  scope: ProjectScope,
+  executor: DbExecutor = db(),
+  limit: number = LIST_LIMIT,
 ): Promise<ReviewListItem[]> {
- return selectReviewList(executor, projectScopeConditions(scope), limit, 0);
+  return selectReviewList(executor, projectScopeConditions(scope), limit, 0);
 }
 
 /**
@@ -153,46 +151,46 @@ export async function listProjectReviews(
  * 화면에서 볼 방법이 아예 없었다.
  */
 export async function findProjectReviewPage(
- scope: ProjectScope,
- request: PageRequest,
- executor: DbExecutor = db(),
+  scope: ProjectScope,
+  request: PageRequest,
+  executor: DbExecutor = db(),
 ): Promise<PageResult<ReviewListItem>> {
- const conditions = projectScopeConditions(scope);
+  const conditions = projectScopeConditions(scope);
 
- return paginate(request, {
- count: async () => {
- const rows = await executor
-.select({ value: count() })
-.from(reviewSessions)
-.innerJoin(
- repositories,
- eq(repositories.id, reviewSessions.repositoryId),
-)
-.where(and(...conditions));
+  return paginate(request, {
+    count: async () => {
+      const rows = await executor
+        .select({ value: count() })
+        .from(reviewSessions)
+        .innerJoin(
+          repositories,
+          eq(repositories.id, reviewSessions.repositoryId),
+        )
+        .where(and(...conditions));
 
- return rows[0]?.value ?? 0;
- },
- rows: (limit, offset) =>
- selectReviewList(executor, conditions, limit, offset),
- });
+      return rows[0]?.value ?? 0;
+    },
+    rows: (limit, offset) =>
+      selectReviewList(executor, conditions, limit, offset),
+  });
 }
 
 /** 한 Repository 의 최근 Review. Repository 상세가 쓴다. */
 export async function listRepositoryReviews(
- scope: ProjectScope,
- repositoryId: string,
- limit: number,
- executor: DbExecutor = db(),
+  scope: ProjectScope,
+  repositoryId: string,
+  limit: number,
+  executor: DbExecutor = db(),
 ): Promise<ReviewListItem[]> {
- return selectReviewList(
- executor,
- [
- eq(reviewSessions.repositoryId, repositoryId),
-...projectScopeConditions(scope),
- ],
- limit,
- 0,
-);
+  return selectReviewList(
+    executor,
+    [
+      eq(reviewSessions.repositoryId, repositoryId),
+      ...projectScopeConditions(scope),
+    ],
+    limit,
+    0,
+  );
 }
 
 /**
@@ -202,87 +200,87 @@ export async function listRepositoryReviews(
  * Issue 는 Session 을 찾은 «뒤에» 읽는다. 못 찾으면 질의를 던지지도 않는다.
  */
 export async function findReviewDetail(
- scope: ProjectScope,
- reviewSessionId: string,
- request: PageRequest,
- executor: DbExecutor = db(),
+  scope: ProjectScope,
+  reviewSessionId: string,
+  request: PageRequest,
+  executor: DbExecutor = db(),
 ): Promise<ReviewDetail | null> {
- const rows = await executor
-.select({
- id: reviewSessions.id,
- repositoryId: reviewSessions.repositoryId,
- reviewerName: reviewSessions.reviewerName,
- reviewerType: reviewSessions.reviewerType,
- reviewerVersion: reviewSessions.reviewerVersion,
- repositoryFullName: repositories.fullName,
- targetType: reviewSessions.targetType,
- branch: reviewSessions.branch,
- commitSha: reviewSessions.commitSha,
- pullRequestNumber: reviewSessions.pullRequestNumber,
- summary: reviewSessions.summary,
- startedAt: reviewSessions.startedAt,
- completedAt: reviewSessions.completedAt,
- issueCount,
- createdAt: reviewSessions.createdAt,
- })
-.from(reviewSessions)
-.innerJoin(repositories, eq(repositories.id, reviewSessions.repositoryId))
-.where(
- and(
- eq(reviewSessions.id, reviewSessionId),
- eq(reviewSessions.workspaceId, scope.workspaceId),
- eq(repositories.projectId, scope.projectId),
-),
-)
-.limit(1);
+  const rows = await executor
+    .select({
+      id: reviewSessions.id,
+      repositoryId: reviewSessions.repositoryId,
+      reviewerName: reviewSessions.reviewerName,
+      reviewerType: reviewSessions.reviewerType,
+      reviewerVersion: reviewSessions.reviewerVersion,
+      repositoryFullName: repositories.fullName,
+      targetType: reviewSessions.targetType,
+      branch: reviewSessions.branch,
+      commitSha: reviewSessions.commitSha,
+      pullRequestNumber: reviewSessions.pullRequestNumber,
+      summary: reviewSessions.summary,
+      startedAt: reviewSessions.startedAt,
+      completedAt: reviewSessions.completedAt,
+      issueCount,
+      createdAt: reviewSessions.createdAt,
+    })
+    .from(reviewSessions)
+    .innerJoin(repositories, eq(repositories.id, reviewSessions.repositoryId))
+    .where(
+      and(
+        eq(reviewSessions.id, reviewSessionId),
+        eq(reviewSessions.workspaceId, scope.workspaceId),
+        eq(repositories.projectId, scope.projectId),
+      ),
+    )
+    .limit(1);
 
- const session = rows[0];
- if (session === undefined) {
- return null;
- }
+  const session = rows[0];
+  if (session === undefined) {
+    return null;
+  }
 
- const issues = await paginate(request, {
- /*
+  const issues = await paginate(request, {
+    /*
  🔴 **다시 세지 않는다.** 위 `issueCount` 가 **같은 조건**으로 이미 세어 왔고,
  머리글의 「N건」이 그 값이다 — 따로 세면 두 숫자가 갈릴 수 있다.
  🔴 `asCount` 를 통과시키는 이유는 그것이 원시 `sql<number>` 이기 때문이다
  (`src/db/raw-value.ts` — 단언은 검사되지 않는다).
  */
- count: () => Promise.resolve(asCount(session.issueCount)),
- rows: (limit, offset) =>
- executor
-.select({
- id: reviewIssues.id,
- title: reviewIssues.title,
- severity: reviewIssues.severity,
- category: reviewIssues.category,
- status: reviewIssues.status,
- patternKey: reviewIssues.patternKey,
- filePath: reviewIssues.filePath,
- startLine: reviewIssues.startLine,
- endLine: reviewIssues.endLine,
- })
-.from(reviewIssues)
-.where(
- and(
- eq(reviewIssues.reviewSessionId, session.id),
- // Session 을 이미 범위 안에서 찾았지만, 조건을 겹쳐 두는 편이 잊기 어렵다.
- eq(reviewIssues.workspaceId, scope.workspaceId),
-),
-)
- /*
+    count: () => Promise.resolve(asCount(session.issueCount)),
+    rows: (limit, offset) =>
+      executor
+        .select({
+          id: reviewIssues.id,
+          title: reviewIssues.title,
+          severity: reviewIssues.severity,
+          category: reviewIssues.category,
+          status: reviewIssues.status,
+          patternKey: reviewIssues.patternKey,
+          filePath: reviewIssues.filePath,
+          startLine: reviewIssues.startLine,
+          endLine: reviewIssues.endLine,
+        })
+        .from(reviewIssues)
+        .where(
+          and(
+            eq(reviewIssues.reviewSessionId, session.id),
+            // Session 을 이미 범위 안에서 찾았지만, 조건을 겹쳐 두는 편이 잊기 어렵다.
+            eq(reviewIssues.workspaceId, scope.workspaceId),
+          ),
+        )
+        /*
  🔴 **`id` 로 동점을 끊는다.** `severity` 와 시각이 같은 행이 여럿이면 순서가
  질의마다 달라질 수 있고, 그러면 쪽을 넘길 때 **같은 행이 두 번 나오거나
  아예 빠진다.** 이동 줄이 없을 때는 드러나지 않던 요구다.
  */
-.orderBy(
- reviewIssues.severity,
- desc(reviewIssues.firstDetectedAt),
- reviewIssues.id,
-)
-.limit(limit)
-.offset(offset),
- });
+        .orderBy(
+          reviewIssues.severity,
+          desc(reviewIssues.firstDetectedAt),
+          reviewIssues.id,
+        )
+        .limit(limit)
+        .offset(offset),
+  });
 
- return {...session, issues };
+  return { ...session, issues };
 }

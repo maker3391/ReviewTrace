@@ -16,7 +16,10 @@ export default async function NewProjectKnowledgePage({
 }) {
   const { workspaceSlug, projectSlug } = await params;
   // 🔴 작성 화면도 소속을 확인하고 연다. 저장은 Server Action 이 다시 확인한다.
-  const { workspace, project } = await requireProject(workspaceSlug, projectSlug);
+  const { workspace, project } = await requireProject(
+    workspaceSlug,
+    projectSlug,
+  );
 
   return (
     <KnowledgePageFormScreen

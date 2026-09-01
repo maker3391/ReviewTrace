@@ -237,7 +237,11 @@ describe.skipIf(!enabled)("재전송 응답 — 그 Review 가 «본» Issue", (
         tx,
       );
       const theirs = await ingestReview(
-        { workspaceId, idempotencyKey: unique("SK-other-"), payload: elsewhere },
+        {
+          workspaceId,
+          idempotencyKey: unique("SK-other-"),
+          payload: elsewhere,
+        },
         tx,
       );
 

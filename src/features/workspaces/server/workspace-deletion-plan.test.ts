@@ -29,15 +29,17 @@ describe("planWorkspaceDeletion", () => {
   });
 
   it("Personal Workspace 는 혼자여도 지울 수 없다", () => {
-    expect(
-      planWorkspaceDeletion({ ...DELETABLE, isPersonal: true }),
-    ).toEqual({ deletable: false, block: "PERSONAL" });
+    expect(planWorkspaceDeletion({ ...DELETABLE, isPersonal: true })).toEqual({
+      deletable: false,
+      block: "PERSONAL",
+    });
   });
 
   it("다른 멤버가 «한 명이라도» 있으면 지울 수 없다", () => {
-    expect(
-      planWorkspaceDeletion({ ...DELETABLE, otherMembers: 1 }),
-    ).toEqual({ deletable: false, block: "HAS_MEMBERS" });
+    expect(planWorkspaceDeletion({ ...DELETABLE, otherMembers: 1 })).toEqual({
+      deletable: false,
+      block: "HAS_MEMBERS",
+    });
   });
 
   it("MEMBER 는 혼자여도 지울 수 없다", () => {

@@ -470,7 +470,8 @@ export const en: Messages = {
       "Register it with the command above instead of editing the config file by hand. " +
       "Write operations require approval before they run.",
     /** 🔴 Leading and trailing spaces are part of the sentence — see ko.ts. */
-    keyHint: " is where the key you created above goes. Do not store your API key in a repository's ",
+    keyHint:
+      " is where the key you created above goes. Do not store your API key in a repository's ",
     keyHintTail: ".",
   },
 
@@ -724,8 +725,7 @@ export const en: Messages = {
       "The owner of a personal workspace cannot be removed.",
     WORKSPACE_NOT_FOUND: "Workspace not found.",
     WORKSPACE_OWNER_REQUIRED: "Workspace not found.",
-    PERSONAL_WORKSPACE_UNDELETABLE:
-      "A personal workspace cannot be deleted.",
+    PERSONAL_WORKSPACE_UNDELETABLE: "A personal workspace cannot be deleted.",
     WORKSPACE_HAS_MEMBERS:
       "A workspace with other members cannot be deleted. Remove the members first.",
 

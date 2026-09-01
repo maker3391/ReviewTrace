@@ -15,15 +15,15 @@
  */
 
 export const VALIDATION_RULES = [
- /** PostgreSQL `text` 가 받지 못하는 문자(NUL · 짝 없는 Surrogate). */
- "unstorableText",
- /** 🔴 `resolved = true` 만 저장하지 않는다. */
- "resolutionSummaryRequired",
- "invitationToken",
- "endLineBeforeStartLine",
- "endLineWithoutStartLine",
- "reservedExternalRepositoryId",
- "fullNameMismatch",
+  /** PostgreSQL `text` 가 받지 못하는 문자(NUL · 짝 없는 Surrogate). */
+  "unstorableText",
+  /** 🔴 `resolved = true` 만 저장하지 않는다. */
+  "resolutionSummaryRequired",
+  "invitationToken",
+  "endLineBeforeStartLine",
+  "endLineWithoutStartLine",
+  "reservedExternalRepositoryId",
+  "fullNameMismatch",
 ] as const;
 
 export type ValidationRule = (typeof VALIDATION_RULES)[number];
@@ -38,6 +38,8 @@ export type ValidationRule = (typeof VALIDATION_RULES)[number];
  * 🔴 **문구를 넘기지 않는다.** `message` 를 함께 주면 Zod 는 그것을 쓰고 per-parse
  * error map 을 **건너뛴다** — 그 순간 다시 한 언어에 묶인다.
  */
-export function rule(name: ValidationRule): { params: { rule: ValidationRule } } {
- return { params: { rule: name } };
+export function rule(name: ValidationRule): {
+  params: { rule: ValidationRule };
+} {
+  return { params: { rule: name } };
 }

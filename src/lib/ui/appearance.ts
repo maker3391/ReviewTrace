@@ -3,11 +3,11 @@ import "server-only";
 import { cookies } from "next/headers";
 
 import {
- LOCALE_COOKIE,
- messages,
- parseLocale,
- type Locale,
- type Messages,
+  LOCALE_COOKIE,
+  messages,
+  parseLocale,
+  type Locale,
+  type Messages,
 } from "@/config/i18n";
 import { parseTheme, THEME_COOKIE, type Theme } from "@/lib/ui/theme";
 
@@ -26,16 +26,16 @@ import { parseTheme, THEME_COOKIE, type Theme } from "@/lib/ui/theme";
  */
 
 export async function readLocale(): Promise<Locale> {
- const store = await cookies();
- return parseLocale(store.get(LOCALE_COOKIE)?.value);
+  const store = await cookies();
+  return parseLocale(store.get(LOCALE_COOKIE)?.value);
 }
 
 /** 대부분의 화면이 실제로 쓰는 것 — 언어가 아니라 그 언어의 문구다. */
 export async function readMessages(): Promise<Messages> {
- return messages(await readLocale());
+  return messages(await readLocale());
 }
 
 export async function readTheme(): Promise<Theme> {
- const store = await cookies();
- return parseTheme(store.get(THEME_COOKIE)?.value);
+  const store = await cookies();
+  return parseTheme(store.get(THEME_COOKIE)?.value);
 }

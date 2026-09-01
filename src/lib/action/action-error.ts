@@ -6,10 +6,10 @@ import { DEFAULT_LOCALE, messages } from "@/config/i18n";
 import type { ActionResult } from "@/lib/action/action-result";
 import { localizedPublicError } from "@/lib/format/app-error";
 import {
- AppError,
- type AppErrorArgs,
- type AppErrorMessages,
- type AppErrorReason,
+  AppError,
+  type AppErrorArgs,
+  type AppErrorMessages,
+  type AppErrorReason,
 } from "@/lib/errors";
 import { readLocale } from "@/lib/ui/appearance";
 
@@ -39,11 +39,11 @@ import { readLocale } from "@/lib/ui/appearance";
  * 그때는 기본 언어로 적는다(`lib/action/parse-action-input.ts` 와 같은 정책이다).
  */
 async function currentErrorMessages(): Promise<AppErrorMessages> {
- try {
- return messages(await readLocale()).errors;
- } catch {
- return messages(DEFAULT_LOCALE).errors;
- }
+  try {
+    return messages(await readLocale()).errors;
+  } catch {
+    return messages(DEFAULT_LOCALE).errors;
+  }
 }
 
 /**
@@ -63,10 +63,13 @@ async function currentErrorMessages(): Promise<AppErrorMessages> {
  * 전부 이 함수를 지나므로, 새 Action 을 만드는 사람이 잊어도 같은 보증을 받는다.
  */
 export async function actionFromError<T = never>(
- error: unknown,
+  error: unknown,
 ): Promise<ActionResult<T>> {
- unstable_rethrow(error);
- return { ok: false, error: localizedPublicError(error, await currentErrorMessages()) };
+  unstable_rethrow(error);
+  return {
+    ok: false,
+    error: localizedPublicError(error, await currentErrorMessages()),
+  };
 }
 
 /**
@@ -76,7 +79,9 @@ export async function actionFromError<T = never>(
  * 넘기는 것은 오류의 «의미»뿐이고, 값이 필요한 오류는 타입이 값을 요구한다.
  */
 export async function actionFail<R extends AppErrorReason>(
-...args: AppErrorArgs<R>
+  ...args: AppErrorArgs<R>
 ): Promise<ActionResult<never>> {
- return actionFromError(new AppError(...(args as AppErrorArgs<AppErrorReason>)));
+  return actionFromError(
+    new AppError(...(args as AppErrorArgs<AppErrorReason>)),
+  );
 }

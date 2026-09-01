@@ -21,16 +21,16 @@ Vercel 이 Git 연동으로 스스로 빌드·배포한다 — 두 곳에서 배
 
 정본은 `src/lib/env.schema.ts` 다. **이 표는 그 파일에서 옮겨 적은 것이고, 추측이 없다.**
 
-| 변수 | 필수 | 기본값 | 무엇 |
-|---|---|---|---|
-| `DATABASE_URL` | **필수** | — | `postgres://` 또는 `postgresql://` 로 시작해야 한다 |
-| `AUTH_SECRET` | **필수** | — | **32자 이상.** `openssl rand -base64 32` |
-| `GITHUB_CLIENT_ID` | **필수** | — | GitHub OAuth App |
-| `GITHUB_CLIENT_SECRET` | **필수** | — | GitHub OAuth App |
-| `APP_URL` | 사실상 필수 | `http://localhost:3000` | 운영은 **`https://reviewtrace.app`**. 🔴 **반드시 덮어쓴다** — Settings 화면이 Agent 에게 알려 주는 API 주소가 이 값이라, 기본값이 남으면 사용자의 Agent 가 자기 컴퓨터를 가리킨다 |
-| `GITHUB_API_TOKEN` | 선택 | 없음 | Code Evidence 를 GitHub 실제 코드와 대조할 때 쓴다. 없으면 그 확인만 못 한다 |
-| `GITHUB_API_URL` | 선택 | `https://api.github.com` | GitHub Enterprise 를 쓸 때만 |
-| `NODE_ENV` | 선택 | `development` | Vercel 이 알아서 `production` 을 넣는다 |
+| 변수                   | 필수        | 기본값                   | 무엇                                                                                                                                                                               |
+| ---------------------- | ----------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`         | **필수**    | —                        | `postgres://` 또는 `postgresql://` 로 시작해야 한다                                                                                                                                |
+| `AUTH_SECRET`          | **필수**    | —                        | **32자 이상.** `openssl rand -base64 32`                                                                                                                                           |
+| `GITHUB_CLIENT_ID`     | **필수**    | —                        | GitHub OAuth App                                                                                                                                                                   |
+| `GITHUB_CLIENT_SECRET` | **필수**    | —                        | GitHub OAuth App                                                                                                                                                                   |
+| `APP_URL`              | 사실상 필수 | `http://localhost:3000`  | 운영은 **`https://reviewtrace.app`**. 🔴 **반드시 덮어쓴다** — Settings 화면이 Agent 에게 알려 주는 API 주소가 이 값이라, 기본값이 남으면 사용자의 Agent 가 자기 컴퓨터를 가리킨다 |
+| `GITHUB_API_TOKEN`     | 선택        | 없음                     | Code Evidence 를 GitHub 실제 코드와 대조할 때 쓴다. 없으면 그 확인만 못 한다                                                                                                       |
+| `GITHUB_API_URL`       | 선택        | `https://api.github.com` | GitHub Enterprise 를 쓸 때만                                                                                                                                                       |
+| `NODE_ENV`             | 선택        | `development`            | Vercel 이 알아서 `production` 을 넣는다                                                                                                                                            |
 
 🔴 **`AUTH_URL` 은 넣지 않는다.** `src/lib/auth/config.ts` 가 `trustHost: true` 라 앞단이 넘긴
 Host 로 콜백 URL 을 만든다. Vercel 은 그 Host 를 올바로 넘긴다.
@@ -51,19 +51,19 @@ Application ──► Drizzle ORM ──► node-postgres(pg) ──► Supabase
 Supabase 는 연결 방식을 넷 준다. 🔴 **포트로 고르지 마라 — 이름으로 고른다.**
 `5432` 를 쓰는 것이 «둘»이고, 그 둘은 host 도 user 도 성격도 다르다.
 
-| 대시보드 이름 | host | port | user | IP | prepared stmt |
-|---|---|---|---|---|---|
-| **Direct connection** | `db.[project-id].supabase.co` | 5432 | `postgres` | **IPv6** (IPv4 는 유료 add-on) | 지원 |
-| **Shared Pooler (Supavisor) — Session mode** | `aws-[region].pooler.supabase.com` | 5432 | `postgres.[project-id]` | **IPv4** | 지원 |
-| **Shared Pooler (Supavisor) — Transaction mode** | `aws-[region].pooler.supabase.com` | **6543** | `postgres.[project-id]` | **IPv4** | **미지원** |
-| Dedicated Pooler (PgBouncer) | `db.[project-id].supabase.co` | 6543 | `postgres` | IPv6 · 유료 전용 | 미지원 |
+| 대시보드 이름                                    | host                               | port     | user                    | IP                             | prepared stmt |
+| ------------------------------------------------ | ---------------------------------- | -------- | ----------------------- | ------------------------------ | ------------- |
+| **Direct connection**                            | `db.[project-id].supabase.co`      | 5432     | `postgres`              | **IPv6** (IPv4 는 유료 add-on) | 지원          |
+| **Shared Pooler (Supavisor) — Session mode**     | `aws-[region].pooler.supabase.com` | 5432     | `postgres.[project-id]` | **IPv4**                       | 지원          |
+| **Shared Pooler (Supavisor) — Transaction mode** | `aws-[region].pooler.supabase.com` | **6543** | `postgres.[project-id]` | **IPv4**                       | **미지원**    |
+| Dedicated Pooler (PgBouncer)                     | `db.[project-id].supabase.co`      | 6543     | `postgres`              | IPv6 · 유료 전용               | 미지원        |
 
 **이 프로젝트가 쓰는 것은 둘이다.**
 
-| 쓰임 | 고를 것 | 왜 |
-|---|---|---|
-| **애플리케이션 runtime** (Vercel) → `DATABASE_URL` | **Shared Pooler (Supavisor) — Transaction mode** | Vercel 은 instance 가 늘었다 줄었다 한다. 직접 연결을 instance 마다 잡으면 Postgres 의 연결 상한에 금방 닿는다 |
-| **Migration** (`pnpm db:migrate`) → `MIGRATION_DATABASE_URL` | **Shared Pooler (Supavisor) — Session mode** | DDL 은 세션이 유지돼야 한다. 그리고 **GitHub Actions 러너는 IPv4 전용**이다 |
+| 쓰임                                                         | 고를 것                                          | 왜                                                                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| **애플리케이션 runtime** (Vercel) → `DATABASE_URL`           | **Shared Pooler (Supavisor) — Transaction mode** | Vercel 은 instance 가 늘었다 줄었다 한다. 직접 연결을 instance 마다 잡으면 Postgres 의 연결 상한에 금방 닿는다 |
+| **Migration** (`pnpm db:migrate`) → `MIGRATION_DATABASE_URL` | **Shared Pooler (Supavisor) — Session mode**     | DDL 은 세션이 유지돼야 한다. 그리고 **GitHub Actions 러너는 IPv4 전용**이다                                    |
 
 🔴 **Migration 에 Direct connection 을 쓰지 마라.** Direct 는 **IPv6** 이고 GitHub Actions
 러너는 IPv4 전용이라 **연결 자체가 되지 않는다**(IPv4 add-on 은 유료다). 세션이 필요하다는
@@ -74,23 +74,23 @@ Supabase 는 연결 방식을 넷 준다. 🔴 **포트로 고르지 마라 — 
 **runtime 에 Transaction mode 를 써도 되는 근거**(이 저장소 코드로 확인했다):
 
 - `.prepare(` 가 `src/` 에 **0건**이고 `pg` 는 `name` 을 주지 않으면 named prepared statement 를
- 만들지 않는다 — Transaction mode 의 유일한 제약에 걸리지 않는다
+  만들지 않는다 — Transaction mode 의 유일한 제약에 걸리지 않는다
 - advisory lock 이 `pg_advisory_xact_lock` 이라(`repository-upsert.ts`) **transaction 범위**다.
- COMMIT 에서 풀리므로 pooler 가 연결을 돌려써도 새지 않는다. session 범위였다면 깨진다
+  COMMIT 에서 풀리므로 pooler 가 연결을 돌려써도 새지 않는다. session 범위였다면 깨진다
 - `LISTEN`/`NOTIFY`·`SET SESSION` 이 **0건**이다
 
 ### 🔴 SSL — `?sslmode=require` «만» 붙이면 연결이 실패한다
 
 `pg-connection-string@2.14.0` 은 libpq 와 다르게 해석한다. 설치된 파서로 직접 돌려 확인한 값이다:
 
-| URL 파라미터 | `pg` 에 넘어가는 `ssl` | 뜻 |
-|---|---|---|
-| (없음) | `undefined` | **TLS 를 아예 쓰지 않는다** |
-| `?sslmode=require` | `{}` | TLS + **완전 검증**(Node 기본 `rejectUnauthorized: true`) |
-| `?sslmode=verify-full` | `{}` | 위와 같다 |
-| `?uselibpqcompat=true&sslmode=require` | `{ rejectUnauthorized: false }` | TLS 를 쓰되 **인증서를 검증하지 않는다** |
-| `?sslmode=no-verify` | `{ rejectUnauthorized: false }` | 위와 같다 |
-| `?sslmode=verify-full&sslrootcert=<파일>` | `{ ca: "…" }` | **그 CA 로 완전 검증** |
+| URL 파라미터                              | `pg` 에 넘어가는 `ssl`          | 뜻                                                        |
+| ----------------------------------------- | ------------------------------- | --------------------------------------------------------- |
+| (없음)                                    | `undefined`                     | **TLS 를 아예 쓰지 않는다**                               |
+| `?sslmode=require`                        | `{}`                            | TLS + **완전 검증**(Node 기본 `rejectUnauthorized: true`) |
+| `?sslmode=verify-full`                    | `{}`                            | 위와 같다                                                 |
+| `?uselibpqcompat=true&sslmode=require`    | `{ rejectUnauthorized: false }` | TLS 를 쓰되 **인증서를 검증하지 않는다**                  |
+| `?sslmode=no-verify`                      | `{ rejectUnauthorized: false }` | 위와 같다                                                 |
+| `?sslmode=verify-full&sslrootcert=<파일>` | `{ ca: "…" }`                   | **그 CA 로 완전 검증**                                    |
 
 🔴 **그래서 `?sslmode=require` 로 Supabase 에 붙으면 이렇게 죽는다:**
 
@@ -105,13 +105,13 @@ Supabase 의 인증서는 **자체 CA(`prod-ca-2021.crt`)로 서명돼 있어** 
 **고르는 법 — 두 가지뿐이고 보안 수준이 다르다:**
 
 1. **`?sslmode=verify-full&sslrootcert=<prod-ca-2021.crt 경로>` — 권장.**
- Supabase 대시보드(**Project Settings → Database → SSL Configuration**)에서 CA 를 내려받아
- 저장소에 둔다. 🔴 **그 파일은 비밀이 아니다** — 공개 인증서라 커밋해도 된다.
- 경로는 프로세스의 **cwd 기준 상대 경로**로도 읽힌다(확인했다)
+   Supabase 대시보드(**Project Settings → Database → SSL Configuration**)에서 CA 를 내려받아
+   저장소에 둔다. 🔴 **그 파일은 비밀이 아니다** — 공개 인증서라 커밋해도 된다.
+   경로는 프로세스의 **cwd 기준 상대 경로**로도 읽힌다(확인했다)
 2. `?uselibpqcompat=true&sslmode=require` — **검증을 끄는 것과 같다.**
- 위 표대로 `rejectUnauthorized: false` 로 풀린다. 「libpq 호환」이라는 이름 때문에
- 더 안전해 보이지만 **암호화만 하고 상대가 누구인지 확인하지 않는다.**
- 🔴 1번을 쓸 수 없을 때의 임시 수단으로만 쓴다
+   위 표대로 `rejectUnauthorized: false` 로 풀린다. 「libpq 호환」이라는 이름 때문에
+   더 안전해 보이지만 **암호화만 하고 상대가 누구인지 확인하지 않는다.**
+   🔴 1번을 쓸 수 없을 때의 임시 수단으로만 쓴다
 
 🔴 **`ssl` 옵션을 코드에 박지 않는다.** `src/db/index.ts` 는 `new Pool({ connectionString })`,
 `drizzle.config.ts` 는 `dbCredentials: { url }` 뿐이라 **URL 이 유일한 정본**이다(전수 확인:
@@ -161,10 +161,10 @@ Supabase 의 인증서는 **자체 CA(`prod-ca-2021.crt`)로 서명돼 있어** 
 
 - **Framework**: Next.js (자동 인식). Build `pnpm build`, Install `pnpm install --frozen-lockfile`
 - **`output` 설정을 넣지 않는다.** `next.config.ts` 에 `standalone` 을 넣는 것은 컨테이너 배포용이고,
- Vercel 에서는 오히려 방해가 된다
+  Vercel 에서는 오히려 방해가 된다
 - **Node**: 로컬과 같은 **24** 를 고른다
 - `next.config.ts` 의 보안 헤더(CSP `frame-ancestors 'none'` · HSTS · `X-Content-Type-Options` 등)는
- 이미 서 있다 — Vercel 에서 따로 할 일이 없다
+  이미 서 있다 — Vercel 에서 따로 할 일이 없다
 
 ---
 

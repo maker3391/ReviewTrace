@@ -15,9 +15,9 @@ describe("inviteMemberSchema", () => {
   });
 
   it("이메일이 아니면 거부한다", () => {
-    expect(inviteMemberSchema.safeParse({ email: "not-an-email" }).success).toBe(
-      false,
-    );
+    expect(
+      inviteMemberSchema.safeParse({ email: "not-an-email" }).success,
+    ).toBe(false);
     expect(inviteMemberSchema.safeParse({ email: "" }).success).toBe(false);
   });
 
@@ -38,9 +38,9 @@ describe("invitationTokenSchema", () => {
 
   it("형식이 맞으면 통과한다", () => {
     expect(invitationTokenSchema.safeParse(validToken).success).toBe(true);
-    expect(
-      invitationTokenSchema.safeParse(`${"a".repeat(41)}-_`).success,
-    ).toBe(true);
+    expect(invitationTokenSchema.safeParse(`${"a".repeat(41)}-_`).success).toBe(
+      true,
+    );
   });
 
   it("길이가 다르면 Database 를 보지도 않고 거부한다", () => {

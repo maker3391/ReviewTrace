@@ -2,11 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import {
- useForm,
- type FieldValues,
- type Resolver,
- type UseFormProps,
- type UseFormReturn,
+  useForm,
+  type FieldValues,
+  type Resolver,
+  type UseFormProps,
+  type UseFormReturn,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
@@ -41,45 +41,45 @@ import { parseOptions } from "@/lib/validation/zod-error-map";
  * 다시 검증해 새 언어로 적는다 — 값도 규칙도 건드리지 않는다.
  */
 export function useLocalizedForm<
- TFieldValues extends FieldValues = FieldValues,
- TContext = unknown,
- TTransformedValues = TFieldValues,
+  TFieldValues extends FieldValues = FieldValues,
+  TContext = unknown,
+  TTransformedValues = TFieldValues,
 >(
- schema: z.ZodType<unknown, TFieldValues>,
- options?: Omit<
- UseFormProps<TFieldValues, TContext, TTransformedValues>,
- "resolver"
- >,
+  schema: z.ZodType<unknown, TFieldValues>,
+  options?: Omit<
+    UseFormProps<TFieldValues, TContext, TTransformedValues>,
+    "resolver"
+  >,
 ): UseFormReturn<TFieldValues, TContext, TTransformedValues> {
- const locale = useLocale();
+  const locale = useLocale();
 
- const form = useForm<TFieldValues, TContext, TTransformedValues>({
-...options,
- /*
+  const form = useForm<TFieldValues, TContext, TTransformedValues>({
+    ...options,
+    /*
  Schema 의 입력·출력 타입은 부르는 쪽이 이미 못 박아 두었다(`z.input`·`z.output`).
  여기서는 그 짝을 다시 세우지 않고 RHF 의 Resolver 계약으로만 좁힌다.
  */
- resolver: zodResolver(schema, parseOptions(locale)) as unknown as Resolver<
- TFieldValues,
- TContext,
- TTransformedValues
- >,
- } as UseFormProps<TFieldValues, TContext, TTransformedValues>);
+    resolver: zodResolver(schema, parseOptions(locale)) as unknown as Resolver<
+      TFieldValues,
+      TContext,
+      TTransformedValues
+    >,
+  } as UseFormProps<TFieldValues, TContext, TTransformedValues>);
 
- const { trigger, formState } = form;
- const renderedLocale = useRef(locale);
+  const { trigger, formState } = form;
+  const renderedLocale = useRef(locale);
 
- useEffect(() => {
- if (renderedLocale.current === locale) {
- return;
- }
- renderedLocale.current = locale;
+  useEffect(() => {
+    if (renderedLocale.current === locale) {
+      return;
+    }
+    renderedLocale.current = locale;
 
- // 오류가 떠 있지 않으면 다시 검증하지 않는다 — 건드린 적 없는 폼을 붉게 만들지 않는다.
- if (Object.keys(formState.errors).length > 0) {
- void trigger();
- }
- }, [locale, trigger, formState]);
+    // 오류가 떠 있지 않으면 다시 검증하지 않는다 — 건드린 적 없는 폼을 붉게 만들지 않는다.
+    if (Object.keys(formState.errors).length > 0) {
+      void trigger();
+    }
+  }, [locale, trigger, formState]);
 
- return form;
+  return form;
 }

@@ -24,7 +24,10 @@ export default async function ProjectRepositoryDetailPage({
   }>;
 }) {
   const { workspaceSlug, projectSlug, repositoryId } = await params;
-  const { workspace, project } = await requireProject(workspaceSlug, projectSlug);
+  const { workspace, project } = await requireProject(
+    workspaceSlug,
+    projectSlug,
+  );
 
   if (!UUID.test(repositoryId)) {
     notFound();

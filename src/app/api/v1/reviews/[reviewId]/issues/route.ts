@@ -33,7 +33,9 @@ export async function POST(
       return apiError("VALIDATION_ERROR", "reviewId 형식이 올바르지 않다.");
     }
 
-    const parsed = reviewIssueAppendSchema.safeParse(await readJsonBody(request));
+    const parsed = reviewIssueAppendSchema.safeParse(
+      await readJsonBody(request),
+    );
     if (!parsed.success) {
       return validationErrorResponse(parsed.error);
     }

@@ -44,27 +44,27 @@ import { cn } from "@/lib/utils";
  * raw HTML 은 여전히 «만들어지지 않는다» — 위 보증은 그대로다.
  */
 export function MarkdownView({
- content,
- emptyLabel,
- className,
+  content,
+  emptyLabel,
+  className,
 }: {
- content: string;
- /**
- * 본문이 비었을 때의 한 줄.
- *
- * 🔴 **이 Component 는 사전을 읽지 않는다.** Server(문서 상세)와 Client(편집기 미리
- * 보기) 양쪽에서 쓰이므로 `readMessages()` 를 부를 수 없다 — 문구는 화면 언어를 아는
- * 쪽이 넘긴다(`ConfirmDialog` 와 같은 판단).
- */
- emptyLabel: string;
- className?: string;
+  content: string;
+  /**
+   * 본문이 비었을 때의 한 줄.
+   *
+   * 🔴 **이 Component 는 사전을 읽지 않는다.** Server(문서 상세)와 Client(편집기 미리
+   * 보기) 양쪽에서 쓰이므로 `readMessages()` 를 부를 수 없다 — 문구는 화면 언어를 아는
+   * 쪽이 넘긴다(`ConfirmDialog` 와 같은 판단).
+   */
+  emptyLabel: string;
+  className?: string;
 }) {
- if (content.trim() === "") {
- return <p className="text-xs text-muted-foreground">{emptyLabel}</p>;
- }
+  if (content.trim() === "") {
+    return <p className="text-xs text-muted-foreground">{emptyLabel}</p>;
+  }
 
- return (
- /*
+  return (
+    /*
  🔴 **`break-words` 는 장식이 아니다 — 페이지가 좌우로 넘치는 것을 막는다.**
 
  본문에는 띄어쓰기가 없는 긴 덩어리가 들어온다: URL 한 줄, 긴 식별자, 경로.
@@ -76,110 +76,112 @@ export function MarkdownView({
  `pre` 는 `white-space: pre` 라 애초에 줄바꿈 자리가 없어 **영향을 받지 않는다** —
  코드블록은 지금처럼 제 컨테이너 안에서 가로로 스크롤한다.
  */
- <div
- className={cn(
- "flex flex-col gap-3 text-sm leading-relaxed break-words",
- className,
- )}
- >
- <Markdown
- remarkPlugins={[remarkGfm]}
- /*
+    <div
+      className={cn(
+        "flex flex-col gap-3 text-sm leading-relaxed break-words",
+        className,
+      )}
+    >
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        /*
  🔴 **언어를 «추측»하지 않는다**(`detect` 는 기본값 false 그대로). ```text 처럼
  언어를 적지 않은 블록은 강조하지 않는다 — 로그·표·의사코드를 아무 언어로
  칠하면 없는 문법이 있는 것처럼 읽힌다.
  */
- rehypePlugins={[rehypeHighlight]}
- components={{
- h1: ({ children }) => (
- <h2 className="mt-4 border-b border-border pb-1 text-base font-semibold tracking-tight">
- {children}
- </h2>
-),
- h2: ({ children }) => (
- <h3 className="mt-4 text-sm font-semibold tracking-tight">
- {children}
- </h3>
-),
- h3: ({ children }) => (
- <h4 className="mt-3 text-sm font-medium">{children}</h4>
-),
- /*
+        rehypePlugins={[rehypeHighlight]}
+        components={{
+          h1: ({ children }) => (
+            <h2 className="mt-4 border-b border-border pb-1 text-base font-semibold tracking-tight">
+              {children}
+            </h2>
+          ),
+          h2: ({ children }) => (
+            <h3 className="mt-4 text-sm font-semibold tracking-tight">
+              {children}
+            </h3>
+          ),
+          h3: ({ children }) => (
+            <h4 className="mt-3 text-sm font-medium">{children}</h4>
+          ),
+          /*
  Markdown 의 빈 줄은 paragraph 로 나뉘고, paragraph 안의 단일 newline 은 Text node 로
  남는다. `whitespace-pre-wrap` 으로 그 newline 도 화면에서 보존한다. remark-breaks 로
  의미를 `<br>` 로 바꾸지 않으므로 저장된 Markdown 구조는 그대로다.
  */
- p: ({ children }) => (
- <p className="whitespace-pre-wrap text-sm">{children}</p>
- ),
- ul: ({ children }) => (
- <ul className="list-disc space-y-1 pl-5 text-sm">{children}</ul>
-),
- ol: ({ children }) => (
- <ol className="list-decimal space-y-1 pl-5 text-sm">{children}</ol>
-),
- blockquote: ({ children }) => (
- <blockquote className="border-l-2 border-border pl-3 text-sm text-muted-foreground">
- {children}
- </blockquote>
-),
- code: ({ children }) => (
- <code className="rounded-sm bg-muted px-1 py-0.5 font-mono text-xs">
- {children}
- </code>
- ),
- pre: ({ children }) => (
- /*
+          p: ({ children }) => (
+            <p className="whitespace-pre-wrap text-sm">{children}</p>
+          ),
+          ul: ({ children }) => (
+            <ul className="list-disc space-y-1 pl-5 text-sm">{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="list-decimal space-y-1 pl-5 text-sm">{children}</ol>
+          ),
+          blockquote: ({ children }) => (
+            <blockquote className="border-l-2 border-border pl-3 text-sm text-muted-foreground">
+              {children}
+            </blockquote>
+          ),
+          code: ({ children }) => (
+            <code className="rounded-sm bg-muted px-1 py-0.5 font-mono text-xs">
+              {children}
+            </code>
+          ),
+          pre: ({ children }) => (
+            /*
  🔴 긴 줄은 가로로 스크롤한다. 페이지 전체가 옆으로 늘어나지 않게 한다.
 
  색은 여기 한 곳에서 준다 — 코드 본문은 편집기의 코드블록과 같은
  `--accent-foreground` 이고, 그 위에 세 갈래만 갈라 놓는다.
  */
- <pre
- className={cn(
- "overflow-x-auto rounded-sm border border-border bg-muted/40 p-3 text-accent-foreground",
- /* 언어가 없는 fenced block도 `<pre><code>`다. inline 장식은 parent에서 확실히 걷는다. */
- "[&_code]:rounded-none [&_code]:bg-transparent [&_code]:p-0",
- "[&_.hljs-comment]:text-muted-foreground [&_.hljs-comment]:italic",
- "[&_.hljs-quote]:text-muted-foreground [&_.hljs-quote]:italic",
- "[&_.hljs-keyword]:text-primary [&_.hljs-literal]:text-primary",
- "[&_.hljs-string]:text-foreground [&_.hljs-number]:text-foreground",
- "[&_.hljs-regexp]:text-foreground",
-)}
- >
- {children}
- </pre>
-),
- a: ({ href, children }) => (
- <a
- href={href}
- target="_blank"
- rel="noreferrer noopener"
- className="underline underline-offset-2 hover:text-foreground"
- >
- {children}
- </a>
-),
- table: ({ children }) => (
- <div className="overflow-x-auto">
- <table className="w-full border-collapse text-xs">{children}</table>
- </div>
-),
- th: ({ children }) => (
- <th className="border-b border-border px-2 py-1 text-left font-medium">
- {children}
- </th>
-),
- td: ({ children }) => (
- <td className="border-b border-border px-2 py-1 align-top">
- {children}
- </td>
-),
- hr: () => <hr className="border-border" />,
- }}
- >
- {content}
- </Markdown>
- </div>
-);
+            <pre
+              className={cn(
+                "overflow-x-auto rounded-sm border border-border bg-muted/40 p-3 text-accent-foreground",
+                /* 언어가 없는 fenced block도 `<pre><code>`다. inline 장식은 parent에서 확실히 걷는다. */
+                "[&_code]:rounded-none [&_code]:bg-transparent [&_code]:p-0",
+                "[&_.hljs-comment]:text-muted-foreground [&_.hljs-comment]:italic",
+                "[&_.hljs-quote]:text-muted-foreground [&_.hljs-quote]:italic",
+                "[&_.hljs-keyword]:text-primary [&_.hljs-literal]:text-primary",
+                "[&_.hljs-string]:text-foreground [&_.hljs-number]:text-foreground",
+                "[&_.hljs-regexp]:text-foreground",
+              )}
+            >
+              {children}
+            </pre>
+          ),
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              {children}
+            </a>
+          ),
+          table: ({ children }) => (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-xs">
+                {children}
+              </table>
+            </div>
+          ),
+          th: ({ children }) => (
+            <th className="border-b border-border px-2 py-1 text-left font-medium">
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td className="border-b border-border px-2 py-1 align-top">
+              {children}
+            </td>
+          ),
+          hr: () => <hr className="border-border" />,
+        }}
+      >
+        {content}
+      </Markdown>
+    </div>
+  );
 }

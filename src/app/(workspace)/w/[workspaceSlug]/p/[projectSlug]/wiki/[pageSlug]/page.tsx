@@ -20,7 +20,10 @@ export default async function ProjectKnowledgeDetailPage({
   }>;
 }) {
   const { workspaceSlug, projectSlug, pageSlug } = await params;
-  const { workspace, project } = await requireProject(workspaceSlug, projectSlug);
+  const { workspace, project } = await requireProject(
+    workspaceSlug,
+    projectSlug,
+  );
 
   const page = await findKnowledgePage(
     { workspaceId: workspace.workspaceId, projectId: project.projectId },

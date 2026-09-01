@@ -21,7 +21,9 @@ describe("generateApiKey", () => {
     const key = generateApiKey();
 
     expect(key.plainToken.startsWith(API_KEY_PREFIX)).toBe(true);
-    expect(key.keyPrefix).toBe(key.plainToken.slice(0, API_KEY_PREFIX.length + 8));
+    expect(key.keyPrefix).toBe(
+      key.plainToken.slice(0, API_KEY_PREFIX.length + 8),
+    );
     expect(isApiKeyFormat(key.plainToken)).toBe(true);
   });
 
@@ -30,7 +32,9 @@ describe("generateApiKey", () => {
 
     expect(key.keyHash).not.toContain(key.plainToken);
     // 앞 8자(Prefix)만으로 원문을 복원할 수 없다 — 나머지 35자가 Hash 에도 남지 않는다.
-    expect(key.keyHash).not.toContain(key.plainToken.slice(API_KEY_PREFIX.length));
+    expect(key.keyHash).not.toContain(
+      key.plainToken.slice(API_KEY_PREFIX.length),
+    );
     expect(key.keyHash).toMatch(/^[0-9a-f]{64}$/);
   });
 
@@ -53,7 +57,9 @@ describe("isApiKeyFormat", () => {
   it("접두사가 없으면 거절한다", () => {
     const key = generateApiKey();
 
-    expect(isApiKeyFormat(key.plainToken.slice(API_KEY_PREFIX.length))).toBe(false);
+    expect(isApiKeyFormat(key.plainToken.slice(API_KEY_PREFIX.length))).toBe(
+      false,
+    );
   });
 
   it("길이가 다르면 거절한다", () => {
@@ -89,7 +95,9 @@ describe("keyPrefixOf · apiKeyHashEquals", () => {
   it("Prefix 는 원문보다 짧다", () => {
     const key = generateApiKey();
 
-    expect(keyPrefixOf(key.plainToken).length).toBeLessThan(key.plainToken.length);
+    expect(keyPrefixOf(key.plainToken).length).toBeLessThan(
+      key.plainToken.length,
+    );
   });
 
   it("길이가 다른 Hash 를 비교해도 던지지 않는다", () => {

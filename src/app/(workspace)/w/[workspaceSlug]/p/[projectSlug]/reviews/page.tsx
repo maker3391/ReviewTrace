@@ -19,7 +19,10 @@ export default async function ProjectReviewsPage({
   searchParams: Promise<RawSearchParams>;
 }) {
   const { workspaceSlug, projectSlug } = await params;
-  const { workspace, project } = await requireProject(workspaceSlug, projectSlug);
+  const { workspace, project } = await requireProject(
+    workspaceSlug,
+    projectSlug,
+  );
 
   return (
     <ReviewListScreen

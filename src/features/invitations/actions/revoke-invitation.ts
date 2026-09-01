@@ -6,10 +6,7 @@ import { invitationIdSchema } from "@/features/invitations/schemas/invitation";
 import { revokeInvitation } from "@/features/invitations/server/invitation-service";
 import { requireOwner, requireWorkspace } from "@/lib/auth/require-workspace";
 import { actionFromError } from "@/lib/action/action-error";
-import {
- actionOk,
- type ActionResult,
-} from "@/lib/action/action-result";
+import { actionOk, type ActionResult } from "@/lib/action/action-result";
 import { parseActionInput } from "@/lib/action/parse-action-input";
 
 /**
@@ -30,30 +27,30 @@ import { parseActionInput } from "@/lib/action/parse-action-input";
  * 지워진 채 도착해 화면이 이유를 보여 줄 수 없다.
  */
 export async function revokeInvitationAction(
- workspaceSlug: string,
- invitationId: string,
+  workspaceSlug: string,
+  invitationId: string,
 ): Promise<ActionResult> {
- // 🔴 오류 문구는 이 사람의 언어로 나간다 — Schema 는 언어를 알지 못한다.
- const parsed = await parseActionInput(invitationIdSchema, invitationId);
- if (!parsed.ok) {
- return parsed.failure;
- }
+  // 🔴 오류 문구는 이 사람의 언어로 나간다 — Schema 는 언어를 알지 못한다.
+  const parsed = await parseActionInput(invitationIdSchema, invitationId);
+  if (!parsed.ok) {
+    return parsed.failure;
+  }
 
- try {
- const { workspace } = await requireWorkspace(workspaceSlug);
- requireOwner(workspace);
+  try {
+    const { workspace } = await requireWorkspace(workspaceSlug);
+    requireOwner(workspace);
 
- // 🔴 행을 지우지 않는다 — `revokedAt` 을 찍는다(`invitation-service.ts`).
- await revokeInvitation({
- workspaceId: workspace.workspaceId,
- invitationId: parsed.data,
- });
+    // 🔴 행을 지우지 않는다 — `revokedAt` 을 찍는다(`invitation-service.ts`).
+    await revokeInvitation({
+      workspaceId: workspace.workspaceId,
+      invitationId: parsed.data,
+    });
 
- // 수락 대기 목록이 있는 화면은 «멤버»다. 서버가 다시 그린다 — 브라우저가 재조회하지 않는다.
- revalidatePath(`/w/${workspaceSlug}/members`);
+    // 수락 대기 목록이 있는 화면은 «멤버»다. 서버가 다시 그린다 — 브라우저가 재조회하지 않는다.
+    revalidatePath(`/w/${workspaceSlug}/members`);
 
- return actionOk();
- } catch (error) {
- return actionFromError(error);
- }
+    return actionOk();
+  } catch (error) {
+    return actionFromError(error);
+  }
 }

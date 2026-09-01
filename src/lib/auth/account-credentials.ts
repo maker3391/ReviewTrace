@@ -49,15 +49,15 @@ const CREDENTIAL_FIELDS = ["access_token", "refresh_token"] as const;
  * 없으면 다음 로그인에 사용자를 찾지 못한다(`getUserByAccount`).
  */
 export function stripAccountCredentials(
- account: AdapterAccount,
+  account: AdapterAccount,
 ): AdapterAccount {
- const stripped: AdapterAccount = {...account };
+  const stripped: AdapterAccount = { ...account };
 
- for (const field of CREDENTIAL_FIELDS) {
- delete stripped[field];
- }
+  for (const field of CREDENTIAL_FIELDS) {
+    delete stripped[field];
+  }
 
- return stripped;
+  return stripped;
 }
 
 /**
@@ -69,14 +69,14 @@ export function stripAccountCredentials(
  * Adapter 의 나머지 동작은 그대로 흘려보낸다.
  */
 export function withoutStoredCredentials(adapter: Adapter): Adapter {
- if (adapter.linkAccount === undefined) {
- return adapter;
- }
+  if (adapter.linkAccount === undefined) {
+    return adapter;
+  }
 
- return {
-...adapter,
- // 원본 Adapter 를 수신자로 두고 부른다 — 구현이 `this` 를 쓰더라도 깨지지 않는다.
- linkAccount: (account) =>
- adapter.linkAccount!(stripAccountCredentials(account)),
- };
+  return {
+    ...adapter,
+    // 원본 Adapter 를 수신자로 두고 부른다 — 구현이 `this` 를 쓰더라도 깨지지 않는다.
+    linkAccount: (account) =>
+      adapter.linkAccount!(stripAccountCredentials(account)),
+  };
 }

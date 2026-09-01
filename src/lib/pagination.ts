@@ -32,8 +32,8 @@ export const MAX_PAGE = 10_000;
 
 /** 목록에 「몇 쪽을, 몇 개씩」을 묻는 값. */
 export interface PageRequest {
- page: number;
- pageSize: number;
+  page: number;
+  pageSize: number;
 }
 
 /**
@@ -45,10 +45,10 @@ export interface PageRequest {
  * `page` 는 **요청한 값이 아니라 실제로 그린 쪽**이다(`paginate` 참고).
  */
 export interface PageResult<Item> {
- items: Item[];
- total: number;
- page: number;
- pageSize: number;
+  items: Item[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 /**
@@ -56,21 +56,21 @@ export interface PageResult<Item> {
  * `.catch()` 로 기본값에 떨어뜨려, 잘못된 URL 하나가 화면을 500 으로 만들지 않게 한다.
  */
 export const pageNumberSchema = z.coerce
-.number()
-.int()
-.min(1)
-.max(MAX_PAGE)
-.catch(1);
+  .number()
+  .int()
+  .min(1)
+  .max(MAX_PAGE)
+  .catch(1);
 
 export const pageSizeSchema = z.coerce
-.number()
-.int()
-.refine((value) => (PAGE_SIZE_OPTIONS as readonly number[]).includes(value))
-.catch(DEFAULT_PAGE_SIZE);
+  .number()
+  .int()
+  .refine((value) => (PAGE_SIZE_OPTIONS as readonly number[]).includes(value))
+  .catch(DEFAULT_PAGE_SIZE);
 
 export const pageRequestSchema = z.object({
- page: pageNumberSchema,
- pageSize: pageSizeSchema,
+  page: pageNumberSchema,
+  pageSize: pageSizeSchema,
 });
 
 /** Next.js 가 넘겨주는 Search Params 의 원형. */
@@ -78,16 +78,16 @@ export type RawSearchParams = Record<string, string | string[] | undefined>;
 
 /** 같은 키가 여러 번 오면 첫 값만 쓴다. */
 export function firstValue(
- value: string | string[] | undefined,
+  value: string | string[] | undefined,
 ): string | undefined {
- return Array.isArray(value) ? value[0] : value;
+  return Array.isArray(value) ? value[0] : value;
 }
 
 export function parsePageRequest(raw: RawSearchParams): PageRequest {
- return pageRequestSchema.parse({
- page: firstValue(raw.page),
- pageSize: firstValue(raw.pageSize),
- });
+  return pageRequestSchema.parse({
+    page: firstValue(raw.page),
+    pageSize: firstValue(raw.pageSize),
+  });
 }
 
 /**
@@ -97,20 +97,20 @@ export function parsePageRequest(raw: RawSearchParams): PageRequest {
  * 기본값이 바뀌면 그 주소가 옛 값에 못박힌다.
  */
 export function writePageParams(
- params: URLSearchParams,
- request: PageRequest,
+  params: URLSearchParams,
+  request: PageRequest,
 ): void {
- if (request.page > 1) {
- params.set("page", String(request.page));
- } else {
- params.delete("page");
- }
+  if (request.page > 1) {
+    params.set("page", String(request.page));
+  } else {
+    params.delete("page");
+  }
 
- if (request.pageSize !== DEFAULT_PAGE_SIZE) {
- params.set("pageSize", String(request.pageSize));
- } else {
- params.delete("pageSize");
- }
+  if (request.pageSize !== DEFAULT_PAGE_SIZE) {
+    params.set("pageSize", String(request.pageSize));
+  } else {
+    params.delete("pageSize");
+  }
 }
 
 /**
@@ -123,16 +123,16 @@ export function writePageParams(
  * 쪽만 따로 붙이면 쪽을 넘기는 순간 검색어가 사라진다.
  */
 export function listPageHref(basePath: string, request: PageRequest): string {
- const params = new URLSearchParams();
- writePageParams(params, request);
+  const params = new URLSearchParams();
+  writePageParams(params, request);
 
- const query = params.toString();
- return query === "" ? basePath : `${basePath}?${query}`;
+  const query = params.toString();
+  return query === "" ? basePath : `${basePath}?${query}`;
 }
 
 /** 전체 쪽 수. 🔴 결과가 없어도 **0쪽이 아니라 1쪽**이다 — 빈 목록도 한 쪽이다. */
 export function totalPageCount(total: number, pageSize: number): number {
- return Math.max(1, Math.ceil(total / pageSize));
+  return Math.max(1, Math.ceil(total / pageSize));
 }
 
 /**
@@ -149,21 +149,21 @@ export function totalPageCount(total: number, pageSize: number): number {
  * 🔴 **결과가 0건이면 행 질의를 아예 던지지 않는다.** 던져 봐야 빈 배열이다.
  */
 export async function paginate<Item>(
- request: PageRequest,
- source: {
- count: () => Promise<number>;
- rows: (limit: number, offset: number) => Promise<Item[]>;
- },
+  request: PageRequest,
+  source: {
+    count: () => Promise<number>;
+    rows: (limit: number, offset: number) => Promise<Item[]>;
+  },
 ): Promise<PageResult<Item>> {
- const total = await source.count();
- const page = Math.min(request.page, totalPageCount(total, request.pageSize));
+  const total = await source.count();
+  const page = Math.min(request.page, totalPageCount(total, request.pageSize));
 
- const items =
- total === 0
- ? []
- : await source.rows(request.pageSize, (page - 1) * request.pageSize);
+  const items =
+    total === 0
+      ? []
+      : await source.rows(request.pageSize, (page - 1) * request.pageSize);
 
- return { items, total, page, pageSize: request.pageSize };
+  return { items, total, page, pageSize: request.pageSize };
 }
 
 /**
@@ -173,29 +173,29 @@ export async function paginate<Item>(
  * 첫 쪽·마지막 쪽·현재 쪽 언저리만 남긴다 — 그 셋이 실제로 누르는 자리다.
  */
 export function pageWindow(
- page: number,
- totalPages: number,
- span = 1,
+  page: number,
+  totalPages: number,
+  span = 1,
 ): (number | null)[] {
- const wanted = new Set<number>([1, totalPages]);
- for (let candidate = page - span; candidate <= page + span; candidate += 1) {
- if (candidate >= 1 && candidate <= totalPages) {
- wanted.add(candidate);
- }
- }
+  const wanted = new Set<number>([1, totalPages]);
+  for (let candidate = page - span; candidate <= page + span; candidate += 1) {
+    if (candidate >= 1 && candidate <= totalPages) {
+      wanted.add(candidate);
+    }
+  }
 
- const sorted = [...wanted].sort((left, right) => left - right);
- const window: (number | null)[] = [];
- let previous = 0;
+  const sorted = [...wanted].sort((left, right) => left - right);
+  const window: (number | null)[] = [];
+  let previous = 0;
 
- for (const current of sorted) {
- // 사이가 «두 칸 이상» 벌어졌을 때만 생략표를 둔다 — 한 칸이면 그 번호를 그리는 편이 낫다.
- if (previous !== 0 && current - previous > 1) {
- window.push(null);
- }
- window.push(current);
- previous = current;
- }
+  for (const current of sorted) {
+    // 사이가 «두 칸 이상» 벌어졌을 때만 생략표를 둔다 — 한 칸이면 그 번호를 그리는 편이 낫다.
+    if (previous !== 0 && current - previous > 1) {
+      window.push(null);
+    }
+    window.push(current);
+    previous = current;
+  }
 
- return window;
+  return window;
 }

@@ -37,7 +37,11 @@ beforeEach(() => {
   });
 });
 
-function postRequest(reviewer: { type: string; name: string; version: string }) {
+function postRequest(reviewer: {
+  type: string;
+  name: string;
+  version: string;
+}) {
   return new Request("https://example.test/api/v1/reviews", {
     method: "POST",
     headers: { "content-type": "application/json" },

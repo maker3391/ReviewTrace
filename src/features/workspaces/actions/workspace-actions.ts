@@ -3,24 +3,21 @@
 import { revalidatePath } from "next/cache";
 
 import {
- changeMemberRoleSchema,
- createWorkspaceSchema,
- removeMemberSchema,
- type ChangeMemberRoleInput,
- type CreateWorkspaceInput,
- type RemoveMemberInput,
+  changeMemberRoleSchema,
+  createWorkspaceSchema,
+  removeMemberSchema,
+  type ChangeMemberRoleInput,
+  type CreateWorkspaceInput,
+  type RemoveMemberInput,
 } from "@/features/workspaces/schemas/workspace";
 import {
- changeMemberRole,
- createWorkspace,
- removeMember,
+  changeMemberRole,
+  createWorkspace,
+  removeMember,
 } from "@/features/workspaces/server/workspace-service";
 import { deleteWorkspace } from "@/features/workspaces/server/workspace-deletion-service";
 import { actionFromError } from "@/lib/action/action-error";
-import {
- actionOk,
- type ActionResult,
-} from "@/lib/action/action-result";
+import { actionOk, type ActionResult } from "@/lib/action/action-result";
 import { parseActionInput } from "@/lib/action/parse-action-input";
 import { requireUser } from "@/lib/auth/require-workspace";
 import { requireOwner, requireWorkspace } from "@/lib/auth/require-workspace";
@@ -33,8 +30,8 @@ import { requireOwner, requireWorkspace } from "@/lib/auth/require-workspace";
  */
 
 export interface CreatedWorkspaceResult {
- slug: string;
- name: string;
+  slug: string;
+  name: string;
 }
 
 /**
@@ -44,31 +41,31 @@ export interface CreatedWorkspaceResult {
  * 일이라 기존 소속이 근거가 될 수 없다.
  */
 export async function createWorkspaceAction(
- input: CreateWorkspaceInput,
+  input: CreateWorkspaceInput,
 ): Promise<ActionResult<CreatedWorkspaceResult>> {
- const parsed = await parseActionInput(createWorkspaceSchema, input);
- if (!parsed.ok) {
- return parsed.failure;
- }
+  const parsed = await parseActionInput(createWorkspaceSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
+  }
 
- try {
- const user = await requireUser();
+  try {
+    const user = await requireUser();
 
- const created = await createWorkspace({
- name: parsed.data.name,
- createdBy: user.id,
- });
+    const created = await createWorkspace({
+      name: parsed.data.name,
+      createdBy: user.id,
+    });
 
- /**
- * 사이드바의 Workspace Switcher 는 Layout 이 그린다 — 새 Workspace 가 목록에 보이려면
- * Layout 까지 되살려야 한다.
- */
- revalidatePath("/w", "layout");
+    /**
+     * 사이드바의 Workspace Switcher 는 Layout 이 그린다 — 새 Workspace 가 목록에 보이려면
+     * Layout 까지 되살려야 한다.
+     */
+    revalidatePath("/w", "layout");
 
- return actionOk({ slug: created.slug, name: created.name });
- } catch (error) {
- return actionFromError(error);
- }
+    return actionOk({ slug: created.slug, name: created.name });
+  } catch (error) {
+    return actionFromError(error);
+  }
 }
 
 /**
@@ -78,30 +75,30 @@ export async function createWorkspaceAction(
  * Application Service 가 Transaction 안에서 판정한다(`workspace-service.ts`).
  */
 export async function changeMemberRoleAction(
- workspaceSlug: string,
- input: ChangeMemberRoleInput,
+  workspaceSlug: string,
+  input: ChangeMemberRoleInput,
 ): Promise<ActionResult> {
- const parsed = await parseActionInput(changeMemberRoleSchema, input);
- if (!parsed.ok) {
- return parsed.failure;
- }
+  const parsed = await parseActionInput(changeMemberRoleSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
+  }
 
- try {
- const { workspace } = await requireWorkspace(workspaceSlug);
- requireOwner(workspace);
+  try {
+    const { workspace } = await requireWorkspace(workspaceSlug);
+    requireOwner(workspace);
 
- await changeMemberRole({
- workspaceId: workspace.workspaceId,
- userId: parsed.data.userId,
- role: parsed.data.role,
- });
+    await changeMemberRole({
+      workspaceId: workspace.workspaceId,
+      userId: parsed.data.userId,
+      role: parsed.data.role,
+    });
 
- revalidatePath(`/w/${workspaceSlug}/members`);
+    revalidatePath(`/w/${workspaceSlug}/members`);
 
- return actionOk();
- } catch (error) {
- return actionFromError(error);
- }
+    return actionOk();
+  } catch (error) {
+    return actionFromError(error);
+  }
 }
 
 /**
@@ -164,25 +161,25 @@ export async function removeMemberAction(
  * 실제 `workspaceId` 는 소속 확인(`requireWorkspace`)이 돌려준 값이다.
  */
 export async function deleteWorkspaceAction(
- workspaceSlug: string,
+  workspaceSlug: string,
 ): Promise<ActionResult> {
- try {
- const { user, workspace } = await requireWorkspace(workspaceSlug);
- requireOwner(workspace);
+  try {
+    const { user, workspace } = await requireWorkspace(workspaceSlug);
+    requireOwner(workspace);
 
- await deleteWorkspace({
- workspaceId: workspace.workspaceId,
- userId: user.id,
- });
+    await deleteWorkspace({
+      workspaceId: workspace.workspaceId,
+      userId: user.id,
+    });
 
- /**
- * Workspace 자체가 사라졌다 — 사이드바의 Switcher 목록까지 다시 그려야 한다.
- * 🔴 지워진 Workspace 의 주소를 되살리지 않는다. 그 경로는 이제 404 다.
- */
- revalidatePath("/w", "layout");
+    /**
+     * Workspace 자체가 사라졌다 — 사이드바의 Switcher 목록까지 다시 그려야 한다.
+     * 🔴 지워진 Workspace 의 주소를 되살리지 않는다. 그 경로는 이제 404 다.
+     */
+    revalidatePath("/w", "layout");
 
- return actionOk();
- } catch (error) {
- return actionFromError(error);
- }
+    return actionOk();
+  } catch (error) {
+    return actionFromError(error);
+  }
 }

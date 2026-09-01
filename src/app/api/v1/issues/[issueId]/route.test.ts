@@ -29,107 +29,104 @@ const updateIssueStatus = vi.fn();
 vi.mock("next/server", () => ({ after: vi.fn() }));
 
 vi.mock("@/lib/api/api-key-auth", () => ({
- authenticateAgent: (...args: unknown[]) => authenticateAgent(...args),
+  authenticateAgent: (...args: unknown[]) => authenticateAgent(...args),
 }));
 
 vi.mock("@/features/issues/server/issue-status-service", () => ({
- updateIssueStatus: (...args: unknown[]) => updateIssueStatus(...args),
+  updateIssueStatus: (...args: unknown[]) => updateIssueStatus(...args),
 }));
 
 vi.mock("@/features/issues/server/code-evidence-service", () => ({
- verifyCodeEvidence: vi.fn(),
+  verifyCodeEvidence: vi.fn(),
 }));
 
 vi.mock("@/features/issues/server/issue-agent-query", () => ({
- findAgentIssue: vi.fn(),
+  findAgentIssue: vi.fn(),
 }));
 
 const { PATCH } = await import("@/app/api/v1/issues/[issueId]/route");
 
 beforeEach(() => {
- vi.clearAllMocks();
+  vi.clearAllMocks();
 
- authenticateAgent.mockResolvedValue({
- workspaceId: WORKSPACE,
- apiKeyName: "codex-ci",
- });
- updateIssueStatus.mockResolvedValue({
- id: ISSUE,
- status: "RESOLVED",
- resolutionSummary: "고쳤다",
- resolvedAt: new Date("2026-08-28T00:00:00.000Z"),
- updatedAt: new Date("2026-08-28T00:00:00.000Z"),
- evidenceIds: [],
- });
+  authenticateAgent.mockResolvedValue({
+    workspaceId: WORKSPACE,
+    apiKeyName: "codex-ci",
+  });
+  updateIssueStatus.mockResolvedValue({
+    id: ISSUE,
+    status: "RESOLVED",
+    resolutionSummary: "고쳤다",
+    resolvedAt: new Date("2026-08-28T00:00:00.000Z"),
+    updatedAt: new Date("2026-08-28T00:00:00.000Z"),
+    evidenceIds: [],
+  });
 });
 
 function patchRequest(body: unknown) {
- return new Request(`https://example.test/api/v1/issues/${ISSUE}`, {
- method: "PATCH",
- headers: { "content-type": "application/json" },
- body: JSON.stringify(body),
- });
+  return new Request(`https://example.test/api/v1/issues/${ISSUE}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 const context = {
- params: Promise.resolve({ issueId: ISSUE }),
+  params: Promise.resolve({ issueId: ISSUE }),
 } as Parameters<typeof PATCH>[1];
 
 describe("PATCH /api/v1/issues/{issueId}", () => {
- it("🔴 Project 없이 통과한다 — 범위는 Workspace 하나뿐이다", async () => {
- const response = await PATCH(
- patchRequest({ status: "RESOLVED", resolutionSummary: "고쳤다" }),
- context,
-);
+  it("🔴 Project 없이 통과한다 — 범위는 Workspace 하나뿐이다", async () => {
+    const response = await PATCH(
+      patchRequest({ status: "RESOLVED", resolutionSummary: "고쳤다" }),
+      context,
+    );
 
- expect(response.status).toBe(200);
+    expect(response.status).toBe(200);
 
- const [input] = updateIssueStatus.mock.calls[0] as [
- { scope: Record<string, unknown>; issueId: string },
- ];
+    const [input] = updateIssueStatus.mock.calls[0] as [
+      { scope: Record<string, unknown>; issueId: string },
+    ];
 
- // 🔴 여기에 projectId 가 생기면 이미 돌고 있는 Agent 가 전부 404 를 받는다.
- expect(input.scope).toEqual({ workspaceId: WORKSPACE });
- expect(input.issueId).toBe(ISSUE);
- });
+    // 🔴 여기에 projectId 가 생기면 이미 돌고 있는 Agent 가 전부 404 를 받는다.
+    expect(input.scope).toEqual({ workspaceId: WORKSPACE });
+    expect(input.issueId).toBe(ISSUE);
+  });
 
- it("actor 를 안 보내면 API Key 이름이 대신 남는다", async () => {
- await PATCH(
- patchRequest({ status: "RESOLVED", resolutionSummary: "고쳤다" }),
- context,
-);
+  it("actor 를 안 보내면 API Key 이름이 대신 남는다", async () => {
+    await PATCH(
+      patchRequest({ status: "RESOLVED", resolutionSummary: "고쳤다" }),
+      context,
+    );
 
- const [input] = updateIssueStatus.mock.calls[0] as [
- { fallbackActorName: string },
- ];
+    const [input] = updateIssueStatus.mock.calls[0] as [
+      { fallbackActorName: string },
+    ];
 
- expect(input.fallbackActorName).toBe("codex-ci");
- });
+    expect(input.fallbackActorName).toBe("codex-ci");
+  });
 
- it("🔴 Payload 의 SYSTEM 행위자를 무시하고 API Key Agent 를 기록한다", async () => {
- await PATCH(
- patchRequest({
- status: "RESOLVED",
- resolutionSummary: "고쳤다",
- actor: { type: "SYSTEM", name: "scheduler" },
- }),
- context,
- );
+  it("🔴 Payload 의 SYSTEM 행위자를 무시하고 API Key Agent 를 기록한다", async () => {
+    await PATCH(
+      patchRequest({
+        status: "RESOLVED",
+        resolutionSummary: "고쳤다",
+        actor: { type: "SYSTEM", name: "scheduler" },
+      }),
+      context,
+    );
 
- const [input] = updateIssueStatus.mock.calls[0] as [
- { update: { actor: { type: string; name: string } } },
- ];
+    const [input] = updateIssueStatus.mock.calls[0] as [
+      { update: { actor: { type: string; name: string } } },
+    ];
 
- expect(input.update.actor).toEqual({ type: "AGENT", name: "codex-ci" });
- });
+    expect(input.update.actor).toEqual({ type: "AGENT", name: "codex-ci" });
+  });
 
- it("RESOLVED 인데 해결 요약이 없으면 Service 를 부르지 않는다", async () => {
- const response = await PATCH(
- patchRequest({ status: "RESOLVED" }),
- context,
-);
+  it("RESOLVED 인데 해결 요약이 없으면 Service 를 부르지 않는다", async () => {
+    const response = await PATCH(patchRequest({ status: "RESOLVED" }), context);
 
- expect(response.status).toBe(400);
- expect(updateIssueStatus).not.toHaveBeenCalled();
- });
+    expect(response.status).toBe(400);
+    expect(updateIssueStatus).not.toHaveBeenCalled();
+  });
 });

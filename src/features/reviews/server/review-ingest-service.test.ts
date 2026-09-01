@@ -140,7 +140,10 @@ describe("ingestReview — 재전송 판정 순서", () => {
      * 가운데 **무엇을 고르는가**다 — 조건절이 그 행들을 실제로 데려오는지는 Fake 가
      * 증명하지 못하므로 `review-ingest.integration.test.ts` 가 맡는다.
      */
-    expect(result.issues.map((issue) => issue.id)).toEqual([ISSUE, KNOWN_ISSUE]);
+    expect(result.issues.map((issue) => issue.id)).toEqual([
+      ISSUE,
+      KNOWN_ISSUE,
+    ]);
     // 🔴 `externalId` 만 같은 남의 행은 끼어들지 않는다.
     expect(result.issues.map((issue) => issue.id)).not.toContain(
       STRANGER_ISSUE,

@@ -41,7 +41,8 @@ describe("resolveKnowledgePageInput", () => {
   it("🔴 `new`·`edit` 는 화면 주소라 slug 가 될 수 없다", () => {
     for (const reserved of ["new", "edit"]) {
       expect(
-        resolveKnowledgePageInput({ title: reserved, slug: "", content: "" }).ok,
+        resolveKnowledgePageInput({ title: reserved, slug: "", content: "" })
+          .ok,
       ).toBe(false);
     }
   });

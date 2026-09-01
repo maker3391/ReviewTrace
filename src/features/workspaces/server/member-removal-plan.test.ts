@@ -46,9 +46,9 @@ describe("planMemberRemoval", () => {
   });
 
   it("🔴 Personal Workspace 의 주인은 내보내지 못한다", () => {
-    expect(planMemberRemoval({ ...owner, targetIsPersonalOwner: true })).toEqual(
-      { removable: false, block: "PERSONAL_OWNER" },
-    );
+    expect(
+      planMemberRemoval({ ...owner, targetIsPersonalOwner: true }),
+    ).toEqual({ removable: false, block: "PERSONAL_OWNER" });
   });
 
   /**

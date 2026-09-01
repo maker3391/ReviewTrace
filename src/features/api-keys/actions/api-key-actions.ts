@@ -3,19 +3,16 @@
 import { revalidatePath } from "next/cache";
 
 import {
- issueApiKey,
- revokeApiKey,
+  issueApiKey,
+  revokeApiKey,
 } from "@/features/api-keys/server/api-key-service";
 import {
- issueApiKeySchema,
- resolveExpiresAt,
- type IssueApiKeyInput,
+  issueApiKeySchema,
+  resolveExpiresAt,
+  type IssueApiKeyInput,
 } from "@/features/api-keys/schemas/api-key";
 import { actionFromError } from "@/lib/action/action-error";
-import {
- actionOk,
- type ActionResult,
-} from "@/lib/action/action-result";
+import { actionOk, type ActionResult } from "@/lib/action/action-result";
 import { parseActionInput } from "@/lib/action/parse-action-input";
 import { requireOwner, requireWorkspace } from "@/lib/auth/require-workspace";
 
@@ -32,59 +29,59 @@ import { requireOwner, requireWorkspace } from "@/lib/auth/require-workspace";
  * `code`·`message` 만 추린다.
  */
 export interface IssuedApiKeyResult {
- /** 🔴 **이 한 번만 존재한다.** 화면을 떠나면 다시 볼 수 없다. */
- plainToken: string;
- name: string;
- keyPrefix: string;
+  /** 🔴 **이 한 번만 존재한다.** 화면을 떠나면 다시 볼 수 없다. */
+  plainToken: string;
+  name: string;
+  keyPrefix: string;
 }
 
 export async function issueApiKeyAction(
- workspaceSlug: string,
- input: IssueApiKeyInput,
+  workspaceSlug: string,
+  input: IssueApiKeyInput,
 ): Promise<ActionResult<IssuedApiKeyResult>> {
- const parsed = await parseActionInput(issueApiKeySchema, input);
- if (!parsed.ok) {
- return parsed.failure;
- }
+  const parsed = await parseActionInput(issueApiKeySchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
+  }
 
- try {
- const { workspace } = await requireWorkspace(workspaceSlug);
- requireOwner(workspace);
+  try {
+    const { workspace } = await requireWorkspace(workspaceSlug);
+    requireOwner(workspace);
 
- const issued = await issueApiKey({
- workspaceId: workspace.workspaceId,
- name: parsed.data.name,
- expiresAt: resolveExpiresAt(parsed.data.expiry, new Date()),
- });
+    const issued = await issueApiKey({
+      workspaceId: workspace.workspaceId,
+      name: parsed.data.name,
+      expiresAt: resolveExpiresAt(parsed.data.expiry, new Date()),
+    });
 
- revalidatePath(`/w/${workspaceSlug}/settings`);
+    revalidatePath(`/w/${workspaceSlug}/settings`);
 
- // 🔴 목록에 나갈 값만 함께 돌려준다. `keyHash` 는 서비스가 이미 빼고 준다.
- return actionOk({
- plainToken: issued.plainToken,
- name: issued.name,
- keyPrefix: issued.keyPrefix,
- });
- } catch (error) {
- return actionFromError(error);
- }
+    // 🔴 목록에 나갈 값만 함께 돌려준다. `keyHash` 는 서비스가 이미 빼고 준다.
+    return actionOk({
+      plainToken: issued.plainToken,
+      name: issued.name,
+      keyPrefix: issued.keyPrefix,
+    });
+  } catch (error) {
+    return actionFromError(error);
+  }
 }
 
 export async function revokeApiKeyAction(
- workspaceSlug: string,
- apiKeyId: string,
+  workspaceSlug: string,
+  apiKeyId: string,
 ): Promise<ActionResult> {
- try {
- const { workspace } = await requireWorkspace(workspaceSlug);
- requireOwner(workspace);
+  try {
+    const { workspace } = await requireWorkspace(workspaceSlug);
+    requireOwner(workspace);
 
- // 🔴 행을 지우지 않는다 — `revokedAt` 을 찍는다(`api-key-service.ts`).
- await revokeApiKey({ workspaceId: workspace.workspaceId, apiKeyId });
+    // 🔴 행을 지우지 않는다 — `revokedAt` 을 찍는다(`api-key-service.ts`).
+    await revokeApiKey({ workspaceId: workspace.workspaceId, apiKeyId });
 
- revalidatePath(`/w/${workspaceSlug}/settings`);
+    revalidatePath(`/w/${workspaceSlug}/settings`);
 
- return actionOk();
- } catch (error) {
- return actionFromError(error);
- }
+    return actionOk();
+  } catch (error) {
+    return actionFromError(error);
+  }
 }

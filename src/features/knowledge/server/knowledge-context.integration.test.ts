@@ -92,133 +92,138 @@ async function makeWorkspace(tx: DbExecutor): Promise<string> {
 
 const QUERY = knowledgeContextQuerySchema.parse({});
 
-describe.skipIf(!enabled)("Knowledge Context — 날짜는 한 형식으로 나간다", () => {
-  it("🔴 `lastDetectedAt` 과 `resolvedAt` 이 Date 다 — Column 경로와 같은 형식", async () => {
-    await inRollback(async (tx) => {
-      const workspaceId = await makeWorkspace(tx);
-      const repo = unique("repo");
+describe.skipIf(!enabled)(
+  "Knowledge Context — 날짜는 한 형식으로 나간다",
+  () => {
+    it("🔴 `lastDetectedAt` 과 `resolvedAt` 이 Date 다 — Column 경로와 같은 형식", async () => {
+      await inRollback(async (tx) => {
+        const workspaceId = await makeWorkspace(tx);
+        const repo = unique("repo");
 
-      const ingested = await ingestReview(
-        {
-          workspaceId,
-          idempotencyKey: null,
-          payload: reviewIngestSchema.parse({
-            repository: {
-              provider: "GITHUB",
-              externalRepositoryId: repo,
-              owner: "acme",
-              name: repo,
-              fullName: `acme/${repo}`,
-            },
-            target: { type: "COMMIT", commitSha: "a81f3c2" },
-            reviewer: { type: "AGENT", name: "codex" },
-            summary: "요약",
-            issues: [
-              {
-                severity: "HIGH",
-                category: "TRANSACTION",
-                title: "Transaction 밖으로 옮겨야 한다",
-                // Pattern 이 있어야 `frequentPatterns` 집계에 잡힌다.
-                patternKey: "EXTERNAL_IO_IN_TRANSACTION",
-                source: "codex",
-                externalId: "KC-1",
+        const ingested = await ingestReview(
+          {
+            workspaceId,
+            idempotencyKey: null,
+            payload: reviewIngestSchema.parse({
+              repository: {
+                provider: "GITHUB",
+                externalRepositoryId: repo,
+                owner: "acme",
+                name: repo,
+                fullName: `acme/${repo}`,
               },
-            ],
-          }),
-        },
-        tx,
-      );
+              target: { type: "COMMIT", commitSha: "a81f3c2" },
+              reviewer: { type: "AGENT", name: "codex" },
+              summary: "요약",
+              issues: [
+                {
+                  severity: "HIGH",
+                  category: "TRANSACTION",
+                  title: "Transaction 밖으로 옮겨야 한다",
+                  // Pattern 이 있어야 `frequentPatterns` 집계에 잡힌다.
+                  patternKey: "EXTERNAL_IO_IN_TRANSACTION",
+                  source: "codex",
+                  externalId: "KC-1",
+                },
+              ],
+            }),
+          },
+          tx,
+        );
 
-      const issueId = ingested.issues[0]?.id;
-      expect(issueId).toBeDefined();
+        const issueId = ingested.issues[0]?.id;
+        expect(issueId).toBeDefined();
 
-      /**
-       * `pastResolutions` 는 「해결됐고 «어떻게» 해결했는지가 있는」 행만 본다.
-       * 상태 전이 경로를 다시 시험하는 자리가 아니라, 행을 직접 그 모양으로 만든다.
-       */
-      await tx
-        .update(reviewIssues)
-        .set({
-          status: "RESOLVED",
-          resolvedAt: new Date(),
-          resolutionSummary: "Transaction 범위를 좁혔다",
-        })
-        .where(eq(reviewIssues.id, issueId as string));
+        /**
+         * `pastResolutions` 는 「해결됐고 «어떻게» 해결했는지가 있는」 행만 본다.
+         * 상태 전이 경로를 다시 시험하는 자리가 아니라, 행을 직접 그 모양으로 만든다.
+         */
+        await tx
+          .update(reviewIssues)
+          .set({
+            status: "RESOLVED",
+            resolvedAt: new Date(),
+            resolutionSummary: "Transaction 범위를 좁혔다",
+          })
+          .where(eq(reviewIssues.id, issueId as string));
 
-      const context = await findKnowledgeContext(
-        { workspaceId, query: QUERY },
-        tx,
-      );
+        const context = await findKnowledgeContext(
+          { workspaceId, query: QUERY },
+          tx,
+        );
 
-      // 집계가 실제로 잡혔는지 먼저 확인한다 — 빈 배열이면 아래 단언이 공회전한다.
-      expect(context.frequentPatterns).toHaveLength(1);
-      expect(context.pastResolutions).toHaveLength(1);
+        // 집계가 실제로 잡혔는지 먼저 확인한다 — 빈 배열이면 아래 단언이 공회전한다.
+        expect(context.frequentPatterns).toHaveLength(1);
+        expect(context.pastResolutions).toHaveLength(1);
 
-      // 🔴 여기가 이 시험의 전부다.
-      expect(context.frequentPatterns[0]?.lastDetectedAt).toBeInstanceOf(Date);
-      expect(context.pastResolutions[0]?.resolvedAt).toBeInstanceOf(Date);
+        // 🔴 여기가 이 시험의 전부다.
+        expect(context.frequentPatterns[0]?.lastDetectedAt).toBeInstanceOf(
+          Date,
+        );
+        expect(context.pastResolutions[0]?.resolvedAt).toBeInstanceOf(Date);
 
-      // 세는 값도 문자열로 새지 않는다(`count(*)` 는 bigint 다).
-      expect(context.frequentPatterns[0]?.occurrences).toBe(1);
-      expect(context.frequentPatterns[0]?.resolvedCount).toBe(1);
+        // 세는 값도 문자열로 새지 않는다(`count(*)` 는 bigint 다).
+        expect(context.frequentPatterns[0]?.occurrences).toBe(1);
+        expect(context.frequentPatterns[0]?.resolvedCount).toBe(1);
+      });
     });
-  });
 
-  it("🔴 한 응답 안에서 날짜 형식이 갈리지 않는다 — 직렬화까지 확인한다", async () => {
-    await inRollback(async (tx) => {
-      const workspaceId = await makeWorkspace(tx);
-      const repo = unique("repo");
+    it("🔴 한 응답 안에서 날짜 형식이 갈리지 않는다 — 직렬화까지 확인한다", async () => {
+      await inRollback(async (tx) => {
+        const workspaceId = await makeWorkspace(tx);
+        const repo = unique("repo");
 
-      await ingestReview(
-        {
-          workspaceId,
-          idempotencyKey: null,
-          payload: reviewIngestSchema.parse({
-            repository: {
-              provider: "GITHUB",
-              externalRepositoryId: repo,
-              owner: "acme",
-              name: repo,
-              fullName: `acme/${repo}`,
-            },
-            target: { type: "COMMIT", commitSha: "a81f3c2" },
-            reviewer: { type: "AGENT", name: "codex" },
-            summary: "요약",
-            issues: [
-              {
-                severity: "HIGH",
-                category: "CONCURRENCY",
-                title: "경쟁이 있다",
-                patternKey: "REFRESH_TOKEN_RACE_CONDITION",
-                source: "codex",
-                externalId: "KC-2",
+        await ingestReview(
+          {
+            workspaceId,
+            idempotencyKey: null,
+            payload: reviewIngestSchema.parse({
+              repository: {
+                provider: "GITHUB",
+                externalRepositoryId: repo,
+                owner: "acme",
+                name: repo,
+                fullName: `acme/${repo}`,
               },
-            ],
-          }),
-        },
-        tx,
-      );
+              target: { type: "COMMIT", commitSha: "a81f3c2" },
+              reviewer: { type: "AGENT", name: "codex" },
+              summary: "요약",
+              issues: [
+                {
+                  severity: "HIGH",
+                  category: "CONCURRENCY",
+                  title: "경쟁이 있다",
+                  patternKey: "REFRESH_TOKEN_RACE_CONDITION",
+                  source: "codex",
+                  externalId: "KC-2",
+                },
+              ],
+            }),
+          },
+          tx,
+        );
 
-      const context = await findKnowledgeContext(
-        { workspaceId, query: QUERY },
-        tx,
-      );
+        const context = await findKnowledgeContext(
+          { workspaceId, query: QUERY },
+          tx,
+        );
 
-      /**
-       * Route 가 하는 일과 같다 — `Response.json` 을 지나면 Date 는 ISO 8601 이 되고
-       * 문자열은 PostgreSQL 이 준 모양(`2026-08-30 10:00:00+00`) 그대로 나간다.
-       */
-      const wire = JSON.parse(JSON.stringify(context)) as {
-        frequentPatterns: { lastDetectedAt: string }[];
-        recentHighSeverityIssues: { firstDetectedAt: string }[];
-      };
+        /**
+         * Route 가 하는 일과 같다 — `Response.json` 을 지나면 Date 는 ISO 8601 이 되고
+         * 문자열은 PostgreSQL 이 준 모양(`2026-08-30 10:00:00+00`) 그대로 나간다.
+         */
+        const wire = JSON.parse(JSON.stringify(context)) as {
+          frequentPatterns: { lastDetectedAt: string }[];
+          recentHighSeverityIssues: { firstDetectedAt: string }[];
+        };
 
-      const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+        const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
-      // Column 경로 — 언제나 ISO 였다. 비교 기준이다.
-      expect(wire.recentHighSeverityIssues[0]?.firstDetectedAt).toMatch(ISO);
-      // 🔴 원시 조각 경로. 고치기 전에는 `2026-08-30 10:00:00+00` 이었다.
-      expect(wire.frequentPatterns[0]?.lastDetectedAt).toMatch(ISO);
+        // Column 경로 — 언제나 ISO 였다. 비교 기준이다.
+        expect(wire.recentHighSeverityIssues[0]?.firstDetectedAt).toMatch(ISO);
+        // 🔴 원시 조각 경로. 고치기 전에는 `2026-08-30 10:00:00+00` 이었다.
+        expect(wire.frequentPatterns[0]?.lastDetectedAt).toMatch(ISO);
+      });
     });
-  });
-});
+  },
+);

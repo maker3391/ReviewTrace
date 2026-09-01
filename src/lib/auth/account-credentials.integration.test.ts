@@ -97,7 +97,10 @@ async function createUser(tx: DbExecutor): Promise<string> {
 }
 
 /** GitHub 콜백이 넘기는 모양. Token 값은 시험용 더미다. */
-function githubAccount(userId: string, providerAccountId: string): AdapterAccount {
+function githubAccount(
+  userId: string,
+  providerAccountId: string,
+): AdapterAccount {
   return {
     userId,
     type: "oauth",
@@ -150,7 +153,9 @@ describe.skipIf(!enabled)("GitHub OAuth Credential 저장 정책", () => {
         githubAccount(userId, providerAccountId),
       );
 
-      expect((await findAccount(tx, providerAccountId))?.refresh_token).toBeNull();
+      expect(
+        (await findAccount(tx, providerAccountId))?.refresh_token,
+      ).toBeNull();
     });
   });
 

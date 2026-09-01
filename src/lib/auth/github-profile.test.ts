@@ -33,9 +33,9 @@ function profile(over: Partial<GitHubProfile> = {}): GitHubProfile {
 
 describe("githubProfileToUser", () => {
   it("이메일을 정규 형태로 넘긴다", () => {
-    expect(githubProfileToUser(profile({ email: "  User@Example.COM " })).email).toBe(
-      "user@example.com",
-    );
+    expect(
+      githubProfileToUser(profile({ email: "  User@Example.COM " })).email,
+    ).toBe("user@example.com");
   });
 
   /**

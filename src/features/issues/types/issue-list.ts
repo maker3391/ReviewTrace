@@ -7,22 +7,22 @@ import type { IssueCategory, IssueSeverity, IssueStatus } from "@/types/review";
  * RSC payload 는 페이지 소스에 그대로 실려 나간다.
  */
 export interface IssueListItem {
- id: string;
- title: string;
- severity: IssueSeverity;
- category: IssueCategory;
- status: IssueStatus;
- patternKey: string | null;
- filePath: string | null;
- startLine: number | null;
- endLine: number | null;
- repositoryFullName: string;
- firstDetectedAt: Date;
+  id: string;
+  title: string;
+  severity: IssueSeverity;
+  category: IssueCategory;
+  status: IssueStatus;
+  patternKey: string | null;
+  filePath: string | null;
+  startLine: number | null;
+  endLine: number | null;
+  repositoryFullName: string;
+  firstDetectedAt: Date;
 }
 
 export interface IssueListPage {
- items: IssueListItem[];
- total: number;
- page: number;
- pageSize: number;
+  items: IssueListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
 }

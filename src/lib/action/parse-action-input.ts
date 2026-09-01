@@ -5,8 +5,8 @@ import type { z } from "zod";
 import { DEFAULT_LOCALE, messages, type Locale } from "@/config/i18n";
 import type { Messages } from "@/config/messages/ko";
 import {
- actionValidationFailed,
- type ActionResult,
+  actionValidationFailed,
+  type ActionResult,
 } from "@/lib/action/action-result";
 import { readLocale } from "@/lib/ui/appearance";
 import { parseOptions } from "@/lib/validation/zod-error-map";
@@ -34,27 +34,29 @@ import { parseOptions } from "@/lib/validation/zod-error-map";
  * 같은 요청에서 쿠키를 두 번 보게 되고, 무엇보다 한국어를 손으로 적을 자리가 생긴다.
  */
 export async function parseActionInput<S extends z.ZodType>(
- schema: S,
- input: unknown,
- pickMessage?: (validation: Messages["validation"]) => string,
+  schema: S,
+  input: unknown,
+  pickMessage?: (validation: Messages["validation"]) => string,
 ): Promise<
- { ok: true; data: z.output<S> } | { ok: false; failure: ActionResult<never> }
+  { ok: true; data: z.output<S> } | { ok: false; failure: ActionResult<never> }
 > {
- const locale = await currentLocale();
- const validation = messages(locale).validation;
- const parsed = schema.safeParse(input, parseOptions(locale));
+  const locale = await currentLocale();
+  const validation = messages(locale).validation;
+  const parsed = schema.safeParse(input, parseOptions(locale));
 
- if (parsed.success) {
- return { ok: true, data: parsed.data as z.output<S> };
- }
+  if (parsed.success) {
+    return { ok: true, data: parsed.data as z.output<S> };
+  }
 
- return {
- ok: false,
- failure: actionValidationFailed(
- parsed.error,
- pickMessage === undefined ? validation.invalidInput : pickMessage(validation),
-),
- };
+  return {
+    ok: false,
+    failure: actionValidationFailed(
+      parsed.error,
+      pickMessage === undefined
+        ? validation.invalidInput
+        : pickMessage(validation),
+    ),
+  };
 }
 
 /**
@@ -65,9 +67,9 @@ export async function parseActionInput<S extends z.ZodType>(
  * 이상한 값일 때 `parseLocale` 이 하는 일과 같은 정책이다(`config/i18n.ts`).
  */
 async function currentLocale(): Promise<Locale> {
- try {
- return await readLocale();
- } catch {
- return DEFAULT_LOCALE;
- }
+  try {
+    return await readLocale();
+  } catch {
+    return DEFAULT_LOCALE;
+  }
 }

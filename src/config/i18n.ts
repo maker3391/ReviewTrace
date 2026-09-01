@@ -34,12 +34,12 @@ export const LOCALE_COOKIE = "locale";
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
 export function isLocale(value: string | undefined): value is Locale {
- return value !== undefined && (LOCALES as readonly string[]).includes(value);
+  return value !== undefined && (LOCALES as readonly string[]).includes(value);
 }
 
 /** 쿠키 값을 언어로 읽는다. 값이 없거나 이상하면 기본 언어다. */
 export function parseLocale(value: string | undefined): Locale {
- return isLocale(value) ? value : DEFAULT_LOCALE;
+  return isLocale(value) ? value : DEFAULT_LOCALE;
 }
 
 /**
@@ -49,7 +49,7 @@ export function parseLocale(value: string | undefined): Locale {
  * 브라우저 번들에 통째로 실리지도 않는다 — 나누면 얻는 것 없이 비동기 경계만 는다.
  */
 export function messages(locale: Locale): Messages {
- return locale === "en" ? en : ko;
+  return locale === "en" ? en : ko;
 }
 
 /**
@@ -63,8 +63,8 @@ export function messages(locale: Locale): Messages {
  * 브라우저에서 문구를 갈아 끼우지 않는다.
  */
 export function writeLocaleCookie(locale: Locale): void {
- const secure = window.location.protocol === "https:" ? "; secure" : "";
- document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=${ONE_YEAR_SECONDS}; samesite=lax${secure}`;
+  const secure = window.location.protocol === "https:" ? "; secure" : "";
+  document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=${ONE_YEAR_SECONDS}; samesite=lax${secure}`;
 }
 
 export type { Messages };

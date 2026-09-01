@@ -102,9 +102,9 @@ describe("navigation 과 routes 는 갈라지지 않는다", () => {
     expect(PROJECT_ITEMS.length).toBeGreaterThan(0);
 
     for (const item of PROJECT_ITEMS) {
-      expect(isPublicPath(projectSectionHref("acme", "smil", item.section))).toBe(
-        false,
-      );
+      expect(
+        isPublicPath(projectSectionHref("acme", "smil", item.section)),
+      ).toBe(false);
     }
   });
 

@@ -3,15 +3,12 @@
 import { revalidatePath } from "next/cache";
 
 import {
- createProjectSchema,
- type CreateProjectInput,
+  createProjectSchema,
+  type CreateProjectInput,
 } from "@/features/projects/schemas/project";
 import { createProject } from "@/features/projects/server/project-service";
 import { actionFromError } from "@/lib/action/action-error";
-import {
- actionOk,
- type ActionResult,
-} from "@/lib/action/action-result";
+import { actionOk, type ActionResult } from "@/lib/action/action-result";
 import { parseActionInput } from "@/lib/action/parse-action-input";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
 
@@ -28,37 +25,37 @@ import { requireWorkspace } from "@/lib/auth/require-workspace";
  * 화면이 감춰 두는 것은 경계가 아니다.
  */
 export interface CreatedProjectResult {
- slug: string;
- name: string;
+  slug: string;
+  name: string;
 }
 
 export async function createProjectAction(
- workspaceSlug: string,
- input: CreateProjectInput,
+  workspaceSlug: string,
+  input: CreateProjectInput,
 ): Promise<ActionResult<CreatedProjectResult>> {
- const parsed = await parseActionInput(createProjectSchema, input);
- if (!parsed.ok) {
- return parsed.failure;
- }
+  const parsed = await parseActionInput(createProjectSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
+  }
 
- try {
- const { user, workspace } = await requireWorkspace(workspaceSlug);
+  try {
+    const { user, workspace } = await requireWorkspace(workspaceSlug);
 
- const project = await createProject({
- workspaceId: workspace.workspaceId,
- createdBy: user.id,
- input: parsed.data,
- });
+    const project = await createProject({
+      workspaceId: workspace.workspaceId,
+      createdBy: user.id,
+      input: parsed.data,
+    });
 
- /**
- * 목록을 브라우저에서 다시 불러오지 않는다 — 서버가 다시 그린다.
- * 사이드바의 Project 목록은 Layout 이 그리므로 `layout` 까지 함께 되살린다.
- */
- revalidatePath(`/w/${workspaceSlug}/projects`);
- revalidatePath(`/w/${workspaceSlug}`, "layout");
+    /**
+     * 목록을 브라우저에서 다시 불러오지 않는다 — 서버가 다시 그린다.
+     * 사이드바의 Project 목록은 Layout 이 그리므로 `layout` 까지 함께 되살린다.
+     */
+    revalidatePath(`/w/${workspaceSlug}/projects`);
+    revalidatePath(`/w/${workspaceSlug}`, "layout");
 
- return actionOk({ slug: project.slug, name: project.name });
- } catch (error) {
- return actionFromError(error);
- }
+    return actionOk({ slug: project.slug, name: project.name });
+  } catch (error) {
+    return actionFromError(error);
+  }
 }

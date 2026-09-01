@@ -34,27 +34,27 @@ const UNIQUE_VIOLATION = "23505";
 const MAX_CAUSE_DEPTH = 5;
 
 export function isUniqueViolation(cause: unknown): boolean {
- let current = cause;
+  let current = cause;
 
- for (let depth = 0; depth <= MAX_CAUSE_DEPTH; depth += 1) {
- if (typeof current !== "object" || current === null) {
- return false;
- }
+  for (let depth = 0; depth <= MAX_CAUSE_DEPTH; depth += 1) {
+    if (typeof current !== "object" || current === null) {
+      return false;
+    }
 
- if ((current as { code?: unknown }).code === UNIQUE_VIOLATION) {
- return true;
- }
+    if ((current as { code?: unknown }).code === UNIQUE_VIOLATION) {
+      return true;
+    }
 
- if (!("cause" in current)) {
- return false;
- }
+    if (!("cause" in current)) {
+      return false;
+    }
 
- const next = (current as { cause?: unknown }).cause;
- if (next === current) {
- return false;
- }
- current = next;
- }
+    const next = (current as { cause?: unknown }).cause;
+    if (next === current) {
+      return false;
+    }
+    current = next;
+  }
 
- return false;
+  return false;
 }

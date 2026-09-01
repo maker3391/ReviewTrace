@@ -51,7 +51,10 @@ export function minimalChange(
 
   let start = 0;
   const shortest = Math.min(before.length, after.length);
-  while (start < shortest && before.charCodeAt(start) === after.charCodeAt(start)) {
+  while (
+    start < shortest &&
+    before.charCodeAt(start) === after.charCodeAt(start)
+  ) {
     start += 1;
   }
 

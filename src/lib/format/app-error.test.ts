@@ -142,8 +142,12 @@ describe("⑦ 번역이 빠질 자리가 없다", () => {
   });
 
   it("사전에 남는 자리가 없다 — 쓰이지 않는 문구를 쌓아 두지 않는다", () => {
-    expect(Object.keys(ko.errors).sort()).toEqual([...APP_ERROR_REASONS].sort());
-    expect(Object.keys(en.errors).sort()).toEqual([...APP_ERROR_REASONS].sort());
+    expect(Object.keys(ko.errors).sort()).toEqual(
+      [...APP_ERROR_REASONS].sort(),
+    );
+    expect(Object.keys(en.errors).sort()).toEqual(
+      [...APP_ERROR_REASONS].sort(),
+    );
   });
 
   /**
@@ -217,10 +221,9 @@ describe("⑪ HTTP Status 는 그대로다", () => {
     };
 
     for (const reason of APP_ERROR_REASONS) {
-      expect(
-        statusForErrorCode(errorCodeForReason(reason)),
-        reason,
-      ).toBe(expected[reason]);
+      expect(statusForErrorCode(errorCodeForReason(reason)), reason).toBe(
+        expected[reason],
+      );
     }
     expect(Object.keys(expected).sort()).toEqual([...APP_ERROR_REASONS].sort());
   });
@@ -281,6 +284,8 @@ describe("🔴 옛 방식이 되살아날 자리를 타입이 막는다", () => 
     // @ts-expect-error 언어를 넘길 자리가 없다 — 그것이 「기계 계약은 언어를 타지 않는다」다.
     void toPublicError(new AppError("PROJECT_NOT_FOUND"), ko.errors);
 
-    expect(toPublicError(new AppError("PROJECT_NOT_FOUND")).code).toBe("NOT_FOUND");
+    expect(toPublicError(new AppError("PROJECT_NOT_FOUND")).code).toBe(
+      "NOT_FOUND",
+    );
   });
 });

@@ -51,7 +51,11 @@ describe("root Landing Page route", () => {
   });
 
   it("로그인 사용자는 기존 Workspace 진입 흐름을 유지한다", async () => {
-    mocks.currentUser.mockResolvedValue({ id: "user-1", name: null, image: null });
+    mocks.currentUser.mockResolvedValue({
+      id: "user-1",
+      name: null,
+      image: null,
+    });
     mocks.readLastWorkspaceSlug.mockResolvedValue("acme");
     mocks.findMembership.mockResolvedValue({ slug: "acme" });
 

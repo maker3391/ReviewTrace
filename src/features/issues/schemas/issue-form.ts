@@ -35,9 +35,9 @@ export type IssueStatusFormInput = z.output<typeof issueStatusUpdateSchema>;
  * 않아야 한다는 것이 상태 전이 설계의 전제다(`issue-status-service.ts`).
  */
 export const MANUAL_ACTIVITY_TYPES = [
- "COMMENT",
- "FIX_ATTEMPTED",
- "REVIEWED_AGAIN",
+  "COMMENT",
+  "FIX_ATTEMPTED",
+  "REVIEWED_AGAIN",
 ] as const;
 
 /**
@@ -46,8 +46,8 @@ export const MANUAL_ACTIVITY_TYPES = [
  * 두 경로가 같은 규칙을 쓴다.
  */
 export const issueActivityFormSchema = issueActivitySchema
-.omit({ actor: true })
-.extend({ type: z.enum(MANUAL_ACTIVITY_TYPES) });
+  .omit({ actor: true })
+  .extend({ type: z.enum(MANUAL_ACTIVITY_TYPES) });
 
 export type IssueActivityFormValues = z.input<typeof issueActivityFormSchema>;
 export type IssueActivityFormInput = z.output<typeof issueActivityFormSchema>;

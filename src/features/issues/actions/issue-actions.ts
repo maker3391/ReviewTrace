@@ -4,17 +4,14 @@ import { revalidatePath } from "next/cache";
 
 import { projectBasePath, projectPath } from "@/config/routes";
 import {
- issueActivityFormSchema,
- type IssueActivityFormInput,
+  issueActivityFormSchema,
+  type IssueActivityFormInput,
 } from "@/features/issues/schemas/issue-form";
 import { issueStatusUpdateSchema } from "@/features/issues/schemas/issue-status-update";
 import { addIssueActivity } from "@/features/issues/server/issue-activity-service";
 import { updateIssueStatus } from "@/features/issues/server/issue-status-service";
 import { actionFromError } from "@/lib/action/action-error";
-import {
- actionOk,
- type ActionResult,
-} from "@/lib/action/action-result";
+import { actionOk, type ActionResult } from "@/lib/action/action-result";
 import { parseActionInput } from "@/lib/action/parse-action-input";
 import { requireProject } from "@/lib/auth/require-project";
 import type { SessionUser } from "@/lib/auth/workspace-context";
@@ -44,19 +41,19 @@ import type { IssueStatus, ReviewerType } from "@/types/review";
 const ACTOR_NAME_MAX = 200;
 
 export interface IssueActionTarget {
- workspaceSlug: string;
- projectSlug: string;
- /**
- * 🔴 **이 값은 권한 근거가 아니다.** 주소창에서 온 문자열일 뿐이다 —
- * 소속이 확인된 `workspaceId`·`projectId` 와 **함께** 걸릴 때만 의미가 있다
- *.
- */
- issueId: string;
+  workspaceSlug: string;
+  projectSlug: string;
+  /**
+   * 🔴 **이 값은 권한 근거가 아니다.** 주소창에서 온 문자열일 뿐이다 —
+   * 소속이 확인된 `workspaceId`·`projectId` 와 **함께** 걸릴 때만 의미가 있다
+   *.
+   */
+  issueId: string;
 }
 
 export interface IssueStatusChangeInput {
- status: IssueStatus;
- resolutionSummary: string | null;
+  status: IssueStatus;
+  resolutionSummary: string | null;
 }
 
 /**
@@ -68,11 +65,11 @@ export interface IssueStatusChangeInput {
  * 이름이 상한을 넘는다고 상태 전이 자체가 실패하면 안 된다 — 표시용 이름이라 잘라서 쓴다.
  */
 function sessionActor(user: SessionUser): { type: ReviewerType; name: string } {
- const name = user.name?.trim() ?? "";
- return {
- type: "HUMAN",
- name: (name === "" ? "이름 없음" : name).slice(0, ACTOR_NAME_MAX),
- };
+  const name = user.name?.trim() ?? "";
+  return {
+    type: "HUMAN",
+    name: (name === "" ? "이름 없음" : name).slice(0, ACTOR_NAME_MAX),
+  };
 }
 
 /**
@@ -82,61 +79,61 @@ function sessionActor(user: SessionUser): { type: ReviewerType; name: string } {
  * 같은 판단을 하지 않는다 — 하면 두 곳이 갈라진다.
  */
 export async function updateIssueStatusAction(
- target: IssueActionTarget,
- /** 🔴 타입은 화면을 돕는 것일 뿐이다. 실제 판정은 아래 Schema 가 한다. */
- input: IssueStatusChangeInput,
+  target: IssueActionTarget,
+  /** 🔴 타입은 화면을 돕는 것일 뿐이다. 실제 판정은 아래 Schema 가 한다. */
+  input: IssueStatusChangeInput,
 ): Promise<ActionResult> {
- try {
- const { user, workspace, project } = await requireProject(
- target.workspaceSlug,
- target.projectSlug,
-);
+  try {
+    const { user, workspace, project } = await requireProject(
+      target.workspaceSlug,
+      target.projectSlug,
+    );
 
- const actor = sessionActor(user);
+    const actor = sessionActor(user);
 
- // 🔴 화면이 보낸 것 중 «상태와 해결 요약만» 집는다. actor 는 여기서 붙인다.
- const parsed = await parseActionInput(issueStatusUpdateSchema, {
- status: input.status,
- resolutionSummary: input.resolutionSummary,
- actor,
- });
+    // 🔴 화면이 보낸 것 중 «상태와 해결 요약만» 집는다. actor 는 여기서 붙인다.
+    const parsed = await parseActionInput(issueStatusUpdateSchema, {
+      status: input.status,
+      resolutionSummary: input.resolutionSummary,
+      actor,
+    });
 
- if (!parsed.ok) {
- // RESOLVED 인데 해결 요약이 없는 경우가 여기로 온다 — 규칙은 Schema 에 있다.
- return parsed.failure;
- }
+    if (!parsed.ok) {
+      // RESOLVED 인데 해결 요약이 없는 경우가 여기로 온다 — 규칙은 Schema 에 있다.
+      return parsed.failure;
+    }
 
- await updateIssueStatus({
- /**
- * 🔴 **읽은 범위와 같은 범위로 쓴다.** 이 화면이 Issue 를 «보여 줄» 때 쓴 범위는
- * `{workspaceId, projectId}` 였다(`findIssueDetail`). 쓰기를 Workspace 로만 좁히면
- * 읽기와 쓰기의 범위가 어긋나 **Project A 화면에서 주소만 바꿔 Project B 의 Issue 를
- * 움직일 수 있다.** 둘은 같은 범위여야 한다.
- */
- scope: {
- workspaceId: workspace.workspaceId,
- projectId: project.projectId,
- },
- issueId: target.issueId,
- update: parsed.data,
- // actor 를 항상 채워 보내므로 쓰이지 않는다. Agent 경로가 API Key 이름을 넣는 자리다.
- fallbackActorName: actor.name,
- });
+    await updateIssueStatus({
+      /**
+       * 🔴 **읽은 범위와 같은 범위로 쓴다.** 이 화면이 Issue 를 «보여 줄» 때 쓴 범위는
+       * `{workspaceId, projectId}` 였다(`findIssueDetail`). 쓰기를 Workspace 로만 좁히면
+       * 읽기와 쓰기의 범위가 어긋나 **Project A 화면에서 주소만 바꿔 Project B 의 Issue 를
+       * 움직일 수 있다.** 둘은 같은 범위여야 한다.
+       */
+      scope: {
+        workspaceId: workspace.workspaceId,
+        projectId: project.projectId,
+      },
+      issueId: target.issueId,
+      update: parsed.data,
+      // actor 를 항상 채워 보내므로 쓰이지 않는다. Agent 경로가 API Key 이름을 넣는 자리다.
+      fallbackActorName: actor.name,
+    });
 
- /*
+    /*
  🔴 이 Issue 상세만 달라지지 않는다. 목록의 Status 칸과 Dashboard 의 「열린 Issue」
  집계가 함께 달라진다 — Project 아래를 통째로 서버가 다시 그리게 한다.
  상세 화면(`.../issues/{id}`)도 이 아래에 있다.
  */
- revalidatePath(
- projectBasePath(target.workspaceSlug, target.projectSlug),
- "layout",
-);
+    revalidatePath(
+      projectBasePath(target.workspaceSlug, target.projectSlug),
+      "layout",
+    );
 
- return actionOk();
- } catch (error) {
- return actionFromError(error);
- }
+    return actionOk();
+  } catch (error) {
+    return actionFromError(error);
+  }
 }
 
 /**
@@ -151,39 +148,39 @@ export async function updateIssueStatusAction(
  * Project 의 History 에 한 줄 남길 수 있다 — 상태 변경과 같은 자리다.
  */
 export async function addIssueActivityAction(
- target: IssueActionTarget,
- input: IssueActivityFormInput,
+  target: IssueActionTarget,
+  input: IssueActivityFormInput,
 ): Promise<ActionResult> {
- const parsed = await parseActionInput(issueActivityFormSchema, input);
- if (!parsed.ok) {
- return parsed.failure;
- }
+  const parsed = await parseActionInput(issueActivityFormSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
+  }
 
- try {
- const { user, workspace, project } = await requireProject(
- target.workspaceSlug,
- target.projectSlug,
-);
+  try {
+    const { user, workspace, project } = await requireProject(
+      target.workspaceSlug,
+      target.projectSlug,
+    );
 
- await addIssueActivity({
- scope: {
- workspaceId: workspace.workspaceId,
- projectId: project.projectId,
- },
- issueId: target.issueId,
- activity: {...parsed.data, actor: sessionActor(user) },
- });
+    await addIssueActivity({
+      scope: {
+        workspaceId: workspace.workspaceId,
+        projectId: project.projectId,
+      },
+      issueId: target.issueId,
+      activity: { ...parsed.data, actor: sessionActor(user) },
+    });
 
- // History 한 줄이 늘 뿐이라 이 화면만 다시 그린다.
- const issuesPath = projectPath(
- target.workspaceSlug,
- target.projectSlug,
- "issues",
-);
- revalidatePath(`${issuesPath}/${target.issueId}`);
+    // History 한 줄이 늘 뿐이라 이 화면만 다시 그린다.
+    const issuesPath = projectPath(
+      target.workspaceSlug,
+      target.projectSlug,
+      "issues",
+    );
+    revalidatePath(`${issuesPath}/${target.issueId}`);
 
- return actionOk();
- } catch (error) {
- return actionFromError(error);
- }
+    return actionOk();
+  } catch (error) {
+    return actionFromError(error);
+  }
 }

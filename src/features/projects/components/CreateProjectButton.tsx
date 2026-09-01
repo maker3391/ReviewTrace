@@ -9,16 +9,16 @@ import { readMessages } from "@/lib/ui/appearance";
  * Dashboard 와 Projects 화면이 **같은 대응**을 쓰게 한다 — 두 곳에 적으면 갈라진다.
  */
 export async function CreateProjectButton({
- workspaceSlug,
+  workspaceSlug,
 }: {
- workspaceSlug: string;
+  workspaceSlug: string;
 }) {
- const t = (await readMessages()).projectDialog;
+  const t = (await readMessages()).projectDialog;
 
- return (
- <CreateProjectDialog
- workspaceSlug={workspaceSlug}
- labels={{...t, slugHint: t.slugHint(workspaceSlug) }}
- />
-);
+  return (
+    <CreateProjectDialog
+      workspaceSlug={workspaceSlug}
+      labels={{ ...t, slugHint: t.slugHint(workspaceSlug) }}
+    />
+  );
 }

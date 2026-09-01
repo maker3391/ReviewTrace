@@ -36,9 +36,9 @@ describe("knowledgeContextQuerySchema", () => {
     expect(knowledgeContextQuerySchema.safeParse({ limit: "0" }).success).toBe(
       false,
     );
-    expect(knowledgeContextQuerySchema.safeParse({ limit: "many" }).success).toBe(
-      false,
-    );
+    expect(
+      knowledgeContextQuerySchema.safeParse({ limit: "many" }).success,
+    ).toBe(false);
   });
 
   it("UUID 가 아닌 repositoryId 를 거절한다 — Driver 가 던지기 전에 막는다", () => {
@@ -60,7 +60,9 @@ describe("knowledgeContextQuerySchema", () => {
 
 describe("readKnowledgeContextQuery", () => {
   it("빈 값은 빠뜨린다 — 「Filter 를 안 걸었다」가 「잘못된 요청」이 되지 않게", () => {
-    const params = new URLSearchParams("repositoryId=&category=SECURITY&limit=7");
+    const params = new URLSearchParams(
+      "repositoryId=&category=SECURITY&limit=7",
+    );
 
     expect(readKnowledgeContextQuery(params)).toEqual({
       category: "SECURITY",

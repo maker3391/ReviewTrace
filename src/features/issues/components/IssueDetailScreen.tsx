@@ -8,8 +8,8 @@ import { PageContainer } from "@/components/molecules/PageContainer";
 import { MetaDot, PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import {
- readProjectSlugFromPath,
- readWorkspaceSlugFromPath,
+  readProjectSlugFromPath,
+  readWorkspaceSlugFromPath,
 } from "@/config/routes";
 import { IssueActivityForm } from "@/features/issues/components/IssueActivityForm";
 import { EvidenceList } from "@/features/issues/components/CodeEvidence";
@@ -17,8 +17,8 @@ import { DecisionRecord } from "@/features/issues/components/DecisionRecord";
 import { MarkdownContent } from "@/features/issues/components/MarkdownContent";
 import { IssueStatusControl } from "@/features/issues/components/IssueStatusControl";
 import type {
- IssueActivityEntry,
- IssueDetail,
+  IssueActivityEntry,
+  IssueDetail,
 } from "@/features/issues/server/issue-detail-query";
 import { formatDate } from "@/lib/format/date";
 import { readMessages } from "@/lib/ui/appearance";
@@ -50,20 +50,20 @@ import type { EvidenceVerification } from "@/types/review";
  * 내려간다. 이 화면 자체는 Server Component 로 남는다.
  */
 export async function IssueDetailScreen({
- issue,
- reviewsPath,
- repositoriesPath,
+  issue,
+  reviewsPath,
+  repositoriesPath,
 }: {
- issue: IssueDetail;
- /** Review 상세로 가는 주소의 뿌리. */
- reviewsPath: Route;
- repositoriesPath: Route;
+  issue: IssueDetail;
+  /** Review 상세로 가는 주소의 뿌리. */
+  reviewsPath: Route;
+  repositoriesPath: Route;
 }) {
- const messages = await readMessages();
- const t = messages.issueDetail;
- const label = messages.enums;
+  const messages = await readMessages();
+  const t = messages.issueDetail;
+  const label = messages.enums;
 
- /*
+  /*
  Server Action 에 되돌려 줄 주소의 slug.
 
  🔴 **이 값들은 권한 근거가 아니다**(`src/config/routes.ts`). Server Action 이
@@ -71,283 +71,289 @@ export async function IssueDetailScreen({
  주소를 남의 Workspace 로 바꿔 보내도 조회 자체가 비어서 돌아온다.
  여기서 하는 일은 「지금 어느 주소의 화면인가」를 그대로 서버에 되돌려 주는 것뿐이다.
  */
- const workspaceSlug = readWorkspaceSlugFromPath(reviewsPath);
- const projectSlug = readProjectSlugFromPath(reviewsPath);
- const canAct = workspaceSlug !== null && projectSlug !== null;
+  const workspaceSlug = readWorkspaceSlugFromPath(reviewsPath);
+  const projectSlug = readProjectSlugFromPath(reviewsPath);
+  const canAct = workspaceSlug !== null && projectSlug !== null;
 
- return (
- <PageContainer width="wide" className="gap-6">
- <PageHeader
- title={issue.title}
- titleAdornment={
- <span className="flex items-center gap-1.5">
- <SeverityBadge severity={issue.severity} />
- <StatusBadge status={issue.status} />
- </span>
- }
- meta={
- <>
- <Link
- href={`${repositoriesPath}/${issue.repositoryId}` as Route}
- className="font-mono underline-offset-4 hover:text-foreground hover:underline"
- >
- {issue.repositoryFullName}
- </Link>
- <MetaDot />
- <span>{label.category[issue.category]}</span>
- {issue.patternKey !== null && (
- <>
- <MetaDot />
- <span className="font-mono">{issue.patternKey}</span>
- </>
-)}
- <MetaDot />
- <span>
- {t.detected} {formatDate(issue.firstDetectedAt)}
- </span>
- {issue.resolvedAt !== null && (
- <>
- <MetaDot />
- <span>
- {t.resolvedAt} {formatDate(issue.resolvedAt)}
- </span>
- </>
-)}
- </>
- }
- />
+  return (
+    <PageContainer width="wide" className="gap-6">
+      <PageHeader
+        title={issue.title}
+        titleAdornment={
+          <span className="flex items-center gap-1.5">
+            <SeverityBadge severity={issue.severity} />
+            <StatusBadge status={issue.status} />
+          </span>
+        }
+        meta={
+          <>
+            <Link
+              href={`${repositoriesPath}/${issue.repositoryId}` as Route}
+              className="font-mono underline-offset-4 hover:text-foreground hover:underline"
+            >
+              {issue.repositoryFullName}
+            </Link>
+            <MetaDot />
+            <span>{label.category[issue.category]}</span>
+            {issue.patternKey !== null && (
+              <>
+                <MetaDot />
+                <span className="font-mono">{issue.patternKey}</span>
+              </>
+            )}
+            <MetaDot />
+            <span>
+              {t.detected} {formatDate(issue.firstDetectedAt)}
+            </span>
+            {issue.resolvedAt !== null && (
+              <>
+                <MetaDot />
+                <span>
+                  {t.resolvedAt} {formatDate(issue.resolvedAt)}
+                </span>
+              </>
+            )}
+          </>
+        }
+      />
 
- <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
- {/* ── 본문 ─────────────────────────────────────────────────────── */}
- <div className="flex min-w-0 flex-col gap-5">
-{issue.description !== null && (
- <Section title={t.description} variant="raised">
- <MarkdownContent content={issue.description} emptyLabel="—" />
- </Section>
-)}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        {/* ── 본문 ─────────────────────────────────────────────────────── */}
+        <div className="flex min-w-0 flex-col gap-5">
+          {issue.description !== null && (
+            <Section title={t.description} variant="raised">
+              <MarkdownContent content={issue.description} emptyLabel="—" />
+            </Section>
+          )}
 
- {issue.rootCause !== null && (
- <Section title={t.rootCause} variant="raised">
- <MarkdownContent content={issue.rootCause} emptyLabel="—" />
- </Section>
-)}
+          {issue.rootCause !== null && (
+            <Section title={t.rootCause} variant="raised">
+              <MarkdownContent content={issue.rootCause} emptyLabel="—" />
+            </Section>
+          )}
 
- {issue.failurePath !== null && (
- <Section title={t.failurePath} variant="raised">
- <MarkdownContent content={issue.failurePath} emptyLabel="—" />
- </Section>
-)}
+          {issue.failurePath !== null && (
+            <Section title={t.failurePath} variant="raised">
+              <MarkdownContent content={issue.failurePath} emptyLabel="—" />
+            </Section>
+          )}
 
- {/*
+          {/*
  🔴 「Agent 가 해 보라고 한 것」·「실제로 했다의 기록」 같은 부제를 두지 않는다.
  제안과 해결은 나란히 서 있고 제목이 이미 그 차이를 말한다.
  */}
- {issue.suggestion !== null && (
- <Section title={t.suggestion} variant="raised">
- <MarkdownContent content={issue.suggestion} emptyLabel="—" />
- </Section>
-)}
+          {issue.suggestion !== null && (
+            <Section title={t.suggestion} variant="raised">
+              <MarkdownContent content={issue.suggestion} emptyLabel="—" />
+            </Section>
+          )}
 
-{issue.resolutionSummary !== null && (
- <Section title={t.resolution} variant="raised">
- {/*
+          {issue.resolutionSummary !== null && (
+            <Section title={t.resolution} variant="raised">
+              {/*
  해결 기록만 브랜드 톤을 얹는다 — 이 화면에서 가장 값진 한 칸이기 때문이다.
  🔴 색은 의미에만 쓴다.
  */}
- <div className="border-l-2 border-primary/40 bg-primary/[0.03] py-1 pl-3">
- <MarkdownContent content={issue.resolutionSummary} emptyLabel="—" />
- </div>
- </Section>
-)}
+              <div className="border-l-2 border-primary/40 bg-primary/[0.03] py-1 pl-3">
+                <MarkdownContent
+                  content={issue.resolutionSummary}
+                  emptyLabel="—"
+                />
+              </div>
+            </Section>
+          )}
 
- {issue.evidence.length > 0 && (
- <Section title={t.codeEvidence} variant="raised">
- <EvidenceList
- evidence={issue.evidence}
- repositoryFullName={issue.repositoryFullName}
- labels={{
- before: t.before,
- after: t.after,
- viewCode: t.viewCode,
- noSnapshot: t.noSnapshot,
- displayFormatted: t.displayFormatted,
- relativeLines: t.relativeLines,
- showAllLines: t.showAllEvidenceLines,
- verification: t.evidenceVerification,
- }}
- />
- </Section>
-)}
+          {issue.evidence.length > 0 && (
+            <Section title={t.codeEvidence} variant="raised">
+              <EvidenceList
+                evidence={issue.evidence}
+                repositoryFullName={issue.repositoryFullName}
+                labels={{
+                  before: t.before,
+                  after: t.after,
+                  viewCode: t.viewCode,
+                  noSnapshot: t.noSnapshot,
+                  displayFormatted: t.displayFormatted,
+                  relativeLines: t.relativeLines,
+                  showAllLines: t.showAllEvidenceLines,
+                  verification: t.evidenceVerification,
+                }}
+              />
+            </Section>
+          )}
 
- <Section title={t.history} variant="raised">
- {issue.activities.length === 0 ? (
- <SectionEmpty title={t.noHistory} />
-) : (
- <ol className="flex flex-col">
- {issue.activities.map((activity, index) => (
- <ActivityRow
- key={activity.id}
- activity={activity}
- last={index === issue.activities.length - 1}
- typeLabel={label.activityType[activity.type]}
- actorLabel={label.reviewerType[activity.actorType]}
- repositoryFullName={issue.repositoryFullName}
- labels={{
- decision: t.decision,
- solution: t.solution,
- decisionReason: t.decisionReason,
- alternatives: t.alternatives,
- tradeOff: t.tradeOff,
- verification: t.verification,
- regressionTest: t.regressionTest,
- residualRisk: t.residualRisk,
- codeEvidence: t.codeEvidence,
- before: t.before,
- after: t.after,
- viewCode: t.viewCode,
- noSnapshot: t.noSnapshot,
- displayFormatted: t.displayFormatted,
- relativeLines: t.relativeLines,
- showAllEvidenceLines: t.showAllEvidenceLines,
- evidenceVerification: t.evidenceVerification,
- }}
- />
-))}
- </ol>
-)}
+          <Section title={t.history} variant="raised">
+            {issue.activities.length === 0 ? (
+              <SectionEmpty title={t.noHistory} />
+            ) : (
+              <ol className="flex flex-col">
+                {issue.activities.map((activity, index) => (
+                  <ActivityRow
+                    key={activity.id}
+                    activity={activity}
+                    last={index === issue.activities.length - 1}
+                    typeLabel={label.activityType[activity.type]}
+                    actorLabel={label.reviewerType[activity.actorType]}
+                    repositoryFullName={issue.repositoryFullName}
+                    labels={{
+                      decision: t.decision,
+                      solution: t.solution,
+                      decisionReason: t.decisionReason,
+                      alternatives: t.alternatives,
+                      tradeOff: t.tradeOff,
+                      verification: t.verification,
+                      regressionTest: t.regressionTest,
+                      residualRisk: t.residualRisk,
+                      codeEvidence: t.codeEvidence,
+                      before: t.before,
+                      after: t.after,
+                      viewCode: t.viewCode,
+                      noSnapshot: t.noSnapshot,
+                      displayFormatted: t.displayFormatted,
+                      relativeLines: t.relativeLines,
+                      showAllEvidenceLines: t.showAllEvidenceLines,
+                      evidenceVerification: t.evidenceVerification,
+                    }}
+                  />
+                ))}
+              </ol>
+            )}
 
- {canAct && (
- <div className="mt-4 border-t border-border/70 pt-4">
- <IssueActivityForm
- workspaceSlug={workspaceSlug}
- projectSlug={projectSlug}
- issueId={issue.id}
- labels={{
- activity: t.activity,
- activityType: t.activityType,
- commit: t.commit,
- commitSha: t.commitSha,
- optional: t.optional,
- description: t.activityDescription,
- recording: t.recording,
- record: t.record,
- typeOptions: label.activityType,
- }}
- />
- </div>
-)}
- </Section>
- </div>
+            {canAct && (
+              <div className="mt-4 border-t border-border/70 pt-4">
+                <IssueActivityForm
+                  workspaceSlug={workspaceSlug}
+                  projectSlug={projectSlug}
+                  issueId={issue.id}
+                  labels={{
+                    activity: t.activity,
+                    activityType: t.activityType,
+                    commit: t.commit,
+                    commitSha: t.commitSha,
+                    optional: t.optional,
+                    description: t.activityDescription,
+                    recording: t.recording,
+                    record: t.record,
+                    typeOptions: label.activityType,
+                  }}
+                />
+              </div>
+            )}
+          </Section>
+        </div>
 
- {/* ── 곁 정보 ───────────────────────────────────────────────────── */}
- <aside className="flex min-w-0 flex-col gap-5">
- {canAct && (
- <Section title={t.status} variant="raised">
- <IssueStatusControl
- workspaceSlug={workspaceSlug}
- projectSlug={projectSlug}
- issueId={issue.id}
- currentStatus={issue.status}
- currentResolutionSummary={issue.resolutionSummary}
- labels={{
- status: t.status,
- changeStatus: t.changeStatus,
- changing: t.changing,
- resolutionSummary: t.resolutionSummary,
- editResolutionSummary: t.editResolutionSummary,
- cancelResolutionSummary: t.cancelResolutionSummary,
- saveResolutionSummary: t.saveResolutionSummary,
- emptyResolutionSummary: t.emptyResolutionSummary,
- statusOptions: label.status,
- }}
- />
- </Section>
-)}
+        {/* ── 곁 정보 ───────────────────────────────────────────────────── */}
+        <aside className="flex min-w-0 flex-col gap-5">
+          {canAct && (
+            <Section title={t.status} variant="raised">
+              <IssueStatusControl
+                workspaceSlug={workspaceSlug}
+                projectSlug={projectSlug}
+                issueId={issue.id}
+                currentStatus={issue.status}
+                currentResolutionSummary={issue.resolutionSummary}
+                labels={{
+                  status: t.status,
+                  changeStatus: t.changeStatus,
+                  changing: t.changing,
+                  resolutionSummary: t.resolutionSummary,
+                  editResolutionSummary: t.editResolutionSummary,
+                  cancelResolutionSummary: t.cancelResolutionSummary,
+                  saveResolutionSummary: t.saveResolutionSummary,
+                  emptyResolutionSummary: t.emptyResolutionSummary,
+                  statusOptions: label.status,
+                }}
+              />
+            </Section>
+          )}
 
- <Section title={t.location} variant="raised">
- <CodeLocation
- filePath={issue.filePath}
- lineStart={issue.startLine}
- lineEnd={issue.endLine}
- className="block max-w-full truncate"
- />
- </Section>
+          <Section title={t.location} variant="raised">
+            <CodeLocation
+              filePath={issue.filePath}
+              lineStart={issue.startLine}
+              lineEnd={issue.endLine}
+              className="block max-w-full truncate"
+            />
+          </Section>
 
- <Section title={t.identity} variant="raised">
- <dl className="flex flex-col gap-3 text-xs">
- <div>
- <dt className="text-muted-foreground">{t.tags}</dt>
- <dd className="mt-1">
- {issue.tags.length === 0 ? (
- <span className="text-muted-foreground/70">—</span>
-) : (
- /*
+          <Section title={t.identity} variant="raised">
+            <dl className="flex flex-col gap-3 text-xs">
+              <div>
+                <dt className="text-muted-foreground">{t.tags}</dt>
+                <dd className="mt-1">
+                  {issue.tags.length === 0 ? (
+                    <span className="text-muted-foreground/70">—</span>
+                  ) : (
+                    /*
  🔴 Tag 를 Badge 로 만들지 않는다 — Badge 는 상태·분류의 자리다
 . Tag 는 검색용 Keyword 라 옅은 칩이면 충분하다.
  */
- <span className="flex flex-wrap gap-1">
- {issue.tags.map((tag) => (
- <span
- key={tag}
- className="rounded-md bg-surface-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
- >
- {tag}
- </span>
-))}
- </span>
-)}
- </dd>
- </div>
+                    <span className="flex flex-wrap gap-1">
+                      {issue.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-md bg-surface-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </dd>
+              </div>
 
- <div>
- <dt className="text-muted-foreground">{t.firstReview}</dt>
- <dd className="mt-1">
- <Link
- href={`${reviewsPath}/${issue.reviewSessionId}` as Route}
- className="underline-offset-4 hover:underline"
- >
- {issue.reviewerName}
- </Link>
- </dd>
- </div>
+              <div>
+                <dt className="text-muted-foreground">{t.firstReview}</dt>
+                <dd className="mt-1">
+                  <Link
+                    href={`${reviewsPath}/${issue.reviewSessionId}` as Route}
+                    className="underline-offset-4 hover:underline"
+                  >
+                    {issue.reviewerName}
+                  </Link>
+                </dd>
+              </div>
 
- <div>
- <dt className="text-muted-foreground">{t.source}</dt>
- <dd className="mt-1 min-w-0 font-mono">
- {issue.source === null && issue.externalId === null
- ? "—"
- : (
- <span className="flex min-w-0 flex-col gap-0.5">
- {issue.source !== null && (
- <span className="block max-w-full truncate" title={issue.source}>
- {issue.source}
- </span>
- )}
- {issue.externalId !== null && (
- <span
- className="block max-w-full truncate text-muted-foreground"
- title={issue.externalId}
- >
- {issue.externalId}
- </span>
- )}
- </span>
- )}
- </dd>
- </div>
+              <div>
+                <dt className="text-muted-foreground">{t.source}</dt>
+                <dd className="mt-1 min-w-0 font-mono">
+                  {issue.source === null && issue.externalId === null ? (
+                    "—"
+                  ) : (
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      {issue.source !== null && (
+                        <span
+                          className="block max-w-full truncate"
+                          title={issue.source}
+                        >
+                          {issue.source}
+                        </span>
+                      )}
+                      {issue.externalId !== null && (
+                        <span
+                          className="block max-w-full truncate text-muted-foreground"
+                          title={issue.externalId}
+                        >
+                          {issue.externalId}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </dd>
+              </div>
 
- <div>
- <dt className="text-muted-foreground">{t.lastChanged}</dt>
- <dd className="mt-1 tabular-nums">
- {formatDate(issue.updatedAt)}
- </dd>
- </div>
- </dl>
- </Section>
- </aside>
- </div>
- </PageContainer>
-);
+              <div>
+                <dt className="text-muted-foreground">{t.lastChanged}</dt>
+                <dd className="mt-1 tabular-nums">
+                  {formatDate(issue.updatedAt)}
+                </dd>
+              </div>
+            </dl>
+          </Section>
+        </aside>
+      </div>
+    </PageContainer>
+  );
 }
 
 /**
@@ -360,111 +366,111 @@ export async function IssueDetailScreen({
  * 「이 Issue 가 어떻게 해결됐는가」로 읽혀야 한다.
  */
 function ActivityRow({
- activity,
- last,
- typeLabel,
- actorLabel,
- repositoryFullName,
- labels,
+  activity,
+  last,
+  typeLabel,
+  actorLabel,
+  repositoryFullName,
+  labels,
 }: {
- activity: IssueActivityEntry;
- last: boolean;
- /** 🔴 값이 아니라 이름표다. 값(`RESOLVED`)은 여전히 `activity.type` 이 갖는다. */
- typeLabel: string;
- actorLabel: string;
- repositoryFullName: string;
- labels: ActivityKnowledgeLabels;
+  activity: IssueActivityEntry;
+  last: boolean;
+  /** 🔴 값이 아니라 이름표다. 값(`RESOLVED`)은 여전히 `activity.type` 이 갖는다. */
+  typeLabel: string;
+  actorLabel: string;
+  repositoryFullName: string;
+  labels: ActivityKnowledgeLabels;
 }) {
- // 해결로 끝난 것만 브랜드 톤. 나머지는 중립이다 — 색을 의미에만 쓴다.
- const resolved = activity.type === "RESOLVED";
- return (
- <li className="flex gap-3">
- <div className="flex flex-col items-center">
- <span
- aria-hidden
- className={cn(
- "mt-1.5 size-2 shrink-0 rounded-full ring-2 ring-card",
- resolved ? "bg-primary" : "bg-border",
-)}
- />
- {!last && <span aria-hidden className="w-px flex-1 bg-border" />}
- </div>
+  // 해결로 끝난 것만 브랜드 톤. 나머지는 중립이다 — 색을 의미에만 쓴다.
+  const resolved = activity.type === "RESOLVED";
+  return (
+    <li className="flex gap-3">
+      <div className="flex flex-col items-center">
+        <span
+          aria-hidden
+          className={cn(
+            "mt-1.5 size-2 shrink-0 rounded-full ring-2 ring-card",
+            resolved ? "bg-primary" : "bg-border",
+          )}
+        />
+        {!last && <span aria-hidden className="w-px flex-1 bg-border" />}
+      </div>
 
- <div className={cn("min-w-0 flex-1", last ? "pb-0" : "pb-4")}>
- <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
- <span
- className={cn(
- "text-[11px] font-semibold tracking-tight",
- resolved ? "text-primary" : "text-foreground",
-)}
- >
- {typeLabel}
- </span>
- <span className="text-xs font-medium text-foreground">
- {activity.actorName}
- </span>
- <span className="text-[11px] text-muted-foreground">
- {actorLabel}
- </span>
- {activity.commitSha !== null && (
- <span className="font-mono text-[11px] text-muted-foreground">
- {activity.commitSha.slice(0, 7)}
- </span>
-)}
- <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">
- {formatDate(activity.createdAt)}
- </span>
- </div>
-{activity.description !== null && (
- <MarkdownContent
- content={activity.description}
- emptyLabel="—"
- className="mt-1 gap-2 text-muted-foreground [&_p]:text-xs"
- />
-)}
- <DecisionRecord activity={activity} labels={labels} />
- {activity.evidence.length > 0 && (
- <div className="mt-3">
- <p className="mb-2 text-[11px] font-semibold text-foreground">
- {labels.codeEvidence}
- </p>
- <EvidenceList
- evidence={activity.evidence}
- repositoryFullName={repositoryFullName}
- labels={{
- before: labels.before,
- after: labels.after,
- viewCode: labels.viewCode,
- noSnapshot: labels.noSnapshot,
- displayFormatted: labels.displayFormatted,
- relativeLines: labels.relativeLines,
- showAllLines: labels.showAllEvidenceLines,
- verification: labels.evidenceVerification,
- }}
- />
- </div>
-)}
- </div>
- </li>
-);
+      <div className={cn("min-w-0 flex-1", last ? "pb-0" : "pb-4")}>
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span
+            className={cn(
+              "text-[11px] font-semibold tracking-tight",
+              resolved ? "text-primary" : "text-foreground",
+            )}
+          >
+            {typeLabel}
+          </span>
+          <span className="text-xs font-medium text-foreground">
+            {activity.actorName}
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            {actorLabel}
+          </span>
+          {activity.commitSha !== null && (
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {activity.commitSha.slice(0, 7)}
+            </span>
+          )}
+          <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">
+            {formatDate(activity.createdAt)}
+          </span>
+        </div>
+        {activity.description !== null && (
+          <MarkdownContent
+            content={activity.description}
+            emptyLabel="—"
+            className="mt-1 gap-2 text-muted-foreground [&_p]:text-xs"
+          />
+        )}
+        <DecisionRecord activity={activity} labels={labels} />
+        {activity.evidence.length > 0 && (
+          <div className="mt-3">
+            <p className="mb-2 text-[11px] font-semibold text-foreground">
+              {labels.codeEvidence}
+            </p>
+            <EvidenceList
+              evidence={activity.evidence}
+              repositoryFullName={repositoryFullName}
+              labels={{
+                before: labels.before,
+                after: labels.after,
+                viewCode: labels.viewCode,
+                noSnapshot: labels.noSnapshot,
+                displayFormatted: labels.displayFormatted,
+                relativeLines: labels.relativeLines,
+                showAllLines: labels.showAllEvidenceLines,
+                verification: labels.evidenceVerification,
+              }}
+            />
+          </div>
+        )}
+      </div>
+    </li>
+  );
 }
 
 interface ActivityKnowledgeLabels {
- decision: string;
- solution: string;
- decisionReason: string;
- alternatives: string;
- tradeOff: string;
- verification: string;
- regressionTest: string;
- residualRisk: string;
- codeEvidence: string;
- before: string;
- after: string;
- viewCode: string;
- noSnapshot: string;
- displayFormatted: string;
- relativeLines: string;
- showAllEvidenceLines: (count: number) => string;
- evidenceVerification: Record<EvidenceVerification, string>;
+  decision: string;
+  solution: string;
+  decisionReason: string;
+  alternatives: string;
+  tradeOff: string;
+  verification: string;
+  regressionTest: string;
+  residualRisk: string;
+  codeEvidence: string;
+  before: string;
+  after: string;
+  viewCode: string;
+  noSnapshot: string;
+  displayFormatted: string;
+  relativeLines: string;
+  showAllEvidenceLines: (count: number) => string;
+  evidenceVerification: Record<EvidenceVerification, string>;
 }

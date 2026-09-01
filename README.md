@@ -35,7 +35,7 @@ An agent that fixed a transaction-boundary bug in your repo three months ago can
 - what the problem actually was
 - why it happened
 - what other approaches were considered and rejected
-- why *this* fix was chosen
+- why _this_ fix was chosen
 - which lines changed
 - how it was verified, and what test keeps it from breaking again
 
@@ -92,14 +92,14 @@ cp .env.example .env
 Fill in `.env`. There are no defaults for these — the app fails at startup rather than running
 half-configured (`src/lib/env.schema.ts`):
 
-| Variable | What it is |
-| --- | --- |
-| `DATABASE_URL` | `postgres://…` connection string |
-| `AUTH_SECRET` | 32+ chars — `openssl rand -base64 32` |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth App credentials |
-| `POSTGRES_PASSWORD` | used by `docker-compose.yml`; must match `DATABASE_URL` |
-| `APP_URL` | optional, defaults to `http://localhost:3000` |
-| `GITHUB_API_TOKEN` | optional, server-side token used to verify code evidence |
+| Variable                                    | What it is                                               |
+| ------------------------------------------- | -------------------------------------------------------- |
+| `DATABASE_URL`                              | `postgres://…` connection string                         |
+| `AUTH_SECRET`                               | 32+ chars — `openssl rand -base64 32`                    |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth App credentials                             |
+| `POSTGRES_PASSWORD`                         | used by `docker-compose.yml`; must match `DATABASE_URL`  |
+| `APP_URL`                                   | optional, defaults to `http://localhost:3000`            |
+| `GITHUB_API_TOKEN`                          | optional, server-side token used to verify code evidence |
 
 Create the OAuth App at **GitHub → Settings → Developer settings → OAuth Apps**, with callback URL
 `http://localhost:3000/api/auth/callback/github`. The path is fixed by Auth.js; if you run on a
@@ -117,7 +117,7 @@ pnpm dev               # http://localhost:3000
 
 Then:
 
-1. **Sign in with GitHub.** The first sign-in *is* sign-up. A personal workspace is created and you
+1. **Sign in with GitHub.** The first sign-in _is_ sign-up. A personal workspace is created and you
    own it.
 2. **Issue an API key** at `/w/{workspace}/settings` → API Keys (owner only). The token starts with
    `ci_` and is **shown exactly once** — only its SHA-256 hash is stored.
@@ -248,7 +248,7 @@ causes are.
 `decisionReason` · `alternativesConsidered` · `tradeOff` · `verification` · `regressionTest` ·
 `residualRisk`
 
-The decision record lives on the *activity*, not the issue. An issue is usually fixed more than
+The decision record lives on the _activity_, not the issue. An issue is usually fixed more than
 once — putting the reasoning on the issue means the second attempt silently overwrites why the
 first one failed, which is exactly the part worth keeping. Every decision field is optional: a
 blank field beats a field an agent invented to satisfy a validator.
@@ -271,15 +271,15 @@ DETECTED ──▶ FIX_ATTEMPTED ──▶ REVIEWED_AGAIN ──▶ RESOLVED ─
                   └────────────────────┘
 ```
 
-| Activity | Meaning |
-| --- | --- |
-| `DETECTED` | An agent or a human found the issue |
-| `FIX_ATTEMPTED` | Someone tried a fix — solution and reasoning recorded here |
-| `REVIEWED_AGAIN` | The fix was re-reviewed; what is still wrong, if anything |
-| `RESOLVED` | Verified fixed; a resolution summary is **required** |
-| `REOPENED` | It came back; `resolvedAt` and the summary are cleared |
-| `IGNORED` | Won't fix, or a false positive |
-| `COMMENT` | A note that changes nothing |
+| Activity         | Meaning                                                    |
+| ---------------- | ---------------------------------------------------------- |
+| `DETECTED`       | An agent or a human found the issue                        |
+| `FIX_ATTEMPTED`  | Someone tried a fix — solution and reasoning recorded here |
+| `REVIEWED_AGAIN` | The fix was re-reviewed; what is still wrong, if anything  |
+| `RESOLVED`       | Verified fixed; a resolution summary is **required**       |
+| `REOPENED`       | It came back; `resolvedAt` and the summary are cleared     |
+| `IGNORED`        | Won't fix, or a false positive                             |
+| `COMMENT`        | A note that changes nothing                                |
 
 Statuses: `OPEN` · `IN_PROGRESS` · `RESOLVED` · `IGNORED` · `FALSE_POSITIVE` · `REOPENED`.
 
@@ -301,15 +301,15 @@ repository + commitSha + filePath + startLine..endLine  →  snapshot
 
 The snapshot is what the agent claims it read. Whether GitHub agrees is recorded separately:
 
-| `verification` | Meaning |
-| --- | --- |
-| `UNVERIFIED` | Not checked yet |
-| `VERIFIED` | Matches GitHub at that commit |
-| `MISMATCH` | Present at that commit, but different |
-| `UNAVAILABLE` | Couldn't look — private repo, missing commit, rate limit, GitHub down |
+| `verification` | Meaning                                                               |
+| -------------- | --------------------------------------------------------------------- |
+| `UNVERIFIED`   | Not checked yet                                                       |
+| `VERIFIED`     | Matches GitHub at that commit                                         |
+| `MISMATCH`     | Present at that commit, but different                                 |
+| `UNAVAILABLE`  | Couldn't look — private repo, missing commit, rate limit, GitHub down |
 
 Keeping "the agent sent this" apart from "GitHub confirms this" is the point. The verification pass
-runs *outside* the write transaction, so a slow or unreachable GitHub never blocks a recording, and
+runs _outside_ the write transaction, so a slow or unreachable GitHub never blocks a recording, and
 the snapshot fallback means the UI still shows something for private or deleted repositories.
 
 **Only public repositories are ever read.** The server asks GitHub whether the repository is public
@@ -330,17 +330,17 @@ Both of these are bugs found in ReviewTrace itself.
 
 **1. A UUID is not an authorization boundary.**
 `verifyCodeEvidence` looked up evidence rows by id alone. The ids were server-generated inside the
-same transaction, so nothing was exploitable — but this repository's rule is that *every* id-based
+same transaction, so nothing was exploitable — but this repository's rule is that _every_ id-based
 lookup also carries a workspace condition, and one exception becomes the precedent for the next
 one. A `workspaceId` condition was added to the select, the join, and the update.
 → `src/features/issues/server/code-evidence-service.ts`
 
 **2. Claude Code found a ReviewTrace bug through ReviewTrace's own MCP server.**
-When evidence was submitted without a line range, `readGithubLines` returned the *whole file*, and
+When evidence was submitted without a line range, `readGithubLines` returned the _whole file_, and
 `decideVerification` compared the agent's snippet to it with `===`. Every rangeless piece of
 evidence was therefore marked `MISMATCH` — the UI was effectively accusing the agent of lying, when
 the server had asked the wrong question. The read now reports whether it returned a whole file, and
-verification asks "is it *contained*?" for whole files and "is it *equal*?" for line ranges.
+verification asks "is it _contained_?" for whole files and "is it _equal_?" for line ranges.
 Normalization trims line endings and trailing whitespace but never indentation, because in code
 indentation is meaning.
 → `src/lib/github/content.ts`, `src/features/issues/server/code-evidence-service.ts`,
@@ -392,7 +392,7 @@ message queue, no cache layer, no vector database.
 
 ## Security model
 
-- **The API key *is* the tenant.** There is no workspace field in any payload or query; a client
+- **The API key _is_ the tenant.** There is no workspace field in any payload or query; a client
   cannot name a workspace. Every agent query is scoped by the key's workspace.
 - **Keys are stored as SHA-256 hashes.** The plaintext exists only in the issuing response and is
   shown once. Malformed tokens are rejected before touching the database.
@@ -414,14 +414,14 @@ message queue, no cache layer, no vector database.
 
 Agents never have to be told internal identifiers.
 
-| You'd expect to supply | Where it actually comes from |
-| --- | --- |
-| Workspace id | The API key |
-| Project | Optional `slug`; falls back to `default` |
-| Repository | `git remote` in the current checkout |
-| Commit | `git HEAD` |
-| Review id | Remembered by the MCP process for the session |
-| Issue id | Defaults to the last issue the session touched |
+| You'd expect to supply | Where it actually comes from                   |
+| ---------------------- | ---------------------------------------------- |
+| Workspace id           | The API key                                    |
+| Project                | Optional `slug`; falls back to `default`       |
+| Repository             | `git remote` in the current checkout           |
+| Commit                 | `git HEAD`                                     |
+| Review id              | Remembered by the MCP process for the session  |
+| Issue id               | Defaults to the last issue the session touched |
 
 You paste a key once. You never paste a UUID.
 
@@ -482,16 +482,16 @@ with `psql` — "it returned 200" is not accepted as proof that something was st
 
 Until you pass `DB_INTEGRATION=true`, **none of the following is checked**:
 
-| Not checked by `pnpm test` | Who actually enforces it |
-| --- | --- |
-| Overlapping `workspaceId` + `projectId` conditions really do exclude another tenant | the SQL `WHERE` clause |
-| `UNIQUE(workspace_id, slug)`, `workspaces.personal_owner_id`, the two partial unique indexes on `knowledge_pages` | database constraints |
-| `ON DELETE CASCADE` removes repositories, reviews and issues with a project | foreign keys |
-| `count(*) filter (...)` and correlated subqueries count the right rows | the query itself |
-| A single-shot `UPDATE … WHERE accepted_at IS NULL` claims an invitation exactly once | transaction semantics |
-| `FOR UPDATE` locks the other owner rows while the last-owner rule is evaluated | row locks |
+| Not checked by `pnpm test`                                                                                        | Who actually enforces it |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| Overlapping `workspaceId` + `projectId` conditions really do exclude another tenant                               | the SQL `WHERE` clause   |
+| `UNIQUE(workspace_id, slug)`, `workspaces.personal_owner_id`, the two partial unique indexes on `knowledge_pages` | database constraints     |
+| `ON DELETE CASCADE` removes repositories, reviews and issues with a project                                       | foreign keys             |
+| `count(*) filter (...)` and correlated subqueries count the right rows                                            | the query itself         |
+| A single-shot `UPDATE … WHERE accepted_at IS NULL` claims an invitation exactly once                              | transaction semantics    |
+| `FOR UPDATE` locks the other owner rows while the last-owner rule is evaluated                                    | row locks                |
 
-The *decision rules* that sit above those queries — reject an explicitly chosen slug instead of
+The _decision rules_ that sit above those queries — reject an explicitly chosen slug instead of
 silently renaming it, map a unique violation to `CONFLICT` without leaking the driver message,
 refuse to demote the last owner, store only the SHA-256 hash of an invitation token, keep every
 rejection reason indistinguishable — are covered by ordinary unit tests that run on every

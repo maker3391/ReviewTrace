@@ -23,10 +23,10 @@
  */
 
 export interface IssuedInvite {
- /** 발행된 초대 행의 id. 🔴 Token 이 아니다 — 죽은 Token 을 판정에 쓰지 않는다. */
- id: string;
- /** 사용자에게 한 번만 보여 주는 수락 주소. */
- url: string;
+  /** 발행된 초대 행의 id. 🔴 Token 이 아니다 — 죽은 Token 을 판정에 쓰지 않는다. */
+  id: string;
+  /** 사용자에게 한 번만 보여 주는 수락 주소. */
+  url: string;
 }
 
 /**
@@ -36,11 +36,11 @@ export interface IssuedInvite {
  * 그 목록에서 빠지므로, 여기서 자연히 `null` 이 된다.
  */
 export function visibleInviteUrl(
- issued: IssuedInvite | null,
- liveInvitationIds: readonly string[],
+  issued: IssuedInvite | null,
+  liveInvitationIds: readonly string[],
 ): string | null {
- if (issued === null) {
- return null;
- }
- return liveInvitationIds.includes(issued.id) ? issued.url : null;
+  if (issued === null) {
+    return null;
+  }
+  return liveInvitationIds.includes(issued.id) ? issued.url : null;
 }

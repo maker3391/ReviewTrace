@@ -290,34 +290,75 @@ describe.skipIf(!enabled)("계정 삭제 — 혼자 쓰던 것", () => {
       const before = {
         projects: await countRows(
           tx,
-          tx.select({ value: total }).from(projects).where(eq(projects.workspaceId, scope)),
+          tx
+            .select({ value: total })
+            .from(projects)
+            .where(eq(projects.workspaceId, scope)),
         ),
         issues: await countRows(
           tx,
-          tx.select({ value: total }).from(reviewIssues).where(eq(reviewIssues.workspaceId, scope)),
+          tx
+            .select({ value: total })
+            .from(reviewIssues)
+            .where(eq(reviewIssues.workspaceId, scope)),
         ),
         activities: await countRows(
           tx,
-          tx.select({ value: total }).from(issueActivities).where(eq(issueActivities.workspaceId, scope)),
+          tx
+            .select({ value: total })
+            .from(issueActivities)
+            .where(eq(issueActivities.workspaceId, scope)),
         ),
         keys: await countRows(
           tx,
-          tx.select({ value: total }).from(apiKeys).where(eq(apiKeys.workspaceId, scope)),
+          tx
+            .select({ value: total })
+            .from(apiKeys)
+            .where(eq(apiKeys.workspaceId, scope)),
         ),
       };
-      expect(before).toEqual({ projects: 1, issues: 1, activities: 1, keys: 1 });
+      expect(before).toEqual({
+        projects: 1,
+        issues: 1,
+        activities: 1,
+        keys: 1,
+      });
 
       await deleteAccount({ userId: me.userId }, tx);
 
       for (const query of [
-        tx.select({ value: total }).from(projects).where(eq(projects.workspaceId, scope)),
-        tx.select({ value: total }).from(repositories).where(eq(repositories.workspaceId, scope)),
-        tx.select({ value: total }).from(reviewSessions).where(eq(reviewSessions.workspaceId, scope)),
-        tx.select({ value: total }).from(reviewIssues).where(eq(reviewIssues.workspaceId, scope)),
-        tx.select({ value: total }).from(issueActivities).where(eq(issueActivities.workspaceId, scope)),
-        tx.select({ value: total }).from(knowledgePages).where(eq(knowledgePages.workspaceId, scope)),
-        tx.select({ value: total }).from(apiKeys).where(eq(apiKeys.workspaceId, scope)),
-        tx.select({ value: total }).from(workspaceMembers).where(eq(workspaceMembers.workspaceId, scope)),
+        tx
+          .select({ value: total })
+          .from(projects)
+          .where(eq(projects.workspaceId, scope)),
+        tx
+          .select({ value: total })
+          .from(repositories)
+          .where(eq(repositories.workspaceId, scope)),
+        tx
+          .select({ value: total })
+          .from(reviewSessions)
+          .where(eq(reviewSessions.workspaceId, scope)),
+        tx
+          .select({ value: total })
+          .from(reviewIssues)
+          .where(eq(reviewIssues.workspaceId, scope)),
+        tx
+          .select({ value: total })
+          .from(issueActivities)
+          .where(eq(issueActivities.workspaceId, scope)),
+        tx
+          .select({ value: total })
+          .from(knowledgePages)
+          .where(eq(knowledgePages.workspaceId, scope)),
+        tx
+          .select({ value: total })
+          .from(apiKeys)
+          .where(eq(apiKeys.workspaceId, scope)),
+        tx
+          .select({ value: total })
+          .from(workspaceMembers)
+          .where(eq(workspaceMembers.workspaceId, scope)),
       ]) {
         expect(await countRows(tx, query)).toBe(0);
       }
@@ -336,7 +377,10 @@ describe.skipIf(!enabled)("계정 삭제 — 인증 흔적", () => {
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(sessions).where(eq(sessions.userId, me.userId)),
+          tx
+            .select({ value: total })
+            .from(sessions)
+            .where(eq(sessions.userId, me.userId)),
         ),
       ).toBe(2);
 
@@ -345,14 +389,20 @@ describe.skipIf(!enabled)("계정 삭제 — 인증 흔적", () => {
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(sessions).where(eq(sessions.userId, me.userId)),
+          tx
+            .select({ value: total })
+            .from(sessions)
+            .where(eq(sessions.userId, me.userId)),
         ),
       ).toBe(0);
       // 🔴 남의 세션은 그대로다.
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(sessions).where(eq(sessions.userId, other.userId)),
+          tx
+            .select({ value: total })
+            .from(sessions)
+            .where(eq(sessions.userId, other.userId)),
         ),
       ).toBe(2);
     });
@@ -368,7 +418,10 @@ describe.skipIf(!enabled)("계정 삭제 — 인증 흔적", () => {
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(accounts).where(eq(accounts.userId, me.userId)),
+          tx
+            .select({ value: total })
+            .from(accounts)
+            .where(eq(accounts.userId, me.userId)),
         ),
       ).toBe(0);
     });
@@ -454,20 +507,29 @@ describe.skipIf(!enabled)("계정 삭제 — 남의 것은 건드리지 않는�
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(workspaces).where(eq(workspaces.id, owner.workspaceId)),
+          tx
+            .select({ value: total })
+            .from(workspaces)
+            .where(eq(workspaces.id, owner.workspaceId)),
         ),
       ).toBe(1);
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(reviewIssues).where(eq(reviewIssues.workspaceId, owner.workspaceId)),
+          tx
+            .select({ value: total })
+            .from(reviewIssues)
+            .where(eq(reviewIssues.workspaceId, owner.workspaceId)),
         ),
       ).toBe(1);
       // 🔴 API Key 는 Workspace 의 것이다 — 사람이 나갔다고 팀의 Agent 연동이 끊기지 않는다.
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(apiKeys).where(eq(apiKeys.workspaceId, owner.workspaceId)),
+          tx
+            .select({ value: total })
+            .from(apiKeys)
+            .where(eq(apiKeys.workspaceId, owner.workspaceId)),
         ),
       ).toBe(1);
 
@@ -502,7 +564,10 @@ describe.skipIf(!enabled)("계정 삭제 — 남의 것은 건드리지 않는�
       await deleteAccount({ userId: me.userId }, tx);
 
       const page = await tx
-        .select({ title: knowledgePages.title, createdBy: knowledgePages.createdBy })
+        .select({
+          title: knowledgePages.title,
+          createdBy: knowledgePages.createdBy,
+        })
         .from(knowledgePages)
         .where(eq(knowledgePages.workspaceId, owner.workspaceId));
       expect(page[0]?.title).toBe("금액 표기 규칙");
@@ -552,19 +617,28 @@ describe.skipIf(!enabled)("계정 삭제 — 남의 것은 건드리지 않는�
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(users).where(eq(users.id, other.userId)),
+          tx
+            .select({ value: total })
+            .from(users)
+            .where(eq(users.id, other.userId)),
         ),
       ).toBe(1);
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(workspaces).where(eq(workspaces.id, other.workspaceId)),
+          tx
+            .select({ value: total })
+            .from(workspaces)
+            .where(eq(workspaces.id, other.workspaceId)),
         ),
       ).toBe(1);
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(accounts).where(eq(accounts.userId, other.userId)),
+          tx
+            .select({ value: total })
+            .from(accounts)
+            .where(eq(accounts.userId, other.userId)),
         ),
       ).toBe(1);
     });
@@ -593,13 +667,19 @@ describe.skipIf(!enabled)("계정 삭제 — 마지막 OWNER", () => {
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(users).where(eq(users.id, me.userId)),
+          tx
+            .select({ value: total })
+            .from(users)
+            .where(eq(users.id, me.userId)),
         ),
       ).toBe(1);
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(workspaces).where(eq(workspaces.id, me.workspaceId)),
+          tx
+            .select({ value: total })
+            .from(workspaces)
+            .where(eq(workspaces.id, me.workspaceId)),
         ),
       ).toBe(1);
     });
@@ -625,7 +705,10 @@ describe.skipIf(!enabled)("계정 삭제 — 마지막 OWNER", () => {
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(workspaces).where(eq(workspaces.id, me.workspaceId)),
+          tx
+            .select({ value: total })
+            .from(workspaces)
+            .where(eq(workspaces.id, me.workspaceId)),
         ),
       ).toBe(1);
       const left = await tx
@@ -692,7 +775,10 @@ describe.skipIf(!enabled)("계정 삭제 — 마지막 OWNER", () => {
       expect(
         await countRows(
           tx,
-          tx.select({ value: total }).from(workspaces).where(eq(workspaces.id, soloId)),
+          tx
+            .select({ value: total })
+            .from(workspaces)
+            .where(eq(workspaces.id, soloId)),
         ),
       ).toBe(1);
     });

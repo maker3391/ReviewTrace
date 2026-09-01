@@ -16,7 +16,7 @@
 
 /** Workspace 하나로 좁힌 범위. */
 export interface WorkspaceScope {
- workspaceId: string;
+  workspaceId: string;
 }
 
 /**
@@ -27,5 +27,5 @@ export interface WorkspaceScope {
  * 틀려도 결과가 비어서 돌아온다.
  */
 export interface ProjectScope extends WorkspaceScope {
- projectId: string;
+  projectId: string;
 }

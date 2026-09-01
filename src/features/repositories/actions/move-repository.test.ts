@@ -28,63 +28,62 @@ const moveRepositoryToProject = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 vi.mock("@/lib/auth/require-project", () => ({
- requireProject: (...args: unknown[]) => requireProject(...args),
+  requireProject: (...args: unknown[]) => requireProject(...args),
 }));
 
 vi.mock("@/features/projects/server/project-service", () => ({
- findProjectBySlug: (...args: unknown[]) => findProjectBySlug(...args),
+  findProjectBySlug: (...args: unknown[]) => findProjectBySlug(...args),
 }));
 
 vi.mock("@/features/repositories/server/repository-query", () => ({
- moveRepositoryToProject: (...args: unknown[]) =>
- moveRepositoryToProject(...args),
+  moveRepositoryToProject: (...args: unknown[]) =>
+    moveRepositoryToProject(...args),
 }));
 
-const { moveRepositoryAction } = await import(
- "@/features/repositories/actions/move-repository"
-);
+const { moveRepositoryAction } =
+  await import("@/features/repositories/actions/move-repository");
 
 beforeEach(() => {
- vi.clearAllMocks();
+  vi.clearAllMocks();
 
- requireProject.mockResolvedValue({
- user: { id: "user-1", name: "사장님", email: "owner@example.test" },
- workspace: { workspaceId: WORKSPACE, role: "OWNER" },
- project: { projectId: SOURCE_PROJECT, slug: "smil", name: "SMIL" },
- });
- findProjectBySlug.mockResolvedValue({ projectId: TARGET_PROJECT });
- moveRepositoryToProject.mockResolvedValue(undefined);
+  requireProject.mockResolvedValue({
+    user: { id: "user-1", name: "사장님", email: "owner@example.test" },
+    workspace: { workspaceId: WORKSPACE, role: "OWNER" },
+    project: { projectId: SOURCE_PROJECT, slug: "smil", name: "SMIL" },
+  });
+  findProjectBySlug.mockResolvedValue({ projectId: TARGET_PROJECT });
+  moveRepositoryToProject.mockResolvedValue(undefined);
 });
 
 const target = {
- workspaceSlug: "codeapex",
- projectSlug: "smil",
- repositoryId: REPOSITORY,
- targetProjectSlug: "erp",
+  workspaceSlug: "codeapex",
+  projectSlug: "smil",
+  repositoryId: REPOSITORY,
+  targetProjectSlug: "erp",
 };
 
 describe("moveRepositoryAction", () => {
- it("🔴 출발 Project 와 목적지 Project 를 «둘 다» 넘긴다", async () => {
- const result = await moveRepositoryAction(target);
+  it("🔴 출발 Project 와 목적지 Project 를 «둘 다» 넘긴다", async () => {
+    const result = await moveRepositoryAction(target);
 
- expect(result.ok).toBe(true);
- // 목적지는 화면이 보낸 ID 가 아니라 slug 로 다시 찾는다.
- expect(findProjectBySlug).toHaveBeenCalledWith(WORKSPACE, "erp");
+    expect(result.ok).toBe(true);
+    // 목적지는 화면이 보낸 ID 가 아니라 slug 로 다시 찾는다.
+    expect(findProjectBySlug).toHaveBeenCalledWith(WORKSPACE, "erp");
 
- expect(moveRepositoryToProject).toHaveBeenCalledWith({
- workspaceId: WORKSPACE,
- repositoryId: REPOSITORY,
- sourceProjectId: SOURCE_PROJECT,
- targetProjectId: TARGET_PROJECT,
- });
- });
+    expect(moveRepositoryToProject).toHaveBeenCalledWith({
+      workspaceId: WORKSPACE,
+      repositoryId: REPOSITORY,
+      sourceProjectId: SOURCE_PROJECT,
+      targetProjectId: TARGET_PROJECT,
+    });
+  });
 
- it("목적지가 같은 Workspace 에 없으면 옮기지 않는다", async () => {
- findProjectBySlug.mockResolvedValue(null);
+  it("목적지가 같은 Workspace 에 없으면 옮기지 않는다", async () => {
+    findProjectBySlug.mockResolvedValue(null);
 
- const result = await moveRepositoryAction(target);
+    const result = await moveRepositoryAction(target);
 
- expect(result.ok).toBe(false);
- expect(moveRepositoryToProject).not.toHaveBeenCalled();
- });
+    expect(result.ok).toBe(false);
+    expect(moveRepositoryToProject).not.toHaveBeenCalled();
+  });
 });

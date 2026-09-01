@@ -50,10 +50,10 @@ const SIZE_PARAMS = ["s", "size"] as const;
 const DEVICE_PIXEL_RATIOS = [1, 2, 3] as const;
 
 export type AvatarSources = {
- /** `srcSet` 을 모르는 클라이언트가 받을 값. 표시 크기의 2배로 둔다. */
- src: string;
- /** DPR 별 후보. GitHub 아바타가 아니면 `undefined` — 그때는 원본 그대로 쓴다. */
- srcSet?: string;
+  /** `srcSet` 을 모르는 클라이언트가 받을 값. 표시 크기의 2배로 둔다. */
+  src: string;
+  /** DPR 별 후보. GitHub 아바타가 아니면 `undefined` — 그때는 원본 그대로 쓴다. */
+  srcSet?: string;
 };
 
 /**
@@ -63,29 +63,29 @@ export type AvatarSources = {
  * 🔴 여기서 던지면 Header 가 통째로 죽는다 — 알아보지 못하는 값은 손대지 않고 지나간다.
  */
 export function avatarSources(image: string, renderPx: number): AvatarSources {
- let url: URL;
+  let url: URL;
 
- try {
- url = new URL(image);
- } catch {
- return { src: image };
- }
+  try {
+    url = new URL(image);
+  } catch {
+    return { src: image };
+  }
 
- if (url.protocol !== "https:" || url.hostname !== GITHUB_AVATAR_HOST) {
- return { src: image };
- }
+  if (url.protocol !== "https:" || url.hostname !== GITHUB_AVATAR_HOST) {
+    return { src: image };
+  }
 
- const at = (dpr: number): string => {
- const sized = new URL(url);
- for (const param of SIZE_PARAMS) {
- sized.searchParams.delete(param);
- }
- sized.searchParams.set("s", String(Math.round(renderPx * dpr)));
- return sized.toString();
- };
+  const at = (dpr: number): string => {
+    const sized = new URL(url);
+    for (const param of SIZE_PARAMS) {
+      sized.searchParams.delete(param);
+    }
+    sized.searchParams.set("s", String(Math.round(renderPx * dpr)));
+    return sized.toString();
+  };
 
- return {
- src: at(2),
- srcSet: DEVICE_PIXEL_RATIOS.map((dpr) => `${at(dpr)} ${dpr}x`).join(", "),
- };
+  return {
+    src: at(2),
+    srcSet: DEVICE_PIXEL_RATIOS.map((dpr) => `${at(dpr)} ${dpr}x`).join(", "),
+  };
 }

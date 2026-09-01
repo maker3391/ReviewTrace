@@ -24,9 +24,9 @@ describe("issueStatusUpdateSchema", () => {
   });
 
   it("RESOLVED 는 해결 요약 없이 통과하지 못한다", () => {
-    expect(issueStatusUpdateSchema.safeParse({ status: "RESOLVED" }).success).toBe(
-      false,
-    );
+    expect(
+      issueStatusUpdateSchema.safeParse({ status: "RESOLVED" }).success,
+    ).toBe(false);
     expect(
       issueStatusUpdateSchema.safeParse({
         status: "RESOLVED",

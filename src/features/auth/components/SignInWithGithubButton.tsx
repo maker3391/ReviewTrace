@@ -21,25 +21,25 @@ import { readMessages } from "@/lib/ui/appearance";
  * Focus ring·keyboard 동작은 `Button` primitive 가 그대로 갖는다.
  */
 export async function SignInWithGithubButton({
- redirectTo = "/",
- className,
+  redirectTo = "/",
+  className,
 }: {
- redirectTo?: string;
- className?: string;
+  redirectTo?: string;
+  className?: string;
 }) {
- const t = (await readMessages()).login;
+  const t = (await readMessages()).login;
 
- return (
- <form action={signInWithGithubAction} className={className}>
- <input type="hidden" name="redirectTo" value={redirectTo} />
- <Button
- type="submit"
- size="lg"
- className="w-full gap-2.5 bg-foreground text-background hover:bg-foreground/90 focus-visible:ring-foreground/30"
- >
- <GithubMark className="size-[18px]" />
- {t.continueWithGithub}
- </Button>
- </form>
-);
+  return (
+    <form action={signInWithGithubAction} className={className}>
+      <input type="hidden" name="redirectTo" value={redirectTo} />
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full gap-2.5 bg-foreground text-background hover:bg-foreground/90 focus-visible:ring-foreground/30"
+      >
+        <GithubMark className="size-[18px]" />
+        {t.continueWithGithub}
+      </Button>
+    </form>
+  );
 }

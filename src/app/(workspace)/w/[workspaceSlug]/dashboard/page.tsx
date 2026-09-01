@@ -5,7 +5,7 @@ import { requireWorkspace } from "@/lib/auth/require-workspace";
 import { readMessages } from "@/lib/ui/appearance";
 
 export async function generateMetadata(): Promise<Metadata> {
- return { title: (await readMessages()).metaTitle.dashboard };
+  return { title: (await readMessages()).metaTitle.dashboard };
 }
 
 /**
@@ -17,18 +17,18 @@ export async function generateMetadata(): Promise<Metadata> {
  * 가장 가까운 자리가 경계다. `requireWorkspace` 는 요청 안에서 캐시된다.
  */
 export default async function WorkspaceDashboardPage({
- params,
+  params,
 }: {
- params: Promise<{ workspaceSlug: string }>;
+  params: Promise<{ workspaceSlug: string }>;
 }) {
- const { workspaceSlug } = await params;
- const { workspace } = await requireWorkspace(workspaceSlug);
+  const { workspaceSlug } = await params;
+  const { workspace } = await requireWorkspace(workspaceSlug);
 
- return (
- <WorkspaceDashboardScreen
- workspaceId={workspace.workspaceId}
- workspaceSlug={workspace.slug}
- workspaceName={workspace.name}
- />
-);
+  return (
+    <WorkspaceDashboardScreen
+      workspaceId={workspace.workspaceId}
+      workspaceSlug={workspace.slug}
+      workspaceName={workspace.name}
+    />
+  );
 }

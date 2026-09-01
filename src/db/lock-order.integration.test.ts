@@ -458,7 +458,11 @@ describe.skipIf(!enabled)("전역 잠금 순서 — 실제 연결 여럿", () =>
 
     // 내 Personal Workspace — 삭제가 잠그고 통째로 지울 대상이다.
     const personalId = await ensurePersonalWorkspace(
-      { userId: me.id, displayName: "삭제하는 사람", slugSource: unique("dl-") },
+      {
+        userId: me.id,
+        displayName: "삭제하는 사람",
+        slugSource: unique("dl-"),
+      },
       db(),
     );
     created.workspaceIds.push(personalId);

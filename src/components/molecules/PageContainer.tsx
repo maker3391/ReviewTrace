@@ -43,9 +43,9 @@ export type PageWidth = "wide" | "default" | "reading";
  * 그 본문을 쓰는 편집 폼이 **같은 폭**이라야 쓰면서 결과를 가늠할 수 있다
  */
 const WIDTH: Record<PageWidth, string> = {
- wide: "max-w-7xl",
- default: "max-w-5xl",
- reading: "max-w-3xl",
+  wide: "max-w-7xl",
+  default: "max-w-5xl",
+  reading: "max-w-3xl",
 };
 
 /**
@@ -56,24 +56,24 @@ const WIDTH: Record<PageWidth, string> = {
  * 위해서다 — 상한만으로는 그 구간에 여백이 남지 않는다.
  */
 export function PageContainer({
- width = "default",
- className,
- children,
+  width = "default",
+  className,
+  children,
 }: {
- width?: PageWidth;
- /** 세로 간격 등 화면별 조정. 🔴 `max-w-*` 를 여기로 넘기지 않는다 — 그러면 다시 흩어진다. */
- className?: string;
- children: ReactNode;
+  width?: PageWidth;
+  /** 세로 간격 등 화면별 조정. 🔴 `max-w-*` 를 여기로 넘기지 않는다 — 그러면 다시 흩어진다. */
+  className?: string;
+  children: ReactNode;
 }) {
- return (
- <div
- className={cn(
- "mx-auto flex w-full flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6 xl:px-8",
- WIDTH[width],
- className,
-)}
- >
- {children}
- </div>
-);
+  return (
+    <div
+      className={cn(
+        "mx-auto flex w-full flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6 xl:px-8",
+        WIDTH[width],
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }

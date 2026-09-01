@@ -10,17 +10,17 @@
 
 /** 소속 확인을 통과한 Project. 「지금 어느 업무 단위를 보고 있는가」다. */
 export interface ProjectContext {
- projectId: string;
- slug: string;
- name: string;
- description: string | null;
+  projectId: string;
+  slug: string;
+  name: string;
+  description: string | null;
 }
 
 /** Project 목록 한 줄. 사이드바와 Projects 화면이 함께 쓴다. */
 export interface ProjectSummary extends ProjectContext {
- repositoryCount: number;
- reviewCount: number;
- openIssueCount: number;
- /** 이 Project 에서 마지막으로 무슨 일이 있었나. Review 도 Issue 도 없으면 `null`. */
- lastActivityAt: Date | null;
+  repositoryCount: number;
+  reviewCount: number;
+  openIssueCount: number;
+  /** 이 Project 에서 마지막으로 무슨 일이 있었나. Review 도 Issue 도 없으면 `null`. */
+  lastActivityAt: Date | null;
 }

@@ -7,7 +7,7 @@ import type { RawSearchParams } from "@/lib/pagination";
 import { readMessages } from "@/lib/ui/appearance";
 
 export async function generateMetadata(): Promise<Metadata> {
- return { title: (await readMessages()).metaTitle.projects };
+  return { title: (await readMessages()).metaTitle.projects };
 }
 
 /**
@@ -15,21 +15,21 @@ export async function generateMetadata(): Promise<Metadata> {
  * 통과한 `workspace.workspaceId` 만 조회에 들어간다.
  */
 export default async function WorkspaceProjectsPage({
- params,
- searchParams,
+  params,
+  searchParams,
 }: {
- params: Promise<{ workspaceSlug: string }>;
- searchParams: Promise<RawSearchParams>;
+  params: Promise<{ workspaceSlug: string }>;
+  searchParams: Promise<RawSearchParams>;
 }) {
- const { workspaceSlug } = await params;
- const { workspace } = await requireWorkspace(workspaceSlug);
+  const { workspaceSlug } = await params;
+  const { workspace } = await requireWorkspace(workspaceSlug);
 
- return (
- <ProjectListScreen
- workspaceId={workspace.workspaceId}
- workspaceSlug={workspace.slug}
- basePath={`/w/${workspace.slug}/projects` as Route}
- searchParams={searchParams}
- />
-);
+  return (
+    <ProjectListScreen
+      workspaceId={workspace.workspaceId}
+      workspaceSlug={workspace.slug}
+      basePath={`/w/${workspace.slug}/projects` as Route}
+      searchParams={searchParams}
+    />
+  );
 }

@@ -2,10 +2,7 @@
 
 import { deleteAccount } from "@/features/users/server/account-deletion-service";
 import { actionFromError } from "@/lib/action/action-error";
-import {
- actionOk,
- type ActionResult,
-} from "@/lib/action/action-result";
+import { actionOk, type ActionResult } from "@/lib/action/action-result";
 import { signOut } from "@/lib/auth";
 import { requireUser } from "@/lib/auth/require-workspace";
 
@@ -21,26 +18,26 @@ import { requireUser } from "@/lib/auth/require-workspace";
  * `account-deletion-service.ts` 가 정한다.
  */
 export async function deleteAccountAction(): Promise<ActionResult> {
- try {
- const user = await requireUser();
+  try {
+    const user = await requireUser();
 
- await deleteAccount({ userId: user.id });
+    await deleteAccount({ userId: user.id });
 
- /**
- * 계정이 사라졌으니 브라우저의 세션 쿠키는 **가리키는 곳이 없는 값**이다.
- * 남겨 두어도 로그인 상태가 되지는 않지만(행이 없다) 그대로 두지 않는다.
- *
- * 🔴 `redirect: false` 다 — 여기서 이동까지 하면 `NEXT_REDIRECT` 예외가 아래
- * `catch` 에 걸려 **성공한 삭제가 실패로 보고된다.** 이동은 화면이 한다.
- */
- try {
- await signOut({ redirect: false });
- } catch {
- // 🔴 쿠키를 지우지 못한 것으로 «이미 끝난 삭제»를 실패로 만들지 않는다.
- }
+    /**
+     * 계정이 사라졌으니 브라우저의 세션 쿠키는 **가리키는 곳이 없는 값**이다.
+     * 남겨 두어도 로그인 상태가 되지는 않지만(행이 없다) 그대로 두지 않는다.
+     *
+     * 🔴 `redirect: false` 다 — 여기서 이동까지 하면 `NEXT_REDIRECT` 예외가 아래
+     * `catch` 에 걸려 **성공한 삭제가 실패로 보고된다.** 이동은 화면이 한다.
+     */
+    try {
+      await signOut({ redirect: false });
+    } catch {
+      // 🔴 쿠키를 지우지 못한 것으로 «이미 끝난 삭제»를 실패로 만들지 않는다.
+    }
 
- return actionOk();
- } catch (error) {
- return actionFromError(error);
- }
+    return actionOk();
+  } catch (error) {
+    return actionFromError(error);
+  }
 }

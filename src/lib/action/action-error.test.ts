@@ -32,7 +32,8 @@ vi.mock("@/lib/ui/appearance", () => ({
   readLocale: () => readLocale(),
 }));
 
-const { actionFail, actionFromError } = await import("@/lib/action/action-error");
+const { actionFail, actionFromError } =
+  await import("@/lib/action/action-error");
 
 const HANGUL = /[가-힣]/;
 
@@ -83,8 +84,12 @@ describe("actionFromError", () => {
     const result = await actionFromError(leaky);
 
     expect(result.ok === false && result.error.code).toBe("INTERNAL_ERROR");
-    expect(result.ok === false && result.error.message).not.toContain("10.0.0.5");
-    expect(result.ok === false && result.error.message).not.toContain("password");
+    expect(result.ok === false && result.error.message).not.toContain(
+      "10.0.0.5",
+    );
+    expect(result.ok === false && result.error.message).not.toContain(
+      "password",
+    );
   });
 
   /**

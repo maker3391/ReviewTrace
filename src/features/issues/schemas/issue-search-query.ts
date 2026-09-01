@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { ISSUE_CATEGORIES, ISSUE_SEVERITIES, ISSUE_STATUSES } from "@/types/review";
+import {
+  ISSUE_CATEGORIES,
+  ISSUE_SEVERITIES,
+  ISSUE_STATUSES,
+} from "@/types/review";
 
 /**
  * `GET /api/v1/issues` 의 Query 계약(스펙 5 — `search_issues`).
@@ -24,9 +28,18 @@ export const issueSearchQuerySchema = z.object({
     .max(401)
     .nullish()
     .transform((v) => (v === undefined || v === "" ? null : v)),
-  status: z.enum(ISSUE_STATUSES).nullish().transform((v) => v ?? null),
-  severity: z.enum(ISSUE_SEVERITIES).nullish().transform((v) => v ?? null),
-  category: z.enum(ISSUE_CATEGORIES).nullish().transform((v) => v ?? null),
+  status: z
+    .enum(ISSUE_STATUSES)
+    .nullish()
+    .transform((v) => v ?? null),
+  severity: z
+    .enum(ISSUE_SEVERITIES)
+    .nullish()
+    .transform((v) => v ?? null),
+  category: z
+    .enum(ISSUE_CATEGORIES)
+    .nullish()
+    .transform((v) => v ?? null),
   patternKey: z
     .string()
     .trim()

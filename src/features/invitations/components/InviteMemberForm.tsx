@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { inviteMemberAction } from "@/features/invitations/actions/invite-member";
 import {
- inviteMemberSchema,
- type InviteMemberInput,
+  inviteMemberSchema,
+  type InviteMemberInput,
 } from "@/features/invitations/schemas/invitation";
 import {
- visibleInviteUrl,
- type IssuedInvite,
+  visibleInviteUrl,
+  type IssuedInvite,
 } from "@/features/invitations/utils/invite-link";
 import { useLocalizedForm } from "@/lib/validation/use-localized-form";
 
@@ -35,102 +35,99 @@ import { useLocalizedForm } from "@/lib/validation/use-localized-form";
  */
 /** 🔴 이 폼이 실제로 그리는 낱말만 받는다. */
 export interface InviteMemberLabels {
- emailLabel: string;
- submit: string;
- linkTitle: string;
- linkWarning: string;
+  emailLabel: string;
+  submit: string;
+  linkTitle: string;
+  linkWarning: string;
 }
 
 export function InviteMemberForm({
- workspaceSlug,
- labels,
- liveInvitationIds,
+  workspaceSlug,
+  labels,
+  liveInvitationIds,
 }: {
- workspaceSlug: string;
- labels: InviteMemberLabels;
- /** 지금 살아 있는(수락도 취소도 되지 않은) 초대의 id. 서버가 매번 다시 넘긴다. */
- liveInvitationIds: readonly string[];
+  workspaceSlug: string;
+  labels: InviteMemberLabels;
+  /** 지금 살아 있는(수락도 취소도 되지 않은) 초대의 id. 서버가 매번 다시 넘긴다. */
+  liveInvitationIds: readonly string[];
 }) {
- const [issued, setIssued] = useState<IssuedInvite | null>(null);
- const [failure, setFailure] = useState<string | null>(null);
+  const [issued, setIssued] = useState<IssuedInvite | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
 
- /**
- * 🔴 **정본은 서버가 그린 목록이다.** 여기 남은 것이 아직 유효한지는 우리가 기억하는
- * 것이 아니라 그 목록이 답한다 — 취소는 다른 컴포넌트에서 일어나고, 그 뒤 이 화면은
- * 새 `liveInvitationIds` 로 다시 그려진다.
- */
- const inviteUrl = visibleInviteUrl(issued, liveInvitationIds);
+  /**
+   * 🔴 **정본은 서버가 그린 목록이다.** 여기 남은 것이 아직 유효한지는 우리가 기억하는
+   * 것이 아니라 그 목록이 답한다 — 취소는 다른 컴포넌트에서 일어나고, 그 뒤 이 화면은
+   * 새 `liveInvitationIds` 로 다시 그려진다.
+   */
+  const inviteUrl = visibleInviteUrl(issued, liveInvitationIds);
 
- const form = useLocalizedForm<InviteMemberInput>(inviteMemberSchema, {
- defaultValues: { email: "" },
- });
+  const form = useLocalizedForm<InviteMemberInput>(inviteMemberSchema, {
+    defaultValues: { email: "" },
+  });
 
- async function onSubmit(values: InviteMemberInput) {
- setFailure(null);
- setIssued(null);
+  async function onSubmit(values: InviteMemberInput) {
+    setFailure(null);
+    setIssued(null);
 
- const formData = new FormData();
- formData.set("email", values.email);
+    const formData = new FormData();
+    formData.set("email", values.email);
 
- const result = await inviteMemberAction(workspaceSlug, formData);
+    const result = await inviteMemberAction(workspaceSlug, formData);
 
- if (!result.ok) {
- // 🔴 사용자용 message 만 그린다. 원본 오류를 화면에 내보내지 않는다.
- setFailure(result.error.message);
- return;
- }
+    if (!result.ok) {
+      // 🔴 사용자용 message 만 그린다. 원본 오류를 화면에 내보내지 않는다.
+      setFailure(result.error.message);
+      return;
+    }
 
- setIssued({
- id: result.data.invitationId,
- url: new URL(
- result.data.inviteUrl,
- window.location.origin,
-).toString(),
- });
- form.reset();
- }
+    setIssued({
+      id: result.data.invitationId,
+      url: new URL(result.data.inviteUrl, window.location.origin).toString(),
+    });
+    form.reset();
+  }
 
- return (
- <div className="flex flex-col gap-3">
- <form
- onSubmit={form.handleSubmit(onSubmit)}
- className="flex items-start gap-2"
- >
- <div className="flex flex-1 flex-col gap-1">
- <Input
- {...form.register("email")}
- type="email"
- placeholder={labels.emailLabel}
- aria-label={labels.emailLabel}
- />
- {form.formState.errors.email !== undefined && (
- <p className="text-xs text-destructive">
- {form.formState.errors.email.message}
- </p>
-)}
- </div>
- <Button type="submit" size="sm" disabled={form.formState.isSubmitting}>
- {labels.submit}
- </Button>
- </form>
+  return (
+    <div className="flex flex-col gap-3">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="flex items-start gap-2"
+      >
+        <div className="flex flex-1 flex-col gap-1">
+          <Input
+            {...form.register("email")}
+            type="email"
+            placeholder={labels.emailLabel}
+            aria-label={labels.emailLabel}
+          />
+          {form.formState.errors.email !== undefined && (
+            <p className="text-xs text-destructive">
+              {form.formState.errors.email.message}
+            </p>
+          )}
+        </div>
+        <Button type="submit" size="sm" disabled={form.formState.isSubmitting}>
+          {labels.submit}
+        </Button>
+      </form>
 
- {failure !== null && (
- <p role="alert" className="text-xs text-destructive">
- {failure}
- </p>
-)}
+      {failure !== null && (
+        <p role="alert" className="text-xs text-destructive">
+          {failure}
+        </p>
+      )}
 
- {inviteUrl !== null && (
- <div className="rounded-md border border-border bg-muted/40 p-3">
- <p className="text-xs font-medium">{labels.linkTitle}</p>
- <p className="mt-1 text-[11px] text-muted-foreground">
- {labels.linkWarning}
- </p>
- <code className="mt-2 block break-all font-mono text-[11px]">
- {inviteUrl}
- </code>
- </div>
-)}
- </div>
-);
+      {inviteUrl !== null && (
+        <div className="rounded-md border border-border bg-muted/40 p-3">
+          <p className="text-xs font-medium">{labels.linkTitle}</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {labels.linkWarning}
+          </p>
+          <code className="mt-2 block break-all font-mono text-[11px]">
+            {inviteUrl}
+          </code>
+        </div>
+      )}
+    </div>
+  );
 }

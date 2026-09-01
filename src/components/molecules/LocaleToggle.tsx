@@ -6,11 +6,11 @@ import { Check, Languages } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
- DropdownMenu,
- DropdownMenuContent,
- DropdownMenuItem,
- DropdownMenuLabel,
- DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LOCALES, writeLocaleCookie, type Locale } from "@/config/i18n";
 import { cn } from "@/lib/utils";
@@ -26,67 +26,67 @@ import { cn } from "@/lib/utils";
  * 그린다. 스크롤과 열려 있던 상태가 그대로 남는다.
  */
 export function LocaleToggle({
- locale: currentLocale,
- labels,
+  locale: currentLocale,
+  labels,
 }: {
- /** 🔴 서버가 쿠키에서 읽어 넘긴 첫 상태. */
- locale: Locale;
- labels: {
- language: string;
- ko: string;
- en: string;
- };
+  /** 🔴 서버가 쿠키에서 읽어 넘긴 첫 상태. */
+  locale: Locale;
+  labels: {
+    language: string;
+    ko: string;
+    en: string;
+  };
 }) {
- const router = useRouter();
- const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
- function select(next: Locale) {
- if (next === currentLocale) {
- return;
- }
+  function select(next: Locale) {
+    if (next === currentLocale) {
+      return;
+    }
 
- writeLocaleCookie(next);
- startTransition(() => {
- router.refresh();
- });
- }
+    writeLocaleCookie(next);
+    startTransition(() => {
+      router.refresh();
+    });
+  }
 
- return (
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button
- variant="ghost"
- size="icon-sm"
- aria-label={labels.language}
- disabled={isPending}
- className="text-muted-foreground hover:text-foreground"
- >
- <Languages aria-hidden className="size-[18px]" />
- </Button>
- </DropdownMenuTrigger>
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={labels.language}
+          disabled={isPending}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Languages aria-hidden className="size-[18px]" />
+        </Button>
+      </DropdownMenuTrigger>
 
- <DropdownMenuContent align="end" className="w-40">
- <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
- {labels.language}
- </DropdownMenuLabel>
- {LOCALES.map((option) => (
- <DropdownMenuItem
- key={option}
- onSelect={() => {
- select(option);
- }}
- >
- <span className="flex-1">{labels[option]}</span>
- <Check
- aria-hidden
- className={cn(
- "size-3.5",
- option === currentLocale ? "opacity-100" : "opacity-0",
-)}
- />
- </DropdownMenuItem>
-))}
- </DropdownMenuContent>
- </DropdownMenu>
-);
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+          {labels.language}
+        </DropdownMenuLabel>
+        {LOCALES.map((option) => (
+          <DropdownMenuItem
+            key={option}
+            onSelect={() => {
+              select(option);
+            }}
+          >
+            <span className="flex-1">{labels[option]}</span>
+            <Check
+              aria-hidden
+              className={cn(
+                "size-3.5",
+                option === currentLocale ? "opacity-100" : "opacity-0",
+              )}
+            />
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }

@@ -183,7 +183,9 @@ export function fakeExecutor(script: FakeStep[]): FakeExecutorHandle {
         "throws" in step && step.throws !== undefined
           ? Promise.reject(step.throws)
           : // Driver 가 돌려주는 모양이 다르다 — `execute` 만 `{ rows }` 다.
-            Promise.resolve(kind === "execute" ? { rows: step.rows } : step.rows),
+            Promise.resolve(
+              kind === "execute" ? { rows: step.rows } : step.rows,
+            ),
       (values) => {
         call.values = values;
       },

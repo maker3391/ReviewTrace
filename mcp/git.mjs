@@ -155,7 +155,11 @@ function pathOf(url) {
 }
 
 async function readDefaultBranch(cwd) {
-  const ref = await git(cwd, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
+  const ref = await git(cwd, [
+    "symbolic-ref",
+    "--short",
+    "refs/remotes/origin/HEAD",
+  ]);
   if (ref === null) {
     return null;
   }

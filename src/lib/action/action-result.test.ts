@@ -30,7 +30,10 @@ describe("ActionResult", () => {
       return;
     }
 
-    const result = actionValidationFailed(parsed.error, "입력값이 올바르지 않습니다.");
+    const result = actionValidationFailed(
+      parsed.error,
+      "입력값이 올바르지 않습니다.",
+    );
 
     expect(result.ok).toBe(false);
     expect(result.ok === false && result.error.code).toBe("VALIDATION_ERROR");

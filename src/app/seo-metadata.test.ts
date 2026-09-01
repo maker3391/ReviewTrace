@@ -45,8 +45,7 @@ describe("검색 metadata route", () => {
     expect(SITE_METADATA.metadataBase).toEqual(new URL(APP_CONFIG.url));
     expect(SITE_METADATA.verification).toMatchObject({
       other: {
-        "naver-site-verification":
-          "0ac9ac3684016c79bf8d5852c04d93e95b120ce3",
+        "naver-site-verification": "0ac9ac3684016c79bf8d5852c04d93e95b120ce3",
       },
     });
   });

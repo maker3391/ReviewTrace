@@ -61,7 +61,8 @@ function size(value: unknown): number {
 function buildErrorMap(locale: Locale): ErrorMap {
   const t = messages(locale).validation;
   /** Zod 공식 로케일. 우리가 손대지 않은 모든 code 가 여기로 떨어진다. */
-  const generic = (locale === "en" ? z.locales.en() : z.locales.ko()).localeError;
+  const generic = (locale === "en" ? z.locales.en() : z.locales.ko())
+    .localeError;
 
   return (issue) => {
     const rule = ruleOf(issue);

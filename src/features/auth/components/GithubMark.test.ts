@@ -49,7 +49,12 @@ function parsePath(d: string): Segment[] {
     skipSeparators();
     const rest = d.slice(index);
     const matched = /^[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/.exec(rest);
-    if (!matched || matched[0] === "" || matched[0] === "+" || matched[0] === "-") {
+    if (
+      !matched ||
+      matched[0] === "" ||
+      matched[0] === "+" ||
+      matched[0] === "-"
+    ) {
       return null;
     }
     index += matched[0].length;
@@ -180,7 +185,9 @@ describe("GITHUB_MARK_PATH", () => {
   });
 
   it("좌표가 viewBox 16×16 안에 있다 — 24×24 좌표계를 잘못 넣지 않는다", () => {
-    const { minX, minY, maxX, maxY } = anchorBounds(parsePath(GITHUB_MARK_PATH));
+    const { minX, minY, maxX, maxY } = anchorBounds(
+      parsePath(GITHUB_MARK_PATH),
+    );
 
     expect(minX).toBeGreaterThanOrEqual(0);
     expect(minY).toBeGreaterThanOrEqual(0);

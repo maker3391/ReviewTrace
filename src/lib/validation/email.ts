@@ -44,5 +44,5 @@
  * Mailbox 는 사실상 없고 이 제품의 유일한 입구인 GitHub OAuth 도 그렇게 다룬다.
  */
 export function normalizeEmail(value: string): string {
- return value.trim().toLowerCase();
+  return value.trim().toLowerCase();
 }

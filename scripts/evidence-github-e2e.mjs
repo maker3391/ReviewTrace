@@ -50,7 +50,20 @@ const check = (cond, good, bad) => {
 async function psql(sql) {
   const { stdout } = await run(
     "docker",
-    ["exec", "-i", CONTAINER, "psql", "-U", PGUSER, "-d", PGDB, "-t", "-A", "-c", sql],
+    [
+      "exec",
+      "-i",
+      CONTAINER,
+      "psql",
+      "-U",
+      PGUSER,
+      "-d",
+      PGDB,
+      "-t",
+      "-A",
+      "-c",
+      sql,
+    ],
     { encoding: "utf8", windowsHide: true },
   );
   return stdout.trim();
@@ -69,7 +82,12 @@ async function main() {
   // 🔴 GitHub 에 실제로 있는 줄을 먼저 읽어 온다. 그것이 「정답」이다.
   const response = await fetch(
     `https://api.github.com/repos/${OWNER}/${NAME}/contents/${FILE}?ref=${commitSha}`,
-    { headers: { Accept: "application/vnd.github.raw+json", "User-Agent": "ReviewTrace" } },
+    {
+      headers: {
+        Accept: "application/vnd.github.raw+json",
+        "User-Agent": "ReviewTrace",
+      },
+    },
   );
   if (!response.ok) {
     console.log(
@@ -142,7 +160,11 @@ async function main() {
       target: { type: "COMMIT", commitSha },
       reviewer: { type: "AGENT", name: "evidence-e2e" },
       issues: [
-        issue("실제 줄 그대로", "E-1", { startLine: 2, endLine: 4, snapshot: truth }),
+        issue("실제 줄 그대로", "E-1", {
+          startLine: 2,
+          endLine: 4,
+          snapshot: truth,
+        }),
         issue("다른 내용", "E-2", {
           startLine: 2,
           endLine: 4,
@@ -167,7 +189,9 @@ async function main() {
         if (entry.externalId === "E-5") {
           return {
             ...entry,
-            evidence: [{ ...entry.evidence[0], filePath: "이런파일은없다.txt" }],
+            evidence: [
+              { ...entry.evidence[0], filePath: "이런파일은없다.txt" },
+            ],
           };
         }
         if (entry.externalId === "E-7") {
@@ -190,7 +214,11 @@ async function main() {
     "빈 줄을 못 찾았다 — 이 시험은 아무것도 지키지 못한다",
   );
 
-  check(ingest.status === 201, "Evidence 8건을 저장했다", `ingest 가 ${ingest.status}`);
+  check(
+    ingest.status === 201,
+    "Evidence 8건을 저장했다",
+    `ingest 가 ${ingest.status}`,
+  );
   if (ingest.status !== 201) {
     return 1;
   }
@@ -244,7 +272,8 @@ async function main() {
   }
 
   check(
-    actual.get("E-3")?.length !== "null" && actual.get("E-3")?.length !== undefined,
+    actual.get("E-3")?.length !== "null" &&
+      actual.get("E-3")?.length !== undefined,
     "🔴 코드를 안 보낸 근거는 GitHub 것으로 채워졌다 — 저장소가 사라져도 화면이 보여 줄 것이 남는다",
     "GitHub 에서 읽은 코드가 저장되지 않았다",
   );

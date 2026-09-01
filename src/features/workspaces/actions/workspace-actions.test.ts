@@ -51,9 +51,8 @@ vi.mock("@/features/workspaces/server/workspace-deletion-service", () => ({
   deleteWorkspace: vi.fn(),
 }));
 
-const { removeMemberAction } = await import(
-  "@/features/workspaces/actions/workspace-actions"
-);
+const { removeMemberAction } =
+  await import("@/features/workspaces/actions/workspace-actions");
 
 beforeEach(() => {
   vi.clearAllMocks();

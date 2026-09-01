@@ -21,17 +21,17 @@ import type { SessionUser } from "@/lib/auth/workspace-context";
  * 돈다. 요청 사이에 값이 넘어가지 않는다.
  */
 export const currentUser = cache(async (): Promise<SessionUser | null> => {
- const session = await auth();
- const id = session?.user?.id;
+  const session = await auth();
+  const id = session?.user?.id;
 
- if (typeof id !== "string" || id === "") {
- return null;
- }
+  if (typeof id !== "string" || id === "") {
+    return null;
+  }
 
- // 🔴 세션 객체를 그대로 넘기지 않는다. 화면이 그리는 칸만 옮긴다.
- return {
- id,
- name: session?.user?.name ?? null,
- image: session?.user?.image ?? null,
- };
+  // 🔴 세션 객체를 그대로 넘기지 않는다. 화면이 그리는 칸만 옮긴다.
+  return {
+    id,
+    name: session?.user?.name ?? null,
+    image: session?.user?.image ?? null,
+  };
 });

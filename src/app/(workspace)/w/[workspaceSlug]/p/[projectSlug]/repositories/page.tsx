@@ -18,7 +18,10 @@ export default async function ProjectRepositoriesPage({
   searchParams: Promise<RawSearchParams>;
 }) {
   const { workspaceSlug, projectSlug } = await params;
-  const { workspace, project } = await requireProject(workspaceSlug, projectSlug);
+  const { workspace, project } = await requireProject(
+    workspaceSlug,
+    projectSlug,
+  );
 
   return (
     <RepositoryListScreen

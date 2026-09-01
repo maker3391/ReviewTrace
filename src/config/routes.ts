@@ -61,27 +61,30 @@ export const AGENT_API_PREFIX = "/api/v1";
 const PUBLIC_ASSET_PATHS: readonly string[] = ["/logo.png", "/icon.png"];
 
 /** 검색 엔진이 세션 없이 읽어야 하는 App Router metadata route. */
-const PUBLIC_METADATA_PATHS: readonly string[] = ["/robots.txt", "/sitemap.xml"];
+const PUBLIC_METADATA_PATHS: readonly string[] = [
+  "/robots.txt",
+  "/sitemap.xml",
+];
 
 const PUBLIC_EXACT_PATHS: readonly string[] = [
- ROOT_PATH,
- LOGIN_PATH,
-...PUBLIC_ASSET_PATHS,
-...PUBLIC_METADATA_PATHS,
+  ROOT_PATH,
+  LOGIN_PATH,
+  ...PUBLIC_ASSET_PATHS,
+  ...PUBLIC_METADATA_PATHS,
 ];
 
 const PUBLIC_PREFIXES: readonly string[] = [
- AUTH_API_PREFIX,
- AGENT_API_PREFIX,
- INVITE_PATH_PREFIX,
+  AUTH_API_PREFIX,
+  AGENT_API_PREFIX,
+  INVITE_PATH_PREFIX,
 ];
 
 /** 끝의 `/` 는 같은 화면이다. `/login/` 이 보호로 분류돼 리다이렉트가 도는 것을 막는다. */
 function normalizePath(pathname: string): string {
- if (pathname.length > 1 && pathname.endsWith("/")) {
- return pathname.slice(0, -1);
- }
- return pathname;
+  if (pathname.length > 1 && pathname.endsWith("/")) {
+    return pathname.slice(0, -1);
+  }
+  return pathname;
 }
 
 /**
@@ -91,28 +94,28 @@ function normalizePath(pathname: string): string {
  * 초대 수락 화면은 Token 을 검사하고, Agent API 는 API Key 를 검사한다.
  */
 export function isPublicPath(pathname: string): boolean {
- const path = normalizePath(pathname);
+  const path = normalizePath(pathname);
 
- if (PUBLIC_EXACT_PATHS.includes(path)) {
- return true;
- }
+  if (PUBLIC_EXACT_PATHS.includes(path)) {
+    return true;
+  }
 
- return PUBLIC_PREFIXES.some(
- (prefix) => path === prefix || path.startsWith(`${prefix}/`),
-);
+  return PUBLIC_PREFIXES.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+  );
 }
 
 /** `/w/{slug}/{section}` 을 만든다. 주소를 문자열로 이어 붙이는 자리를 한 곳에 모은다. */
 export function workspacePath(slug: string, section: string): string {
- return `${WORKSPACE_PATH_PREFIX}/${slug}/${section}`;
+  return `${WORKSPACE_PATH_PREFIX}/${slug}/${section}`;
 }
 
 /** `/w/{workspaceSlug}/p/{projectSlug}` — Project Dashboard 의 주소. */
 export function projectBasePath(
- workspaceSlug: string,
- projectSlug: string,
+  workspaceSlug: string,
+  projectSlug: string,
 ): string {
- return `${WORKSPACE_PATH_PREFIX}/${workspaceSlug}/${PROJECT_PATH_SEGMENT}/${projectSlug}`;
+  return `${WORKSPACE_PATH_PREFIX}/${workspaceSlug}/${PROJECT_PATH_SEGMENT}/${projectSlug}`;
 }
 
 /**
@@ -122,12 +125,12 @@ export function projectBasePath(
  * 만들지 않는다. 그 주소는 같은 화면이지만 활성 메뉴 판정이 갈린다.
  */
 export function projectPath(
- workspaceSlug: string,
- projectSlug: string,
- section: string,
+  workspaceSlug: string,
+  projectSlug: string,
+  section: string,
 ): string {
- const base = projectBasePath(workspaceSlug, projectSlug);
- return section === "" ? base : `${base}/${section}`;
+  const base = projectBasePath(workspaceSlug, projectSlug);
+  return section === "" ? base : `${base}/${section}`;
 }
 
 /**
@@ -136,14 +139,14 @@ export function projectPath(
  * 🔴 여기서 나온 값은 **권한 근거가 아니다.** 편의를 위한 표시일 뿐이다.
  */
 export function readWorkspaceSlugFromPath(pathname: string): string | null {
- const segments = normalizePath(pathname).split("/");
- // ["", "w", "{slug}",...]
- if (segments[1] !== "w") {
- return null;
- }
+  const segments = normalizePath(pathname).split("/");
+  // ["", "w", "{slug}",...]
+  if (segments[1] !== "w") {
+    return null;
+  }
 
- const slug = segments[2];
- return slug === undefined || slug === "" ? null : slug;
+  const slug = segments[2];
+  return slug === undefined || slug === "" ? null : slug;
 }
 
 /**
@@ -153,12 +156,12 @@ export function readWorkspaceSlugFromPath(pathname: string): string | null {
  * 소속이 확인된 `workspaceId` 를 함께 건다(`src/lib/auth/require-project.ts`).
  */
 export function readProjectSlugFromPath(pathname: string): string | null {
- const segments = normalizePath(pathname).split("/");
- // ["", "w", "{workspaceSlug}", "p", "{projectSlug}",...]
- if (segments[1] !== "w" || segments[3] !== PROJECT_PATH_SEGMENT) {
- return null;
- }
+  const segments = normalizePath(pathname).split("/");
+  // ["", "w", "{workspaceSlug}", "p", "{projectSlug}",...]
+  if (segments[1] !== "w" || segments[3] !== PROJECT_PATH_SEGMENT) {
+    return null;
+  }
 
- const slug = segments[4];
- return slug === undefined || slug === "" ? null : slug;
+  const slug = segments[4];
+  return slug === undefined || slug === "" ? null : slug;
 }

@@ -1,16 +1,16 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
 import {
- ISSUE_ACTIVITY_TYPES,
- ISSUE_CATEGORIES,
- ISSUE_SEVERITIES,
- ISSUE_STATUSES,
- REVIEW_TARGET_TYPES,
- REVIEWER_TYPES,
- SCM_PROVIDERS,
- WORKSPACE_ROLES,
- CODE_EVIDENCE_KINDS,
- EVIDENCE_VERIFICATIONS,
+  ISSUE_ACTIVITY_TYPES,
+  ISSUE_CATEGORIES,
+  ISSUE_SEVERITIES,
+  ISSUE_STATUSES,
+  REVIEW_TARGET_TYPES,
+  REVIEWER_TYPES,
+  SCM_PROVIDERS,
+  WORKSPACE_ROLES,
+  CODE_EVIDENCE_KINDS,
+  EVIDENCE_VERIFICATIONS,
 } from "@/types/review";
 
 /**
@@ -28,8 +28,8 @@ export const workspaceRoleEnum = pgEnum("workspace_role", WORKSPACE_ROLES);
 export const scmProviderEnum = pgEnum("scm_provider", SCM_PROVIDERS);
 
 export const reviewTargetTypeEnum = pgEnum(
- "review_target_type",
- REVIEW_TARGET_TYPES,
+  "review_target_type",
+  REVIEW_TARGET_TYPES,
 );
 
 /** Review 를 수행한 주체. 외부 Coding Agent 이거나 사람이다. */
@@ -48,18 +48,18 @@ export const issueStatusEnum = pgEnum("issue_status", ISSUE_STATUSES);
  * 이 표는 「어떻게 거기까지 갔는가」를 남길 뿐이다.
  */
 export const issueActivityTypeEnum = pgEnum(
- "issue_activity_type",
- ISSUE_ACTIVITY_TYPES,
+  "issue_activity_type",
+  ISSUE_ACTIVITY_TYPES,
 );
 
 /** Code Evidence 가 가리키는 시점(BEFORE · AFTER). */
 export const codeEvidenceKindEnum = pgEnum(
- "code_evidence_kind",
- CODE_EVIDENCE_KINDS,
+  "code_evidence_kind",
+  CODE_EVIDENCE_KINDS,
 );
 
 /** Agent 가 보낸 Snapshot 을 GitHub 에서 확인한 결과. */
 export const evidenceVerificationEnum = pgEnum(
- "evidence_verification",
- EVIDENCE_VERIFICATIONS,
+  "evidence_verification",
+  EVIDENCE_VERIFICATIONS,
 );

@@ -11,8 +11,7 @@ export const SITE_METADATA: Metadata = {
   description: APP_CONFIG.description,
   verification: {
     other: {
-      "naver-site-verification":
-        "0ac9ac3684016c79bf8d5852c04d93e95b120ce3",
+      "naver-site-verification": "0ac9ac3684016c79bf8d5852c04d93e95b120ce3",
     },
   },
   openGraph: {

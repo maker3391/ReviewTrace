@@ -349,9 +349,15 @@ describe.skipIf(!enabled)("멤버 내보내기 (실제 PostgreSQL)", () => {
       // 막다른 길 — 지우려 해도 멤버가 남아 있다.
       expect(
         await findWorkspaceDeletionImpact({ workspaceId, userId: ownerId }, tx),
-      ).toMatchObject({ deletable: false, block: "HAS_MEMBERS", otherMembers: 1 });
+      ).toMatchObject({
+        deletable: false,
+        block: "HAS_MEMBERS",
+        otherMembers: 1,
+      });
       expect(
-        await reasonOf(() => deleteWorkspace({ workspaceId, userId: ownerId }, tx)),
+        await reasonOf(() =>
+          deleteWorkspace({ workspaceId, userId: ownerId }, tx),
+        ),
       ).toBe("WORKSPACE_HAS_MEMBERS");
 
       await removeMember(

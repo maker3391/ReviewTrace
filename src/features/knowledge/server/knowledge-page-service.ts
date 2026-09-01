@@ -6,15 +6,11 @@ import { db, type DbExecutor } from "@/db";
 import { knowledgePages, users } from "@/db/schema";
 import { isUniqueViolation } from "@/db/unique-violation";
 import {
- resolveKnowledgePageInput,
- type KnowledgePageInput,
+  resolveKnowledgePageInput,
+  type KnowledgePageInput,
 } from "@/features/knowledge/schemas/knowledge-page";
 import { AppError } from "@/lib/errors";
-import {
- paginate,
- type PageRequest,
- type PageResult,
-} from "@/lib/pagination";
+import { paginate, type PageRequest, type PageResult } from "@/lib/pagination";
 
 /**
  * Wiki 문서의 Application Service(스펙 9).
@@ -36,122 +32,122 @@ import {
  */
 
 export interface KnowledgeScope {
- /** 🔴 소속 확인을 통과한 값. */
- workspaceId: string;
- /** `null` 이면 Workspace Knowledge 다. 값이 있으면 그 Workspace 안에 있음이 확인된 Project 다. */
- projectId: string | null;
+  /** 🔴 소속 확인을 통과한 값. */
+  workspaceId: string;
+  /** `null` 이면 Workspace Knowledge 다. 값이 있으면 그 Workspace 안에 있음이 확인된 Project 다. */
+  projectId: string | null;
 }
 
 export interface KnowledgePageListItem {
- slug: string;
- title: string;
- updatedAt: Date;
- authorName: string | null;
+  slug: string;
+  title: string;
+  updatedAt: Date;
+  authorName: string | null;
 }
 
 export interface KnowledgePageDetail extends KnowledgePageListItem {
- id: string;
- content: string;
- createdAt: Date;
+  id: string;
+  content: string;
+  createdAt: Date;
 }
 
 /** Scope 를 SQL 조건으로 바꾼다. 이 함수를 거치지 않고 조건을 손으로 적지 않는다. */
 function scopeCondition(scope: KnowledgeScope): SQL {
- const workspace = eq(knowledgePages.workspaceId, scope.workspaceId);
+  const workspace = eq(knowledgePages.workspaceId, scope.workspaceId);
 
- const condition =
- scope.projectId === null
- ? and(workspace, isNull(knowledgePages.projectId))
- : and(workspace, eq(knowledgePages.projectId, scope.projectId));
+  const condition =
+    scope.projectId === null
+      ? and(workspace, isNull(knowledgePages.projectId))
+      : and(workspace, eq(knowledgePages.projectId, scope.projectId));
 
- if (condition === undefined) {
- // `and` 는 인자가 모두 undefined 일 때만 undefined 다. 여기서는 일어나지 않는다.
- throw new AppError("UNEXPECTED");
- }
- return condition;
+  if (condition === undefined) {
+    // `and` 는 인자가 모두 undefined 일 때만 undefined 다. 여기서는 일어나지 않는다.
+    throw new AppError("UNEXPECTED");
+  }
+  return condition;
 }
 
 export async function listKnowledgePages(
- scope: KnowledgeScope,
- executor: DbExecutor = db(),
+  scope: KnowledgeScope,
+  executor: DbExecutor = db(),
 ): Promise<KnowledgePageListItem[]> {
- // 상한 없이 전부. 쪽을 나누는 것은 목록 «화면» 의 일이다(`findKnowledgePageList`).
- return selectKnowledgePages(scope, executor, null, 0);
+  // 상한 없이 전부. 쪽을 나누는 것은 목록 «화면» 의 일이다(`findKnowledgePageList`).
+  return selectKnowledgePages(scope, executor, null, 0);
 }
 
 /** Wiki 목록 화면이 쓰는 한 쪽. */
 export async function findKnowledgePageList(
- scope: KnowledgeScope,
- request: PageRequest,
- executor: DbExecutor = db(),
+  scope: KnowledgeScope,
+  request: PageRequest,
+  executor: DbExecutor = db(),
 ): Promise<PageResult<KnowledgePageListItem>> {
- return paginate(request, {
- count: async () => {
- const rows = await executor
-.select({ value: count() })
-.from(knowledgePages)
-.where(scopeCondition(scope));
+  return paginate(request, {
+    count: async () => {
+      const rows = await executor
+        .select({ value: count() })
+        .from(knowledgePages)
+        .where(scopeCondition(scope));
 
- return rows[0]?.value ?? 0;
- },
- rows: (limit, offset) =>
- selectKnowledgePages(scope, executor, limit, offset),
- });
+      return rows[0]?.value ?? 0;
+    },
+    rows: (limit, offset) =>
+      selectKnowledgePages(scope, executor, limit, offset),
+  });
 }
 
 async function selectKnowledgePages(
- scope: KnowledgeScope,
- executor: DbExecutor,
- /** `null` 이면 상한을 걸지 않는다. */
- limit: number | null,
- offset: number,
+  scope: KnowledgeScope,
+  executor: DbExecutor,
+  /** `null` 이면 상한을 걸지 않는다. */
+  limit: number | null,
+  offset: number,
 ): Promise<KnowledgePageListItem[]> {
- const query = executor
-.select({
- slug: knowledgePages.slug,
- title: knowledgePages.title,
- updatedAt: knowledgePages.updatedAt,
- authorName: users.name,
- })
-.from(knowledgePages)
- // 🔴 `leftJoin` 이다. 사람이 지워지면 `created_by` 가 NULL 이 되고, 그때 문서까지
- // 목록에서 사라지면 안 된다(`ON DELETE SET NULL`).
-.leftJoin(users, eq(users.id, knowledgePages.createdBy))
-.where(scopeCondition(scope))
- // 같은 시각에 고쳐진 문서가 쪽마다 뒤바뀌지 않게 slug 로 한 번 더 고정한다.
-.orderBy(desc(knowledgePages.updatedAt), desc(knowledgePages.slug))
-.$dynamic();
+  const query = executor
+    .select({
+      slug: knowledgePages.slug,
+      title: knowledgePages.title,
+      updatedAt: knowledgePages.updatedAt,
+      authorName: users.name,
+    })
+    .from(knowledgePages)
+    // 🔴 `leftJoin` 이다. 사람이 지워지면 `created_by` 가 NULL 이 되고, 그때 문서까지
+    // 목록에서 사라지면 안 된다(`ON DELETE SET NULL`).
+    .leftJoin(users, eq(users.id, knowledgePages.createdBy))
+    .where(scopeCondition(scope))
+    // 같은 시각에 고쳐진 문서가 쪽마다 뒤바뀌지 않게 slug 로 한 번 더 고정한다.
+    .orderBy(desc(knowledgePages.updatedAt), desc(knowledgePages.slug))
+    .$dynamic();
 
- return limit === null ? query : query.limit(limit).offset(offset);
+  return limit === null ? query : query.limit(limit).offset(offset);
 }
 
 export async function findKnowledgePage(
- scope: KnowledgeScope,
- slug: string,
- executor: DbExecutor = db(),
+  scope: KnowledgeScope,
+  slug: string,
+  executor: DbExecutor = db(),
 ): Promise<KnowledgePageDetail | null> {
- const rows = await executor
-.select({
- id: knowledgePages.id,
- slug: knowledgePages.slug,
- title: knowledgePages.title,
- content: knowledgePages.content,
- updatedAt: knowledgePages.updatedAt,
- createdAt: knowledgePages.createdAt,
- authorName: users.name,
- })
-.from(knowledgePages)
-.leftJoin(users, eq(users.id, knowledgePages.createdBy))
-.where(and(scopeCondition(scope), eq(knowledgePages.slug, slug)))
-.limit(1);
+  const rows = await executor
+    .select({
+      id: knowledgePages.id,
+      slug: knowledgePages.slug,
+      title: knowledgePages.title,
+      content: knowledgePages.content,
+      updatedAt: knowledgePages.updatedAt,
+      createdAt: knowledgePages.createdAt,
+      authorName: users.name,
+    })
+    .from(knowledgePages)
+    .leftJoin(users, eq(users.id, knowledgePages.createdBy))
+    .where(and(scopeCondition(scope), eq(knowledgePages.slug, slug)))
+    .limit(1);
 
- return rows[0] ?? null;
+  return rows[0] ?? null;
 }
 
 export interface SaveKnowledgePageCommand {
- scope: KnowledgeScope;
- createdBy: string;
- input: KnowledgePageInput;
+  scope: KnowledgeScope;
+  createdBy: string;
+  input: KnowledgePageInput;
 }
 
 /**
@@ -164,42 +160,42 @@ export interface SaveKnowledgePageCommand {
  * @throws {AppError} slug 가 이미 쓰이면 `CONFLICT`.
  */
 export async function createKnowledgePage(
- command: SaveKnowledgePageCommand,
- executor: DbExecutor = db(),
+  command: SaveKnowledgePageCommand,
+  executor: DbExecutor = db(),
 ): Promise<string> {
- const resolved = resolveKnowledgePageInput(command.input);
- if (!resolved.ok) {
- throw new AppError("KNOWLEDGE_PAGE_SLUG_RESERVED", {
- meta: { slug: resolved.slug },
- });
- }
+  const resolved = resolveKnowledgePageInput(command.input);
+  if (!resolved.ok) {
+    throw new AppError("KNOWLEDGE_PAGE_SLUG_RESERVED", {
+      meta: { slug: resolved.slug },
+    });
+  }
 
- /**
- * 🔴 `onConflictDoNothing` 에 target 을 적지 않는다.
- *
- * 이 표의 unique 는 **부분 index 두 개**라 Scope 마다 걸리는 것이 다르다. target 을
- * 하나로 적으면 다른 Scope 에서 걸린 충돌을 잡지 못해 예외가 밖으로 나간다.
- * target 없는 형태는 「어느 제약이든 걸리면 넘어간다」다.
- */
- const created = await executor
-.insert(knowledgePages)
-.values({
- workspaceId: command.scope.workspaceId,
- projectId: command.scope.projectId,
- title: resolved.value.title,
- slug: resolved.value.slug,
- content: resolved.value.content,
- createdBy: command.createdBy,
- })
-.onConflictDoNothing()
-.returning({ slug: knowledgePages.slug });
+  /**
+   * 🔴 `onConflictDoNothing` 에 target 을 적지 않는다.
+   *
+   * 이 표의 unique 는 **부분 index 두 개**라 Scope 마다 걸리는 것이 다르다. target 을
+   * 하나로 적으면 다른 Scope 에서 걸린 충돌을 잡지 못해 예외가 밖으로 나간다.
+   * target 없는 형태는 「어느 제약이든 걸리면 넘어간다」다.
+   */
+  const created = await executor
+    .insert(knowledgePages)
+    .values({
+      workspaceId: command.scope.workspaceId,
+      projectId: command.scope.projectId,
+      title: resolved.value.title,
+      slug: resolved.value.slug,
+      content: resolved.value.content,
+      createdBy: command.createdBy,
+    })
+    .onConflictDoNothing()
+    .returning({ slug: knowledgePages.slug });
 
- const slug = created[0]?.slug;
- if (slug === undefined) {
- throw new AppError("KNOWLEDGE_PAGE_SLUG_TAKEN");
- }
+  const slug = created[0]?.slug;
+  if (slug === undefined) {
+    throw new AppError("KNOWLEDGE_PAGE_SLUG_TAKEN");
+  }
 
- return slug;
+  return slug;
 }
 
 /**
@@ -210,52 +206,52 @@ export async function createKnowledgePage(
  * @throws {AppError} 대상이 없으면 `NOT_FOUND`, slug 가 겹치면 `CONFLICT`.
  */
 export async function updateKnowledgePage(
- command: SaveKnowledgePageCommand & { currentSlug: string },
- executor: DbExecutor = db(),
+  command: SaveKnowledgePageCommand & { currentSlug: string },
+  executor: DbExecutor = db(),
 ): Promise<string> {
- const resolved = resolveKnowledgePageInput(command.input);
- if (!resolved.ok) {
- throw new AppError("KNOWLEDGE_PAGE_SLUG_RESERVED", {
- meta: { slug: resolved.slug },
- });
- }
+  const resolved = resolveKnowledgePageInput(command.input);
+  if (!resolved.ok) {
+    throw new AppError("KNOWLEDGE_PAGE_SLUG_RESERVED", {
+      meta: { slug: resolved.slug },
+    });
+  }
 
- const updated = await executor
-.update(knowledgePages)
-.set({
- title: resolved.value.title,
- slug: resolved.value.slug,
- content: resolved.value.content,
- updatedAt: new Date(),
- })
-.where(
- and(
- scopeCondition(command.scope),
- eq(knowledgePages.slug, command.currentSlug),
-),
-)
-.returning({ slug: knowledgePages.slug })
-.catch((cause: unknown) => {
- /**
- * unique 위반은 **사용자 입력 문제**다 — 500 이 아니라 `CONFLICT` 다.
- * 🔴 Driver 오류 message 에는 쿼리와 값이 실려 온다. 밖으로 흘리지 않는다.
- *
- * 🔴 **unique 위반«일 때만» 바꾼다.** 무엇이 오든 `CONFLICT` 로 접으면 접속 끊김·
- * timeout 까지 「같은 slug 가 있습니다」가 되어, 사용자는 멀쩡한 이름을 바꿔 가며
- * 계속 실패하고 진짜 원인은 어디에도 남지 않는다(`src/db/unique-violation.ts`).
- */
- if (isUniqueViolation(cause)) {
- throw new AppError("KNOWLEDGE_PAGE_SLUG_TAKEN", { cause });
- }
- throw cause;
- });
+  const updated = await executor
+    .update(knowledgePages)
+    .set({
+      title: resolved.value.title,
+      slug: resolved.value.slug,
+      content: resolved.value.content,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        scopeCondition(command.scope),
+        eq(knowledgePages.slug, command.currentSlug),
+      ),
+    )
+    .returning({ slug: knowledgePages.slug })
+    .catch((cause: unknown) => {
+      /**
+       * unique 위반은 **사용자 입력 문제**다 — 500 이 아니라 `CONFLICT` 다.
+       * 🔴 Driver 오류 message 에는 쿼리와 값이 실려 온다. 밖으로 흘리지 않는다.
+       *
+       * 🔴 **unique 위반«일 때만» 바꾼다.** 무엇이 오든 `CONFLICT` 로 접으면 접속 끊김·
+       * timeout 까지 「같은 slug 가 있습니다」가 되어, 사용자는 멀쩡한 이름을 바꿔 가며
+       * 계속 실패하고 진짜 원인은 어디에도 남지 않는다(`src/db/unique-violation.ts`).
+       */
+      if (isUniqueViolation(cause)) {
+        throw new AppError("KNOWLEDGE_PAGE_SLUG_TAKEN", { cause });
+      }
+      throw cause;
+    });
 
- const slug = updated[0]?.slug;
- if (slug === undefined) {
- throw new AppError("KNOWLEDGE_PAGE_NOT_FOUND");
- }
+  const slug = updated[0]?.slug;
+  if (slug === undefined) {
+    throw new AppError("KNOWLEDGE_PAGE_NOT_FOUND");
+  }
 
- return slug;
+  return slug;
 }
 
 /**
@@ -267,18 +263,18 @@ export async function updateKnowledgePage(
  * @throws {AppError} 대상이 없으면 `NOT_FOUND`.
  */
 export async function deleteKnowledgePage(
- scope: KnowledgeScope,
- slug: string,
- executor: DbExecutor = db(),
+  scope: KnowledgeScope,
+  slug: string,
+  executor: DbExecutor = db(),
 ): Promise<void> {
- const deleted = await executor
-.delete(knowledgePages)
-.where(and(scopeCondition(scope), eq(knowledgePages.slug, slug)))
-.returning({ id: knowledgePages.id });
+  const deleted = await executor
+    .delete(knowledgePages)
+    .where(and(scopeCondition(scope), eq(knowledgePages.slug, slug)))
+    .returning({ id: knowledgePages.id });
 
- if (deleted.length === 0) {
- throw new AppError("KNOWLEDGE_PAGE_NOT_FOUND");
- }
+  if (deleted.length === 0) {
+    throw new AppError("KNOWLEDGE_PAGE_NOT_FOUND");
+  }
 }
 
 /**
@@ -289,53 +285,54 @@ export async function deleteKnowledgePage(
  * 나르면 Agent 의 Context 를 그것만으로 채운다.
  */
 export interface KnowledgeExcerpt {
- slug: string;
- title: string;
- scope: "WORKSPACE" | "PROJECT";
- excerpt: string;
- updatedAt: Date;
+  slug: string;
+  title: string;
+  scope: "WORKSPACE" | "PROJECT";
+  excerpt: string;
+  updatedAt: Date;
 }
 
 /** 발췌 길이. 무엇을 다루는 문서인지 알아볼 정도. */
 const EXCERPT_LENGTH = 500;
 
 export async function listKnowledgeExcerpts(
- input: { workspaceId: string; projectId: string | null; limit: number },
- executor: DbExecutor = db(),
+  input: { workspaceId: string; projectId: string | null; limit: number },
+  executor: DbExecutor = db(),
 ): Promise<KnowledgeExcerpt[]> {
- /**
- * Project 를 지정하면 **Workspace 공통 규칙과 그 Project 의 문서를 함께** 준다.
- * Agent 는 둘 다 지켜야 한다 — 공통 규칙을 빼고 주면 그것을 모르는 채로 작업한다.
- */
- const scope =
- input.projectId === null
- ? and(
- eq(knowledgePages.workspaceId, input.workspaceId),
- isNull(knowledgePages.projectId),
-)
- : and(
- eq(knowledgePages.workspaceId, input.workspaceId),
- sql`(${knowledgePages.projectId} is null or ${knowledgePages.projectId} = ${input.projectId})`,
-);
+  /**
+   * Project 를 지정하면 **Workspace 공통 규칙과 그 Project 의 문서를 함께** 준다.
+   * Agent 는 둘 다 지켜야 한다 — 공통 규칙을 빼고 주면 그것을 모르는 채로 작업한다.
+   */
+  const scope =
+    input.projectId === null
+      ? and(
+          eq(knowledgePages.workspaceId, input.workspaceId),
+          isNull(knowledgePages.projectId),
+        )
+      : and(
+          eq(knowledgePages.workspaceId, input.workspaceId),
+          sql`(${knowledgePages.projectId} is null or ${knowledgePages.projectId} = ${input.projectId})`,
+        );
 
- const rows = await executor
-.select({
- slug: knowledgePages.slug,
- title: knowledgePages.title,
- projectId: knowledgePages.projectId,
- excerpt: sql<string>`left(${knowledgePages.content}, ${EXCERPT_LENGTH})`,
- updatedAt: knowledgePages.updatedAt,
- })
-.from(knowledgePages)
-.where(scope)
-.orderBy(desc(knowledgePages.updatedAt))
-.limit(input.limit);
+  const rows = await executor
+    .select({
+      slug: knowledgePages.slug,
+      title: knowledgePages.title,
+      projectId: knowledgePages.projectId,
+      excerpt: sql<string>`left(${knowledgePages.content}, ${EXCERPT_LENGTH})`,
+      updatedAt: knowledgePages.updatedAt,
+    })
+    .from(knowledgePages)
+    .where(scope)
+    .orderBy(desc(knowledgePages.updatedAt))
+    .limit(input.limit);
 
- return rows.map((row) => ({
- slug: row.slug,
- title: row.title,
- scope: row.projectId === null ? ("WORKSPACE" as const) : ("PROJECT" as const),
- excerpt: row.excerpt,
- updatedAt: row.updatedAt,
- }));
+  return rows.map((row) => ({
+    slug: row.slug,
+    title: row.title,
+    scope:
+      row.projectId === null ? ("WORKSPACE" as const) : ("PROJECT" as const),
+    excerpt: row.excerpt,
+    updatedAt: row.updatedAt,
+  }));
 }

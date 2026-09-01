@@ -20,11 +20,11 @@ import { normalizeEmail } from "@/lib/validation/email";
  * 서버가 정한다 — 폼에 `role` 칸을 두면 브라우저에서 `OWNER` 로 바꿔 보낼 수 있다.
  */
 export const inviteMemberSchema = z.object({
- email: z
-.string()
-.transform(normalizeEmail)
- // 🔴 오류 «문구» 는 여기 없다 — 규칙만 있고 말은 사전이 갖는다(`lib/validation/zod-error-map.ts`).
-.pipe(z.email()),
+  email: z
+    .string()
+    .transform(normalizeEmail)
+    // 🔴 오류 «문구» 는 여기 없다 — 규칙만 있고 말은 사전이 갖는다(`lib/validation/zod-error-map.ts`).
+    .pipe(z.email()),
 });
 
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
@@ -35,14 +35,14 @@ export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
  * 32바이트를 base64url 로 적으면 43자다. 형식이 아니면 **Database 를 보지도 않고** 거절한다.
  */
 export const invitationTokenSchema = z
-.string()
- /*
+  .string()
+  /*
  🔴 오류 «문구» 는 여기 없다. Zod 의 내장 check(`regex`)는 `params` 를 issue 로 실어
  보내지 않으므로 규칙 이름조차 붙일 수 없다 — 그래서 이 형식 오류를 사람에게 말하는
  자리는 부르는 쪽이다(`accept-invitation.ts` 의 `validation.rules.invitationToken`).
  화면(`invite/[token]/page.tsx`)은 애초에 이 message 를 그리지 않는다.
  */
-.regex(/^[A-Za-z0-9_-]{43}$/);
+  .regex(/^[A-Za-z0-9_-]{43}$/);
 
 /**
  * 취소할 초대의 식별자.

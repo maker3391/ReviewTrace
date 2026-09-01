@@ -1,10 +1,10 @@
 import {
- index,
- pgTable,
- text,
- timestamp,
- uniqueIndex,
- uuid,
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
 } from "drizzle-orm/pg-core";
 import { isNull, sql } from "drizzle-orm";
 
@@ -40,59 +40,59 @@ import { users, workspaces } from "@/db/schema/workspace";
  * 빠뜨린 질의가 곧 데이터 유출이 된다. `review_issues` 와 같은 이유다.
  */
 export const knowledgePages = pgTable(
- "knowledge_pages",
- {
- id: uuid("id").primaryKey().defaultRandom(),
- workspaceId: uuid("workspace_id")
-.notNull()
-.references(() => workspaces.id, { onDelete: "cascade" }),
- /** `NULL` 이면 Workspace Knowledge 다. 값이 있으면 그 Project 의 Knowledge 다. */
- projectId: uuid("project_id").references(() => projects.id, {
- onDelete: "cascade",
- }),
+  "knowledge_pages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** `NULL` 이면 Workspace Knowledge 다. 값이 있으면 그 Project 의 Knowledge 다. */
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
 
- title: text("title").notNull(),
- /** 주소에 나가는 식별자(`/w/{ws}/knowledge/{slug}`). */
- slug: text("slug").notNull(),
- /** Markdown 원문. Block Editor·협업 편집을 만들지 않는다(스펙 9). */
- content: text("content").notNull(),
+    title: text("title").notNull(),
+    /** 주소에 나가는 식별자(`/w/{ws}/knowledge/{slug}`). */
+    slug: text("slug").notNull(),
+    /** Markdown 원문. Block Editor·협업 편집을 만들지 않는다(스펙 9). */
+    content: text("content").notNull(),
 
- createdBy: uuid("created_by").references(() => users.id, {
- onDelete: "set null",
- }),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
- createdAt: timestamp("created_at", { withTimezone: true })
-.notNull()
-.defaultNow(),
- updatedAt: timestamp("updated_at", { withTimezone: true })
-.notNull()
-.defaultNow(),
- },
- (table) => [
- /**
- * 🔴 **Scope 마다 따로 잠근다.** `UNIQUE(workspace_id, project_id, slug)` 하나로 두면
- * PostgreSQL 이 NULL 을 서로 다른 값으로 보기 때문에 **Workspace Knowledge 만 제약이
- * 통째로 풀린다** — 같은 slug 를 몇 번이든 만들 수 있게 된다.
- *
- * 그래서 부분 unique 두 개다. Workspace 쪽은 `project_id IS NULL` 인 행만,
- * Project 쪽은 그 Project 안에서만 잠근다.
- */
- uniqueIndex("knowledge_pages_workspace_slug_unique")
-.on(table.workspaceId, table.slug)
-.where(isNull(table.projectId)),
- uniqueIndex("knowledge_pages_project_slug_unique")
-.on(table.projectId, table.slug)
-.where(sql`${table.projectId} is not null`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    /**
+     * 🔴 **Scope 마다 따로 잠근다.** `UNIQUE(workspace_id, project_id, slug)` 하나로 두면
+     * PostgreSQL 이 NULL 을 서로 다른 값으로 보기 때문에 **Workspace Knowledge 만 제약이
+     * 통째로 풀린다** — 같은 slug 를 몇 번이든 만들 수 있게 된다.
+     *
+     * 그래서 부분 unique 두 개다. Workspace 쪽은 `project_id IS NULL` 인 행만,
+     * Project 쪽은 그 Project 안에서만 잠근다.
+     */
+    uniqueIndex("knowledge_pages_workspace_slug_unique")
+      .on(table.workspaceId, table.slug)
+      .where(isNull(table.projectId)),
+    uniqueIndex("knowledge_pages_project_slug_unique")
+      .on(table.projectId, table.slug)
+      .where(sql`${table.projectId} is not null`),
 
- // Workspace Knowledge 목록 — 최근 수정순.
- index("knowledge_pages_workspace_updated_at_idx").on(
- table.workspaceId,
- table.updatedAt.desc(),
-),
- // Project Knowledge 목록 — 최근 수정순.
- index("knowledge_pages_project_updated_at_idx").on(
- table.projectId,
- table.updatedAt.desc(),
-),
- ],
+    // Workspace Knowledge 목록 — 최근 수정순.
+    index("knowledge_pages_workspace_updated_at_idx").on(
+      table.workspaceId,
+      table.updatedAt.desc(),
+    ),
+    // Project Knowledge 목록 — 최근 수정순.
+    index("knowledge_pages_project_updated_at_idx").on(
+      table.projectId,
+      table.updatedAt.desc(),
+    ),
+  ],
 );

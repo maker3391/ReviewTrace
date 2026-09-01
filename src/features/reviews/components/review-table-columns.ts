@@ -89,18 +89,18 @@ export const REVIEW_TABLE = "table-fixed min-w-[22rem]";
  * 첫 행만 131px 이었다 — 브랜치가 87px 칸 안에서 글자 단위로 일곱 줄 접혔기 때문이다.
  */
 export const REVIEW_COL = {
- /** `claude-code` 가 14px 로 들어가는 폭. 더 긴 이름은 잘리고 전문은 `title` 에 남는다. */
- reviewer: "w-32",
- repository: "hidden lg:table-cell",
- /** 폭을 적지 않는다 — 저장소와 남는 폭을 나눠 갖는다. */
- target: "",
- /** 세 자리 숫자와 머리글(`ISSUES`) 기준. */
- issues: "w-20 text-right",
- /**
- * `2026-08-28` 고정 형식(`lib/format/date.ts`)이라 자릿수가 늘지 않는다.
- * `md:hidden` 은 위의 사이드바 구간을 위한 것이다 — 실수가 아니다.
- */
- date: "w-[6.5rem] hidden text-right sm:table-cell md:hidden lg:table-cell",
+  /** `claude-code` 가 14px 로 들어가는 폭. 더 긴 이름은 잘리고 전문은 `title` 에 남는다. */
+  reviewer: "w-32",
+  repository: "hidden lg:table-cell",
+  /** 폭을 적지 않는다 — 저장소와 남는 폭을 나눠 갖는다. */
+  target: "",
+  /** 세 자리 숫자와 머리글(`ISSUES`) 기준. */
+  issues: "w-20 text-right",
+  /**
+   * `2026-08-28` 고정 형식(`lib/format/date.ts`)이라 자릿수가 늘지 않는다.
+   * `md:hidden` 은 위의 사이드바 구간을 위한 것이다 — 실수가 아니다.
+   */
+  date: "w-[6.5rem] hidden text-right sm:table-cell md:hidden lg:table-cell",
 } as const;
 
 /**
@@ -131,28 +131,28 @@ export const REVIEW_COL = {
  * 받는다 — 이 파일이 조회 계층에 묶이지 않는다.
  */
 export function describeTarget(
- review: { branch: string | null; commitSha: string | null },
- typeLabel: string,
+  review: { branch: string | null; commitSha: string | null },
+  typeLabel: string,
 ): { primary: string; secondary: string; full: string | undefined } {
- const shortSha =
- review.commitSha === null ? null : review.commitSha.slice(0, 7);
+  const shortSha =
+    review.commitSha === null ? null : review.commitSha.slice(0, 7);
 
- if (review.branch !== null) {
- return {
- primary: review.branch,
- secondary: shortSha === null ? typeLabel : `${typeLabel} · ${shortSha}`,
- full: review.branch,
- };
- }
+  if (review.branch !== null) {
+    return {
+      primary: review.branch,
+      secondary: shortSha === null ? typeLabel : `${typeLabel} · ${shortSha}`,
+      full: review.branch,
+    };
+  }
 
- if (shortSha !== null) {
- return {
- primary: shortSha,
- secondary: typeLabel,
- // 상세로 가기 전에도 전체 SHA 를 확인할 수 있게 한다.
- full: review.commitSha ?? undefined,
- };
- }
+  if (shortSha !== null) {
+    return {
+      primary: shortSha,
+      secondary: typeLabel,
+      // 상세로 가기 전에도 전체 SHA 를 확인할 수 있게 한다.
+      full: review.commitSha ?? undefined,
+    };
+  }
 
- return { primary: "—", secondary: typeLabel, full: undefined };
+  return { primary: "—", secondary: typeLabel, full: undefined };
 }

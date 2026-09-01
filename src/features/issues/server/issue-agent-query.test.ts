@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import type { IssueSearchQuery } from "@/features/issues/schemas/issue-search-query";
 import {
- buildAgentIssueSearchConditions,
- escapeLikePattern,
+  buildAgentIssueSearchConditions,
+  escapeLikePattern,
 } from "@/features/issues/server/issue-agent-query";
 
 /**
@@ -19,25 +19,25 @@ import {
  * 뜻하지 않은 결과를 받는다. 계약상 `q` 는 「제목·경로·Pattern 을 훑는 낱말」이다.
  */
 describe("escapeLikePattern", () => {
- it("🔴 `%` 하나가 전부와 일치하는 패턴이 되지 않는다", () => {
- // 감싸고 난 최종 패턴이 `%\%%` — 가운데 `%` 는 글자 그대로다.
- expect(`%${escapeLikePattern("%")}%`).toBe("%\\%%");
- });
+  it("🔴 `%` 하나가 전부와 일치하는 패턴이 되지 않는다", () => {
+    // 감싸고 난 최종 패턴이 `%\%%` — 가운데 `%` 는 글자 그대로다.
+    expect(`%${escapeLikePattern("%")}%`).toBe("%\\%%");
+  });
 
- it("`_` 도 글자 그대로 다룬다 — LIKE 에서 그것은 아무 글자 하나다", () => {
- expect(escapeLikePattern("a_b")).toBe("a\\_b");
- });
+  it("`_` 도 글자 그대로 다룬다 — LIKE 에서 그것은 아무 글자 하나다", () => {
+    expect(escapeLikePattern("a_b")).toBe("a\\_b");
+  });
 
- it("백슬래시 자신을 먼저 두 배로 만든다 — 안 그러면 다음 글자를 삼킨다", () => {
- expect(escapeLikePattern("a\\%b")).toBe("a\\\\\\%b");
- });
+  it("백슬래시 자신을 먼저 두 배로 만든다 — 안 그러면 다음 글자를 삼킨다", () => {
+    expect(escapeLikePattern("a\\%b")).toBe("a\\\\\\%b");
+  });
 
- it("평범한 낱말은 건드리지 않는다", () => {
- expect(escapeLikePattern("RefreshToken")).toBe("RefreshToken");
- expect(escapeLikePattern("src/OrderService.java")).toBe(
- "src/OrderService.java",
-);
- });
+  it("평범한 낱말은 건드리지 않는다", () => {
+    expect(escapeLikePattern("RefreshToken")).toBe("RefreshToken");
+    expect(escapeLikePattern("src/OrderService.java")).toBe(
+      "src/OrderService.java",
+    );
+  });
 });
 
 /**
@@ -62,67 +62,67 @@ describe("escapeLikePattern", () => {
  * Workspace 로 좁힌다」와 조합 시험이 **실패한다.**
  */
 describe("buildAgentIssueSearchConditions — 목록의 Tenant 경계", () => {
- const dialect = new PgDialect();
+  const dialect = new PgDialect();
 
- function searchParams(query: IssueSearchQuery): unknown[] {
- const where = and(...buildAgentIssueSearchConditions("ws-1", query));
- if (where === undefined) {
- throw new Error("조건이 하나도 만들어지지 않았다");
- }
- return dialect.sqlToQuery(where).params;
- }
+  function searchParams(query: IssueSearchQuery): unknown[] {
+    const where = and(...buildAgentIssueSearchConditions("ws-1", query));
+    if (where === undefined) {
+      throw new Error("조건이 하나도 만들어지지 않았다");
+    }
+    return dialect.sqlToQuery(where).params;
+  }
 
- function emptyQuery(): IssueSearchQuery {
- return {
- repository: null,
- status: null,
- severity: null,
- category: null,
- patternKey: null,
- q: null,
- limit: 20,
- };
- }
+  function emptyQuery(): IssueSearchQuery {
+    return {
+      repository: null,
+      status: null,
+      severity: null,
+      category: null,
+      patternKey: null,
+      q: null,
+      limit: 20,
+    };
+  }
 
- it("🔴 Filter 를 하나도 안 줘도 Workspace 로 좁힌다", () => {
- // 되돌리면 조건이 비어 Workspace 전체가 아니라 «모든 Tenant» 가 돌아온다.
- expect(searchParams(emptyQuery())).toEqual(["ws-1"]);
- });
+  it("🔴 Filter 를 하나도 안 줘도 Workspace 로 좁힌다", () => {
+    // 되돌리면 조건이 비어 Workspace 전체가 아니라 «모든 Tenant» 가 돌아온다.
+    expect(searchParams(emptyQuery())).toEqual(["ws-1"]);
+  });
 
- it("🔴 어떤 Filter 조합에서도 Workspace 조건이 빠지지 않는다", () => {
- const combos: IssueSearchQuery[] = [
- {...emptyQuery(), status: "OPEN" },
- {...emptyQuery(), severity: "HIGH" },
- {...emptyQuery(), category: "SECURITY" },
- {...emptyQuery(), patternKey: "n-plus-one" },
- {...emptyQuery(), repository: "acme/app" },
- {...emptyQuery(), q: "RefreshToken" },
- {
- repository: "acme/app",
- status: "OPEN",
- severity: "HIGH",
- category: "SECURITY",
- patternKey: "n-plus-one",
- q: "RefreshToken",
- limit: 5,
- },
- ];
+  it("🔴 어떤 Filter 조합에서도 Workspace 조건이 빠지지 않는다", () => {
+    const combos: IssueSearchQuery[] = [
+      { ...emptyQuery(), status: "OPEN" },
+      { ...emptyQuery(), severity: "HIGH" },
+      { ...emptyQuery(), category: "SECURITY" },
+      { ...emptyQuery(), patternKey: "n-plus-one" },
+      { ...emptyQuery(), repository: "acme/app" },
+      { ...emptyQuery(), q: "RefreshToken" },
+      {
+        repository: "acme/app",
+        status: "OPEN",
+        severity: "HIGH",
+        category: "SECURITY",
+        patternKey: "n-plus-one",
+        q: "RefreshToken",
+        limit: 5,
+      },
+    ];
 
- for (const query of combos) {
- expect(searchParams(query)).toContain("ws-1");
- }
- });
+    for (const query of combos) {
+      expect(searchParams(query)).toContain("ws-1");
+    }
+  });
 
- it("검색어의 LIKE wildcard 를 글자로 바꾼다", () => {
- // Agent 목록도 화면과 같은 보호를 받는다 — `?q=%` 로 전부 긁어가지 못한다.
- expect(searchParams({...emptyQuery(), q: "%" })).toContain("%\\%%");
- expect(searchParams({...emptyQuery(), q: "%" })).not.toContain("%%%");
- });
+  it("검색어의 LIKE wildcard 를 글자로 바꾼다", () => {
+    // Agent 목록도 화면과 같은 보호를 받는다 — `?q=%` 로 전부 긁어가지 못한다.
+    expect(searchParams({ ...emptyQuery(), q: "%" })).toContain("%\\%%");
+    expect(searchParams({ ...emptyQuery(), q: "%" })).not.toContain("%%%");
+  });
 
- it("Filter 를 준 만큼만 조건이 는다", () => {
- expect(searchParams({...emptyQuery(), status: "OPEN" })).toEqual([
- "ws-1",
- "OPEN",
- ]);
- });
+  it("Filter 를 준 만큼만 조건이 는다", () => {
+    expect(searchParams({ ...emptyQuery(), status: "OPEN" })).toEqual([
+      "ws-1",
+      "OPEN",
+    ]);
+  });
 });

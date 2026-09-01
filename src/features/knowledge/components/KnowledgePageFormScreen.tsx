@@ -15,29 +15,29 @@ import { readMessages } from "@/lib/ui/appearance";
  * 다르면 줄바꿈이 어디서 일어날지 가늠하며 쓸 수 없다(`components/molecules/PageContainer.tsx`).
  */
 export async function KnowledgePageFormScreen({
- workspaceSlug,
- projectSlug,
- listPath,
- current,
+  workspaceSlug,
+  projectSlug,
+  listPath,
+  current,
 }: {
- workspaceSlug: string;
- /** `null` 이면 Workspace Knowledge. */
- projectSlug: string | null;
- listPath: Route;
- /** 수정이면 현재 값, 새로 쓰는 것이면 `null`. */
- current: { slug: string; title: string; content: string } | null;
+  workspaceSlug: string;
+  /** `null` 이면 Workspace Knowledge. */
+  projectSlug: string | null;
+  listPath: Route;
+  /** 수정이면 현재 값, 새로 쓰는 것이면 `null`. */
+  current: { slug: string; title: string; content: string } | null;
 }) {
- const t = (await readMessages()).wiki.form;
+  const t = (await readMessages()).wiki.form;
 
- return (
- <PageContainer width="reading">
- <KnowledgePageForm
- workspaceSlug={workspaceSlug}
- projectSlug={projectSlug}
- listPath={listPath}
- current={current}
- labels={t}
- />
- </PageContainer>
-);
+  return (
+    <PageContainer width="reading">
+      <KnowledgePageForm
+        workspaceSlug={workspaceSlug}
+        projectSlug={projectSlug}
+        listPath={listPath}
+        current={current}
+        labels={t}
+      />
+    </PageContainer>
+  );
 }

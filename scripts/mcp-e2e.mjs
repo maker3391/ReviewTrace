@@ -36,14 +36,33 @@ const SLUG = "mcp-e2e";
 
 let pass = 0;
 let fail = 0;
-const ok = (m) => { pass += 1; console.log(`OK   ${m}`); };
-const bad = (m) => { fail += 1; console.log(`FAIL ${m}`); };
+const ok = (m) => {
+  pass += 1;
+  console.log(`OK   ${m}`);
+};
+const bad = (m) => {
+  fail += 1;
+  console.log(`FAIL ${m}`);
+};
 const check = (cond, good, badMsg) => (cond ? ok(good) : bad(badMsg));
 
 async function psql(sql) {
   const { stdout } = await run(
     "docker",
-    ["exec", "-i", CONTAINER, "psql", "-U", PGUSER, "-d", PGDB, "-t", "-A", "-c", sql],
+    [
+      "exec",
+      "-i",
+      CONTAINER,
+      "psql",
+      "-U",
+      PGUSER,
+      "-d",
+      PGDB,
+      "-t",
+      "-A",
+      "-c",
+      sql,
+    ],
     { encoding: "utf8", windowsHide: true },
   );
   return stdout.trim();
@@ -80,7 +99,11 @@ async function main() {
   const stored = await psql(
     `select count(*) from api_keys where workspace_id='${WORKSPACE_ID}' and key_hash = '${key.plainToken}'`,
   );
-  check(stored === "0", "🔴 API Key 원문이 Database 에 없다", "원문이 저장됐다");
+  check(
+    stored === "0",
+    "🔴 API Key 원문이 Database 에 없다",
+    "원문이 저장됐다",
+  );
 
   // ── 1. MCP Server 를 실제 프로세스로 띄우고 붙는다 ────────────────────────
   const transport = new StdioClientTransport({
@@ -103,13 +126,19 @@ async function main() {
   const names = tools.map((t) => t.name).sort();
   console.log(`   tools: ${names.join(", ")}`);
   check(
-    names.length === 8 && names.includes("create_review") && names.includes("resolve_issue"),
+    names.length === 8 &&
+      names.includes("create_review") &&
+      names.includes("resolve_issue"),
     `Tool 8개가 보인다`,
     `Tool 목록이 예상과 다르다 (${names.length}개)`,
   );
 
   const noSecret = JSON.stringify(tools).includes(key.plainToken);
-  check(!noSecret, "🔴 Tool 설명 어디에도 API Key 가 없다", "Tool 설명에 Key 가 새어 나갔다");
+  check(
+    !noSecret,
+    "🔴 Tool 설명 어디에도 API Key 가 없다",
+    "Tool 설명에 Key 가 새어 나갔다",
+  );
 
   // ── 3. create_review — 저장소·commit 을 스스로 읽는가 ─────────────────────
   const review = body(
@@ -128,7 +157,11 @@ async function main() {
   const sessionRow = await psql(
     `select count(*) from review_sessions where id='${review.reviewId}' and workspace_id='${WORKSPACE_ID}'`,
   );
-  check(sessionRow === "1", "ReviewSession 이 이 Workspace 에 저장됐다", "Session 이 없다");
+  check(
+    sessionRow === "1",
+    "ReviewSession 이 이 Workspace 에 저장됐다",
+    "Session 이 없다",
+  );
 
   // ── 4. add_issue — reviewId 없이도 붙는가 (Agent 가 ID 를 안 들고 다닌다) ──
   const added = body(
@@ -184,7 +217,11 @@ async function main() {
   const decided = await psql(
     `select count(*) from issue_activities where review_issue_id='${added.issueId}' and type='DETECTED' and solution is not null and trade_off is not null`,
   );
-  check(decided === "1", "판단이 DETECTED Activity 에 남았다", "Decision Record 가 없다");
+  check(
+    decided === "1",
+    "판단이 DETECTED Activity 에 남았다",
+    "Decision Record 가 없다",
+  );
 
   const before = await psql(
     `select count(*) from issue_code_evidences where review_issue_id='${added.issueId}' and kind='BEFORE'`,
@@ -220,7 +257,10 @@ async function main() {
   body(
     await client.callTool({
       name: "review_again",
-      arguments: { summary: "부하 시험에서 Pool 고갈이 사라졌다", actor: "mcp-e2e-agent" },
+      arguments: {
+        summary: "부하 시험에서 Pool 고갈이 사라졌다",
+        actor: "mcp-e2e-agent",
+      },
     }),
     "review_again",
   );
@@ -239,7 +279,11 @@ async function main() {
     }),
     "resolve_issue",
   );
-  check(resolved.status === "RESOLVED", "resolve_issue 로 닫혔다", "상태가 안 바뀌었다");
+  check(
+    resolved.status === "RESOLVED",
+    "resolve_issue 로 닫혔다",
+    "상태가 안 바뀌었다",
+  );
 
   const consistent = await psql(
     `select count(*) from review_issues where id='${added.issueId}' and status='RESOLVED' and resolved_at is not null and resolution_summary is not null`,
@@ -266,7 +310,10 @@ async function main() {
 
   // ── 6. 읽기 Tool ─────────────────────────────────────────────────────────
   const detail = body(
-    await client.callTool({ name: "get_issue", arguments: { issueId: added.issueId } }),
+    await client.callTool({
+      name: "get_issue",
+      arguments: { issueId: added.issueId },
+    }),
     "get_issue",
   );
   check(
@@ -276,7 +323,10 @@ async function main() {
   );
 
   const searched = body(
-    await client.callTool({ name: "search_issues", arguments: { status: "RESOLVED" } }),
+    await client.callTool({
+      name: "search_issues",
+      arguments: { status: "RESOLVED" },
+    }),
     "search_issues",
   );
   check(
@@ -337,7 +387,10 @@ async function main() {
 
   const strayFix = await client.callTool({
     name: "add_fix_attempt",
-    arguments: { summary: "이 호출은 대상이 없어야 한다", actor: "mcp-e2e-agent" },
+    arguments: {
+      summary: "이 호출은 대상이 없어야 한다",
+      actor: "mcp-e2e-agent",
+    },
   });
   const strayText = strayFix.content?.[0]?.text ?? "";
   check(
@@ -377,12 +430,21 @@ async function badKeyCheck() {
   const home = path.join(os.tmpdir(), `rt-mcp-${randomUUID()}`);
   fs.mkdirSync(home, { recursive: true });
   try {
-    const { stderr } = await run(process.execPath, [path.join(process.cwd(), "mcp", "server.mjs")], {
-      env: { ...process.env, REVIEWTRACE_API_KEY: "", HOME: home, USERPROFILE: home },
-      timeout: 10_000,
-      windowsHide: true,
-      encoding: "utf8",
-    }).catch((e) => e);
+    const { stderr } = await run(
+      process.execPath,
+      [path.join(process.cwd(), "mcp", "server.mjs")],
+      {
+        env: {
+          ...process.env,
+          REVIEWTRACE_API_KEY: "",
+          HOME: home,
+          USERPROFILE: home,
+        },
+        timeout: 10_000,
+        windowsHide: true,
+        encoding: "utf8",
+      },
+    ).catch((e) => e);
     check(
       /API Key 가 없다/.test(String(stderr)),
       "Key 없이 띄우면 사람이 읽는 안내와 함께 즉시 멈춘다",

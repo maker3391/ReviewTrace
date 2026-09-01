@@ -63,9 +63,9 @@ describe("minimalChange", () => {
     const change = minimalChange("a😀b", "a😃b");
 
     expect(change).not.toBeNull();
-    expect("a😀b".slice(0, change!.from) + change!.insert + "a😀b".slice(change!.to)).toBe(
-      "a😃b",
-    );
+    expect(
+      "a😀b".slice(0, change!.from) + change!.insert + "a😀b".slice(change!.to),
+    ).toBe("a😃b");
     // 🔴 대리 쌍 전체가 통째로 바뀌어야 한다 — 반쪽만 바꾸면 깨진 글자가 남는다.
     expect(change!.insert).toBe("😃");
   });
@@ -81,7 +81,9 @@ describe("markdownCommandTransaction", () => {
 
   it("선택이 없으면 표식만 넣고 그 사이에 커서를 둔다", () => {
     const state = stateOf("", 0);
-    const next = state.update(markdownCommandTransaction(state, "inlineCode")).state;
+    const next = state.update(
+      markdownCommandTransaction(state, "inlineCode"),
+    ).state;
 
     expect(next.doc.toString()).toBe("``");
     expect(next.selection.main.empty).toBe(true);

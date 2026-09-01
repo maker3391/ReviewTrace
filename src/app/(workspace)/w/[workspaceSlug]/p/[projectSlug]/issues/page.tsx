@@ -7,7 +7,7 @@ import { requireProject } from "@/lib/auth/require-project";
 import { readMessages } from "@/lib/ui/appearance";
 
 export async function generateMetadata(): Promise<Metadata> {
- return { title: (await readMessages()).metaTitle.issues };
+  return { title: (await readMessages()).metaTitle.issues };
 }
 
 /**
@@ -17,23 +17,26 @@ export async function generateMetadata(): Promise<Metadata> {
  * Schema 가 정한다.
  */
 export default async function ProjectIssuesPage({
- params,
- searchParams,
+  params,
+  searchParams,
 }: {
- params: Promise<{ workspaceSlug: string; projectSlug: string }>;
- searchParams: Promise<RawSearchParams>;
+  params: Promise<{ workspaceSlug: string; projectSlug: string }>;
+  searchParams: Promise<RawSearchParams>;
 }) {
- const { workspaceSlug, projectSlug } = await params;
- const { workspace, project } = await requireProject(workspaceSlug, projectSlug);
+  const { workspaceSlug, projectSlug } = await params;
+  const { workspace, project } = await requireProject(
+    workspaceSlug,
+    projectSlug,
+  );
 
- return (
- <IssueListScreen
- scope={{
- workspaceId: workspace.workspaceId,
- projectId: project.projectId,
- }}
- basePath={`/w/${workspace.slug}/p/${project.slug}/issues` as Route}
- searchParams={searchParams}
- />
-);
+  return (
+    <IssueListScreen
+      scope={{
+        workspaceId: workspace.workspaceId,
+        projectId: project.projectId,
+      }}
+      basePath={`/w/${workspace.slug}/p/${project.slug}/issues` as Route}
+      searchParams={searchParams}
+    />
+  );
 }

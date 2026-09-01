@@ -8,15 +8,15 @@
  * 쓰지 않는다.
  */
 export const APP_CONFIG = {
- name: "ReviewTrace",
- url: "https://reviewtrace.app",
- /**
- * Tagline.
- *
- * 🔴 **모든 화면에 반복해서 노출하지 않는다.** 제품을 처음 만나는 자리
- * (로그인 화면)에만 둔다. 상단 바나 사이드바에 또 적으면 장식이 된다.
- */
- tagline: "Review. Resolve. Remember.",
- description:
- "External Coding Agent 의 Review 결과를 모아 Finding → Fix Attempt → Verification → Resolution 이력을 축적하는 Developer Review Memory System",
+  name: "ReviewTrace",
+  url: "https://reviewtrace.app",
+  /**
+   * Tagline.
+   *
+   * 🔴 **모든 화면에 반복해서 노출하지 않는다.** 제품을 처음 만나는 자리
+   * (로그인 화면)에만 둔다. 상단 바나 사이드바에 또 적으면 장식이 된다.
+   */
+  tagline: "Review. Resolve. Remember.",
+  description:
+    "External Coding Agent 의 Review 결과를 모아 Finding → Fix Attempt → Verification → Resolution 이력을 축적하는 Developer Review Memory System",
 } as const;

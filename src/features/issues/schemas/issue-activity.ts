@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import {
- codeEvidenceListSchema,
- optionalDecisionRecordSchema,
+  codeEvidenceListSchema,
+  optionalDecisionRecordSchema,
 } from "@/features/issues/schemas/decision-record";
 import { ISSUE_ACTIVITY_TYPES, REVIEWER_TYPES } from "@/types/review";
 import { narrativeDescription } from "@/lib/markdown/narrative";
@@ -18,42 +18,42 @@ const DESCRIPTION_MAX = 20_000;
 const NAME_MAX = 200;
 
 export const activityActorSchema = z.object({
- /** Agent Route 에서는 검증 뒤에도 이 주장을 믿지 않고 인증된 API Key 신원으로 덮어쓴다. */
- type: z.enum(REVIEWER_TYPES),
- name: z.string().trim().min(1).max(NAME_MAX),
+  /** Agent Route 에서는 검증 뒤에도 이 주장을 믿지 않고 인증된 API Key 신원으로 덮어쓴다. */
+  type: z.enum(REVIEWER_TYPES),
+  name: z.string().trim().min(1).max(NAME_MAX),
 });
 
 export const issueActivitySchema = z.object({
- type: z.enum(ISSUE_ACTIVITY_TYPES),
- actor: activityActorSchema,
- description: z
-.string()
-.trim()
-.max(DESCRIPTION_MAX)
-.nullish()
-.transform((value) => (value === undefined || value === "" ? null : value))
- .describe(narrativeDescription("Activity의 내용을 설명한다.")),
- /**
- * 이 Activity 가 가리키는 Commit.
- *
- * 「어떤 코드에서 고쳤다고 주장하는가」를 남기는 값이라 Knowledge 의 일부다 —
- * 없으면 「고쳤다」와 「무엇을 고쳤다」가 이어지지 않는다.
- */
- commitSha: z
-.string()
-.trim()
-.max(NAME_MAX)
-.nullish()
-.transform((value) => (value === undefined || value === "" ? null : value)),
- /**
- * 이 행위가 내린 판단(스펙 4).
- *
- * `FIX_ATTEMPTED` 가 대표적이다 — 무엇을 했고 왜 그것을 골랐는지가 여기 남아,
- * 다음 시도가 앞선 시도를 덮어쓰지 않는다.
- */
- decision: optionalDecisionRecordSchema,
- /** 이 행위가 만든 코드 근거. 고침이면 보통 `AFTER` 다. */
- evidence: codeEvidenceListSchema,
+  type: z.enum(ISSUE_ACTIVITY_TYPES),
+  actor: activityActorSchema,
+  description: z
+    .string()
+    .trim()
+    .max(DESCRIPTION_MAX)
+    .nullish()
+    .transform((value) => (value === undefined || value === "" ? null : value))
+    .describe(narrativeDescription("Activity의 내용을 설명한다.")),
+  /**
+   * 이 Activity 가 가리키는 Commit.
+   *
+   * 「어떤 코드에서 고쳤다고 주장하는가」를 남기는 값이라 Knowledge 의 일부다 —
+   * 없으면 「고쳤다」와 「무엇을 고쳤다」가 이어지지 않는다.
+   */
+  commitSha: z
+    .string()
+    .trim()
+    .max(NAME_MAX)
+    .nullish()
+    .transform((value) => (value === undefined || value === "" ? null : value)),
+  /**
+   * 이 행위가 내린 판단(스펙 4).
+   *
+   * `FIX_ATTEMPTED` 가 대표적이다 — 무엇을 했고 왜 그것을 골랐는지가 여기 남아,
+   * 다음 시도가 앞선 시도를 덮어쓰지 않는다.
+   */
+  decision: optionalDecisionRecordSchema,
+  /** 이 행위가 만든 코드 근거. 고침이면 보통 `AFTER` 다. */
+  evidence: codeEvidenceListSchema,
 });
 
 export type IssueActivityInput = z.infer<typeof issueActivitySchema>;
