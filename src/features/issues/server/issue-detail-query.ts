@@ -5,6 +5,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, type DbExecutor } from "@/db";
 import {
  issueActivities,
+ issueCodeEvidences,
  issueTags,
  repositories,
  reviewIssues,
@@ -13,6 +14,8 @@ import {
 } from "@/db/schema";
 import {
  OPEN_ISSUE_STATUSES,
+ type CodeEvidenceKind,
+ type EvidenceVerification,
  type IssueActivityType,
  type IssueCategory,
  type IssueSeverity,
@@ -46,12 +49,33 @@ export interface IssueActivityEntry {
  description: string | null;
  commitSha: string | null;
  createdAt: Date;
+ solution: string | null;
+ decisionReason: string | null;
+ alternativesConsidered: string | null;
+ tradeOff: string | null;
+ verification: string | null;
+ regressionTest: string | null;
+ residualRisk: string | null;
+ evidence: IssueEvidenceEntry[];
+}
+
+export interface IssueEvidenceEntry {
+ id: string;
+ kind: CodeEvidenceKind;
+ commitSha: string;
+ filePath: string;
+ startLine: number | null;
+ endLine: number | null;
+ snapshot: string | null;
+ verification: EvidenceVerification;
 }
 
 export interface IssueDetail {
  id: string;
  title: string;
  description: string | null;
+ rootCause: string | null;
+ failurePath: string | null;
  severity: IssueSeverity;
  category: IssueCategory;
  status: IssueStatus;
@@ -76,6 +100,8 @@ export interface IssueDetail {
  reviewerName: string;
 
  tags: string[];
+ /** Activity 없이 뒤늦게 붙인 Evidence. Activity 소속 Evidence 는 각 History 행에 붙는다. */
+ evidence: IssueEvidenceEntry[];
  activities: IssueActivityEntry[];
 }
 
@@ -89,6 +115,8 @@ export async function findIssueDetail(
  id: reviewIssues.id,
  title: reviewIssues.title,
  description: reviewIssues.description,
+ rootCause: reviewIssues.rootCause,
+ failurePath: reviewIssues.failurePath,
  severity: reviewIssues.severity,
  category: reviewIssues.category,
  status: reviewIssues.status,
@@ -128,7 +156,7 @@ export async function findIssueDetail(
  return null;
  }
 
- const [activities, tagRows] = await Promise.all([
+ const [activities, tagRows, evidenceRows] = await Promise.all([
  executor
 .select({
  id: issueActivities.id,
@@ -138,6 +166,13 @@ export async function findIssueDetail(
  description: issueActivities.description,
  commitSha: issueActivities.commitSha,
  createdAt: issueActivities.createdAt,
+ solution: issueActivities.solution,
+ decisionReason: issueActivities.decisionReason,
+ alternativesConsidered: issueActivities.alternativesConsidered,
+ tradeOff: issueActivities.tradeOff,
+ verification: issueActivities.verification,
+ regressionTest: issueActivities.regressionTest,
+ residualRisk: issueActivities.residualRisk,
  })
 .from(issueActivities)
 .where(
@@ -160,12 +195,54 @@ export async function findIssueDetail(
 ),
 )
 .orderBy(asc(tags.normalizedName)),
+
+ executor
+.select({
+ id: issueCodeEvidences.id,
+ issueActivityId: issueCodeEvidences.issueActivityId,
+ kind: issueCodeEvidences.kind,
+ commitSha: issueCodeEvidences.commitSha,
+ filePath: issueCodeEvidences.filePath,
+ startLine: issueCodeEvidences.startLine,
+ endLine: issueCodeEvidences.endLine,
+ snapshot: issueCodeEvidences.snapshot,
+ verification: issueCodeEvidences.verification,
+})
+.from(issueCodeEvidences)
+.where(
+ and(
+ eq(issueCodeEvidences.reviewIssueId, issue.id),
+ eq(issueCodeEvidences.workspaceId, scope.workspaceId),
+),
+)
+.orderBy(asc(issueCodeEvidences.createdAt), asc(issueCodeEvidences.id)),
  ]);
+
+ /**
+ * 🔴 Activity 마다 Evidence 를 다시 조회하지 않는다. Issue 것 전부를 한 번에 읽고
+ * 메모리에서 소속별로 묶는다. `issueActivityId = NULL` 도 버리지 않고 Issue 에 남긴다.
+ */
+ const evidenceByActivity = new Map<string, IssueEvidenceEntry[]>();
+ const issueEvidence: IssueEvidenceEntry[] = [];
+ for (const { issueActivityId,...evidence } of evidenceRows) {
+ if (issueActivityId === null) {
+ issueEvidence.push(evidence);
+ continue;
+ }
+
+ const entries = evidenceByActivity.get(issueActivityId) ?? [];
+ entries.push(evidence);
+ evidenceByActivity.set(issueActivityId, entries);
+ }
 
  return {
 ...issue,
  tags: tagRows.map((row) => row.name),
- activities,
+ evidence: issueEvidence,
+ activities: activities.map((activity) => ({
+ ...activity,
+ evidence: evidenceByActivity.get(activity.id) ?? [],
+ })),
  };
 }
 

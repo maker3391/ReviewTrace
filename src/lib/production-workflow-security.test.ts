@@ -10,7 +10,7 @@ describe.each(WORKFLOWS)("%s", (workflow) => {
     const source = readFileSync(
       resolve(process.cwd(), ".github", "workflows", workflow),
       "utf8",
-    );
+    ).replaceAll("\r\n", "\n");
 
     expect(source).toContain("permissions:\n  contents: read");
     expect(source).toContain("if: github.ref == 'refs/heads/main'");

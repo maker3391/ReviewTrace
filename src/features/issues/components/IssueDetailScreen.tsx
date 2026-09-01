@@ -16,10 +16,12 @@ import { IssueStatusControl } from "@/features/issues/components/IssueStatusCont
 import type {
  IssueActivityEntry,
  IssueDetail,
+ IssueEvidenceEntry,
 } from "@/features/issues/server/issue-detail-query";
 import { formatDate } from "@/lib/format/date";
 import { readMessages } from "@/lib/ui/appearance";
 import { cn } from "@/lib/utils";
+import type { EvidenceVerification } from "@/types/review";
 
 /**
  * ReviewIssue 상세.
@@ -123,10 +125,26 @@ export async function IssueDetailScreen({
  `overflow-hidden` 이라 그 줄이 **스크롤도 없이 잘려 나갔다**(390px 실측 264/237).
  `wrap-anywhere` 는 들어가지 못할 때만 끊으므로 넓은 폭에서는 지금과 같다.
  */}
- {issue.description !== null && (
+{issue.description !== null && (
  <Section title={t.description} variant="raised">
  <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed text-foreground">
  {issue.description}
+ </p>
+ </Section>
+)}
+
+ {issue.rootCause !== null && (
+ <Section title={t.rootCause} variant="raised">
+ <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed text-foreground">
+ {issue.rootCause}
+ </p>
+ </Section>
+)}
+
+ {issue.failurePath !== null && (
+ <Section title={t.failurePath} variant="raised">
+ <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed text-foreground">
+ {issue.failurePath}
  </p>
  </Section>
 )}
@@ -143,7 +161,7 @@ export async function IssueDetailScreen({
  </Section>
 )}
 
- {issue.resolutionSummary !== null && (
+{issue.resolutionSummary !== null && (
  <Section title={t.resolution} variant="raised">
  {/*
  해결 기록만 브랜드 톤을 얹는다 — 이 화면에서 가장 값진 한 칸이기 때문이다.
@@ -152,6 +170,22 @@ export async function IssueDetailScreen({
  <p className="whitespace-pre-wrap wrap-anywhere border-l-2 border-primary/40 bg-primary/[0.03] py-1 pl-3 text-sm leading-relaxed text-foreground">
  {issue.resolutionSummary}
  </p>
+ </Section>
+)}
+
+ {issue.evidence.length > 0 && (
+ <Section title={t.codeEvidence} variant="raised">
+ <EvidenceList
+ evidence={issue.evidence}
+ repositoryFullName={issue.repositoryFullName}
+ labels={{
+ before: t.before,
+ after: t.after,
+ viewCode: t.viewCode,
+ noSnapshot: t.noSnapshot,
+ verification: t.evidenceVerification,
+ }}
+ />
  </Section>
 )}
 
@@ -167,6 +201,23 @@ export async function IssueDetailScreen({
  last={index === issue.activities.length - 1}
  typeLabel={label.activityType[activity.type]}
  actorLabel={label.reviewerType[activity.actorType]}
+ repositoryFullName={issue.repositoryFullName}
+ labels={{
+ decision: t.decision,
+ solution: t.solution,
+ decisionReason: t.decisionReason,
+ alternatives: t.alternatives,
+ tradeOff: t.tradeOff,
+ verification: t.verification,
+ regressionTest: t.regressionTest,
+ residualRisk: t.residualRisk,
+ codeEvidence: t.codeEvidence,
+ before: t.before,
+ after: t.after,
+ viewCode: t.viewCode,
+ noSnapshot: t.noSnapshot,
+ evidenceVerification: t.evidenceVerification,
+ }}
  />
 ))}
  </ol>
@@ -300,15 +351,28 @@ function ActivityRow({
  last,
  typeLabel,
  actorLabel,
+ repositoryFullName,
+ labels,
 }: {
  activity: IssueActivityEntry;
  last: boolean;
  /** 🔴 값이 아니라 이름표다. 값(`RESOLVED`)은 여전히 `activity.type` 이 갖는다. */
  typeLabel: string;
  actorLabel: string;
+ repositoryFullName: string;
+ labels: ActivityKnowledgeLabels;
 }) {
  // 해결로 끝난 것만 브랜드 톤. 나머지는 중립이다 — 색을 의미에만 쓴다.
  const resolved = activity.type === "RESOLVED";
+ const decisions = [
+ { label: labels.solution, value: activity.solution },
+ { label: labels.decisionReason, value: activity.decisionReason },
+ { label: labels.alternatives, value: activity.alternativesConsidered },
+ { label: labels.tradeOff, value: activity.tradeOff },
+ { label: labels.verification, value: activity.verification },
+ { label: labels.regressionTest, value: activity.regressionTest },
+ { label: labels.residualRisk, value: activity.residualRisk },
+ ].filter((entry): entry is { label: string; value: string } => entry.value !== null);
 
  return (
  <li className="flex gap-3">
@@ -348,12 +412,173 @@ function ActivityRow({
  {formatDate(activity.createdAt)}
  </span>
  </div>
- {activity.description !== null && (
+{activity.description !== null && (
  <p className="mt-1 whitespace-pre-wrap wrap-anywhere text-xs leading-relaxed text-muted-foreground">
  {activity.description}
  </p>
 )}
+ {decisions.length > 0 && (
+ <div className="mt-3 rounded-md border border-border/70 bg-surface-muted/30 p-3">
+ <p className="mb-2 text-[11px] font-semibold text-foreground">
+ {labels.decision}
+ </p>
+ <dl className="grid gap-2 sm:grid-cols-2">
+ {decisions.map((entry) => (
+ <div key={entry.label} className="min-w-0">
+ <dt className="text-[10px] font-medium text-muted-foreground">
+ {entry.label}
+ </dt>
+ <dd className="mt-0.5 whitespace-pre-wrap wrap-anywhere text-xs leading-relaxed text-foreground">
+ {entry.value}
+ </dd>
+ </div>
+))}
+ </dl>
+ </div>
+)}
+ {activity.evidence.length > 0 && (
+ <div className="mt-3">
+ <p className="mb-2 text-[11px] font-semibold text-foreground">
+ {labels.codeEvidence}
+ </p>
+ <EvidenceList
+ evidence={activity.evidence}
+ repositoryFullName={repositoryFullName}
+ labels={{
+ before: labels.before,
+ after: labels.after,
+ viewCode: labels.viewCode,
+ noSnapshot: labels.noSnapshot,
+ verification: labels.evidenceVerification,
+ }}
+ />
+ </div>
+)}
  </div>
  </li>
 );
+}
+
+interface EvidenceLabels {
+ before: string;
+ after: string;
+ viewCode: string;
+ noSnapshot: string;
+ verification: Record<EvidenceVerification, string>;
+}
+
+interface ActivityKnowledgeLabels {
+ decision: string;
+ solution: string;
+ decisionReason: string;
+ alternatives: string;
+ tradeOff: string;
+ verification: string;
+ regressionTest: string;
+ residualRisk: string;
+ codeEvidence: string;
+ before: string;
+ after: string;
+ viewCode: string;
+ noSnapshot: string;
+ evidenceVerification: Record<EvidenceVerification, string>;
+}
+
+const VERIFICATION_CLASS: Record<EvidenceVerification, string> = {
+ UNVERIFIED: "bg-muted text-muted-foreground",
+ VERIFIED: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+ MISMATCH: "bg-destructive/15 text-destructive",
+ UNAVAILABLE: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+};
+
+function EvidenceList({
+ evidence,
+ repositoryFullName,
+ labels,
+}: {
+ evidence: IssueEvidenceEntry[];
+ repositoryFullName: string;
+ labels: EvidenceLabels;
+}) {
+ return (
+ <div className="flex flex-col gap-2.5">
+ {evidence.map((item) => (
+ <article key={item.id} className="min-w-0 overflow-hidden rounded-md border border-border/70">
+ <header className="flex flex-wrap items-center gap-2 bg-surface-muted/40 px-3 py-2">
+ <span
+ className={cn(
+ "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+ item.kind === "AFTER"
+ ? "bg-primary/10 text-primary"
+ : "bg-muted text-muted-foreground",
+ )}
+ >
+ {item.kind === "BEFORE" ? labels.before : labels.after}
+ </span>
+ <span
+ className={cn(
+ "rounded-full px-2 py-0.5 text-[10px] font-medium",
+ VERIFICATION_CLASS[item.verification],
+ )}
+ >
+ {labels.verification[item.verification]}
+ </span>
+ <span className="min-w-0 break-all font-mono text-[11px] text-foreground">
+ {evidenceLocation(item)}
+ </span>
+ <span className="font-mono text-[10px] text-muted-foreground">
+ {item.commitSha.slice(0, 7)}
+ </span>
+ <a
+ href={githubEvidenceUrl(repositoryFullName, item)}
+ target="_blank"
+ rel="noreferrer noopener"
+ className="ml-auto text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+ >
+ {labels.viewCode}
+ </a>
+ </header>
+ {item.snapshot === null ? (
+ <p className="px-3 py-3 text-xs text-muted-foreground">{labels.noSnapshot}</p>
+) : (
+ <pre className="max-w-full overflow-x-auto bg-muted/30 p-3 text-xs leading-relaxed text-accent-foreground">
+ <code>{item.snapshot}</code>
+ </pre>
+)}
+ </article>
+))}
+ </div>
+ );
+}
+
+function evidenceLocation(evidence: IssueEvidenceEntry): string {
+ if (evidence.startLine === null) {
+ return evidence.filePath;
+ }
+ if (evidence.endLine === null || evidence.endLine === evidence.startLine) {
+ return `${evidence.filePath}:${evidence.startLine}`;
+ }
+ return `${evidence.filePath}:${evidence.startLine}-${evidence.endLine}`;
+}
+
+function githubEvidenceUrl(
+ repositoryFullName: string,
+ evidence: IssueEvidenceEntry,
+): string {
+ const repository = repositoryFullName
+ .split("/")
+ .map((segment) => encodeURIComponent(segment))
+ .join("/");
+ const filePath = evidence.filePath
+ .split("/")
+ .map((segment) => encodeURIComponent(segment))
+ .join("/");
+ const lines =
+ evidence.startLine === null
+ ? ""
+ : evidence.endLine === null || evidence.endLine === evidence.startLine
+ ? `#L${evidence.startLine}`
+ : `#L${evidence.startLine}-L${evidence.endLine}`;
+
+ return `https://github.com/${repository}/blob/${encodeURIComponent(evidence.commitSha)}/${filePath}${lines}`;
 }

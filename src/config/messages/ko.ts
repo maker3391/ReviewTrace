@@ -700,6 +700,8 @@ export const ko = {
 
  issueDetail: {
  description: "설명",
+ rootCause: "근본 원인",
+ failurePath: "실패·공격 경로",
  suggestion: "제안",
  resolution: "해결",
  history: "이력",
@@ -724,6 +726,25 @@ export const ko = {
  activityDescription: "내용",
  recording: "남기는 중",
  record: "기록 남기기",
+ decision: "판단 기록",
+ solution: "적용한 해결책",
+ decisionReason: "선택 이유",
+ alternatives: "검토한 대안",
+ tradeOff: "트레이드오프",
+ verification: "검증",
+ regressionTest: "회귀 테스트",
+ residualRisk: "남은 위험",
+ codeEvidence: "코드 근거",
+ before: "수정 전",
+ after: "수정 후",
+ viewCode: "GitHub에서 보기",
+ noSnapshot: "저장된 코드 스냅샷이 없습니다.",
+ evidenceVerification: {
+ UNVERIFIED: "확인 전",
+ VERIFIED: "검증됨",
+ MISMATCH: "불일치",
+ UNAVAILABLE: "확인 불가",
+ },
  },
 
  reviewDetail: {

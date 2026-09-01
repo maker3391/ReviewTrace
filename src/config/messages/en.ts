@@ -514,6 +514,8 @@ export const en: Messages = {
 
   issueDetail: {
     description: "Description",
+    rootCause: "Root cause",
+    failurePath: "Failure / attack path",
     suggestion: "Suggestion",
     resolution: "Resolution",
     history: "History",
@@ -538,6 +540,25 @@ export const en: Messages = {
     activityDescription: "Details",
     recording: "Saving",
     record: "Add to history",
+    decision: "Decision record",
+    solution: "Applied solution",
+    decisionReason: "Why this approach",
+    alternatives: "Alternatives considered",
+    tradeOff: "Trade-off",
+    verification: "Verification",
+    regressionTest: "Regression test",
+    residualRisk: "Residual risk",
+    codeEvidence: "Code evidence",
+    before: "Before",
+    after: "After",
+    viewCode: "View on GitHub",
+    noSnapshot: "No code snapshot was stored.",
+    evidenceVerification: {
+      UNVERIFIED: "Unverified",
+      VERIFIED: "Verified",
+      MISMATCH: "Mismatch",
+      UNAVAILABLE: "Unavailable",
+    },
   },
 
   reviewDetail: {
