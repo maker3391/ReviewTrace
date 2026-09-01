@@ -1,9 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { LockKeyhole } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { GithubMark } from "@/features/auth/components/GithubMark";
 import {
   beginGithubInstallationAction,
@@ -22,19 +30,29 @@ export function RepositoryConnect({
   workspaceSlug,
   projectSlug,
   repositories,
+  hasInstallation,
+  mode,
   labels,
 }: {
   workspaceSlug: string;
   projectSlug: string;
   repositories: RepositoryOption[];
+  hasInstallation: boolean;
+  mode: "empty" | "inline" | "dialog";
   labels: {
     connect: string;
     install: string;
     choose: string;
     private: string;
     public: string;
+    connected: string;
+    add: string;
+    noAccessible: string;
+    updateAccess: string;
+    cancel: string;
   };
 }) {
+  const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(
     repositories[0]
       ? `${repositories[0].installationId}:${repositories[0].externalRepositoryId}`
@@ -65,62 +83,108 @@ export function RepositoryConnect({
         installationId,
         externalRepositoryId,
       });
-      if (!result.ok) setError(result.error.message);
+      if (!result.ok) return setError(result.error.message);
+      setOpen(false);
     });
 
-  return (
-    <div className="flex max-w-xl flex-col items-center gap-3 text-center">
-      {repositories.length === 0 ? (
-        <Button type="button" onClick={install} disabled={pending}>
-          <GithubMark className="size-4" />
-          {labels.install}
-        </Button>
-      ) : (
-        <div className="flex w-full items-center gap-2">
-          <label htmlFor="github-repository" className="sr-only">
-            {labels.choose}
-          </label>
-          <select
-            id="github-repository"
-            value={selected}
-            onChange={(event) => setSelected(event.target.value)}
-            className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
-          >
-            {repositories.map((repository) => (
-              <option
-                key={`${repository.installationId}:${repository.externalRepositoryId}`}
-                value={`${repository.installationId}:${repository.externalRepositoryId}`}
-              >
-                {repository.fullName} ·{" "}
-                {repository.private ? labels.private : labels.public} ·{" "}
-                {repository.defaultBranch}
-              </option>
-            ))}
-          </select>
-          <Button
-            type="button"
-            onClick={connect}
-            disabled={pending || selected === ""}
-          >
-            <LockKeyhole className="size-4" />
-            {labels.connect}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={install}
-            disabled={pending}
-            aria-label={labels.install}
-          >
-            <GithubMark className="size-4" />
-          </Button>
-        </div>
+  const unavailable = !hasInstallation || repositories.length === 0;
+  const installPrompt = (
+    <div className="flex flex-col items-center gap-2">
+      {hasInstallation && (
+        <p className="text-xs text-muted-foreground">
+          {labels.noAccessible}
+        </p>
       )}
+      <Button type="button" onClick={install} disabled={pending}>
+        <GithubMark className="size-4" />
+        {hasInstallation ? labels.updateAccess : labels.install}
+      </Button>
       {error !== null && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-xs text-destructive">
           {error}
         </p>
       )}
+    </div>
+  );
+
+  const picker = (
+    <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <label htmlFor={`github-repository-${mode}`} className="sr-only">
+        {labels.choose}
+      </label>
+      <select
+        id={`github-repository-${mode}`}
+        value={selected}
+        onChange={(event) => setSelected(event.target.value)}
+        className="h-9 min-w-0 rounded-md border bg-background px-3 text-sm"
+      >
+        {repositories.map((repository) => (
+          <option
+            key={`${repository.installationId}:${repository.externalRepositoryId}`}
+            value={`${repository.installationId}:${repository.externalRepositoryId}`}
+          >
+            {repository.fullName} ·{" "}
+            {repository.private ? labels.private : labels.public} ·{" "}
+            {repository.defaultBranch}
+          </option>
+        ))}
+      </select>
+      {error !== null && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+
+  if (mode === "dialog") {
+    return (
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button size="sm" variant="outline">
+            {labels.add}
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{labels.add}</DialogTitle>
+            <DialogDescription>{labels.choose}</DialogDescription>
+          </DialogHeader>
+          {unavailable ? (
+            installPrompt
+          ) : (
+            <>
+              {picker}
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setOpen(false)}>
+                  {labels.cancel}
+                </Button>
+                <Button
+                  disabled={pending || selected === ""}
+                  onClick={connect}
+                >
+                  {labels.connect}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (unavailable) return installPrompt;
+
+  return (
+    <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end">
+      {picker}
+      <Button
+        type="button"
+        onClick={connect}
+        disabled={pending || selected === ""}
+      >
+        {labels.connect}
+      </Button>
     </div>
   );
 }

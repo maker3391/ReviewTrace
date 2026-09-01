@@ -10,13 +10,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FolderGit2 } from "lucide-react";
+import { ExternalLink, FolderGit2 } from "lucide-react";
 
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { TablePagination } from "@/components/organisms/TablePagination";
 import { findRepositoryStatusPage } from "@/features/repositories/server/repository-query";
-import { listWorkspaceGithubRepositories } from "@/features/repositories/server/github-installation-service";
+import {
+  listWorkspaceGithubInstallations,
+  listWorkspaceGithubRepositories,
+} from "@/features/repositories/server/github-installation-service";
 import { RepositoryConnect } from "@/features/repositories/components/RepositoryConnect";
 import type { ProjectContext } from "@/features/projects/types/project";
 import { formatDate } from "@/lib/format/date";
@@ -27,6 +30,7 @@ import {
 } from "@/lib/pagination";
 import { readMessages } from "@/lib/ui/appearance";
 import { cn } from "@/lib/utils";
+import { repositoryScreenState } from "@/features/repositories/components/repository-list-state";
 
 /** Project의 Repository 목록과 Workspace-scoped GitHub App 연결 진입점. */
 export async function RepositoryListScreen({
@@ -46,40 +50,83 @@ export async function RepositoryListScreen({
   searchParams: Promise<RawSearchParams>;
 }) {
   const request = parsePageRequest(await searchParams);
-  const [repositoryPage, messages, githubRepositories] = await Promise.all([
+  const [
+    repositoryPage,
+    messages,
+    githubRepositories,
+    githubInstallations,
+  ] = await Promise.all([
     findRepositoryStatusPage(
       { workspaceId, projectId: project.projectId },
       request,
     ),
     readMessages(),
     listWorkspaceGithubRepositories(workspaceId),
+    listWorkspaceGithubInstallations(workspaceId),
   ]);
   const repositories = repositoryPage.items;
   const t = messages.repositories;
+  const hasInstallation = githubInstallations.length > 0;
+  const state = repositoryScreenState({
+    hasInstallation,
+    repositoryCount: repositories.length,
+  });
+  const connectLabels = {
+    connect: t.connect,
+    install: t.installGithub,
+    choose: t.choose,
+    private: t.private,
+    public: t.public,
+    connected: t.connected,
+    add: t.add,
+    noAccessible: t.noAccessible,
+    updateAccess: t.updateAccess,
+    cancel: t.cancel,
+  };
 
   return (
     <PageContainer width="wide">
       {/* 🔴 사이드바가 「저장소」라고 말한 자리에 「저장소」를 한 번 더 적지 않는다. */}
       <Section variant="raised" bleed>
-        {repositories.length === 0 ? (
+        {state === "GITHUB_DISCONNECTED" ? (
           <SectionEmpty
             icon={<FolderGit2 className="size-4" />}
-            title={t.empty}
+            title={t.connectTitle}
             action={
               <RepositoryConnect
                 workspaceSlug={workspaceSlug}
                 projectSlug={project.slug}
                 repositories={githubRepositories}
-                labels={{
-                  connect: t.connect,
-                  install: t.installGithub,
-                  choose: t.choose,
-                  private: t.private,
-                  public: t.public,
-                }}
+                hasInstallation={false}
+                mode="empty"
+                labels={connectLabels}
               />
             }
-          />
+          >
+            {t.connectDescription}
+          </SectionEmpty>
+        ) : state === "READY_TO_CONNECT" ? (
+          <div className="px-5 py-6">
+            <div className="mb-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold">{t.chooseTitle}</h2>
+                <span className="text-xs text-muted-foreground">
+                  {t.connected}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t.connectDescription}
+              </p>
+            </div>
+            <RepositoryConnect
+              workspaceSlug={workspaceSlug}
+              projectSlug={project.slug}
+              repositories={githubRepositories}
+              hasInstallation
+              mode="inline"
+              labels={connectLabels}
+            />
+          </div>
         ) : (
           <>
             <div className="flex justify-end border-b border-border px-4 py-3">
@@ -87,13 +134,9 @@ export async function RepositoryListScreen({
                 workspaceSlug={workspaceSlug}
                 projectSlug={project.slug}
                 repositories={githubRepositories}
-                labels={{
-                  connect: t.connect,
-                  install: t.installGithub,
-                  choose: t.choose,
-                  private: t.private,
-                  public: t.public,
-                }}
+                hasInstallation={hasInstallation}
+                mode="dialog"
+                labels={connectLabels}
               />
             </div>
             <Table>
@@ -122,6 +165,18 @@ export async function RepositoryListScreen({
                       >
                         {repository.fullName}
                       </Link>
+                      {repository.htmlUrl !== null &&
+                        isSafeExternalUrl(repository.htmlUrl) && (
+                          <a
+                            href={repository.htmlUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                          >
+                            {t.viewGithub}
+                            <ExternalLink className="size-3" aria-hidden />
+                          </a>
+                        )}
                     </TableCell>
                     <TableCell
                       className="max-w-[8rem] truncate font-mono text-xs text-muted-foreground"
@@ -164,4 +219,12 @@ export async function RepositoryListScreen({
       </Section>
     </PageContainer>
   );
+}
+
+function isSafeExternalUrl(value: string): boolean {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
