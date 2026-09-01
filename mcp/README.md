@@ -114,6 +114,12 @@ The repository and commit come from the **current git repository** (`origin` rem
 `HEAD`), so no tool asks you for a repository id. `reviewId` and `issueId` may be omitted —
 the server remembers the review you just opened and the issue you last touched.
 
+Before the first review, connect the repository from the Project's **Repositories** page. Once
+connected, the current git remote resolves Repository → Project → Workspace without a Project
+argument. For a first connection through MCP, pass an existing `project` slug; ReviewTrace verifies
+the Repository against that Workspace's GitHub App installation. Without either a registration or
+`project`, `create_review` fails instead of creating a Default Project.
+
 | Tool                       | What it does                                                                                          | Key arguments                                                                                                                          |
 | -------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `get_repository_knowledge` | Past patterns, open issues and past resolutions for this repository. Read this _before_ changing code | `repository`, `limit`                                                                                                                  |
@@ -127,6 +133,12 @@ the server remembers the review you just opened and the issue you last touched.
 Evidence snapshots should contain the problem or changed lines plus only the context
 needed to understand them. Send exact `startLine`/`endLine` values; do not include an
 entire function or component by default.
+
+All Issue and Decision Record narrative fields are Review Knowledge Markdown documents. Separate
+meaning units into paragraphs; use bullets for multiple causes/actions/checks/alternatives/risks and
+an ordered list for a failure path of two or more steps. Put technical identifiers in inline code,
+use fenced blocks only for an actual source snippet, do not force a one-sentence value into a list,
+and do not repeat the UI's field heading inside the field.
 | `get_issue` | Read one issue with its full history | `issueId` |
 
 `severity` is `CRITICAL · HIGH · MEDIUM · LOW · INFO`.

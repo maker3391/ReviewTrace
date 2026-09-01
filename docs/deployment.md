@@ -21,21 +21,32 @@ Vercel 이 Git 연동으로 스스로 빌드·배포한다 — 두 곳에서 배
 
 정본은 `src/lib/env.schema.ts` 다. **이 표는 그 파일에서 옮겨 적은 것이고, 추측이 없다.**
 
-| 변수                   | 필수        | 기본값                   | 무엇                                                                                                                                                                               |
-| ---------------------- | ----------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`         | **필수**    | —                        | `postgres://` 또는 `postgresql://` 로 시작해야 한다                                                                                                                                |
-| `AUTH_SECRET`          | **필수**    | —                        | **32자 이상.** `openssl rand -base64 32`                                                                                                                                           |
-| `GITHUB_CLIENT_ID`     | **필수**    | —                        | GitHub OAuth App                                                                                                                                                                   |
-| `GITHUB_CLIENT_SECRET` | **필수**    | —                        | GitHub OAuth App                                                                                                                                                                   |
-| `APP_URL`              | 사실상 필수 | `http://localhost:3000`  | 운영은 **`https://reviewtrace.app`**. 🔴 **반드시 덮어쓴다** — Settings 화면이 Agent 에게 알려 주는 API 주소가 이 값이라, 기본값이 남으면 사용자의 Agent 가 자기 컴퓨터를 가리킨다 |
-| `GITHUB_API_TOKEN`     | 선택        | 없음                     | Code Evidence 를 GitHub 실제 코드와 대조할 때 쓴다. 없으면 그 확인만 못 한다                                                                                                       |
-| `GITHUB_API_URL`       | 선택        | `https://api.github.com` | GitHub Enterprise 를 쓸 때만. `/api/v3` base path는 허용하지만 원격 endpoint는 HTTPS여야 한다                                                                                      |
-| `NODE_ENV`             | 선택        | `development`            | Vercel 이 알아서 `production` 을 넣는다                                                                                                                                            |
+| 변수                       | 필수         | 기본값                   | 무엇                                                                                                                                                                               |
+| -------------------------- | ------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`             | **필수**     | —                        | `postgres://` 또는 `postgresql://` 로 시작해야 한다                                                                                                                                |
+| `AUTH_SECRET`              | **필수**     | —                        | **32자 이상.** `openssl rand -base64 32`                                                                                                                                           |
+| `GITHUB_CLIENT_ID`         | **필수**     | —                        | GitHub OAuth App                                                                                                                                                                   |
+| `GITHUB_CLIENT_SECRET`     | **필수**     | —                        | GitHub OAuth App                                                                                                                                                                   |
+| `APP_URL`                  | 사실상 필수  | `http://localhost:3000`  | 운영은 **`https://reviewtrace.app`**. 🔴 **반드시 덮어쓴다** — Settings 화면이 Agent 에게 알려 주는 API 주소가 이 값이라, 기본값이 남으면 사용자의 Agent 가 자기 컴퓨터를 가리킨다 |
+| `GITHUB_API_TOKEN`         | 선택         | 없음                     | Public Code Evidence 익명 호출의 rate limit만 높인다. Private 권한은 GitHub App installation에서 얻는다                                                                            |
+| `GITHUB_API_URL`           | 선택         | `https://api.github.com` | GitHub Enterprise 를 쓸 때만. `/api/v3` base path는 허용하지만 원격 endpoint는 HTTPS여야 한다                                                                                      |
+| `GITHUB_APP_ID`            | 연동 시 필수 | —                        | GitHub App ID. JWT issuer                                                                                                                                                          |
+| `GITHUB_APP_CLIENT_ID`     | 연동 시 필수 | —                        | 설치 callback의 일회용 user token 교환                                                                                                                                             |
+| `GITHUB_APP_CLIENT_SECRET` | 연동 시 필수 | —                        | Server-only. callback code 교환에만 사용                                                                                                                                           |
+| `GITHUB_APP_PRIVATE_KEY`   | 연동 시 필수 | —                        | PEM private key. source/DB/client/log에 저장·노출하지 않는다                                                                                                                       |
+| `GITHUB_APP_SLUG`          | 연동 시 필수 | —                        | `https://github.com/apps/{slug}/installations/new` 구성                                                                                                                            |
+| `GITHUB_WEB_URL`           | 선택         | `https://github.com`     | OAuth/install web origin. 원격 endpoint는 HTTPS                                                                                                                                    |
+| `NODE_ENV`                 | 선택         | `development`            | Vercel 이 알아서 `production` 을 넣는다                                                                                                                                            |
 
 🔴 **`AUTH_URL` 은 넣지 않는다.** `src/lib/auth/config.ts` 가 `trustHost: true` 라 앞단이 넘긴
 Host 로 콜백 URL 을 만든다. Vercel 은 그 Host 를 올바로 넘긴다.
 
 🔴 **`NEXT_PUBLIC_*` 는 하나도 없다.** 위 값은 전부 서버 전용이라 브라우저로 나가지 않는다.
+
+GitHub App은 `Metadata: read`와 `Contents: read`만 요청한다. webhook, Issues, Pull requests,
+Checks, Actions 권한은 현재 endpoint가 사용하지 않으므로 요청하지 않는다. Callback URL은
+`{APP_URL}/api/github/app/callback`, 설치 시 **Request user authorization (OAuth)** 를 켠다.
+callback user token은 `GET /user/installations` 소유권 확인 후 저장하지 않는다.
 
 ---
 

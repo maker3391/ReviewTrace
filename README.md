@@ -92,14 +92,17 @@ cp .env.example .env
 Fill in `.env`. There are no defaults for these — the app fails at startup rather than running
 half-configured (`src/lib/env.schema.ts`):
 
-| Variable                                    | What it is                                               |
-| ------------------------------------------- | -------------------------------------------------------- |
-| `DATABASE_URL`                              | `postgres://…` connection string                         |
-| `AUTH_SECRET`                               | 32+ chars — `openssl rand -base64 32`                    |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth App credentials                             |
-| `POSTGRES_PASSWORD`                         | used by `docker-compose.yml`; must match `DATABASE_URL`  |
-| `APP_URL`                                   | optional, defaults to `http://localhost:3000`            |
-| `GITHUB_API_TOKEN`                          | optional, server-side token used to verify code evidence |
+| Variable                                            | What it is                                               |
+| --------------------------------------------------- | -------------------------------------------------------- |
+| `DATABASE_URL`                                      | `postgres://…` connection string                         |
+| `AUTH_SECRET`                                       | 32+ chars — `openssl rand -base64 32`                    |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`         | GitHub OAuth App credentials                             |
+| `POSTGRES_PASSWORD`                                 | used by `docker-compose.yml`; must match `DATABASE_URL`  |
+| `APP_URL`                                           | optional, defaults to `http://localhost:3000`            |
+| `GITHUB_API_TOKEN`                                  | optional, server-side token used to verify code evidence |
+| `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY`          | GitHub App server authentication                         |
+| `GITHUB_APP_CLIENT_ID` / `GITHUB_APP_CLIENT_SECRET` | one-time installation ownership callback                 |
+| `GITHUB_APP_SLUG`                                   | GitHub App installation URL                              |
 
 Create the OAuth App at **GitHub → Settings → Developer settings → OAuth Apps**, with callback URL
 `http://localhost:3000/api/auth/callback/github`. The path is fixed by Auth.js; if you run on a
@@ -121,11 +124,14 @@ Then:
    own it.
 2. **Issue an API key** at `/w/{workspace}/settings` → API Keys (owner only). The token starts with
    `ci_` and is **shown exactly once** — only its SHA-256 hash is stored.
-3. **Connect your agent** (below).
+3. Create a Project and choose **Repositories → Connect repository**. Install the GitHub App for a
+   personal account or organization, then pick one of the public/private repositories that the
+   installation is allowed to access.
+4. **Connect your agent** (below).
 
-You do **not** register repositories or create projects by hand. The first review from an agent
-upserts the repository from its git remote, and reviews land in the workspace's `default` project
-unless the agent names another one.
+The registered Repository resolves its Project and Workspace automatically. An unregistered
+Repository must name an existing Project and pass GitHub App access verification; it never creates
+or falls back to a `default` Project silently.
 
 ---
 
@@ -301,22 +307,20 @@ repository + commitSha + filePath + startLine..endLine  →  snapshot
 
 The snapshot is what the agent claims it read. Whether GitHub agrees is recorded separately:
 
-| `verification` | Meaning                                                               |
-| -------------- | --------------------------------------------------------------------- |
-| `UNVERIFIED`   | Not checked yet                                                       |
-| `VERIFIED`     | Matches GitHub at that commit                                         |
-| `MISMATCH`     | Present at that commit, but different                                 |
-| `UNAVAILABLE`  | Couldn't look — private repo, missing commit, rate limit, GitHub down |
+| `verification` | Meaning                                                                                                     |
+| -------------- | ----------------------------------------------------------------------------------------------------------- |
+| `UNVERIFIED`   | Not checked yet                                                                                             |
+| `VERIFIED`     | Matches GitHub at that commit                                                                               |
+| `MISMATCH`     | Present at that commit, but different                                                                       |
+| `UNAVAILABLE`  | Couldn't look — private repo without Workspace installation access, missing commit, rate limit, GitHub down |
 
 Keeping "the agent sent this" apart from "GitHub confirms this" is the point. The verification pass
 runs _outside_ the write transaction, so a slow or unreachable GitHub never blocks a recording, and
 the snapshot fallback means the UI still shows something for private or deleted repositories.
 
-**Only public repositories are ever read.** The server asks GitHub whether the repository is public
-before fetching anything, and stops if it is not — even with a token configured. Registering a
-repository in a workspace is not proof that the workspace may read it: anyone can put
-`someone-else/private` in a payload, and without that check a shared server token would pull other
-people's code into their evidence.
+Public repositories can be checked anonymously. Private repositories are read only with a
+short-lived token from a GitHub App installation connected to the same Workspace and explicitly
+allowed to access that numeric repository id. A payload string alone never grants access.
 
 `GITHUB_API_TOKEN` is optional and only raises the anonymous rate limit. Verification never uses
 your login token: sign-in requests only `read:user` and `user:email`, and asking every user for
@@ -414,14 +418,14 @@ message queue, no cache layer, no vector database.
 
 Agents never have to be told internal identifiers.
 
-| You'd expect to supply | Where it actually comes from                   |
-| ---------------------- | ---------------------------------------------- |
-| Workspace id           | The API key                                    |
-| Project                | Optional `slug`; falls back to `default`       |
-| Repository             | `git remote` in the current checkout           |
-| Commit                 | `git HEAD`                                     |
-| Review id              | Remembered by the MCP process for the session  |
-| Issue id               | Defaults to the last issue the session touched |
+| You'd expect to supply | Where it actually comes from                                                |
+| ---------------------- | --------------------------------------------------------------------------- |
+| Workspace id           | The API key                                                                 |
+| Project                | Resolved from the registered Repository; required only for first connection |
+| Repository             | `git remote` in the current checkout                                        |
+| Commit                 | `git HEAD`                                                                  |
+| Review id              | Remembered by the MCP process for the session                               |
+| Issue id               | Defaults to the last issue the session touched                              |
 
 You paste a key once. You never paste a UUID.
 

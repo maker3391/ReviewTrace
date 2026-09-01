@@ -62,6 +62,10 @@ instead of joining them into one long paragraph. Prefer an ordered list for a mu
 failure or attack path, and bullet lists for multiple suggestions, applied changes, or
 verification commands. Use inline code for identifiers. The server stores this Markdown
 source as text; it does not heuristically rewrite legacy one-line records.
+Use fenced code only for an actual source snippet. Do not turn a short sentence into a decorative
+list, and do not add headings such as `## Root cause` inside a field whose UI already supplies that
+heading. The same contract applies to issue description/root cause/failure path/suggestion/final
+resolution and all seven Decision Record fields.
 
 **`rootCause`** — why the code ended up this way, not what is wrong with it. "The
 transaction boundary was drawn around the whole service method" is a root cause.
@@ -99,9 +103,10 @@ ideally a line range.
 
 Send the actual lines in `snapshot` when you have them. The server independently checks
 that snapshot against GitHub at that commit and records the result separately — you
-cannot mark your own evidence as verified. Only public repositories are checked; for a
-private repo, a deleted commit, or a missing file, the snapshot you sent is still kept and
-the record says `UNAVAILABLE` rather than pretending.
+cannot mark your own evidence as verified. Public repositories can be checked anonymously;
+private repositories use a short-lived token from a GitHub App installation connected to the
+same Workspace. If access is unavailable, the commit was deleted, or the file is missing, the
+snapshot you sent is still kept and the record says `UNAVAILABLE` rather than pretending.
 
 Keep each Evidence range minimal: the problem or changed lines plus only the context
 needed to understand them. Do not send an entire function or component by habit. Set

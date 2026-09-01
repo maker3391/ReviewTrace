@@ -52,22 +52,22 @@ the request un-deduplicated while the caller believed it was protected.
 
 **Body**
 
-| Field                                               | Required | Notes                                                                                                  |
-| --------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
-| `project.slug`                                      | no       | Defaults to the workspace's `default` project, created on demand                                       |
-| `project.name`                                      | no       | Only used when the project is created                                                                  |
-| `repository.provider`                               | yes      | `GITHUB`                                                                                               |
-| `repository.owner` / `name` / `fullName`            | yes      |                                                                                                        |
-| `repository.externalRepositoryId`                   | no       | GitHub's numeric id. Send it and renames keep one row; omit it and identity falls back to `owner/name` |
-| `repository.defaultBranch`                          | no       | Defaults to `main`                                                                                     |
-| `repository.htmlUrl`                                | no       | `http`/`https` only                                                                                    |
-| `target.type`                                       | yes      | `PULL_REQUEST` · `COMMIT` · `BRANCH` · `REPOSITORY` · `MANUAL`                                         |
-| `target.branch` / `commitSha` / `pullRequestNumber` | no       |                                                                                                        |
-| `reviewer.type`                                     | yes      | `AGENT` · `HUMAN` · `SYSTEM`                                                                           |
-| `reviewer.name` / `version`                         | yes / no |                                                                                                        |
-| `summary`                                           | no       |                                                                                                        |
-| `startedAt` / `completedAt`                         | no       | ISO-8601 with offset                                                                                   |
-| `issues[]`                                          | no       | Max 500. An empty review is a valid record — "this commit was clean"                                   |
+| Field                                               | Required    | Notes                                                                                                  |
+| --------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------ |
+| `project.slug`                                      | conditional | Existing Repository: omit or match its Project. Unregistered Repository: required and must exist       |
+| `project.name`                                      | no          | Compatibility field; ingestion does not create a Project implicitly                                    |
+| `repository.provider`                               | yes         | `GITHUB`                                                                                               |
+| `repository.owner` / `name` / `fullName`            | yes         |                                                                                                        |
+| `repository.externalRepositoryId`                   | no          | GitHub's numeric id. Send it and renames keep one row; omit it and identity falls back to `owner/name` |
+| `repository.defaultBranch`                          | no          | Defaults to `main`                                                                                     |
+| `repository.htmlUrl`                                | no          | `http`/`https` only                                                                                    |
+| `target.type`                                       | yes         | `PULL_REQUEST` · `COMMIT` · `BRANCH` · `REPOSITORY` · `MANUAL`                                         |
+| `target.branch` / `commitSha` / `pullRequestNumber` | no          |                                                                                                        |
+| `reviewer.type`                                     | yes         | `AGENT` · `HUMAN` · `SYSTEM`                                                                           |
+| `reviewer.name` / `version`                         | yes / no    |                                                                                                        |
+| `summary`                                           | no          |                                                                                                        |
+| `startedAt` / `completedAt`                         | no          | ISO-8601 with offset                                                                                   |
+| `issues[]`                                          | no          | Max 500. An empty review is a valid record — "this commit was clean"                                   |
 
 **Issue fields**
 
@@ -76,6 +76,10 @@ summaries, activity descriptions, and decision-record fields) accept Markdown so
 Use blank lines between concepts, ordered lists for multi-step failure paths, and bullet
 lists for multiple changes or checks. Raw HTML is not part of the supported content model.
 The API preserves the submitted text rather than heuristically reformatting legacy prose.
+An existing Repository's `project_id` is the source of truth. A different `project.slug` returns
+`409`; it never moves the row. An unregistered Repository is connected only after the Workspace's
+GitHub App installation verifies access. With no `project.slug`, the API returns `400` and creates
+neither a Repository nor a Default Project.
 
 | Field                                | Required | Notes                                                                                                                                                                             |
 | ------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -207,6 +211,12 @@ What a repository has learned. Read this before starting work.
 **Response** — `200` with `scope`, `wiki`, `frequentPatterns`,
 `recentHighSeverityIssues`, `unresolvedIssues`, `pastResolutions`.
 
+When `repository` is present and `projectSlug` is absent, scope is resolved as
+Repository → `project_id` → Project → Workspace. `scope.repository.requested` and
+`scope.repository.resolved` distinguish a git-remote string from a DB row;
+`scope.project.resolutionSource` is `REPOSITORY`, `PROJECT_SLUG`, or `null`. An unknown Repository
+returns empty Knowledge with `resolved=false`; it is never widened to Workspace scope.
+
 ---
 
 ## Decision record
@@ -244,24 +254,22 @@ a client cannot mark its own evidence as verified.
 The API stores the submitted range verbatim; it does not expand the snippet. Callers
 should not submit an entire function or component when a smaller changed range is enough.
 
-| `verification` | Meaning                                                                                             |
-| -------------- | --------------------------------------------------------------------------------------------------- |
-| `UNVERIFIED`   | Not checked yet                                                                                     |
-| `VERIFIED`     | Matched GitHub at that commit and line range. With no line range, the snippet was found in the file |
-| `MISMATCH`     | The file exists at that commit but the content differs                                              |
-| `UNAVAILABLE`  | Could not look: private repo, no token, missing commit or file, rate limit, network failure         |
+| `verification` | Meaning                                                                                                                 |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `UNVERIFIED`   | Not checked yet                                                                                                         |
+| `VERIFIED`     | Matched GitHub at that commit and line range. With no line range, the snippet was found in the file                     |
+| `MISMATCH`     | The file exists at that commit but the content differs                                                                  |
+| `UNAVAILABLE`  | Could not look: private repo without Workspace installation access, missing commit/file, rate limit, or network failure |
 
 If no snapshot is sent and the lines are readable, the server fills it in from GitHub so
 the record survives the repository being deleted or going private. With no line range and
 no snapshot it stores nothing — ReviewTrace keeps review knowledge, not a copy of your
 source.
 
-**Only public repositories are read.** Before fetching any content the server asks GitHub
-whether the repository is public, and stops if it is not — even when `GITHUB_API_TOKEN` is
-set. Registering a repository in a workspace is not proof that the workspace may read it:
-anyone can put `someone-else/private` in a payload, so without that check a shared server
-token would fetch other people's code into their evidence. Private repositories always
-record `UNAVAILABLE`, and the snapshot you sent is kept as-is.
+Public repositories can be read anonymously. Private repositories are read only through a
+short-lived installation token whose installation belongs to the API Key's Workspace and whose
+repository grant includes the stored numeric GitHub repository id. An `owner/name` string or a
+client-supplied numeric id alone never authorizes a read.
 
 `GITHUB_API_TOKEN` is optional and only raises the anonymous rate limit (60 requests per
 hour). ReviewTrace never asks users to widen their OAuth scope to `repo` for this.
