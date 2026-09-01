@@ -12,7 +12,7 @@ import {
 } from "@/db/schema";
 import { generateAgentCredential } from "@/lib/api/api-key-token";
 import { AppError } from "@/lib/errors";
-import type { AgentCapability } from "@/types/agent";
+import type { AgentCapability, AgentReviewLanguage } from "@/types/agent";
 
 export interface AgentCredentialSummary {
   id: string;
@@ -23,6 +23,7 @@ export interface AgentCredentialSummary {
   expiresAt: Date | null;
   revokedAt: Date | null;
   createdAt: Date;
+  reviewLanguage: AgentReviewLanguage;
 }
 
 export interface IssuedAgentCredential extends AgentCredentialSummary {
@@ -40,9 +41,17 @@ export interface AgentWorkspaceGrantOption {
 async function findUserPrincipal(
   userId: string,
   executor: DbExecutor,
-): Promise<{ id: string; displayName: string } | null> {
+): Promise<{
+  id: string;
+  displayName: string;
+  reviewLanguage: AgentReviewLanguage;
+} | null> {
   const rows = await executor
-    .select({ id: agentPrincipals.id, displayName: agentPrincipals.displayName })
+    .select({
+      id: agentPrincipals.id,
+      displayName: agentPrincipals.displayName,
+      reviewLanguage: agentPrincipals.reviewLanguage,
+    })
     .from(agentPrincipals)
     .where(
       and(
@@ -59,7 +68,11 @@ async function requireUserPrincipal(
   userId: string,
   displayName: string,
   executor: DbExecutor,
-): Promise<{ id: string; displayName: string }> {
+): Promise<{
+  id: string;
+  displayName: string;
+  reviewLanguage: AgentReviewLanguage;
+}> {
   const existing = await findUserPrincipal(userId, executor);
   if (existing !== null) return existing;
 
@@ -84,9 +97,14 @@ export async function issueUserAgentCredential(
     name: string;
     expiresAt: Date | null;
     capabilityScopes: readonly AgentCapability[];
+    reviewLanguage: AgentReviewLanguage;
   },
-  executor: DbExecutor = db(),
+  executor?: DbExecutor,
 ): Promise<IssuedAgentCredential> {
+  if (executor === undefined) {
+    return db().transaction((tx) => issueUserAgentCredential(input, tx));
+  }
+
   const name = input.name.trim();
   if (name === "" || name.length > 100) {
     throw new AppError("AGENT_CREDENTIAL_NAME_INVALID");
@@ -97,6 +115,12 @@ export async function issueUserAgentCredential(
     input.displayName,
     executor,
   );
+  if (principal.reviewLanguage !== input.reviewLanguage) {
+    await executor
+      .update(agentPrincipals)
+      .set({ reviewLanguage: input.reviewLanguage, updatedAt: new Date() })
+      .where(eq(agentPrincipals.id, principal.id));
+  }
   const rows = await executor
     .insert(agentCredentials)
     .values({
@@ -119,7 +143,11 @@ export async function issueUserAgentCredential(
     });
   const credential = rows[0];
   if (credential === undefined) throw new AppError("UNEXPECTED");
-  return { ...credential, plainToken: generated.plainToken };
+  return {
+    ...credential,
+    reviewLanguage: input.reviewLanguage,
+    plainToken: generated.plainToken,
+  };
 }
 
 export async function listUserAgentCredentials(
@@ -138,8 +166,13 @@ export async function listUserAgentCredentials(
       expiresAt: agentCredentials.expiresAt,
       revokedAt: agentCredentials.revokedAt,
       createdAt: agentCredentials.createdAt,
+      reviewLanguage: agentPrincipals.reviewLanguage,
     })
     .from(agentCredentials)
+    .innerJoin(
+      agentPrincipals,
+      eq(agentPrincipals.id, agentCredentials.principalId),
+    )
     .where(eq(agentCredentials.principalId, principal.id))
     .orderBy(desc(agentCredentials.createdAt));
 }

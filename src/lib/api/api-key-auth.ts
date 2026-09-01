@@ -20,6 +20,7 @@ import {
   AGENT_CAPABILITIES,
   type AgentCapability,
   type AgentPrincipalType,
+  type AgentReviewLanguage,
 } from "@/types/agent";
 
 export interface AgentAuthorization {
@@ -29,6 +30,8 @@ export interface AgentAuthorization {
   principalType: AgentPrincipalType | null;
   actorName: string;
   capabilities: readonly AgentCapability[];
+  /** Default language for Agent-authored Review Knowledge. UI locale is separate. */
+  reviewLanguage: AgentReviewLanguage;
   /** Live, effective Workspace scope. Repository queries must start inside this set. */
   authorizedWorkspaceIds: readonly string[];
   /** @deprecated Legacy-key compatibility only. New principal credentials omit it. */
@@ -100,6 +103,8 @@ async function authenticateLegacy(
     principalType: null,
     actorName: key.name,
     capabilities: AGENT_CAPABILITIES,
+    // Legacy keys predate an authoring preference. Preserve their historical contract.
+    reviewLanguage: "en",
     authorizedWorkspaceIds: [key.workspaceId],
     workspaceId: key.workspaceId,
     apiKeyId: key.id,
@@ -121,6 +126,7 @@ async function authenticatePrincipal(
       principalType: agentPrincipals.type,
       ownerUserId: agentPrincipals.ownerUserId,
       displayName: agentPrincipals.displayName,
+      reviewLanguage: agentPrincipals.reviewLanguage,
       principalRevokedAt: agentPrincipals.revokedAt,
     })
     .from(agentCredentials)
@@ -205,6 +211,7 @@ async function authenticatePrincipal(
     principalType: credential.principalType,
     actorName: credential.displayName,
     capabilities: validCapabilities(credential.capabilityScopes),
+    reviewLanguage: credential.reviewLanguage,
     authorizedWorkspaceIds: workspaceRows.map((row) => row.workspaceId),
   };
 }

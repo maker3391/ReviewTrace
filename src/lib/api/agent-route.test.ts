@@ -88,6 +88,28 @@ describe("readJsonBody byte limit", () => {
     });
   });
 
+  it("한글 Markdown과 Unicode punctuation을 UTF-8 JSON으로 손실 없이 읽는다", async () => {
+    const fixture = {
+      description:
+        "저장소 자동 인식 검증 — 개발 브랜치에서 생성한 리뷰\n\n- 첫 번째 영향\n- `workspaceId` 유지",
+      failurePath:
+        "1. `git remote`를 읽는다.\n2. Repository와 Project를 해석한다.",
+      activity: "수정 검증을 완료했습니다.",
+      decision: {
+        solution: "공통 resolver를 사용합니다.",
+        verification: "- 한글 round-trip\n- `ci_agent_` identifier 유지",
+      },
+    };
+    const request = new Request("https://example.test/api/v1/reviews", {
+      method: "POST",
+      headers: { "content-type": "application/json; charset=utf-8" },
+      body: new TextEncoder().encode(JSON.stringify(fixture)),
+      duplex: "half",
+    } as RequestInit & { duplex: "half" });
+
+    await expect(readJsonBody(request)).resolves.toEqual(fixture);
+  });
+
   it("MCP 송신 상한과 같은 4,000,000 bytes JSON은 허용한다", async () => {
     const prefix = '{"value":"';
     const suffix = '"}';

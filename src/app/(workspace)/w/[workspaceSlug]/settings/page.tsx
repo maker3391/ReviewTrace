@@ -17,7 +17,7 @@ import { findAccountDeletionImpact } from "@/features/users/server/account-delet
 import { DeleteWorkspacePanel } from "@/features/workspaces/components/DeleteWorkspacePanel";
 import { findWorkspaceDeletionImpact } from "@/features/workspaces/server/workspace-deletion-service";
 import { requireWorkspace } from "@/lib/auth/require-workspace";
-import { readMessages } from "@/lib/ui/appearance";
+import { readLocale, readMessages } from "@/lib/ui/appearance";
 import { serverEnv } from "@/lib/env";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -55,6 +55,7 @@ export default async function WorkspaceSettingsPage({
     apiKeys,
     agentCredentials,
     agentWorkspaceGrants,
+    locale,
     accountImpact,
     workspaceImpact,
   ] =
@@ -65,6 +66,7 @@ export default async function WorkspaceSettingsPage({
       isOwner ? listApiKeys(workspace.workspaceId) : Promise.resolve([]),
       listUserAgentCredentials(user.id),
       listUserAgentWorkspaceGrants(user.id),
+      readLocale(),
       /*
  🔴 **이 Workspace 가 아니라 «이 사람»의 범위다.** 계정 삭제는 지금 보고 있는
  Workspace 하나가 아니라 그가 속한 전부에 걸린다 — 그래서 조회도 `userId` 로 한다.
@@ -150,37 +152,48 @@ export default async function WorkspaceSettingsPage({
         </dl>
       </Section>
 
-      {isOwner && (
-        <Section title={t.apiKeysSection}>
-          {/*
- 🔴 문구는 서버가 읽어 «그리는 낱말만» 넘긴다 — Client Component 는 쿠키를
- 스스로 읽을 수 없다.
- */}
-          <ApiKeyPanel
-            workspaceSlug={workspace.slug}
-            apiKeys={apiKeys}
-            labels={{
-              ...keys,
-              expiry: {
-                "30": keys.expiry30,
-                "90": keys.expiry90,
-                "365": keys.expiry365,
-                NEVER: keys.expiryNever,
-              },
-            }}
-          />
-        </Section>
-      )}
-
       <Section title={t.agentCredentialsSection}>
         <AgentCredentialPanel
           workspaceSlug={workspace.slug}
           currentUserId={user.id}
           credentials={agentCredentials}
           grants={agentWorkspaceGrants}
+          defaultReviewLanguage={locale}
           labels={messages.agentCredentials}
         />
       </Section>
+
+      {isOwner && (
+        <Section title={t.apiKeysSection}>
+          <p className="pt-3 text-xs text-muted-foreground">
+            {t.apiKeysDescription}
+          </p>
+          <details className="group mt-3">
+            <summary className="cursor-pointer text-xs font-medium text-foreground marker:text-muted-foreground">
+              {t.apiKeysManage}
+            </summary>
+            <div className="pt-3">
+              {/*
+ 🔴 문구는 서버가 읽어 «그리는 낱말만» 넘긴다 — Client Component 는 쿠키를
+ 스스로 읽을 수 없다.
+ */}
+              <ApiKeyPanel
+                workspaceSlug={workspace.slug}
+                apiKeys={apiKeys}
+                labels={{
+                  ...keys,
+                  expiry: {
+                    "30": keys.expiry30,
+                    "90": keys.expiry90,
+                    "365": keys.expiry365,
+                    NEVER: keys.expiryNever,
+                  },
+                }}
+              />
+            </div>
+          </details>
+        </Section>
+      )}
 
       {isOwner && (
         <Section title={t.integrationSection} variant="raised" bleed>

@@ -334,6 +334,7 @@ export const en: Messages = {
     connectDescription: "Connect the GitHub repositories reviewed in this Project.",
     chooseTitle: "Repository to connect",
     noAccessible: "The GitHub App has no accessible repositories.",
+    allConnected: "All accessible repositories are already connected to this Project.",
     updateAccess: "Update GitHub access",
     cancel: "Cancel",
     viewGithub: "View on GitHub",
@@ -391,8 +392,11 @@ export const en: Messages = {
     scale: "Size",
     statProjects: "Projects",
     statMembers: "Members",
-    apiKeysSection: "API Keys",
-    agentCredentialsSection: "Agent credentials",
+    apiKeysSection: "Legacy API Keys",
+    apiKeysDescription:
+      "These settings keep older Agent integrations compatible. Use Agent connections above for new integrations.",
+    apiKeysManage: "Manage legacy API Keys",
+    agentCredentialsSection: "Agent connections",
     integrationSection: "Agent Integration",
     accountSection: "Account",
     dangerSection: "Delete workspace",
@@ -400,8 +404,9 @@ export const en: Messages = {
 
   agentCredentials: {
     description:
-      "Register this credential once in an MCP client. Repository context can select only the Workspaces explicitly granted below.",
-    issue: "Issue credential",
+      "Manage Agent authentication for Codex, Claude Code, and other MCP clients. Register it once to recognize repositories in allowed Workspaces.",
+    issue: "Create Agent connection",
+    name: "Name",
     namePlaceholder: "For example, Codex / Claude Code",
     readOnly: "Read only",
     readWrite: "Read and write",
@@ -409,28 +414,32 @@ export const en: Messages = {
     days30: "30 days",
     days90: "90 days",
     days365: "365 days",
-    credentials: "Your credentials",
-    noCredentials: "No Agent credentials have been issued.",
+    credentials: "Connected Agents",
+    noCredentials: "No Agents are connected.",
     prefix: "Prefix",
     capability: "Capability",
+    reviewLanguage: "Review language",
+    korean: "한국어",
+    english: "English",
     lastUsed: "Last used",
+    expires: "Expires",
     status: "Status",
     active: "Active",
     revoked: "Revoked",
     expired: "Expired",
     revoke: "Revoke",
     cancel: "Cancel",
-    revokeConfirmTitle: "Revoke this Agent credential?",
+    revokeConfirmTitle: "Revoke this Agent connection?",
     revokeConfirmConsequence:
-      "Clients using it will receive 401 from their next request. The credential record is retained.",
-    workspaceAccess: "Allowed Workspaces",
+      "Clients using this authentication value will receive 401 from their next request. The connection record is retained.",
+    workspaceAccess: "Workspaces this Agent can use",
     workspaceAccessDescription:
-      "An Agent can access a Workspace only while both its grant and current membership are valid.",
-    granted: "Granted",
-    notGranted: "Not granted",
-    grant: "Grant",
+      "Only Workspaces with current membership and explicit access can be used.",
+    granted: "Available",
+    notGranted: "Not available",
+    grant: "Allow",
     ownerRequired: "Only an OWNER can change this",
-    issuedTitle: "Agent credential issued",
+    issuedTitle: "Agent connection created",
     issuedWarning:
       "The secret is shown only once. Copy it to a safe place and register it in your MCP client.",
     copy: "Copy",
@@ -584,6 +593,7 @@ export const en: Messages = {
     detected: "Detected",
     resolvedAt: "Resolved",
     firstReview: "First seen in",
+    branch: "Branch",
     lastChanged: "Last changed",
     changeStatus: "Change status",
     changing: "Saving",
@@ -613,8 +623,9 @@ export const en: Messages = {
     after: "Fixed code",
     viewCode: "View on GitHub",
     noSnapshot: "No code snapshot was stored.",
-    displayFormatted: "Display format",
-    relativeLines: "relative lines",
+    deletedLines: "Deleted lines",
+    addedLines: "Added lines",
+    checkedAt: "Checked",
     showAllEvidenceLines: (count: number) => `Show all ${count} lines`,
     evidenceVerification: {
       UNVERIFIED: "Code not checked",
@@ -741,11 +752,11 @@ export const en: Messages = {
 
     AGENT_UNAUTHORIZED: "Authentication is required.",
     AGENT_CAPABILITY_REQUIRED:
-      "This credential does not have the required Agent capability.",
+      "This Agent connection does not have the required capability.",
     AGENT_CONTEXT_REQUIRED:
       "A Repository or authorized Workspace selection is required.",
     AGENT_CREDENTIAL_NAME_INVALID:
-      "That Agent credential name is not valid.",
+      "That Agent connection name is not valid.",
     NOT_CONNECTED_OR_NOT_AUTHORIZED:
       "No connected Repository was found in an authorized Workspace.",
     REPOSITORY_CONTEXT_AMBIGUOUS: () =>
@@ -843,5 +854,9 @@ export const en: Messages = {
   date: {
     today: "Today",
     days: (count: number) => `${count}d`,
+    justNow: "Just now",
+    minutesAgo: (count: number) => `${count}m ago`,
+    hoursAgo: (count: number) => `${count}h ago`,
+    yesterdayAt: (time: string) => `Yesterday ${time}`,
   },
 };

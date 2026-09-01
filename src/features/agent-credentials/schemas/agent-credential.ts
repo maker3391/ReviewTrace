@@ -1,11 +1,13 @@
 import { z } from "zod";
 
 import { API_KEY_EXPIRY_OPTIONS } from "@/features/api-keys/schemas/api-key";
+import { AGENT_REVIEW_LANGUAGES } from "@/types/agent";
 
 export const issueAgentCredentialSchema = z.object({
   name: z.string().trim().min(1).max(100),
   expiry: z.enum(API_KEY_EXPIRY_OPTIONS).default("NEVER"),
   capability: z.enum(["READ_ONLY", "READ_WRITE"]).default("READ_WRITE"),
+  reviewLanguage: z.enum(AGENT_REVIEW_LANGUAGES),
 });
 
 export type IssueAgentCredentialInput = z.output<

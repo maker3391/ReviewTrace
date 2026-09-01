@@ -34,6 +34,7 @@ export async function issueAgentCredentialAction(
         parsed.data.capability === "READ_ONLY"
           ? ["READ"]
           : ["READ", "WRITE"],
+      reviewLanguage: parsed.data.reviewLanguage,
     });
     revalidatePath(`/w/${workspaceSlug}/settings`);
     return actionOk({ plainToken: issued.plainToken, name: issued.name });

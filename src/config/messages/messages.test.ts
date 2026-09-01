@@ -60,7 +60,11 @@ describe("messages", () => {
   it("영어 사전에는 한국어가 없다", () => {
     const leaked = collectStrings(en)
       .filter(({ text }) => HANGUL.test(text))
-      .filter(({ path }) => path !== "appearance.localeKo");
+      .filter(
+        ({ path }) =>
+          path !== "appearance.localeKo" &&
+          path !== "agentCredentials.korean",
+      );
 
     expect(leaked).toEqual([]);
   });

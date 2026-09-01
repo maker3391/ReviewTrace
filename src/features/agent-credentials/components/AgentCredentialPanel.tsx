@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Timestamp } from "@/components/atoms/Timestamp";
 import { ConfirmDialog } from "@/components/molecules/ConfirmDialog";
 import {
   Dialog,
@@ -31,10 +32,12 @@ import type {
   AgentWorkspaceGrantOption,
 } from "@/features/agent-credentials/server/agent-credential-service";
 import { formatDate } from "@/lib/format/date";
+import type { AgentReviewLanguage } from "@/types/agent";
 
 export interface AgentCredentialLabels {
   description: string;
   issue: string;
+  name: string;
   namePlaceholder: string;
   readOnly: string;
   readWrite: string;
@@ -46,7 +49,11 @@ export interface AgentCredentialLabels {
   noCredentials: string;
   prefix: string;
   capability: string;
+  reviewLanguage: string;
+  korean: string;
+  english: string;
   lastUsed: string;
+  expires: string;
   status: string;
   active: string;
   revoked: string;
@@ -73,12 +80,14 @@ export function AgentCredentialPanel({
   currentUserId,
   credentials,
   grants,
+  defaultReviewLanguage,
   labels,
 }: {
   workspaceSlug: string;
   currentUserId: string;
   credentials: readonly AgentCredentialSummary[];
   grants: readonly AgentWorkspaceGrantOption[];
+  defaultReviewLanguage: AgentReviewLanguage;
   labels: AgentCredentialLabels;
 }) {
   const [name, setName] = useState("");
@@ -88,6 +97,10 @@ export function AgentCredentialPanel({
   const [capability, setCapability] = useState<
     "READ_ONLY" | "READ_WRITE"
   >("READ_WRITE");
+  const [reviewLanguage, setReviewLanguage] =
+    useState<AgentReviewLanguage>(
+      credentials[0]?.reviewLanguage ?? defaultReviewLanguage,
+    );
   const [issued, setIssued] = useState<{
     name: string;
     plainToken: string;
@@ -108,6 +121,7 @@ export function AgentCredentialPanel({
         name,
         expiry,
         capability,
+        reviewLanguage,
       });
       if (!result.ok) return setFailure(result.error.message);
       setIssued(result.data);
@@ -140,40 +154,64 @@ export function AgentCredentialPanel({
         {labels.description}
       </p>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder={labels.namePlaceholder}
-          aria-label={labels.namePlaceholder}
-          className="min-w-48 flex-1 sm:max-w-64"
-          maxLength={100}
-        />
-        <select
-          value={capability}
-          onChange={(event) =>
-            setCapability(event.target.value as "READ_ONLY" | "READ_WRITE")
-          }
-          className="h-9 rounded-md border bg-background px-3 text-sm"
-          aria-label={labels.capability}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_auto_auto_auto_auto] xl:items-end">
+        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium">
+          {labels.name}
+          <Input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder={labels.namePlaceholder}
+            className="w-full"
+            maxLength={100}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium">
+          {labels.capability}
+          <select
+            value={capability}
+            onChange={(event) =>
+              setCapability(event.target.value as "READ_ONLY" | "READ_WRITE")
+            }
+            className="h-9 rounded-md border bg-background px-3 text-sm"
+          >
+            <option value="READ_WRITE">{labels.readWrite}</option>
+            <option value="READ_ONLY">{labels.readOnly}</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium">
+          {labels.reviewLanguage}
+          <select
+            value={reviewLanguage}
+            onChange={(event) =>
+              setReviewLanguage(event.target.value as AgentReviewLanguage)
+            }
+            className="h-9 rounded-md border bg-background px-3 text-sm"
+          >
+            <option value="ko">{labels.korean}</option>
+            <option value="en">{labels.english}</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-medium">
+          {labels.expires}
+          <select
+            value={expiry}
+            onChange={(event) =>
+              setExpiry(event.target.value as typeof expiry)
+            }
+            className="h-9 rounded-md border bg-background px-3 text-sm"
+          >
+            <option value="NEVER">{labels.never}</option>
+            <option value="30">{labels.days30}</option>
+            <option value="90">{labels.days90}</option>
+            <option value="365">{labels.days365}</option>
+          </select>
+        </label>
+        <Button
+          size="sm"
+          className="sm:col-span-2 xl:col-span-1"
+          disabled={pending || name.trim() === ""}
+          onClick={issue}
         >
-          <option value="READ_WRITE">{labels.readWrite}</option>
-          <option value="READ_ONLY">{labels.readOnly}</option>
-        </select>
-        <select
-          value={expiry}
-          onChange={(event) =>
-            setExpiry(event.target.value as typeof expiry)
-          }
-          className="h-9 rounded-md border bg-background px-3 text-sm"
-          aria-label={labels.status}
-        >
-          <option value="NEVER">{labels.never}</option>
-          <option value="30">{labels.days30}</option>
-          <option value="90">{labels.days90}</option>
-          <option value="365">{labels.days365}</option>
-        </select>
-        <Button size="sm" disabled={pending || name.trim() === ""} onClick={issue}>
           {labels.issue}
         </Button>
       </div>
@@ -197,7 +235,9 @@ export function AgentCredentialPanel({
                 <TableHead>{labels.credentials}</TableHead>
                 <TableHead>{labels.prefix}</TableHead>
                 <TableHead>{labels.capability}</TableHead>
+                <TableHead>{labels.reviewLanguage}</TableHead>
                 <TableHead>{labels.lastUsed}</TableHead>
+                <TableHead>{labels.expires}</TableHead>
                 <TableHead>{labels.status}</TableHead>
                 <TableHead />
               </TableRow>
@@ -221,10 +261,21 @@ export function AgentCredentialPanel({
                         ? labels.readWrite
                         : labels.readOnly}
                     </TableCell>
+                    <TableCell className="text-xs">
+                      {credential.reviewLanguage === "ko"
+                        ? labels.korean
+                        : labels.english}
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {credential.lastUsedAt === null
-                        ? "—"
-                        : formatDate(credential.lastUsedAt)}
+                      <Timestamp
+                        value={credential.lastUsedAt}
+                        variant="compact"
+                      />
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {credential.expiresAt === null
+                        ? labels.never
+                        : formatDate(credential.expiresAt)}
                     </TableCell>
                     <TableCell className="text-xs">
                       {credential.revokedAt !== null

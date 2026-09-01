@@ -93,6 +93,7 @@ describe("authenticateAgent — 통과", () => {
     expect(agent.workspaceId).toBe("22222222-2222-4222-8222-222222222222");
     expect(agent.apiKeyId).toBe("11111111-1111-4111-8111-111111111111");
     expect(agent.apiKeyName).toBe("codex-ci");
+    expect(agent.reviewLanguage).toBe("en");
   });
 
   it("만료가 «미래»면 통과한다", async () => {
@@ -254,6 +255,7 @@ describe("authenticateAgent — 비밀값이 밖으로 나가지 않는다", () 
       "model",
       "principalId",
       "principalType",
+      "reviewLanguage",
       "workspaceId",
     ]);
   });

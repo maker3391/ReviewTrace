@@ -465,6 +465,7 @@ export const ko = {
     connectDescription: "이 Project에서 리뷰할 GitHub 저장소를 연결합니다.",
     chooseTitle: "연결할 저장소",
     noAccessible: "GitHub App에서 허용된 저장소가 없습니다.",
+    allConnected: "접근 가능한 저장소가 모두 이 Project에 연결되어 있습니다.",
     updateAccess: "GitHub 접근 범위 변경",
     cancel: "취소",
     viewGithub: "GitHub에서 보기",
@@ -533,8 +534,11 @@ export const ko = {
     scale: "규모",
     statProjects: "프로젝트",
     statMembers: "멤버",
-    apiKeysSection: "API Key",
-    agentCredentialsSection: "Agent credential",
+    apiKeysSection: "기존 API Key",
+    apiKeysDescription:
+      "이전 Agent 연동 방식과의 호환성을 위한 설정입니다. 새로운 Agent 연결에는 위의 Agent 연결을 사용하세요.",
+    apiKeysManage: "기존 API Key 관리",
+    agentCredentialsSection: "Agent 연결",
     integrationSection: "Agent 연동",
     accountSection: "계정",
     dangerSection: "워크스페이스 삭제",
@@ -542,8 +546,9 @@ export const ko = {
 
   agentCredentials: {
     description:
-      "MCP Client에는 이 credential을 한 번만 등록합니다. 아래에서 명시적으로 허용한 Workspace만 Repository에 따라 자동 선택됩니다.",
-    issue: "Credential 발급",
+      "Codex, Claude Code 등에서 사용할 Agent 인증 정보를 관리합니다. 한 번 등록하면 허용된 Workspace의 Repository를 자동으로 인식합니다.",
+    issue: "Agent 연결 생성",
+    name: "이름",
     namePlaceholder: "예: Codex / Claude Code",
     readOnly: "읽기 전용",
     readWrite: "읽기·쓰기",
@@ -551,28 +556,32 @@ export const ko = {
     days30: "30일",
     days90: "90일",
     days365: "365일",
-    credentials: "내 credential",
-    noCredentials: "발급된 Agent credential이 없습니다.",
+    credentials: "연결된 Agent",
+    noCredentials: "연결된 Agent가 없습니다.",
     prefix: "Prefix",
     capability: "권한",
+    reviewLanguage: "리뷰 언어",
+    korean: "한국어",
+    english: "English",
     lastUsed: "마지막 사용",
+    expires: "만료",
     status: "상태",
     active: "활성",
     revoked: "폐기됨",
     expired: "만료됨",
     revoke: "폐기",
     cancel: "취소",
-    revokeConfirmTitle: "이 Agent credential을 폐기할까요?",
+    revokeConfirmTitle: "이 Agent 연결을 폐기할까요?",
     revokeConfirmConsequence:
-      "이 값을 사용하는 Client는 다음 요청부터 401을 받습니다. Credential 기록은 유지됩니다.",
-    workspaceAccess: "허용 Workspace",
+      "이 인증 정보를 사용하는 Client는 다음 요청부터 401을 받습니다. 연결 기록은 유지됩니다.",
+    workspaceAccess: "이 Agent가 사용할 수 있는 Workspace",
     workspaceAccessDescription:
-      "Grant와 현재 membership이 모두 유효한 Workspace만 Agent가 접근할 수 있습니다.",
-    granted: "허용됨",
-    notGranted: "허용 안 됨",
-    grant: "허용",
+      "현재 멤버이며 명시적으로 허용된 Workspace만 사용할 수 있습니다.",
+    granted: "사용 가능",
+    notGranted: "사용 안 함",
+    grant: "사용 허용",
     ownerRequired: "OWNER만 변경 가능",
-    issuedTitle: "Agent credential이 발급되었습니다",
+    issuedTitle: "Agent 연결이 생성되었습니다",
     issuedWarning:
       "Secret은 지금 한 번만 표시됩니다. 안전한 곳에 복사한 뒤 MCP Client에 등록하세요.",
     copy: "복사",
@@ -770,6 +779,7 @@ export const ko = {
     detected: "발견",
     resolvedAt: "해결",
     firstReview: "처음 발견한 리뷰",
+    branch: "브랜치",
     lastChanged: "마지막 변경",
     changeStatus: "상태 변경",
     changing: "변경 중",
@@ -799,8 +809,9 @@ export const ko = {
     after: "수정 코드",
     viewCode: "GitHub에서 보기",
     noSnapshot: "저장된 코드 스냅샷이 없습니다.",
-    displayFormatted: "화면용 포맷",
-    relativeLines: "상대 줄",
+    deletedLines: "삭제된 줄",
+    addedLines: "추가된 줄",
+    checkedAt: "확인",
     showAllEvidenceLines: (count: number) => `전체 ${count}줄 보기`,
     evidenceVerification: {
       UNVERIFIED: "코드 확인 전",
@@ -983,11 +994,11 @@ export const ko = {
 
     /** 🔴 아래 다섯은 Agent 만 마주친다. 화면에는 뜨지 않지만 자리를 비워 두지 않는다. */
     AGENT_UNAUTHORIZED: "인증이 필요합니다.",
-    AGENT_CAPABILITY_REQUIRED: "이 credential에는 필요한 Agent 권한이 없습니다.",
+    AGENT_CAPABILITY_REQUIRED: "이 Agent 연결에는 필요한 권한이 없습니다.",
     AGENT_CONTEXT_REQUIRED:
       "Repository 또는 허용된 Workspace 선택이 필요합니다.",
     AGENT_CREDENTIAL_NAME_INVALID:
-      "Agent credential 이름이 올바르지 않습니다.",
+      "Agent 연결 이름이 올바르지 않습니다.",
     NOT_CONNECTED_OR_NOT_AUTHORIZED:
       "허용된 Workspace에서 연결된 Repository를 찾을 수 없습니다.",
     REPOSITORY_CONTEXT_AMBIGUOUS: () =>
@@ -1095,6 +1106,10 @@ export const ko = {
   date: {
     today: "오늘",
     days: (count: number) => `${count}일`,
+    justNow: "방금",
+    minutesAgo: (count: number) => `${count}분 전`,
+    hoursAgo: (count: number) => `${count}시간 전`,
+    yesterdayAt: (time: string) => `어제 ${time}`,
   },
 };
 
