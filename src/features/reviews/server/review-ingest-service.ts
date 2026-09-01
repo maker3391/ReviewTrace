@@ -137,6 +137,18 @@ export async function ingestReview(
 
   let repositoryId: string;
   if (existingContext !== null) {
+    // Idempotent replay는 저장 당시의 요청을 정본으로 사용한다. 재전송 본문에 다른
+    // projectSlug가 들어 있어도 쓰기 없이 기존 응답을 돌려준 뒤에야 현재 요청의
+    // Repository/Project 일치 여부를 검사할 수 있다.
+    if (idempotencyKey !== null) {
+      const replay = await findSessionByIdempotencyKey(
+        executor,
+        workspaceId,
+        existingContext.repository.id,
+        idempotencyKey,
+      );
+      if (replay !== null) return replay;
+    }
     if (
       payload.project !== null &&
       payload.project.slug !== existingContext.project.slug
@@ -167,34 +179,10 @@ export async function ingestReview(
 
   return executor.transaction(async (tx) => {
     /**
-     * 0. 같은 요청을 이미 저장했는가 — 🔴 **아무것도 쓰기 «전»에** 묻는다.
+     * 3. Transaction 안에서 다시 한 번 재전송 확인.
      *
-     * 예전에는 Project 생성과 Repository 갱신이 먼저였다. 정상 return 이라 Transaction 이
-     * commit 되므로, 재전송에 다른 `project.slug` 나 다른 `defaultBranch` 를 실어 보내면
-     * 응답은 `200/idempotentReplay=true` 인데 **Project 가 새로 생기고 Repository
-     * metadata 가 바뀌었다** — 「200 이면 아무것도 새로 쓰지 않았다」가 거짓이었다.
-     *
-     * 🔴 열쇠의 Unique 범위가 Repository 안이라 판정에 `repositoryId` 가 필요하다.
-     * 그래서 **찾기만 하고 갱신하지 않는** 조회를 앞에 둔다(`findIngestRepository`).
-     * 못 찾으면 그 Repository 의 Session 도 있을 수 없으니 그대로 아래로 내려간다.
-     */
-    if (idempotencyKey !== null) {
-      const replay = await findSessionByIdempotencyKey(
-        tx,
-        workspaceId,
-        repositoryId,
-        idempotencyKey,
-      );
-      if (replay !== null) {
-        return replay;
-      }
-    }
-
-    /**
-     * 3. 다시 한 번 재전송 확인.
-     *
-     * 위 0번은 Repository 를 못 찾았을 때 판정을 미룬다 — 첫 Review 와 그 재전송이
-     * 겹치면 그 경로로 들어온다. 여기서는 Repository 가 확정됐으므로 열쇠로 정확히 본다.
+     * Repository가 미등록이었거나 첫 Review와 재전송이 겹치면 사전 조회에서 Session을
+     * 찾지 못할 수 있다. 여기서는 Repository가 확정됐으므로 열쇠로 정확히 본다.
      * 🔴 이 조회를 지우면 그 경우에 Session 이 하나 더 생긴다.
      */
     if (idempotencyKey !== null) {

@@ -154,7 +154,7 @@ describe("ingestReview — 재전송 판정 순서", () => {
         workspaceId: WORKSPACE,
         idempotencyKey: "K",
         // 🔴 처음 보낸 것과 «다른» Project·branch 다. 예전에는 이 값들이 저장됐다.
-        payload: payload("ghost", "main"),
+        payload: payload("other-project", "main"),
       },
       fake.executor,
     );

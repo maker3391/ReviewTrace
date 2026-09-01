@@ -82,6 +82,39 @@ async function makeWorkspace(tx: DbExecutor): Promise<string> {
   );
 }
 
+/** 새 ingestion 계약에 맞춰 검증된 Repository 연결을 fixture로 준비한다. */
+async function connectRepository(
+  tx: DbExecutor,
+  input: {
+    workspaceId: string;
+    projectSlug: string;
+    externalRepositoryId: string;
+    defaultBranch?: string;
+  },
+): Promise<string> {
+  const [project] = await tx
+    .insert(projects)
+    .values({
+      workspaceId: input.workspaceId,
+      name: input.projectSlug,
+      slug: input.projectSlug,
+    })
+    .returning({ id: projects.id });
+  if (project === undefined) throw new Error("시험용 Project를 만들지 못했다");
+
+  await tx.insert(repositories).values({
+    workspaceId: input.workspaceId,
+    projectId: project.id,
+    provider: "GITHUB",
+    externalRepositoryId: input.externalRepositoryId,
+    owner: "acme",
+    name: input.externalRepositoryId,
+    fullName: `acme/${input.externalRepositoryId}`,
+    defaultBranch: input.defaultBranch ?? "develop",
+  });
+  return project.id;
+}
+
 /** 실제 Route 가 넘기는 것과 같은 형태 — Schema 를 통과시킨 값이다. */
 function payload(input: {
   projectSlug: string;
@@ -136,8 +169,14 @@ describe.skipIf(!enabled)("재전송 응답 — 그 Review 가 «본» Issue", (
     await inRollback(async (tx) => {
       const workspaceId = await makeWorkspace(tx);
       const externalRepositoryId = unique("ext-");
+      const projectSlug = unique("proj-");
+      await connectRepository(tx, {
+        workspaceId,
+        projectSlug,
+        externalRepositoryId,
+      });
       const body = payload({
-        projectSlug: unique("proj-"),
+        projectSlug,
         externalRepositoryId,
         issues: [
           { source: "codex", externalId: "SEQ-0", title: "재전송 대상 문제" },
@@ -219,15 +258,32 @@ describe.skipIf(!enabled)("재전송 응답 — 그 Review 가 «본» Issue", (
       const shared = [
         { source: "codex", externalId: "SEQ-SAME", title: "같은 식별자" },
       ];
+      const hereRepositoryId = unique("ext-a-");
+      const elsewhereRepositoryId = unique("ext-b-");
+      const projectId = await connectRepository(tx, {
+        workspaceId,
+        projectSlug,
+        externalRepositoryId: hereRepositoryId,
+      });
+      await tx.insert(repositories).values({
+        workspaceId,
+        projectId,
+        provider: "GITHUB",
+        externalRepositoryId: elsewhereRepositoryId,
+        owner: "acme",
+        name: elsewhereRepositoryId,
+        fullName: `acme/${elsewhereRepositoryId}`,
+        defaultBranch: "develop",
+      });
 
       const here = payload({
         projectSlug,
-        externalRepositoryId: unique("ext-a-"),
+        externalRepositoryId: hereRepositoryId,
         issues: shared,
       });
       const elsewhere = payload({
         projectSlug,
-        externalRepositoryId: unique("ext-b-"),
+        externalRepositoryId: elsewhereRepositoryId,
         issues: shared,
       });
 
@@ -279,6 +335,12 @@ describe.skipIf(!enabled)("재전송은 아무것도 새로 쓰지 않는다", (
       const externalRepositoryId = unique("ext-");
       const projectSlug = unique("proj-");
       const key = unique("SK-");
+      await connectRepository(tx, {
+        workspaceId,
+        projectSlug,
+        externalRepositoryId,
+        defaultBranch: "develop",
+      });
 
       const stored = await ingestReview(
         {

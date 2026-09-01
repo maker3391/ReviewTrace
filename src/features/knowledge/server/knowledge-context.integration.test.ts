@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
-import { reviewIssues, users } from "@/db/schema";
+import { projects, repositories, reviewIssues, users } from "@/db/schema";
 import { loadIntegrationDbEnv } from "@/db/testing/integration-env";
 import { knowledgeContextQuerySchema } from "@/features/knowledge/schemas/knowledge-context-query";
 import { findKnowledgeContext } from "@/features/knowledge/server/knowledge-context-query";
@@ -90,6 +90,34 @@ async function makeWorkspace(tx: DbExecutor): Promise<string> {
   );
 }
 
+/** 새 ingestion 계약에 맞춰 Repository → Project 연결을 먼저 만든다. */
+async function connectRepository(
+  tx: DbExecutor,
+  workspaceId: string,
+  externalRepositoryId: string,
+): Promise<void> {
+  const [project] = await tx
+    .insert(projects)
+    .values({
+      workspaceId,
+      name: "Knowledge Context",
+      slug: unique("project-"),
+    })
+    .returning({ id: projects.id });
+  if (project === undefined) throw new Error("시험용 Project를 만들지 못했다");
+
+  await tx.insert(repositories).values({
+    workspaceId,
+    projectId: project.id,
+    provider: "GITHUB",
+    externalRepositoryId,
+    owner: "acme",
+    name: externalRepositoryId,
+    fullName: `acme/${externalRepositoryId}`,
+    defaultBranch: "main",
+  });
+}
+
 const QUERY = knowledgeContextQuerySchema.parse({});
 
 describe.skipIf(!enabled)(
@@ -99,6 +127,7 @@ describe.skipIf(!enabled)(
       await inRollback(async (tx) => {
         const workspaceId = await makeWorkspace(tx);
         const repo = unique("repo");
+        await connectRepository(tx, workspaceId, repo);
 
         const ingested = await ingestReview(
           {
@@ -172,6 +201,7 @@ describe.skipIf(!enabled)(
       await inRollback(async (tx) => {
         const workspaceId = await makeWorkspace(tx);
         const repo = unique("repo");
+        await connectRepository(tx, workspaceId, repo);
 
         await ingestReview(
           {
