@@ -31,6 +31,7 @@
 
 export const ERROR_CODES = [
   "VALIDATION_ERROR",
+  "PAYLOAD_TOO_LARGE",
   "UNAUTHORIZED",
   "FORBIDDEN",
   "NOT_FOUND",
@@ -74,6 +75,8 @@ const REASON_CODE = {
   AGENT_UNAUTHORIZED: "UNAUTHORIZED",
   /** 🔴 Agent 가 읽는다. 본문이 JSON 이 아니면 500 이 아니라 400 이다. */
   AGENT_BODY_NOT_JSON: "VALIDATION_ERROR",
+  /** 본문이 byte 상한을 넘었다. 🔴 JSON parsing 전에 stream 을 끊고 413 으로 답한다. */
+  AGENT_BODY_TOO_LARGE: "PAYLOAD_TOO_LARGE",
   /** PostgreSQL `text` 가 받지 못하는 문자(NUL · 짝 없는 Surrogate)가 본문에 들어 있다. */
   AGENT_BODY_UNSTORABLE_TEXT: "VALIDATION_ERROR",
   /**
@@ -242,6 +245,7 @@ export function isAppError(value: unknown): value is AppError {
  */
 const MACHINE_MESSAGE: Record<ErrorCode, string> = {
   VALIDATION_ERROR: "입력값이 올바르지 않습니다.",
+  PAYLOAD_TOO_LARGE: "요청 본문이 너무 큽니다.",
   UNAUTHORIZED: "인증이 필요합니다.",
   FORBIDDEN: "권한이 없습니다.",
   NOT_FOUND: "대상을 찾을 수 없습니다.",
@@ -257,6 +261,7 @@ const MACHINE_MESSAGE: Record<ErrorCode, string> = {
  */
 const MACHINE_REASON_MESSAGE: Partial<Record<AppErrorReason, string>> = {
   AGENT_BODY_NOT_JSON: "요청 본문이 올바른 JSON 이 아니다.",
+  AGENT_BODY_TOO_LARGE: "요청 본문은 4000000 bytes 를 넘을 수 없다.",
   AGENT_BODY_UNSTORABLE_TEXT:
     "요청 본문에 저장할 수 없는 문자가 들어 있다 (NUL · 짝 없는 Surrogate).",
   // 🔴 받은 값을 되돌려 담지 않는다. 길이 규칙만 알린다.

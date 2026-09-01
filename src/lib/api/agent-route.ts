@@ -21,6 +21,9 @@ export const IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
 const IDEMPOTENCY_KEY_MAX = 200;
 
+/** MCP Client 의 송신 상한과 같은 값. 정상 ingestion 을 줄이지 않고 Vercel 한계보다 먼저 닫는다. */
+export const AGENT_BODY_MAX_BYTES = 4_000_000;
+
 /**
  * 재전송 판별에 쓸 열쇠를 읽는다. 헤더가 없으면 `null` — Dedup 을 요청하지 않은 것이다.
  *
@@ -73,6 +76,11 @@ export async function runAgentRoute(
 /**
  * 본문을 JSON 으로 읽는다.
  *
+ * 🔴 **`request.json()` 을 부르지 않는다.** 그것은 byte 상한을 확인하기 전에 본문 전체를
+ * 문자열과 객체로 materialize 한다. `Content-Length` 는 빠지거나 거짓일 수 있으므로 빠른
+ * 거절에만 쓰고, 정본은 stream 에서 실제로 읽은 byte 수다. 상한을 넘는 chunk 를 만나는 즉시
+ * reader 를 취소하고 JSON parsing 을 시작하지 않는다.
+ *
  * 깨진 JSON 은 **우리 잘못이 아니라 요청 잘못**이다 — 500 이 아니라 `VALIDATION_ERROR` 다.
  *
  * 🔴 **「JSON 으로 파싱된다」와 「저장할 수 있다」는 다른 말이다.** `JSON.parse` 는
@@ -85,13 +93,61 @@ export async function runAgentRoute(
  * 더할 때마다 잊을 수 있고, 잊은 자리는 조용히 500 으로 돌아온다. 경계에서 한 번 보면
  * 네 Route 가 같은 보증을 공짜로 받는다 — 이 파일이 존재하는 이유 그대로다.
  *
- * @throws AppError `VALIDATION_ERROR`
+ * @throws AppError `PAYLOAD_TOO_LARGE` | `VALIDATION_ERROR`
  */
 export async function readJsonBody(request: Request): Promise<unknown> {
+  const declaredLength = request.headers.get("content-length");
+  if (
+    declaredLength !== null &&
+    /^\d+$/.test(declaredLength) &&
+    Number(declaredLength) > AGENT_BODY_MAX_BYTES
+  ) {
+    throw new AppError("AGENT_BODY_TOO_LARGE");
+  }
+
+  if (request.body === null) {
+    throw new AppError("AGENT_BODY_NOT_JSON");
+  }
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      totalBytes += value.byteLength;
+      if (totalBytes > AGENT_BODY_MAX_BYTES) {
+        // 연결이 이미 끊겼어도 공개 오류는 body 상한 초과로 유지한다.
+        await reader.cancel().catch(() => {});
+        throw new AppError("AGENT_BODY_TOO_LARGE");
+      }
+      chunks.push(value);
+    }
+  } catch (error) {
+    if (isAppError(error)) {
+      throw error;
+    }
+    throw new AppError("AGENT_BODY_NOT_JSON", { cause: error });
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
   let body: unknown;
 
   try {
-    body = await request.json();
+    body = JSON.parse(new TextDecoder().decode(bytes));
   } catch {
     throw new AppError("AGENT_BODY_NOT_JSON");
   }

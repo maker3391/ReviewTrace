@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AGENT_BODY_MAX_BYTES,
   IDEMPOTENCY_KEY_HEADER,
   readIdempotencyKey,
+  readJsonBody,
+  runAgentRoute,
 } from "@/lib/api/agent-route";
 import { isAppError } from "@/lib/errors";
 
@@ -69,5 +72,86 @@ describe("readIdempotencyKey", () => {
       expect(isAppError(error) && error.code).toBe("VALIDATION_ERROR");
       expect(isAppError(error) && error.message).not.toContain(secretish);
     }
+  });
+});
+
+describe("readJsonBody byte limit", () => {
+  it("정상 JSON 요청을 그대로 읽는다", async () => {
+    const request = new Request("https://example.test/api/v1/reviews", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ summary: "정상 ingestion" }),
+    });
+
+    await expect(readJsonBody(request)).resolves.toEqual({
+      summary: "정상 ingestion",
+    });
+  });
+
+  it("MCP 송신 상한과 같은 4,000,000 bytes JSON은 허용한다", async () => {
+    const prefix = '{"value":"';
+    const suffix = '"}';
+    const value = "x".repeat(
+      AGENT_BODY_MAX_BYTES -
+        new TextEncoder().encode(prefix + suffix).byteLength,
+    );
+    const body = `${prefix}${value}${suffix}`;
+    const request = new Request("https://example.test/api/v1/reviews", {
+      method: "POST",
+      body,
+    });
+
+    const parsed = (await readJsonBody(request)) as { value: string };
+
+    expect(new TextEncoder().encode(body)).toHaveLength(AGENT_BODY_MAX_BYTES);
+    expect(parsed.value).toHaveLength(value.length);
+  });
+
+  it("Content-Length 가 상한을 넘으면 body를 읽기 전에 413으로 거절한다", async () => {
+    const request = new Request("https://example.test/api/v1/reviews", {
+      method: "POST",
+      headers: { "content-length": String(AGENT_BODY_MAX_BYTES + 1) },
+      body: "{}",
+    });
+
+    const response = await runAgentRoute(async () => {
+      await readJsonBody(request);
+      return Response.json({ ok: true });
+    });
+
+    expect(response.status).toBe(413);
+    expect(request.bodyUsed).toBe(false);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "요청 본문은 4000000 bytes 를 넘을 수 없다.",
+      },
+    });
+  });
+
+  it("Content-Length가 없어도 실제 stream byte가 상한을 넘는 순간 취소한다", async () => {
+    const first = new Uint8Array(AGENT_BODY_MAX_BYTES);
+    first.fill(0x20);
+    let canceled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(first);
+        controller.enqueue(new Uint8Array([0x7b]));
+      },
+      cancel() {
+        canceled = true;
+      },
+    });
+    const request = new Request("https://example.test/api/v1/reviews", {
+      method: "POST",
+      body: stream,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" });
+
+    await expect(readJsonBody(request)).rejects.toMatchObject({
+      reason: "AGENT_BODY_TOO_LARGE",
+      code: "PAYLOAD_TOO_LARGE",
+    });
+    expect(canceled).toBe(true);
   });
 });

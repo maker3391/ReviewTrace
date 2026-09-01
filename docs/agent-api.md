@@ -22,17 +22,21 @@ distinction would itself leak whether a key exists.
 { "error": { "code": "VALIDATION_ERROR", "message": "..." } }
 ```
 
-| Code               | Status |
-| ------------------ | ------ |
-| `VALIDATION_ERROR` | 400    |
-| `UNAUTHORIZED`     | 401    |
-| `FORBIDDEN`        | 403    |
-| `NOT_FOUND`        | 404    |
-| `INTERNAL_ERROR`   | 500    |
+| Code                | Status |
+| ------------------- | ------ |
+| `VALIDATION_ERROR`  | 400    |
+| `PAYLOAD_TOO_LARGE` | 413    |
+| `UNAUTHORIZED`      | 401    |
+| `FORBIDDEN`         | 403    |
+| `NOT_FOUND`         | 404    |
+| `INTERNAL_ERROR`    | 500    |
 
 Objects outside your workspace return `404`, never `403`.
 
 Responses never contain stack traces, SQL, or internal paths.
+
+Request bodies are limited to 4,000,000 bytes. The server counts bytes while reading the
+stream and returns `413 PAYLOAD_TOO_LARGE` before JSON parsing when the limit is exceeded.
 
 ---
 

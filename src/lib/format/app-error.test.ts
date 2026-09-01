@@ -167,19 +167,19 @@ describe("⑦ 번역이 빠질 자리가 없다", () => {
   });
 });
 
-describe("⑪ HTTP Status 는 그대로다", () => {
+describe("⑪ HTTP Status 는 오류 의미를 따른다", () => {
   /**
    * 🔴 **reason 은 화면 문구를 가르는 이름일 뿐 Status 를 바꿀 이유가 아니다.**
-   * 이름을 스물 몇 개로 늘렸어도 밖으로 나가는 등급은 여섯 개 그대로다.
+   * reason 이 늘어나도 같은 의미는 같은 Transport 등급으로 모인다.
    */
-  it("모든 reason 이 여섯 등급 안에서만 논다", () => {
+  it("모든 reason 이 정의된 등급 안에서만 논다", () => {
     const statuses = new Set(
       APP_ERROR_REASONS.map((reason) =>
         statusForErrorCode(errorCodeForReason(reason)),
       ),
     );
 
-    expect([...statuses].sort()).toEqual([400, 401, 404, 409, 500]);
+    expect([...statuses].sort()).toEqual([400, 401, 404, 409, 413, 500]);
   });
 
   it("의미별 등급이 지금 그대로다", () => {
@@ -188,6 +188,7 @@ describe("⑪ HTTP Status 는 그대로다", () => {
       RESOURCE_NOT_FOUND: 404,
       AGENT_UNAUTHORIZED: 401,
       AGENT_BODY_NOT_JSON: 400,
+      AGENT_BODY_TOO_LARGE: 413,
       AGENT_BODY_UNSTORABLE_TEXT: 400,
       AGENT_IDEMPOTENCY_KEY_TOO_LONG: 400,
       API_KEY_NAME_INVALID: 400,

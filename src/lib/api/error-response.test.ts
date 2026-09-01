@@ -17,6 +17,7 @@ describe("Error Contract", () => {
   it("스펙이 요구하는 Code 가 전부 있다", () => {
     expect([...API_ERROR_CODES]).toEqual([
       "VALIDATION_ERROR",
+      "PAYLOAD_TOO_LARGE",
       "UNAUTHORIZED",
       "FORBIDDEN",
       "NOT_FOUND",
@@ -27,7 +28,7 @@ describe("Error Contract", () => {
 
   it("Code 마다 HTTP Status 가 하나씩 대응한다", () => {
     expect(API_ERROR_CODES.map(statusForErrorCode)).toEqual([
-      400, 401, 403, 404, 409, 500,
+      400, 413, 401, 403, 404, 409, 500,
     ]);
   });
 

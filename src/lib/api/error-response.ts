@@ -22,6 +22,7 @@ import {
 /** Error Code ↔ HTTP Status. 🔴 이 대응은 **한 곳**이다 — Route 마다 숫자를 적지 않는다. */
 const STATUS_BY_CODE: Record<ErrorCode, number> = {
   VALIDATION_ERROR: 400,
+  PAYLOAD_TOO_LARGE: 413,
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
   NOT_FOUND: 404,
