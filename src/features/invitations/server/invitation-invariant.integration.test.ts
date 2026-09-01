@@ -618,8 +618,8 @@ describe.skipIf(!enabled)("살아 있는 초대는 (Workspace, Email) 당 하나
  * 격리 수준(READ COMMITTED)에서 SELECT 는 **그 문장이 시작한 시점의 스냅샷**을 보므로,
  * 그 사이 다른 Transaction 이 소속을 만들고 commit 해도 이쪽은 보지 못한다. 그러면 옛
  * 초대 행이 부분 index 밖으로 빠져 INSERT 가 성공하고, **이미 멤버인 사람 앞으로 살아
- * 있는 링크가 하나 더 선다.** 🔴 초대는 이메일을 대조하지 않는 bearer credential 이라
- * (`acceptInvitation` 은 Token Hash 와 상태만 본다) 그 Token 을 쥔 **다른 계정**이 들어온다.
+ * 있는 링크가 하나 더 선다.** 수락할 때 이메일을 맞대더라도 이미 멤버인 주소 앞으로
+ * 쓸 수 없는 bearer credential 을 다시 내는 것은 잘못이다.
  *
  * 🔴 **동시 실행 두 개를 실제로 부딪혀 보지는 않았다.** 되돌려지는 Transaction 하나
  * 안에서는 두 번째 연결이 이쪽 행을 볼 수 없어 그 경쟁을 재현할 수 없다. 여기서 붙드는

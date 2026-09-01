@@ -588,8 +588,8 @@ describe.skipIf(!enabled)("전역 잠금 순서 — 실제 연결 여럿", () =>
    * commit 하면, 옛 초대 행이 index 밖으로 빠져 **INSERT 가 성공한다** —
    * `NOT EXISTS` 는 이미 옛 snapshot 으로 평가된 뒤다.
    *
-   * 🔴 초대는 이메일을 대조하지 않는 **bearer credential** 이다. 그 새 Token 을 주운
-   * 다른 계정이 그대로 그 Workspace 에 들어온다.
+   * 수락은 초대 주소와 계정 주소를 맞대므로 다른 계정이 Token 만으로 들어오지는 못한다.
+   * 그래도 이미 멤버인 주소 앞으로 쓸 수 없는 bearer credential 을 다시 내면 안 된다.
    *
    * ## 어떻게 재는가 — 🔴 잠금을 «하나도 더» 걸지 않는다
    *

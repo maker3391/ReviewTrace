@@ -17,6 +17,7 @@ const DESCRIPTION_MAX = 20_000;
 const NAME_MAX = 200;
 
 export const activityActorSchema = z.object({
+ /** Agent Route 에서는 검증 뒤에도 이 주장을 믿지 않고 인증된 API Key 신원으로 덮어쓴다. */
  type: z.enum(REVIEWER_TYPES),
  name: z.string().trim().min(1).max(NAME_MAX),
 });

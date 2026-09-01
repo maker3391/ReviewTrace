@@ -114,6 +114,19 @@ describe("POST /api/v1/issues/{issueId}/activities", () => {
  expect(input.scope).toEqual({ workspaceId: WORKSPACE });
  });
 
+ it("🔴 Payload 의 HUMAN 행위자를 무시하고 API Key Agent 를 기록한다", async () => {
+ await POST(
+ postRequest({ ...ACTIVITY, actor: { type: "HUMAN", name: "admin" } }),
+ context,
+ );
+
+ const [input] = addIssueActivity.mock.calls[0] as [
+ { activity: { actor: { type: string; name: string } } },
+ ];
+
+ expect(input.activity.actor).toEqual({ type: "AGENT", name: "codex-ci" });
+ });
+
  it("형식이 아닌 issueId 는 Service 를 부르지 않는다", async () => {
  const response = await POST(postRequest(ACTIVITY), {
  params: Promise.resolve({ issueId: "not-a-uuid" }),

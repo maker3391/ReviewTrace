@@ -40,9 +40,9 @@ const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
  * Transaction 이 소속을 만들고 commit 하면 이쪽 조회는 그것을 보지 못한다.
  * Transaction 으로 감싸도 같다.
  *
- * 그 틈으로 들어오는 것이 단순한 중복 초대가 아니라는 것이 요점이다 — 초대는 **이메일을
- * 대조하지 않는 bearer credential** 이다(`acceptInvitation` 은 Token Hash 와 상태만 본다).
- * 새로 발행된 Token 을 쥔 **다른 계정**이 그 Workspace 에 들어온다.
+ * 그 틈으로 들어오는 것이 단순한 중복 초대가 아니라는 것이 요점이다. 수락할 때 초대 주소와
+ * 로그인 계정 주소를 맞대더라도, 이미 멤버가 된 주소 앞으로 쓸 수 없는 링크를 다시 내는 것은
+ * 취소·재초대의 뜻을 흐리고 불필요한 bearer credential 을 하나 더 만든다.
  *
  * 🔴 그래서 판정을 **쓰는 문장 자체**에 싣는다. UPDATE 와 INSERT 는 스냅샷이 아니라 «지금»
  * 의 행을 보고, 충돌하면 상대가 commit 할 때까지 기다렸다가 조건을 **다시** 본다 —
@@ -94,14 +94,14 @@ async function lockWorkspaceRow(
 async function lockAccountRow(
  userId: string,
  executor: DbExecutor,
-): Promise<boolean> {
+): Promise<string | null> {
  const rows = await executor
-.select({ id: users.id })
+.select({ email: users.email })
 .from(users)
 .where(eq(users.id, userId))
 .for("key share");
 
- return rows.length > 0;
+ return rows[0]?.email ?? null;
 }
 
 export interface CreatedInvitation {
@@ -163,8 +163,8 @@ export interface CreatedInvitation {
  * 쓴다. 발행이 먼저 snapshot 을 잡고 부분 unique 충돌로 «기다리는» 사이에 수락이 commit 하면,
  * 옛 초대 행이 index 밖으로 빠져 INSERT 가 성공한다 — `not exists` 는 이미 옛 snapshot 으로
  * 평가된 뒤다. 실제 PostgreSQL 로 재현했다(`inserted=1, members=1, live_invitations=1`).
- * 🔴 초대는 이메일을 대조하지 않는 bearer credential 이라, 그 새 Token 을 쥔 **다른 계정**이
- * 이미 멤버가 된 사람의 자리로 들어온다.
+ * 수락은 초대 주소와 계정 주소를 맞대므로 다른 계정이 Token 만으로 들어오지는 못한다. 그래도
+ * 이미 멤버인 주소 앞으로 쓸 수 없는 bearer credential 을 다시 내는 것은 막아야 한다.
  *
  * 🔴 **그래서 Workspace 행을 먼저 잠가 수락과 «줄을 세운다».** 수락도 같은 행을 잠그므로
  * (`acceptInvitation`) 두 Transaction 이 겹치지 않고, 뒤에 온 쪽은 잠금이 풀린 뒤 **새
@@ -393,6 +393,7 @@ export async function findInvitationPreview(
  * - 만료되지 않았는가
  * - 이미 수락되지 않았는가
  * - 대상 Workspace 가 존재하는가 (Join 이 그것을 보장한다)
+ * - 로그인 계정의 이메일이 초대 수신자와 같은가
  * - 이미 Member 인가
  *
  * 🔴 **중복 수락이 소속을 둘로 만들지 않는다.** 두 겹으로 막는다 —
@@ -452,7 +453,8 @@ export async function acceptInvitation(
  * 잡지 않으면 순서가 `초대 행 -> users` 가 되어, `users` 를 쥔 채 그 사람의 초대 행을
  * 지우는 계정 삭제와 고리를 만든다(`@/db` 의 전역 잠금 순서).
  */
- if (!(await lockAccountRow(input.userId, tx))) {
+ const accountEmail = await lockAccountRow(input.userId, tx);
+ if (accountEmail === null) {
  // 세션은 있는데 계정이 사라졌다 — 초대의 문제가 아니다.
  throw new AppError("ACCOUNT_NOT_FOUND");
  }
@@ -469,6 +471,12 @@ export async function acceptInvitation(
 .where(
  and(
  eq(workspaceInvitations.tokenHash, tokenHash),
+ /**
+ * 🔴 **Token 만으로는 수락할 수 없다.** 초대를 받은 주소와 로그인 계정의 정규화된
+ * 주소가 같아야 한다. 이 조건도 UPDATE 자체에 실어, 잘못된 계정이 초대를 먼저
+ * 소진하는 일 없이 같은 `INVITATION_UNUSABLE` 로 거절한다.
+ */
+ eq(workspaceInvitations.email, accountEmail),
  isNull(workspaceInvitations.acceptedAt),
  /**
  * 🔴 **취소된 초대는 수락되지 않는다.** 이 조건이 없으면 취소가 목록에서 행을

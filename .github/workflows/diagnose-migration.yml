@@ -11,9 +11,14 @@ name: Diagnose migration
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   diagnose:
     name: 어디서 깨지는가
+    # 🔴 production Secret 으로 실행하는 코드는 보호된 main 의 Commit 으로 한정한다.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     # Migration 용 연결(Session mode)을 그대로 쓴다.
     environment: production
@@ -21,6 +26,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

@@ -24,9 +24,14 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   migrate:
     name: drizzle-kit migrate
+    # 🔴 production Secret 으로 실행하는 코드는 보호된 main 의 Commit 으로 한정한다.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     # 🔴 GitHub Environment 의 승인·Secret 을 쓴다. Secret 을 저장소 전체에 두지 않는다.
     environment: production
@@ -40,6 +45,9 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

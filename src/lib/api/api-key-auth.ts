@@ -27,8 +27,8 @@ export interface AgentContext {
   /**
    * Key 의 이름(`codex-ci` 등).
    *
-   * Activity 의 행위자 이름을 생략했을 때 이 값이 대신 들어간다 — Key 하나가 곧 한 Agent 라
-   * 「누구의 요청인가」를 Key 가 이미 말한다.
+   * Agent Route 는 Payload 가 주장한 작성자 대신 이 값을 Review·Activity 의 작성자로
+   * 강제한다 — Key 하나가 곧 한 Agent 라 「누구의 요청인가」는 Key 가 이미 말한다.
    */
   apiKeyName: string;
 }

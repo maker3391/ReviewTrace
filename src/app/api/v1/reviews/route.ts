@@ -37,7 +37,18 @@ export async function POST(request: Request): Promise<Response> {
     const result = await ingestReview({
       workspaceId: agent.workspaceId,
       idempotencyKey: readIdempotencyKey(request),
-      payload: parsed.data,
+      payload: {
+        ...parsed.data,
+        /**
+         * 🔴 **Review 작성자는 인증된 API Key 가 정한다.** Payload 의 type/name 을
+         * 믿으면 Agent Key 하나로 HUMAN·SYSTEM 기록을 가장할 수 있다.
+         */
+        reviewer: {
+          type: "AGENT",
+          name: agent.apiKeyName,
+          version: parsed.data.reviewer.version,
+        },
+      },
     });
 
     const { evidenceIds, ...body } = result;

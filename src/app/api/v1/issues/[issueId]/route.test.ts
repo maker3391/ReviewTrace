@@ -106,6 +106,23 @@ describe("PATCH /api/v1/issues/{issueId}", () => {
  expect(input.fallbackActorName).toBe("codex-ci");
  });
 
+ it("🔴 Payload 의 SYSTEM 행위자를 무시하고 API Key Agent 를 기록한다", async () => {
+ await PATCH(
+ patchRequest({
+ status: "RESOLVED",
+ resolutionSummary: "고쳤다",
+ actor: { type: "SYSTEM", name: "scheduler" },
+ }),
+ context,
+ );
+
+ const [input] = updateIssueStatus.mock.calls[0] as [
+ { update: { actor: { type: string; name: string } } },
+ ];
+
+ expect(input.update.actor).toEqual({ type: "AGENT", name: "codex-ci" });
+ });
+
  it("RESOLVED 인데 해결 요약이 없으면 Service 를 부르지 않는다", async () => {
  const response = await PATCH(
  patchRequest({ status: "RESOLVED" }),

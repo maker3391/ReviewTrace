@@ -45,7 +45,11 @@ export async function PATCH(
  */
  scope: { workspaceId: agent.workspaceId },
  issueId: parsedId.data,
- update: parsed.data,
+ update: {
+ ...parsed.data,
+ // 🔴 HTTP Payload 로 HUMAN·SYSTEM 을 가장하지 못하게 인증된 Key 가 행위자를 정한다.
+ actor: { type: "AGENT", name: agent.apiKeyName },
+ },
  fallbackActorName: agent.apiKeyName,
  });
 /**

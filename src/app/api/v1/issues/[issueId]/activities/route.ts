@@ -44,7 +44,11 @@ export async function POST(
  */
  scope: { workspaceId: agent.workspaceId },
  issueId: parsedId.data,
- activity: parsed.data,
+ activity: {
+ ...parsed.data,
+ // 🔴 HTTP Payload 로 HUMAN·SYSTEM 을 가장하지 못하게 인증된 Key 가 행위자를 정한다.
+ actor: { type: "AGENT", name: agent.apiKeyName },
+ },
  });
 /**
  * 🔴 **GitHub 확인은 응답을 붙잡지 않는다.**

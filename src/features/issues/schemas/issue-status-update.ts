@@ -56,8 +56,8 @@ export const issueStatusUpdateSchema = z
  value === undefined || value === "" ? null : value,
 ),
  /**
- * 누가 바꿨는가. 생략하면 API Key 의 이름이 대신 들어간다 —
- * Key 하나가 곧 한 Agent 라, 「누구의 요청인가」는 Key 가 이미 말한다.
+ * 누가 바꿨는가. Server Action 은 로그인 세션을 붙이고 Agent Route 는 이 입력값을
+ * 인증된 API Key 의 AGENT 신원으로 덮어쓴다.
  */
  actor: activityActorSchema.nullish().transform((value) => value ?? null),
  /** 이 전이가 가리키는 Commit. 「고쳤다」를 코드와 잇는다. */

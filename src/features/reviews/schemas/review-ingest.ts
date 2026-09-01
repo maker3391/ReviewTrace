@@ -154,8 +154,9 @@ export const reviewTargetSchema = z.object({
 });
 
 export const reviewerSchema = z.object({
+ /** Agent Route 에서는 검증 뒤에도 이 주장을 믿지 않고 `AGENT` 로 덮어쓴다. */
  type: z.enum(REVIEWER_TYPES),
- /** `codex` · `claude-code` · 사람 이름. Agent 종류를 코드로 못 박지 않는다. */
+ /** Agent Route 에서는 API Key 이름을 쓴다. Application Service 직접 호출은 이 값을 쓴다. */
  name: nonEmpty(IDENTIFIER_MAX),
  version: optionalText(IDENTIFIER_MAX),
 });

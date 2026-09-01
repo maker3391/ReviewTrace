@@ -77,10 +77,10 @@ function unique(prefix: string): string {
   return `${prefix}${Date.now().toString(36)}${seq}`;
 }
 
-async function createUser(tx: DbExecutor): Promise<string> {
+async function createUser(tx: DbExecutor, email?: string): Promise<string> {
   const rows = await tx
     .insert(users)
-    .values({ email: `${unique("user")}@example.test`, name: "Tester" })
+    .values({ email: email ?? `${unique("user")}@example.test`, name: "Tester" })
     .returning({ id: users.id });
 
   const id = rows[0]?.id;
@@ -138,6 +138,40 @@ async function rejection(promise: Promise<unknown>) {
 const GUEST = "guest@example.test";
 
 describe.skipIf(!enabled)("초대 취소", () => {
+  it("🔴 Token 을 가진 다른 이메일 계정은 초대를 소진하지 못한다", async () => {
+    await rolledBack(async (tx) => {
+      const owner = await createUser(tx);
+      const recipient = await createUser(tx, GUEST);
+      const attacker = await createUser(tx);
+      const workspace = await createWorkspace(tx, owner);
+      const invitation = await createInvitation(
+        { workspaceId: workspace, email: GUEST, invitedBy: owner },
+        tx,
+      );
+
+      const error = await rejection(
+        acceptInvitation({ token: invitation.token, userId: attacker }, tx),
+      );
+      expect(isAppError(error) && error.code).toBe("NOT_FOUND");
+
+      const attackerMembership = await tx
+        .select({ userId: workspaceMembers.userId })
+        .from(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, workspace),
+            eq(workspaceMembers.userId, attacker),
+          ),
+        );
+      expect(attackerMembership).toHaveLength(0);
+
+      // 잘못된 시도가 Token 을 소진하지 않았으므로 실제 수신자는 그대로 수락할 수 있다.
+      await expect(
+        acceptInvitation({ token: invitation.token, userId: recipient }, tx),
+      ).resolves.toBeTruthy();
+    });
+  });
+
   /**
    * # 🔴 이것이 취소가 존재하는 이유다
    *
@@ -151,7 +185,7 @@ describe.skipIf(!enabled)("초대 취소", () => {
   it("🔴 취소된 Token 으로는 수락할 수 없다 (보호를 빼면 그 행이 그대로 잡힌다)", async () => {
     await rolledBack(async (tx) => {
       const owner = await createUser(tx);
-      const guest = await createUser(tx);
+      const guest = await createUser(tx, GUEST);
       const workspace = await createWorkspace(tx, owner);
 
       const invitation = await createInvitation(
@@ -239,7 +273,7 @@ describe.skipIf(!enabled)("초대 취소", () => {
   it("이미 수락된 초대는 취소 대상이 아니다 — 소속은 그대로 남는다", async () => {
     await rolledBack(async (tx) => {
       const owner = await createUser(tx);
-      const guest = await createUser(tx);
+      const guest = await createUser(tx, GUEST);
       const workspace = await createWorkspace(tx, owner);
 
       const invitation = await createInvitation(
@@ -423,7 +457,7 @@ describe.skipIf(!enabled)("초대 취소", () => {
   it("🔴 수락이 먼저면 취소가 실패하고, 취소가 먼저면 수락이 실패한다", async () => {
     await rolledBack(async (tx) => {
       const owner = await createUser(tx);
-      const guest = await createUser(tx);
+      const guest = await createUser(tx, GUEST);
       const workspace = await createWorkspace(tx, owner);
 
       // 수락이 먼저
@@ -444,7 +478,7 @@ describe.skipIf(!enabled)("초대 취소", () => {
 
     await rolledBack(async (tx) => {
       const owner = await createUser(tx);
-      const guest = await createUser(tx);
+      const guest = await createUser(tx, GUEST);
       const workspace = await createWorkspace(tx, owner);
 
       // 취소가 먼저

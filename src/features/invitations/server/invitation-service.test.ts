@@ -108,9 +108,8 @@ describe("createInvitation", () => {
  * 격리 수준(READ COMMITTED)에서 SELECT 는 **그 문장이 시작한 시점의 스냅샷**을 보므로,
  * 그 사이에 기존 초대가 수락돼 소속이 생겨도 이쪽은 보지 못한다. 그러면 옛 초대 행이
  * 부분 index 밖으로 빠져 **INSERT 가 성공한다** — 이미 멤버인 사람 앞으로 살아 있는
- * 링크가 하나 더 생긴다. 🔴 초대는 이메일을 대조하지 않는 bearer credential 이라
- * (`acceptInvitation` 은 Token Hash 와 상태만 본다) 그 Token 을 쥔 **다른 계정**이
- * 그대로 들어온다.
+ * 링크가 하나 더 생긴다. 수락할 때 초대 주소와 로그인 계정 주소를 맞대더라도, 이미
+ * 멤버가 된 주소 앞으로 쓸 수 없는 bearer credential 이 다시 생기는 것은 잘못이다.
  *
  * ## 무엇을 붙들어 두는가
  *
@@ -465,7 +464,7 @@ describe("acceptInvitation", () => {
  * 않으면 순서가 `초대 행 -> users` 가 되어, `users` 를 쥔 채 그 사람의 초대 행을
  * 지우는 계정 삭제와 **deadlock** 이 된다(실제로 `40P01` 이 났다).
  */
- const lockedAccount = () => selects([{ id: GUEST }]);
+ const lockedAccount = () => selects([{ email: "guest@example.test" }]);
 
  it("기존 소속은 건드리지 않고 MEMBER 행 하나만 더한다", async () => {
  const fake = fakeExecutor([
@@ -529,7 +528,7 @@ describe("acceptInvitation", () => {
  // 무엇을 잠갔는지는 조건절이 말해 준다.
  if (rendered.includes('"users"."id"')) {
  order.push(`lock-user:${strength}`);
- return Promise.resolve([{ id: GUEST }]);
+ return Promise.resolve([{ email: "guest@example.test" }]);
  }
  order.push(`lock-workspace:${strength}`);
  expect(rendered).toContain('"workspaces"."id"');
@@ -656,14 +655,17 @@ describe("acceptInvitation", () => {
  * 🔴 `fakeExecutor` 는 `where` 를 해석하지 않으므로 **조건이 사라져도 행을 돌려준다.**
  * 그래서 렌더된 문장을 직접 본다. 실제로 그 행이 «안 잡히는가»는 통합시험이 본다.
  */
- it("🔴 초대를 잡는 UPDATE 에 «취소되지 않았을 것» 조건이 붙는다", async () => {
+ it("🔴 초대를 잡는 UPDATE 에 «수신자 계정이고 취소되지 않았을 것» 조건이 붙는다", async () => {
  const captured: { where?: SQL } = {};
  const executor = {
  select: () => ({
  from: () => ({
  where: () => ({
  limit: () => Promise.resolve([{ workspaceId: WORKSPACE }]),
- for: () => Promise.resolve([{ slug: "acme" }]),
+ for: (strength: string) =>
+ strength === "key share"
+ ? Promise.resolve([{ email: "guest@example.test" }])
+ : Promise.resolve([{ slug: "acme" }]),
  }),
  }),
  }),
@@ -684,8 +686,30 @@ describe("acceptInvitation", () => {
 );
 
  const rendered = new PgDialect().sqlToQuery(captured.where as SQL).sql;
+ expect(rendered).toContain('"workspace_invitations"."email" = $2');
  expect(rendered).toContain('"accepted_at" is null');
  expect(rendered).toContain('"revoked_at" is null');
+ });
+
+ it("🔴 다른 이메일 계정은 초대를 소진하지 못한다", async () => {
+ const fake = fakeExecutor([
+ found(),
+ lockedWorkspace(),
+ selects([{ email: "attacker@example.test" }]),
+ updates([]),
+ ]);
+
+ const error = await rejection(
+ acceptInvitation({ token: "A".repeat(43), userId: GUEST }, fake.executor),
+ );
+
+ expect(isAppError(error) && error.code).toBe("NOT_FOUND");
+ expect(fake.calls.map((call) => call.kind)).toEqual([
+ "select",
+ "select",
+ "select",
+ "update",
+ ]);
  });
 });
 
