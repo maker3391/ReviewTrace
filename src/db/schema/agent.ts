@@ -12,11 +12,19 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { users, workspaces } from "@/db/schema/workspace";
-import { AGENT_PRINCIPAL_TYPES } from "@/types/agent";
+import {
+  AGENT_PRINCIPAL_TYPES,
+  AGENT_REVIEW_LANGUAGES,
+} from "@/types/agent";
 
 export const agentPrincipalTypeEnum = pgEnum(
   "agent_principal_type",
   AGENT_PRINCIPAL_TYPES,
+);
+
+export const agentReviewLanguageEnum = pgEnum(
+  "agent_review_language",
+  AGENT_REVIEW_LANGUAGES,
 );
 
 /** The actor represented by one or more rotatable Agent credentials. */
@@ -29,6 +37,10 @@ export const agentPrincipals = pgTable(
       onDelete: "cascade",
     }),
     displayName: text("display_name").notNull(),
+    /** Agent-authored Review Knowledge language. UI locale is intentionally separate. */
+    reviewLanguage: agentReviewLanguageEnum("review_language")
+      .notNull()
+      .default("en"),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
