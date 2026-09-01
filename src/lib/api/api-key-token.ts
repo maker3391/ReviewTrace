@@ -20,6 +20,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
  * Agent 설정에 박혀 있는 값이라 바꾸면 밖에서 쓰던 것이 끊긴다.
  */
 export const API_KEY_PREFIX = "ci_";
+export const AGENT_CREDENTIAL_PREFIX = "ci_agent_";
 
 /**
  * 난수 32 바이트 = 256 bit.
@@ -46,6 +47,8 @@ export interface GeneratedApiKey {
   keyHash: string;
 }
 
+export type GeneratedAgentCredential = GeneratedApiKey;
+
 export function generateApiKey(): GeneratedApiKey {
   const secret = randomBytes(SECRET_BYTES).toString("base64url");
   const plainToken = `${API_KEY_PREFIX}${secret}`;
@@ -53,6 +56,20 @@ export function generateApiKey(): GeneratedApiKey {
   return {
     plainToken,
     keyPrefix: keyPrefixOf(plainToken),
+    keyHash: hashApiKey(plainToken),
+  };
+}
+
+export function generateAgentCredential(): GeneratedAgentCredential {
+  const secret = randomBytes(SECRET_BYTES).toString("base64url");
+  const plainToken = `${AGENT_CREDENTIAL_PREFIX}${secret}`;
+
+  return {
+    plainToken,
+    keyPrefix: plainToken.slice(
+      0,
+      AGENT_CREDENTIAL_PREFIX.length + PREFIX_SECRET_CHARS,
+    ),
     keyHash: hashApiKey(plainToken),
   };
 }
@@ -72,10 +89,16 @@ export function hashApiKey(plainToken: string): string {
  * 요청마다 인덱스를 한 번씩 태우게 된다.
  */
 export function isApiKeyFormat(value: string): boolean {
-  if (!value.startsWith(API_KEY_PREFIX)) {
-    return false;
-  }
-  return SECRET_PATTERN.test(value.slice(API_KEY_PREFIX.length));
+  const prefix = value.startsWith(AGENT_CREDENTIAL_PREFIX)
+    ? AGENT_CREDENTIAL_PREFIX
+    : value.startsWith(API_KEY_PREFIX)
+      ? API_KEY_PREFIX
+      : null;
+  return prefix !== null && SECRET_PATTERN.test(value.slice(prefix.length));
+}
+
+export function isPrincipalCredential(value: string): boolean {
+  return value.startsWith(AGENT_CREDENTIAL_PREFIX);
 }
 
 /**

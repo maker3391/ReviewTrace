@@ -96,7 +96,7 @@ export interface IngestedReview {
 }
 
 export interface IngestReviewInput {
-  /** 🔴 API Key 가 정한 값이다. Payload 에서 오지 않는다(스펙 19). */
+  /** 🔴 Authorized Repository/Workspace resolver가 정한 값이다. Payload에서 오지 않는다. */
   workspaceId: string;
   idempotencyKey: string | null;
   payload: ReviewIngestInput;
@@ -548,7 +548,7 @@ async function findExistingIssues(
  🔴 Workspace 와 Repository 를 «겹쳐서» 건다.
 
  `repositoryId` 만으로도 지금은 맞는다 — 그 값은 바로 위 Upsert 가
- `(workspaceId, provider, externalRepositoryId)` 로 얻은 것이라 이 Key 의 Workspace
+ `(workspaceId, provider, externalRepositoryId)` 로 얻은 것이라 resolved Workspace
  안에 있다. 하지만 그것은 **다른 함수의 동작에 기대는 안전**이라 그 함수를 고치면
  여기서는 아무 신호도 나지 않는다. `review_issues.review_session_id` 는 단일 Column
  FK 라 Database 도 「Issue 와 Repository 의 Workspace 가 같다」를 강제하지 않는다.
@@ -811,7 +811,7 @@ export interface AppendedIssues {
 
 export async function appendReviewIssues(
   input: {
-    /** 🔴 API Key 가 정한 값이다. Payload 에서 오지 않는다(스펙 19). */
+    /** 🔴 Authorized resource lookup이 정한 Workspace다. Payload에서 오지 않는다. */
     workspaceId: string;
     reviewSessionId: string;
     issues: readonly ReviewIssueInput[];

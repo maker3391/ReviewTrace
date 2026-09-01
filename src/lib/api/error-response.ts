@@ -1,5 +1,6 @@
 import {
   ERROR_CODES,
+  isAppError,
   machineMessage,
   toPublicError,
   type ErrorCode,
@@ -38,7 +39,22 @@ export function statusForErrorCode(code: ErrorCode): number {
 }
 
 export interface ApiErrorBody {
-  error: { code: ErrorCode; message: string };
+  error: {
+    code: ErrorCode;
+    message: string;
+    resolutionStatus?:
+      | "CONTEXT_REQUIRED"
+      | "NOT_CONNECTED_OR_NOT_AUTHORIZED"
+      | "REPOSITORY_CONTEXT_AMBIGUOUS";
+    candidates?: Array<{
+      workspace: { id: string; slug: string };
+      project: { slug: string };
+      repository: {
+        fullName: string;
+        externalRepositoryId: string;
+      };
+    }>;
+  };
 }
 
 /**
@@ -70,8 +86,35 @@ export function apiError(code: ErrorCode, message?: string): Response {
  */
 export function apiErrorFromUnknown(error: unknown): Response {
   const publicError = toPublicError(error);
+  const contextDetails = isAppError(error)
+    ? error.reason === "REPOSITORY_CONTEXT_AMBIGUOUS"
+      ? {
+          resolutionStatus: "REPOSITORY_CONTEXT_AMBIGUOUS" as const,
+          candidates: (
+            error.meta as
+              | {
+                  candidates: Array<{
+                    workspace: { id: string; slug: string };
+                    project: { slug: string };
+                    repository: {
+                      fullName: string;
+                      externalRepositoryId: string;
+                    };
+                  }>;
+                }
+              | undefined
+          )?.candidates,
+        }
+      : error.reason === "NOT_CONNECTED_OR_NOT_AUTHORIZED"
+        ? {
+            resolutionStatus: "NOT_CONNECTED_OR_NOT_AUTHORIZED" as const,
+          }
+        : error.reason === "AGENT_CONTEXT_REQUIRED"
+          ? { resolutionStatus: "CONTEXT_REQUIRED" as const }
+          : {}
+    : {};
   return Response.json(
-    { error: publicError },
+    { error: { ...publicError, ...contextDetails } },
     { status: statusForErrorCode(publicError.code) },
   );
 }

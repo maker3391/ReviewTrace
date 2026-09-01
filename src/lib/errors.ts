@@ -73,6 +73,11 @@ const REASON_CODE = {
    * 🔴 형식 오류·없는 키·폐기·만료를 구분하지 않는다.
    */
   AGENT_UNAUTHORIZED: "UNAUTHORIZED",
+  AGENT_CAPABILITY_REQUIRED: "FORBIDDEN",
+  AGENT_CONTEXT_REQUIRED: "VALIDATION_ERROR",
+  AGENT_CREDENTIAL_NAME_INVALID: "VALIDATION_ERROR",
+  NOT_CONNECTED_OR_NOT_AUTHORIZED: "NOT_FOUND",
+  REPOSITORY_CONTEXT_AMBIGUOUS: "CONFLICT",
   /** 🔴 Agent 가 읽는다. 본문이 JSON 이 아니면 500 이 아니라 400 이다. */
   AGENT_BODY_NOT_JSON: "VALIDATION_ERROR",
   /** 본문이 byte 상한을 넘었다. 🔴 JSON parsing 전에 stream 을 끊고 413 으로 답한다. */
@@ -179,6 +184,16 @@ export function errorCodeForReason(reason: AppErrorReason): ErrorCode {
 export interface AppErrorMetaMap {
   PROJECT_SLUG_RESERVED: { slug: string };
   KNOWLEDGE_PAGE_SLUG_RESERVED: { slug: string };
+  REPOSITORY_CONTEXT_AMBIGUOUS: {
+    candidates: Array<{
+      workspace: { id: string; slug: string };
+      project: { slug: string };
+      repository: {
+        fullName: string;
+        externalRepositoryId: string;
+      };
+    }>;
+  };
 }
 
 export type AppErrorMeta = AppErrorMetaMap[keyof AppErrorMetaMap];
@@ -267,6 +282,12 @@ const MACHINE_MESSAGE: Record<ErrorCode, string> = {
  * 여기 적지 않는다 — 그것은 사전이 갖는다.
  */
 const MACHINE_REASON_MESSAGE: Partial<Record<AppErrorReason, string>> = {
+  AGENT_CONTEXT_REQUIRED:
+    "Repository or an authorized Workspace hint is required to choose context.",
+  NOT_CONNECTED_OR_NOT_AUTHORIZED:
+    "Repository is not connected in an authorized Workspace.",
+  REPOSITORY_CONTEXT_AMBIGUOUS:
+    "Repository is connected to more than one authorized Workspace. Set a repository-local Workspace hint.",
   AGENT_BODY_NOT_JSON: "요청 본문이 올바른 JSON 이 아니다.",
   AGENT_BODY_TOO_LARGE: "요청 본문은 4000000 bytes 를 넘을 수 없다.",
   AGENT_BODY_UNSTORABLE_TEXT:

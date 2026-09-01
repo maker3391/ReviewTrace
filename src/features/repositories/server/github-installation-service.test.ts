@@ -9,9 +9,12 @@ import {
 import {
   beginGithubInstallation,
   completeGithubInstallation,
+  findWorkspaceRepositoryToken,
 } from "@/features/repositories/server/github-installation-service";
 import {
+  createInstallationToken,
   exchangeGithubAppCode,
+  getInstallationRepository,
   getGithubInstallation,
   githubAppInstallationUrl,
   userCanManageInstallation,
@@ -47,6 +50,39 @@ beforeEach(() => {
 });
 
 describe("GitHub installation ↔ Workspace", () => {
+  it("private source token은 resolved Workspace의 installation에서만 발급한다", async () => {
+    const fake = fakeExecutor([
+      selects([
+        {
+          id: "workspace-installation",
+          installationId: "9",
+          accountLogin: "acme",
+          accountType: "Organization",
+        },
+      ]),
+    ]);
+    vi.mocked(getInstallationRepository).mockResolvedValue({
+      externalRepositoryId: "77",
+      owner: "acme",
+      name: "private",
+      fullName: "acme/private",
+      private: true,
+      defaultBranch: "main",
+      htmlUrl: "https://github.com/acme/private",
+    });
+    vi.mocked(createInstallationToken).mockResolvedValue({
+      token: "short-lived-token",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    await expect(
+      findWorkspaceRepositoryToken(WORKSPACE, "77", fake.executor),
+    ).resolves.toBe("short-lived-token");
+    expect(fake.calls[0]?.kind).toBe("select");
+    expect(getInstallationRepository).toHaveBeenCalledWith("9", "77");
+    expect(createInstallationToken).toHaveBeenCalledWith("9");
+  });
+
   it("시작 state 원문을 DB에 저장하지 않고 사용자·Workspace·Project에 묶는다", async () => {
     const fake = fakeExecutor([selects([{ id: PROJECT }]), inserts([])]);
     const url = await beginGithubInstallation(

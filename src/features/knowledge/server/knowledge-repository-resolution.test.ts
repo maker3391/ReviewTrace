@@ -25,6 +25,7 @@ it("unknown Repository를 Workspace-wide Knowledge로 확대하지 않는다", a
     resolved: false,
     id: null,
     fullName: null,
+    externalRepositoryId: null,
   });
   expect(context.scope.project).toMatchObject({
     resolved: false,

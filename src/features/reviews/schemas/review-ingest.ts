@@ -22,7 +22,8 @@ import { rule } from "@/lib/validation/validation-rule";
  * Route Handler 는 이 Schema 를 통과한 값만 Application Service 로 넘긴다.
  *
  * 🔴 **Client 가 Workspace 를 지정하지 못한다**. Payload 어디에도
- * `workspaceId` 자리가 없다 — Tenant 는 API Key 가 정한다(스펙 19).
+ * `workspaceId` 자리가 없다. Authenticated principal의 authorized set 안에서 Repository가
+ * Workspace를 정하고, legacy key만 기존 단일 Workspace scope를 제공한다.
  */
 
 /**
@@ -74,8 +75,8 @@ const optionalPositiveInt = () =>
  * `repository.project_id`가 정본이고, 미등록인데 생략하면 Default Project를 만들지 않고
  * 명확히 거절한다(`review-ingest-service.ts`).
  *
- * 🔴 **Workspace 자리는 여기에도 없다.** Payload 가 고를 수 있는 것은 API Key 가 정한
- * Workspace **안의** Project 뿐이다.
+ * 🔴 **Workspace 자리는 여기에도 없다.** Payload의 Project는 resolver가 확정한 authorized
+ * Workspace 안에서만 조회되며, Workspace를 선택하는 권한 근거가 아니다.
  */
 export const reviewProjectSchema = z.object({
   slug: nonEmpty(IDENTIFIER_MAX),
@@ -159,7 +160,7 @@ export const reviewTargetSchema = z.object({
 export const reviewerSchema = z.object({
   /** Agent Route 에서는 검증 뒤에도 이 주장을 믿지 않고 `AGENT` 로 덮어쓴다. */
   type: z.enum(REVIEWER_TYPES),
-  /** Agent Route 에서는 API Key 이름을 쓴다. Application Service 직접 호출은 이 값을 쓴다. */
+  /** Agent Route에서는 authenticated principal의 actor 이름을 쓴다. */
   name: nonEmpty(IDENTIFIER_MAX),
   version: optionalText(IDENTIFIER_MAX),
 });

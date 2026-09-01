@@ -459,6 +459,15 @@ export const ko = {
     choose: "연결할 저장소",
     private: "비공개",
     public: "공개",
+    connected: "GitHub 연결됨",
+    add: "저장소 추가",
+    connectTitle: "GitHub 저장소 연결",
+    connectDescription: "이 Project에서 리뷰할 GitHub 저장소를 연결합니다.",
+    chooseTitle: "연결할 저장소",
+    noAccessible: "GitHub App에서 허용된 저장소가 없습니다.",
+    updateAccess: "GitHub 접근 범위 변경",
+    cancel: "취소",
+    viewGithub: "GitHub에서 보기",
   },
 
   wiki: {
@@ -525,9 +534,50 @@ export const ko = {
     statProjects: "프로젝트",
     statMembers: "멤버",
     apiKeysSection: "API Key",
+    agentCredentialsSection: "Agent credential",
     integrationSection: "Agent 연동",
     accountSection: "계정",
     dangerSection: "워크스페이스 삭제",
+  },
+
+  agentCredentials: {
+    description:
+      "MCP Client에는 이 credential을 한 번만 등록합니다. 아래에서 명시적으로 허용한 Workspace만 Repository에 따라 자동 선택됩니다.",
+    issue: "Credential 발급",
+    namePlaceholder: "예: Codex / Claude Code",
+    readOnly: "읽기 전용",
+    readWrite: "읽기·쓰기",
+    never: "만료 없음",
+    days30: "30일",
+    days90: "90일",
+    days365: "365일",
+    credentials: "내 credential",
+    noCredentials: "발급된 Agent credential이 없습니다.",
+    prefix: "Prefix",
+    capability: "권한",
+    lastUsed: "마지막 사용",
+    status: "상태",
+    active: "활성",
+    revoked: "폐기됨",
+    expired: "만료됨",
+    revoke: "폐기",
+    cancel: "취소",
+    revokeConfirmTitle: "이 Agent credential을 폐기할까요?",
+    revokeConfirmConsequence:
+      "이 값을 사용하는 Client는 다음 요청부터 401을 받습니다. Credential 기록은 유지됩니다.",
+    workspaceAccess: "허용 Workspace",
+    workspaceAccessDescription:
+      "Grant와 현재 membership이 모두 유효한 Workspace만 Agent가 접근할 수 있습니다.",
+    granted: "허용됨",
+    notGranted: "허용 안 됨",
+    grant: "허용",
+    ownerRequired: "OWNER만 변경 가능",
+    issuedTitle: "Agent credential이 발급되었습니다",
+    issuedWarning:
+      "Secret은 지금 한 번만 표시됩니다. 안전한 곳에 복사한 뒤 MCP Client에 등록하세요.",
+    copy: "복사",
+    copied: "복사됨",
+    close: "닫기",
   },
 
   /**
@@ -933,6 +983,15 @@ export const ko = {
 
     /** 🔴 아래 다섯은 Agent 만 마주친다. 화면에는 뜨지 않지만 자리를 비워 두지 않는다. */
     AGENT_UNAUTHORIZED: "인증이 필요합니다.",
+    AGENT_CAPABILITY_REQUIRED: "이 credential에는 필요한 Agent 권한이 없습니다.",
+    AGENT_CONTEXT_REQUIRED:
+      "Repository 또는 허용된 Workspace 선택이 필요합니다.",
+    AGENT_CREDENTIAL_NAME_INVALID:
+      "Agent credential 이름이 올바르지 않습니다.",
+    NOT_CONNECTED_OR_NOT_AUTHORIZED:
+      "허용된 Workspace에서 연결된 Repository를 찾을 수 없습니다.",
+    REPOSITORY_CONTEXT_AMBIGUOUS: () =>
+      "이 Repository가 여러 허용 Workspace에 연결되어 있습니다. Repository별 Workspace를 선택하세요.",
     AGENT_BODY_NOT_JSON: "요청 본문이 올바른 JSON이 아닙니다.",
     AGENT_BODY_TOO_LARGE: "요청 본문이 너무 큽니다.",
     AGENT_BODY_UNSTORABLE_TEXT:

@@ -33,6 +33,7 @@ export interface RepositoryStatus {
   reviewCount: number;
   openIssueCount: number;
   lastReviewAt: Date | null;
+  htmlUrl: string | null;
 }
 
 /** 상세 화면이 그리는 것. 목록보다 몇 칸 더 안다. */
@@ -109,6 +110,7 @@ async function selectRepositoryStatuses(
       reviewCount: sql<number>`coalesce(${stats.review.reviewCount}, 0)`,
       openIssueCount: sql<number>`coalesce(${stats.issue.openIssueCount}, 0)`,
       lastReviewAt: sql<Date | null>`${stats.review.lastReviewAt}`,
+      htmlUrl: repositories.htmlUrl,
     })
     .from(repositories)
     .leftJoin(stats.review, eq(stats.review.repositoryId, repositories.id))

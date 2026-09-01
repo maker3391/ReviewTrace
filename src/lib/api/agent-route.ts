@@ -24,6 +24,14 @@ const IDEMPOTENCY_KEY_MAX = 200;
 /** MCP Client 의 송신 상한과 같은 값. 정상 ingestion 을 줄이지 않고 Vercel 한계보다 먼저 닫는다. */
 export const AGENT_BODY_MAX_BYTES = 4_000_000;
 
+/** Optional, non-authoritative Workspace disambiguation supplied by MCP. */
+export function readAgentWorkspaceHint(request: Request): string | null {
+  const value = new URL(request.url).searchParams.get("workspaceSlug")?.trim();
+  if (value === undefined || value === "") return null;
+  if (value.length > 200) throw new AppError("AGENT_CONTEXT_REQUIRED");
+  return value;
+}
+
 /**
  * 재전송 판별에 쓸 열쇠를 읽는다. 헤더가 없으면 `null` — Dedup 을 요청하지 않은 것이다.
  *

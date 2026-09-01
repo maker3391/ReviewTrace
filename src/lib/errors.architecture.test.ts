@@ -283,7 +283,15 @@ describe("⑩ Agent API 응답은 화면 언어를 타지 않는다", () => {
       expect(response.status, reason).toBe(
         statusForErrorCode(errorCodeForReason(reason)),
       );
-      expect(Object.keys(body.error), reason).toEqual(["code", "message"]);
+      expect(Object.keys(body.error), reason).toEqual(
+        [
+          "AGENT_CONTEXT_REQUIRED",
+          "NOT_CONNECTED_OR_NOT_AUTHORIZED",
+          "REPOSITORY_CONTEXT_AMBIGUOUS",
+        ].includes(reason)
+          ? ["code", "message", "resolutionStatus"]
+          : ["code", "message"],
+      );
 
       // 🔴 EN 사전의 문구가 응답에 실리는 길이 없다.
       const translated = en.errors[reason];

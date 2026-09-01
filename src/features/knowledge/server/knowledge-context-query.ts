@@ -19,7 +19,10 @@ import {
   type KnowledgeExcerpt,
 } from "@/features/knowledge/server/knowledge-page-service";
 import { findProjectBySlug } from "@/features/projects/server/project-service";
-import { resolveRepositoryContext } from "@/features/repositories/server/repository-context-service";
+import {
+  resolveRepositoryContext,
+  type RepositoryContext,
+} from "@/features/repositories/server/repository-context-service";
 import type { KnowledgeContextQuery } from "@/features/knowledge/schemas/knowledge-context-query";
 import type { IssueCategory, IssueSeverity, IssueStatus } from "@/types/review";
 
@@ -91,15 +94,20 @@ export interface KnowledgeContext {
    * 엉뚱한 곳을 본 것이다.
    */
   scope: {
+    resolutionStatus:
+      | "RESOLVED"
+      | "NOT_CONNECTED_OR_NOT_AUTHORIZED"
+      | "PROJECT_NOT_RESOLVED";
     projectSlug: string | null;
     /** 요청한 slug 가 이 Workspace 에서 실제로 찾아졌는가. slug 를 안 보냈으면 `null`. */
     projectResolved: boolean | null;
-    workspace: { resolved: true };
+    workspace: { resolved: true; id: string; slug: string | null };
     repository: {
       requested: string | null;
       resolved: boolean | null;
       id: string | null;
       fullName: string | null;
+      externalRepositoryId: string | null;
     };
     project: {
       requested: string | null;
@@ -131,24 +139,36 @@ const issueSummaryColumns = {
 };
 
 export async function findKnowledgeContext(
-  input: { workspaceId: string; query: KnowledgeContextQuery },
+  input: {
+    workspaceId: string;
+    workspace?: { id: string; slug: string };
+    authorizedRepositoryContext?: RepositoryContext | null;
+    query: KnowledgeContextQuery;
+  },
   executor: DbExecutor = db(),
 ): Promise<KnowledgeContext> {
   const { workspaceId, query } = input;
 
   const requestedRepository = query.repository ?? query.repositoryId;
   const repositoryContext =
-    requestedRepository === null
-      ? null
-      : await resolveRepositoryContext(
-          workspaceId,
-          {
-            provider: "GITHUB",
-            repositoryId: query.repositoryId,
-            fullName: query.repository,
-          },
-          executor,
-        );
+    input.authorizedRepositoryContext !== undefined
+      ? input.authorizedRepositoryContext
+      : requestedRepository === null
+        ? null
+        : await resolveRepositoryContext(
+            workspaceId,
+            {
+              provider: "GITHUB",
+              repositoryId: query.repositoryId,
+              fullName: query.repository,
+            },
+            executor,
+          );
+  const resolvedWorkspace = {
+    resolved: true as const,
+    id: input.workspace?.id ?? repositoryContext?.workspace.id ?? workspaceId,
+    slug: input.workspace?.slug ?? repositoryContext?.workspace.slug ?? null,
+  };
 
   const empty = (scope: KnowledgeContext["scope"]): KnowledgeContext => ({
     scope,
@@ -161,14 +181,16 @@ export async function findKnowledgeContext(
 
   if (requestedRepository !== null && repositoryContext === null) {
     return empty({
+      resolutionStatus: "NOT_CONNECTED_OR_NOT_AUTHORIZED",
       projectSlug: query.projectSlug,
       projectResolved: false,
-      workspace: { resolved: true },
+      workspace: resolvedWorkspace,
       repository: {
         requested: requestedRepository,
         resolved: false,
         id: null,
         fullName: null,
+        externalRepositoryId: null,
       },
       project: {
         requested: query.projectSlug,
@@ -201,14 +223,17 @@ export async function findKnowledgeContext(
     query.projectSlug !== repositoryContext.project.slug
   ) {
     return empty({
+      resolutionStatus: "PROJECT_NOT_RESOLVED",
       projectSlug: query.projectSlug,
       projectResolved: false,
-      workspace: { resolved: true },
+      workspace: resolvedWorkspace,
       repository: {
         requested: requestedRepository,
         resolved: true,
         id: repositoryContext.repository.id,
         fullName: repositoryContext.repository.fullName,
+        externalRepositoryId:
+          repositoryContext.repository.externalRepositoryId,
       },
       project: {
         requested: query.projectSlug,
@@ -228,14 +253,16 @@ export async function findKnowledgeContext(
   if (query.projectSlug !== null && project === null) {
     return {
       scope: {
+        resolutionStatus: "PROJECT_NOT_RESOLVED",
         projectSlug: query.projectSlug,
         projectResolved: false,
-        workspace: { resolved: true },
+        workspace: resolvedWorkspace,
         repository: {
           requested: null,
           resolved: null,
           id: null,
           fullName: null,
+          externalRepositoryId: null,
         },
         project: {
           requested: query.projectSlug,
@@ -371,14 +398,17 @@ export async function findKnowledgeContext(
 
   return {
     scope: {
+      resolutionStatus: "RESOLVED",
       projectSlug: project?.slug ?? null,
       projectResolved: project === null ? null : true,
-      workspace: { resolved: true },
+      workspace: resolvedWorkspace,
       repository: {
         requested: requestedRepository,
         resolved: requestedRepository === null ? null : true,
         id: repositoryContext?.repository.id ?? null,
         fullName: repositoryContext?.repository.fullName ?? null,
+        externalRepositoryId:
+          repositoryContext?.repository.externalRepositoryId ?? null,
       },
       project: {
         requested: query.projectSlug,

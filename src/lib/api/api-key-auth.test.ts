@@ -245,8 +245,15 @@ describe("authenticateAgent — 비밀값이 밖으로 나가지 않는다", () 
     expect(serialized).not.toContain(KEY.keyHash);
     // 🔴 Key 이름은 Activity 의 행위자로 쓰인다 — 그것만 나간다.
     expect(Object.keys(agent).sort()).toEqual([
+      "actorName",
       "apiKeyId",
       "apiKeyName",
+      "authorizedWorkspaceIds",
+      "capabilities",
+      "credentialId",
+      "model",
+      "principalId",
+      "principalType",
       "workspaceId",
     ]);
   });

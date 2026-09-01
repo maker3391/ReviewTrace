@@ -328,6 +328,15 @@ export const en: Messages = {
     choose: "Repository to connect",
     private: "Private",
     public: "Public",
+    connected: "GitHub connected",
+    add: "Add repository",
+    connectTitle: "Connect a GitHub repository",
+    connectDescription: "Connect the GitHub repositories reviewed in this Project.",
+    chooseTitle: "Repository to connect",
+    noAccessible: "The GitHub App has no accessible repositories.",
+    updateAccess: "Update GitHub access",
+    cancel: "Cancel",
+    viewGithub: "View on GitHub",
   },
 
   wiki: {
@@ -383,9 +392,50 @@ export const en: Messages = {
     statProjects: "Projects",
     statMembers: "Members",
     apiKeysSection: "API Keys",
+    agentCredentialsSection: "Agent credentials",
     integrationSection: "Agent Integration",
     accountSection: "Account",
     dangerSection: "Delete workspace",
+  },
+
+  agentCredentials: {
+    description:
+      "Register this credential once in an MCP client. Repository context can select only the Workspaces explicitly granted below.",
+    issue: "Issue credential",
+    namePlaceholder: "For example, Codex / Claude Code",
+    readOnly: "Read only",
+    readWrite: "Read and write",
+    never: "Never expires",
+    days30: "30 days",
+    days90: "90 days",
+    days365: "365 days",
+    credentials: "Your credentials",
+    noCredentials: "No Agent credentials have been issued.",
+    prefix: "Prefix",
+    capability: "Capability",
+    lastUsed: "Last used",
+    status: "Status",
+    active: "Active",
+    revoked: "Revoked",
+    expired: "Expired",
+    revoke: "Revoke",
+    cancel: "Cancel",
+    revokeConfirmTitle: "Revoke this Agent credential?",
+    revokeConfirmConsequence:
+      "Clients using it will receive 401 from their next request. The credential record is retained.",
+    workspaceAccess: "Allowed Workspaces",
+    workspaceAccessDescription:
+      "An Agent can access a Workspace only while both its grant and current membership are valid.",
+    granted: "Granted",
+    notGranted: "Not granted",
+    grant: "Grant",
+    ownerRequired: "Only an OWNER can change this",
+    issuedTitle: "Agent credential issued",
+    issuedWarning:
+      "The secret is shown only once. Copy it to a safe place and register it in your MCP client.",
+    copy: "Copy",
+    copied: "Copied",
+    close: "Close",
   },
 
   workspaceDelete: {
@@ -690,6 +740,16 @@ export const en: Messages = {
     RESOURCE_NOT_FOUND: "Not found.",
 
     AGENT_UNAUTHORIZED: "Authentication is required.",
+    AGENT_CAPABILITY_REQUIRED:
+      "This credential does not have the required Agent capability.",
+    AGENT_CONTEXT_REQUIRED:
+      "A Repository or authorized Workspace selection is required.",
+    AGENT_CREDENTIAL_NAME_INVALID:
+      "That Agent credential name is not valid.",
+    NOT_CONNECTED_OR_NOT_AUTHORIZED:
+      "No connected Repository was found in an authorized Workspace.",
+    REPOSITORY_CONTEXT_AMBIGUOUS: () =>
+      "This Repository is connected to multiple authorized Workspaces. Select a Workspace for this Repository.",
     AGENT_BODY_NOT_JSON: "The request body is not valid JSON.",
     AGENT_BODY_TOO_LARGE: "The request body is too large.",
     AGENT_BODY_UNSTORABLE_TEXT:
