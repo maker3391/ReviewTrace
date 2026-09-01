@@ -68,6 +68,7 @@ export interface IssueEvidenceEntry {
   endLine: number | null;
   snapshot: string | null;
   verification: EvidenceVerification;
+  verifiedAt: Date | null;
 }
 
 export interface IssueDetail {
@@ -98,6 +99,8 @@ export interface IssueDetail {
   /** 이 Issue 를 «처음 만든» Review. 이후 Review 는 Activity 로 남는다. */
   reviewSessionId: string;
   reviewerName: string;
+  reviewBranch: string | null;
+  reviewCommitSha: string | null;
 
   tags: string[];
   /** Activity 없이 뒤늦게 붙인 Evidence. Activity 소속 Evidence 는 각 History 행에 붙는다. */
@@ -135,6 +138,8 @@ export async function findIssueDetail(
       repositoryFullName: repositories.fullName,
       reviewSessionId: reviewIssues.reviewSessionId,
       reviewerName: reviewSessions.reviewerName,
+      reviewBranch: reviewSessions.branch,
+      reviewCommitSha: reviewSessions.commitSha,
     })
     .from(reviewIssues)
     .innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
@@ -207,6 +212,7 @@ export async function findIssueDetail(
         endLine: issueCodeEvidences.endLine,
         snapshot: issueCodeEvidences.snapshot,
         verification: issueCodeEvidences.verification,
+        verifiedAt: issueCodeEvidences.verifiedAt,
       })
       .from(issueCodeEvidences)
       .where(

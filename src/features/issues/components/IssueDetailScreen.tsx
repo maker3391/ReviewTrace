@@ -4,6 +4,7 @@ import type { Route } from "next";
 import { CodeLocation } from "@/components/atoms/CodeLocation";
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
 import { StatusBadge } from "@/components/atoms/StatusBadge";
+import { Timestamp } from "@/components/atoms/Timestamp";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { MetaDot, PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
@@ -20,7 +21,6 @@ import type {
   IssueActivityEntry,
   IssueDetail,
 } from "@/features/issues/server/issue-detail-query";
-import { formatDate } from "@/lib/format/date";
 import { readMessages } from "@/lib/ui/appearance";
 import { cn } from "@/lib/utils";
 import type { EvidenceVerification } from "@/types/review";
@@ -103,13 +103,15 @@ export async function IssueDetailScreen({
             )}
             <MetaDot />
             <span>
-              {t.detected} {formatDate(issue.firstDetectedAt)}
+              {t.detected}{" "}
+              <Timestamp value={issue.firstDetectedAt} variant="exact" />
             </span>
             {issue.resolvedAt !== null && (
               <>
                 <MetaDot />
                 <span>
-                  {t.resolvedAt} {formatDate(issue.resolvedAt)}
+                  {t.resolvedAt}{" "}
+                  <Timestamp value={issue.resolvedAt} variant="exact" />
                 </span>
               </>
             )}
@@ -173,8 +175,9 @@ export async function IssueDetailScreen({
                   after: t.after,
                   viewCode: t.viewCode,
                   noSnapshot: t.noSnapshot,
-                  displayFormatted: t.displayFormatted,
-                  relativeLines: t.relativeLines,
+                  deletedLines: t.deletedLines,
+                  addedLines: t.addedLines,
+                  checkedAt: t.checkedAt,
                   showAllLines: t.showAllEvidenceLines,
                   verification: t.evidenceVerification,
                 }}
@@ -209,8 +212,9 @@ export async function IssueDetailScreen({
                       after: t.after,
                       viewCode: t.viewCode,
                       noSnapshot: t.noSnapshot,
-                      displayFormatted: t.displayFormatted,
-                      relativeLines: t.relativeLines,
+                      deletedLines: t.deletedLines,
+                      addedLines: t.addedLines,
+                      checkedAt: t.checkedAt,
                       showAllEvidenceLines: t.showAllEvidenceLines,
                       evidenceVerification: t.evidenceVerification,
                     }}
@@ -315,6 +319,23 @@ export async function IssueDetailScreen({
               </div>
 
               <div>
+                <dt className="text-muted-foreground">{t.branch}</dt>
+                <dd className="mt-1 min-w-0 truncate font-mono" title={issue.reviewBranch ?? undefined}>
+                  {issue.reviewBranch ?? "—"}
+                </dd>
+              </div>
+
+              <div>
+                <dt className="text-muted-foreground">{t.commit}</dt>
+                <dd
+                  className="mt-1 min-w-0 break-all font-mono"
+                  title={issue.reviewCommitSha ?? undefined}
+                >
+                  {issue.reviewCommitSha ?? "—"}
+                </dd>
+              </div>
+
+              <div>
                 <dt className="text-muted-foreground">{t.source}</dt>
                 <dd className="mt-1 min-w-0 font-mono">
                   {issue.source === null && issue.externalId === null ? (
@@ -345,7 +366,7 @@ export async function IssueDetailScreen({
               <div>
                 <dt className="text-muted-foreground">{t.lastChanged}</dt>
                 <dd className="mt-1 tabular-nums">
-                  {formatDate(issue.updatedAt)}
+                  <Timestamp value={issue.updatedAt} variant="exact" />
                 </dd>
               </div>
             </dl>
@@ -418,7 +439,7 @@ function ActivityRow({
             </span>
           )}
           <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">
-            {formatDate(activity.createdAt)}
+            <Timestamp value={activity.createdAt} variant="exact" />
           </span>
         </div>
         {activity.description !== null && (
@@ -442,8 +463,9 @@ function ActivityRow({
                 after: labels.after,
                 viewCode: labels.viewCode,
                 noSnapshot: labels.noSnapshot,
-                displayFormatted: labels.displayFormatted,
-                relativeLines: labels.relativeLines,
+                deletedLines: labels.deletedLines,
+                addedLines: labels.addedLines,
+                checkedAt: labels.checkedAt,
                 showAllLines: labels.showAllEvidenceLines,
                 verification: labels.evidenceVerification,
               }}
@@ -469,8 +491,9 @@ interface ActivityKnowledgeLabels {
   after: string;
   viewCode: string;
   noSnapshot: string;
-  displayFormatted: string;
-  relativeLines: string;
+  deletedLines: string;
+  addedLines: string;
+  checkedAt: string;
   showAllEvidenceLines: (count: number) => string;
   evidenceVerification: Record<EvidenceVerification, string>;
 }

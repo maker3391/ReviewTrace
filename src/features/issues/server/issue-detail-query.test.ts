@@ -37,6 +37,8 @@ describe("findIssueDetail — 사람이 읽는 Knowledge", () => {
           repositoryFullName: "acme/app",
           reviewSessionId: "66666666-6666-4666-8666-666666666666",
           reviewerName: "codex",
+          reviewBranch: "develop",
+          reviewCommitSha: "abc123",
         },
       ]),
       selects([
@@ -69,6 +71,7 @@ describe("findIssueDetail — 사람이 읽는 Knowledge", () => {
           endLine: 14,
           snapshot: "eq(invitation.email, accountEmail)",
           verification: "VERIFIED",
+          verifiedAt: now,
         },
         {
           id: "88888888-8888-4888-8888-888888888888",
@@ -80,6 +83,7 @@ describe("findIssueDetail — 사람이 읽는 Knowledge", () => {
           endLine: 11,
           snapshot: "eq(invitation.tokenHash, tokenHash)",
           verification: "VERIFIED",
+          verifiedAt: now,
         },
       ]),
     ]);
@@ -92,6 +96,11 @@ describe("findIssueDetail — 사람이 읽는 Knowledge", () => {
 
     expect(issue?.rootCause).toContain("이메일");
     expect(issue?.failurePath).toContain("공격자");
+    expect(issue).toMatchObject({
+      repositoryFullName: "acme/app",
+      reviewBranch: "develop",
+      reviewCommitSha: "abc123",
+    });
     expect(issue?.activities[0]).toMatchObject({
       solution: "claim UPDATE에 이메일 조건을 넣었다.",
       decisionReason: "판정과 쓰기를 한 문장으로 유지한다.",

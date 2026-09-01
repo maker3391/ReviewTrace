@@ -15,8 +15,9 @@ const labels = {
   after: "After",
   viewCode: "View on GitHub",
   noSnapshot: "No snapshot",
-  displayFormatted: "Display format",
-  relativeLines: "relative lines",
+  deletedLines: "Deleted lines",
+  addedLines: "Added lines",
+  checkedAt: "Checked",
   showAllLines: (count: number) => `Show all ${count} lines`,
   verification: {
     UNVERIFIED: "Unverified",
@@ -38,6 +39,7 @@ function evidence(
     endLine: 14,
     snapshot: "export function Example() {\n  return <Button>Save</Button>;\n}",
     verification: "VERIFIED",
+    verifiedAt: new Date("2026-09-01T10:23:41.000Z"),
     ...overrides,
   };
 }
@@ -97,7 +99,6 @@ describe("CodeEvidenceBlock", () => {
       createElement(CodeEvidenceBlock, {
         evidence: evidence({ filePath: "src/Test.tsx", snapshot }),
         displaySnapshot: formatted.code,
-        displayFormatted: formatted.formatted,
         displayLineStructureChanged: formatted.lineStructureChanged,
         repositoryFullName: "acme/reviewtrace",
         labels,
@@ -107,7 +108,8 @@ describe("CodeEvidenceBlock", () => {
     expect(markup).toContain("<span>1</span>");
     expect(markup).toContain("<span>7</span>");
     expect(markup).toContain('data-line-number-kind="relative"');
-    expect(markup).toContain("Display format · relative lines");
+    expect(markup).not.toContain("Display format");
+    expect(markup).not.toContain("relative lines");
     expect(markup).toContain("src/Test.tsx:12-14");
     expect(markup).not.toContain("<span>15</span>");
     expect(markup).toContain("\n  <span");
@@ -158,7 +160,6 @@ describe("CodeEvidenceBlock", () => {
           snapshot,
         }),
         displaySnapshot: formatted.code,
-        displayFormatted: formatted.formatted,
         displayLineStructureChanged: formatted.lineStructureChanged,
         repositoryFullName: "acme/reviewtrace",
         labels,
@@ -168,7 +169,7 @@ describe("CodeEvidenceBlock", () => {
     expect(markup).toContain('data-line-number-kind="source"');
     expect(markup).toContain("<span>103</span>");
     expect(markup).toContain("<span>112</span>");
-    expect(markup).toContain("Display format");
+    expect(markup).not.toContain("Display format");
     expect(markup).not.toContain("relative lines");
   });
 
@@ -229,6 +230,7 @@ describe("CodeEvidenceBlock", () => {
     expect(markup).toContain("src/example.tsx:12-14");
     expect(markup).toContain("src/example.tsx:20-22");
     expect(markup).toContain("abcdef1");
+    expect(markup).toContain("2026-09-01 10:23:41 UTC");
     expect(markup).toContain("#L20-L22");
     expect(markup).toContain("TSX");
     expect(markup).toContain("<span>12</span>");
@@ -261,9 +263,14 @@ describe("CodeEvidenceBlock", () => {
     const markup = renderToStaticMarkup(tree);
 
     expect(markup).toContain("bg-destructive/[0.08]");
-    expect(markup).toContain("bg-primary/[0.08]");
+    expect(markup).toContain("bg-diff-addition");
     expect(markup).toContain("−");
     expect(markup).toContain("+");
+    expect(markup).toContain('data-change-kind="deletion"');
+    expect(markup).toContain('data-change-kind="addition"');
+    expect(markup).toContain('data-change-kind="unchanged"');
+    expect(markup).toContain("Deleted lines");
+    expect(markup).toContain("Added lines");
   });
 
   it("formatted BEFORE/AFTER diff는 상대 줄만 표시하고 source line을 합성하지 않는다", async () => {
@@ -298,7 +305,28 @@ describe("CodeEvidenceBlock", () => {
     expect(markup).toContain("#L103");
     expect(markup).not.toContain("<span>104</span>");
     expect(markup).toContain("bg-destructive/[0.08]");
-    expect(markup).toContain("bg-primary/[0.08]");
+    expect(markup).toContain("bg-diff-addition");
+  });
+
+  it("MISMATCH verification과 green addition diff를 독립적으로 표시한다", async () => {
+    const tree = await EvidenceList({
+      evidence: [
+        evidence({ id: "before-mismatch", kind: "BEFORE", snapshot: "old" }),
+        evidence({
+          id: "after-mismatch",
+          kind: "AFTER",
+          snapshot: "new",
+          verification: "MISMATCH",
+        }),
+      ],
+      repositoryFullName: "acme/reviewtrace",
+      labels,
+    });
+    const markup = renderToStaticMarkup(tree);
+
+    expect(markup).toContain("Mismatch");
+    expect(markup).toContain("bg-diff-addition");
+    expect(markup).toContain('data-change-kind="addition"');
   });
 
   it("긴 기존 Evidence는 preview와 native 전체 보기를 제공한다", () => {

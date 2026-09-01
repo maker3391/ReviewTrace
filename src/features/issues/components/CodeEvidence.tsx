@@ -12,6 +12,7 @@ import {
 } from "@/features/issues/components/code-evidence-diff";
 import type { IssueEvidenceEntry } from "@/features/issues/server/issue-detail-query";
 import { cn } from "@/lib/utils";
+import { Timestamp } from "@/components/atoms/Timestamp";
 import type { EvidenceVerification } from "@/types/review";
 
 const highlighter = createLowlight(common);
@@ -153,8 +154,9 @@ export interface EvidenceLabels {
   after: string;
   viewCode: string;
   noSnapshot: string;
-  displayFormatted: string;
-  relativeLines: string;
+  deletedLines: string;
+  addedLines: string;
+  checkedAt: string;
   showAllLines: (count: number) => string;
   verification: Record<EvidenceVerification, string>;
 }
@@ -195,9 +197,6 @@ export async function EvidenceList({
               key={item.id}
               evidence={item}
               displaySnapshot={displaySnapshots[group.index]?.code ?? null}
-              displayFormatted={
-                displaySnapshots[group.index]?.formatted ?? false
-              }
               displayLineStructureChanged={
                 displaySnapshots[group.index]?.lineStructureChanged ?? false
               }
@@ -225,7 +224,6 @@ export async function EvidenceList({
             <CodeEvidenceBlock
               evidence={before}
               displaySnapshot={beforeDisplay?.code ?? null}
-              displayFormatted={beforeDisplay?.formatted ?? false}
               displayLineStructureChanged={
                 beforeDisplay?.lineStructureChanged ?? false
               }
@@ -236,7 +234,6 @@ export async function EvidenceList({
             <CodeEvidenceBlock
               evidence={after}
               displaySnapshot={afterDisplay?.code ?? null}
-              displayFormatted={afterDisplay?.formatted ?? false}
               displayLineStructureChanged={
                 afterDisplay?.lineStructureChanged ?? false
               }
@@ -254,7 +251,6 @@ export async function EvidenceList({
 export function CodeEvidenceBlock({
   evidence,
   displaySnapshot,
-  displayFormatted = false,
   displayLineStructureChanged = false,
   changedLines = new Set(),
   repositoryFullName,
@@ -263,7 +259,6 @@ export function CodeEvidenceBlock({
   evidence: IssueEvidenceEntry;
   /** EvidenceList가 서버에서 만든 표시용 문자열. DB snapshot과는 별개다. */
   displaySnapshot?: string | null;
-  displayFormatted?: boolean;
   /** true면 gutter는 실제 source line이 아니라 1부터 시작하는 상대 display line이다. */
   displayLineStructureChanged?: boolean;
   changedLines?: ReadonlySet<number>;
@@ -289,12 +284,6 @@ export function CodeEvidenceBlock({
               {language.label}
             </span>
           )}
-          {displayFormatted && (
-            <span className="text-[10px] text-muted-foreground">
-              {labels.displayFormatted}
-              {displayLineStructureChanged ? ` · ${labels.relativeLines}` : ""}
-            </span>
-          )}
           <span
             className={cn(
               "rounded-full border px-2 py-0.5 text-[10px] font-medium",
@@ -311,8 +300,14 @@ export function CodeEvidenceBlock({
           {evidenceLocation(evidence)}
         </span>
         <div className="mt-1 flex min-w-0 items-center justify-between gap-3">
-          <span className="font-mono text-[10px] text-muted-foreground">
-            {evidence.commitSha.slice(0, 7)}
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+            <span className="font-mono">{evidence.commitSha.slice(0, 7)}</span>
+            {evidence.verifiedAt !== null && (
+              <span className="tabular-nums">
+                {labels.checkedAt}{" "}
+                <Timestamp value={evidence.verifiedAt} variant="exact" />
+              </span>
+            )}
           </span>
           <a
             href={githubEvidenceUrl(repositoryFullName, evidence)}
@@ -331,6 +326,13 @@ export function CodeEvidenceBlock({
         </p>
       ) : (
         <>
+          {changedLines.size > 0 && (
+            <span className="sr-only">
+              {evidence.kind === "BEFORE"
+                ? labels.deletedLines
+                : labels.addedLines}
+            </span>
+          )}
           <CodeViewport
             lines={preview?.lines ?? []}
             language={language}
@@ -395,8 +397,15 @@ function CodeViewport({
                 line.changed &&
                   (changeKind === "BEFORE"
                     ? "bg-destructive/[0.08] text-destructive"
-                    : "bg-primary/[0.08] text-primary"),
+                    : "bg-diff-addition text-diff-addition-foreground"),
               )}
+              data-change-kind={
+                line.changed
+                  ? changeKind === "BEFORE"
+                    ? "deletion"
+                    : "addition"
+                  : "unchanged"
+              }
             >
               <span>
                 {line.changed ? (changeKind === "BEFORE" ? "−" : "+") : ""}
@@ -417,7 +426,7 @@ function CodeViewport({
                   "pointer-events-none absolute inset-x-0 h-5",
                   changeKind === "BEFORE"
                     ? "bg-destructive/[0.08]"
-                    : "bg-primary/[0.08]",
+                    : "bg-diff-addition",
                 )}
                 style={{ top: `${0.75 + index * 1.25}rem` }}
               />
