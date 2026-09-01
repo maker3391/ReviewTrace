@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { updateIssueStatusAction } from "@/features/issues/actions/issue-actions";
+import { MarkdownContent } from "@/features/issues/components/MarkdownContent";
 import type {
  IssueStatusFormInput,
  IssueStatusFormValues,
@@ -39,6 +40,10 @@ export interface IssueStatusLabels {
  changeStatus: string;
  changing: string;
  resolutionSummary: string;
+ editResolutionSummary: string;
+ cancelResolutionSummary: string;
+ saveResolutionSummary: string;
+ emptyResolutionSummary: string;
  /** 🔴 값의 이름표. Select 의 `value` 는 `IssueStatus` 그대로다. */
  statusOptions: Record<IssueStatus, string>;
 }
@@ -59,6 +64,7 @@ export function IssueStatusControl({
  labels: IssueStatusLabels;
 }) {
  const [failure, setFailure] = useState<string | null>(null);
+ const [editingResolutionSummary, setEditingResolutionSummary] = useState(false);
 
  const form = useLocalizedForm<
  IssueStatusFormValues,
@@ -80,6 +86,15 @@ export function IssueStatusControl({
  깨진다(React Compiler 가 이 Component 를 통째로 건너뛴다). 구독은 `useWatch` 로 한다.
  */
  const status = useWatch({ control: form.control, name: "status" });
+ const showResolutionEditor =
+ status === "RESOLVED" &&
+ (editingResolutionSummary ||
+ currentStatus !== "RESOLVED" ||
+ currentResolutionSummary === null);
+ const editingExistingSummary =
+ status === "RESOLVED" &&
+ currentStatus === "RESOLVED" &&
+ editingResolutionSummary;
 
  async function onSubmit(values: IssueStatusFormInput) {
  setFailure(null);
@@ -109,7 +124,9 @@ export function IssueStatusControl({
  return;
  }
 
- // 화면은 서버가 다시 그린다 — 여기서 State 를 손보지 않는다.
+ // 저장 결과는 revalidate 된 Server Component props로 다시 들어온다. 기존 요약을
+ // 편집하던 경우에는 로컬 편집 상태도 닫아 조회용 Markdown 문서로 돌아간다.
+ setEditingResolutionSummary(false);
  }
 
  return (
@@ -144,6 +161,7 @@ export function IssueStatusControl({
  />
  </div>
 
+ {!editingExistingSummary && (
  <Button
  type="submit"
  size="sm"
@@ -151,12 +169,15 @@ export function IssueStatusControl({
  같은 상태로 다시 바꾸면 History 에 뜻 없는 한 줄이 남는다 —
  모든 전이가 Activity 를 남기기 때문이다(`issue-status-service.ts`).
  */
- disabled={form.formState.isSubmitting || status === currentStatus}
+ disabled={form.formState.isSubmitting || !form.formState.isDirty}
  >
- {/* 🔴 label 을 갈아 끼우지 않는다 — 무엇을 실행 중인지가 계속 보여야 한다. */}
+ {/* 같은 전이 안에서도 상태 변경과 요약 저장은 서로 다른 작업으로 읽혀야 한다. */}
  {form.formState.isSubmitting && <Spinner />}
- {labels.changeStatus}
+ {status === currentStatus && showResolutionEditor
+ ? labels.saveResolutionSummary
+ : labels.changeStatus}
  </Button>
+ )}
  </div>
 
  {/*
@@ -165,6 +186,8 @@ export function IssueStatusControl({
  */}
  {status === "RESOLVED" && (
  <div className="flex flex-col gap-1">
+ {showResolutionEditor ? (
+ <>
  <label
  className="text-xs font-medium"
  htmlFor="issue-resolution-summary"
@@ -173,15 +196,63 @@ export function IssueStatusControl({
  </label>
  <Textarea
  id="issue-resolution-summary"
- rows={4}
- className="text-xs"
+ rows={8}
+ className="font-mono text-xs leading-relaxed"
  {...form.register("resolutionSummary")}
  />
  {form.formState.errors.resolutionSummary !== undefined && (
  <p className="text-xs text-destructive">
  {form.formState.errors.resolutionSummary.message}
  </p>
-)}
+ )}
+ {editingExistingSummary && (
+ <div className="mt-1 flex justify-end gap-2">
+ <Button
+ type="button"
+ variant="ghost"
+ size="sm"
+ onClick={() => {
+ form.resetField("resolutionSummary", {
+ defaultValue: currentResolutionSummary ?? "",
+ });
+ setEditingResolutionSummary(false);
+ }}
+ >
+ {labels.cancelResolutionSummary}
+ </Button>
+ <Button
+ type="submit"
+ size="sm"
+ disabled={form.formState.isSubmitting || !form.formState.isDirty}
+ >
+ {form.formState.isSubmitting && <Spinner />}
+ {labels.saveResolutionSummary}
+ </Button>
+ </div>
+ )}
+ </>
+ ) : (
+ <div className="rounded-md border border-border/70 bg-surface-muted/25 p-3">
+ <div className="mb-2 flex items-center justify-between gap-2">
+ <span className="text-xs font-medium">{labels.resolutionSummary}</span>
+ <Button
+ type="button"
+ variant="ghost"
+ size="sm"
+ className="h-7 px-2 text-[11px]"
+ aria-expanded={false}
+ onClick={() => setEditingResolutionSummary(true)}
+ >
+ {labels.editResolutionSummary}
+ </Button>
+ </div>
+ <MarkdownContent
+ content={currentResolutionSummary ?? ""}
+ emptyLabel={labels.emptyResolutionSummary}
+ className="gap-2 [&_p]:text-xs"
+ />
+ </div>
+ )}
  </div>
 )}
 
