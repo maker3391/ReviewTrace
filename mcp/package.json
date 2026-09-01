@@ -20,7 +20,7 @@
   "bugs": "https://github.com/maker3391/ReviewTrace/issues",
   "type": "module",
   "bin": {
-    "reviewtrace-mcp": "./server.mjs"
+    "reviewtrace-mcp": "server.mjs"
   },
   "files": [
     "server.mjs",
