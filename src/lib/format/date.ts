@@ -16,10 +16,76 @@ import { messages, type Locale } from "@/config/i18n";
 
 /** `2026-08-28`. 목록의 시각 칸에 쓴다. */
 export function formatDate(value: Date): string {
+  if (!isValidDate(value)) return "—";
   const year = value.getUTCFullYear();
   const month = String(value.getUTCMonth() + 1).padStart(2, "0");
   const day = String(value.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function timeParts(value: Date): { hours: string; minutes: string; seconds: string } {
+  return {
+    hours: String(value.getUTCHours()).padStart(2, "0"),
+    minutes: String(value.getUTCMinutes()).padStart(2, "0"),
+    seconds: String(value.getUTCSeconds()).padStart(2, "0"),
+  };
+}
+
+/** Detail policy: immutable, exact UTC time down to seconds. */
+export function formatExactDateTime(value: Date): string {
+  if (!isValidDate(value)) return "—";
+  const { hours, minutes, seconds } = timeParts(value);
+  return `${formatDate(value)} ${hours}:${minutes}:${seconds} UTC`;
+}
+
+/** Dense list policy: month/day and UTC time down to minutes. */
+export function formatCompactDateTime(value: Date): string {
+  if (!isValidDate(value)) return "—";
+  const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(value.getUTCDate()).padStart(2, "0");
+  const { hours, minutes } = timeParts(value);
+  return `${month}-${day} ${hours}:${minutes}`;
+}
+
+/** Dashboard policy. Exact UTC remains available through the Timestamp title/aria-label. */
+export function formatRelativeTime(
+  value: Date,
+  now: Date,
+  locale: Locale,
+): string {
+  if (!isValidDate(value) || !isValidDate(now)) return "—";
+  const elapsedMs = Math.max(0, now.getTime() - value.getTime());
+  const elapsedMinutes = Math.floor(elapsedMs / 60_000);
+  const t = messages(locale).date;
+  if (elapsedMinutes < 1) return t.justNow;
+  if (elapsedMinutes < 60) return t.minutesAgo(elapsedMinutes);
+
+  const nowDay = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+  );
+  const valueDay = Date.UTC(
+    value.getUTCFullYear(),
+    value.getUTCMonth(),
+    value.getUTCDate(),
+  );
+  const calendarDays = Math.max(
+    0,
+    Math.floor((nowDay - valueDay) / 86_400_000),
+  );
+  if (calendarDays === 1) {
+    const { hours, minutes } = timeParts(value);
+    return t.yesterdayAt(`${hours}:${minutes}`);
+  }
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return t.hoursAgo(elapsedHours);
+  return t.days(calendarDays);
+}
+
+function isValidDate(value: Date): boolean {
+  return !Number.isNaN(value.getTime());
 }
 
 /**
@@ -37,6 +103,7 @@ export function formatAgeInDays(
   now: Date,
   locale: Locale,
 ): string {
+  if (!isValidDate(value) || !isValidDate(now)) return "—";
   const days = Math.max(
     0,
     Math.floor((now.getTime() - value.getTime()) / 86_400_000),

@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { AlertTriangle, Boxes, ListChecks, Repeat2 } from "lucide-react";
 
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
+import { Timestamp } from "@/components/atoms/Timestamp";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
@@ -19,7 +20,7 @@ import {
 import { projectSectionHref, sectionHref } from "@/config/navigation";
 import { findWorkspaceDashboard } from "@/features/dashboard/server/workspace-dashboard-query";
 import { CreateProjectButton } from "@/features/projects/components/CreateProjectButton";
-import { formatAgeInDays, formatDate } from "@/lib/format/date";
+import { formatAgeInDays } from "@/lib/format/date";
 import { readLocale, readMessages } from "@/lib/ui/appearance";
 
 /**
@@ -165,9 +166,12 @@ export async function WorkspaceDashboardScreen({
                     )}
                   </TableCell>
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
-                    {project.lastActivityAt === null
-                      ? "—"
-                      : formatDate(project.lastActivityAt)}
+                    <Timestamp
+                      value={project.lastActivityAt}
+                      variant="relative"
+                      now={now}
+                      locale={locale}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -335,7 +339,13 @@ export async function WorkspaceDashboardScreen({
                       )}
                     </p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {entry.projectName} · {formatDate(entry.at)}
+                      {entry.projectName} ·{" "}
+                      <Timestamp
+                        value={entry.at}
+                        variant="relative"
+                        now={now}
+                        locale={locale}
+                      />
                     </p>
                   </div>
                 </li>

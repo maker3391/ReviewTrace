@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ListChecks } from "lucide-react";
+import { Timestamp } from "@/components/atoms/Timestamp";
 
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
@@ -21,7 +22,6 @@ import {
 } from "@/features/reviews/components/review-table-columns";
 import { findProjectReviewPage } from "@/features/reviews/server/review-query";
 import type { ProjectContext } from "@/features/projects/types/project";
-import { formatDate } from "@/lib/format/date";
 import {
   listPageHref,
   parsePageRequest,
@@ -110,6 +110,12 @@ export async function ReviewListScreen({
                       >
                         {review.reviewerName}
                       </Link>
+                      <span
+                        className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground lg:hidden"
+                        title={review.repositoryFullName}
+                      >
+                        {review.repositoryFullName}
+                      </span>
                     </TableCell>
                     {/*
  🔴 **식별자를 글자 단위로 접지 않는다.** 예전에는 `break-all` 이라
@@ -153,7 +159,7 @@ export async function ReviewListScreen({
                         "text-xs tabular-nums text-muted-foreground",
                       )}
                     >
-                      {formatDate(review.createdAt)}
+                      <Timestamp value={review.createdAt} variant="compact" />
                     </TableCell>
                   </TableRow>
                 );

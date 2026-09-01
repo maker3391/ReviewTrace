@@ -3,6 +3,7 @@ import type { Route } from "next";
 
 import { CodeLocation } from "@/components/atoms/CodeLocation";
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
+import { Timestamp } from "@/components/atoms/Timestamp";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { StatRow } from "@/components/molecules/StatRow";
 import {
@@ -29,7 +30,7 @@ import {
   REVIEW_COL,
   REVIEW_TABLE,
 } from "@/features/reviews/components/review-table-columns";
-import { formatAgeInDays, formatDate } from "@/lib/format/date";
+import { formatAgeInDays } from "@/lib/format/date";
 import { readLocale, readMessages } from "@/lib/ui/appearance";
 import { cn } from "@/lib/utils";
 
@@ -255,7 +256,12 @@ export async function ProjectDashboardScreen({
                     {pattern.resolvedCount}
                   </TableCell>
                   <TableCell className="hidden text-right text-xs tabular-nums text-muted-foreground sm:table-cell">
-                    {formatDate(pattern.lastDetectedAt)}
+                    <Timestamp
+                      value={pattern.lastDetectedAt}
+                      variant="relative"
+                      now={now}
+                      locale={locale}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -367,7 +373,12 @@ export async function ProjectDashboardScreen({
                         "text-xs tabular-nums text-muted-foreground",
                       )}
                     >
-                      {formatDate(review.createdAt)}
+                      <Timestamp
+                        value={review.createdAt}
+                        variant="relative"
+                        now={now}
+                        locale={locale}
+                      />
                     </TableCell>
                   </TableRow>
                 );
@@ -426,9 +437,12 @@ export async function ProjectDashboardScreen({
                     {repository.openIssueCount}
                   </TableCell>
                   <TableCell className="hidden text-right text-xs tabular-nums text-muted-foreground sm:table-cell">
-                    {repository.lastReviewAt === null
-                      ? "—"
-                      : formatDate(repository.lastReviewAt)}
+                    <Timestamp
+                      value={repository.lastReviewAt}
+                      variant="relative"
+                      now={now}
+                      locale={locale}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -469,7 +483,12 @@ export async function ProjectDashboardScreen({
                   {page.title}
                 </Link>
                 <span className="w-20 shrink-0 text-right tabular-nums text-muted-foreground">
-                  {formatDate(page.updatedAt)}
+                  <Timestamp
+                    value={page.updatedAt}
+                    variant="relative"
+                    now={now}
+                    locale={locale}
+                  />
                 </span>
               </li>
             ))}
@@ -508,7 +527,12 @@ export async function ProjectDashboardScreen({
                     </span>
                   )}
                   <span className="w-20 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
-                    {formatDate(resolution.resolvedAt)}
+                    <Timestamp
+                      value={resolution.resolvedAt}
+                      variant="relative"
+                      now={now}
+                      locale={locale}
+                    />
                   </span>
                 </div>
                 <p className="line-clamp-2 text-[11px] text-muted-foreground">

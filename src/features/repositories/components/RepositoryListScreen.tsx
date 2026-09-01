@@ -13,16 +13,19 @@ import {
 import { ExternalLink, FolderGit2 } from "lucide-react";
 
 import { PageContainer } from "@/components/molecules/PageContainer";
+import { Timestamp } from "@/components/atoms/Timestamp";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { TablePagination } from "@/components/organisms/TablePagination";
-import { findRepositoryStatusPage } from "@/features/repositories/server/repository-query";
+import {
+  findRepositoryStatusPage,
+  listProjectRepositoryIdentities,
+} from "@/features/repositories/server/repository-query";
 import {
   listWorkspaceGithubInstallations,
   listWorkspaceGithubRepositories,
 } from "@/features/repositories/server/github-installation-service";
 import { RepositoryConnect } from "@/features/repositories/components/RepositoryConnect";
 import type { ProjectContext } from "@/features/projects/types/project";
-import { formatDate } from "@/lib/format/date";
 import {
   listPageHref,
   parsePageRequest,
@@ -30,7 +33,10 @@ import {
 } from "@/lib/pagination";
 import { readMessages } from "@/lib/ui/appearance";
 import { cn } from "@/lib/utils";
-import { repositoryScreenState } from "@/features/repositories/components/repository-list-state";
+import {
+  excludeCurrentProjectRepositories,
+  repositoryScreenState,
+} from "@/features/repositories/components/repository-list-state";
 
 /** Project의 Repository 목록과 Workspace-scoped GitHub App 연결 진입점. */
 export async function RepositoryListScreen({
@@ -55,6 +61,7 @@ export async function RepositoryListScreen({
     messages,
     githubRepositories,
     githubInstallations,
+    connectedRepositoryIdentities,
   ] = await Promise.all([
     findRepositoryStatusPage(
       { workspaceId, projectId: project.projectId },
@@ -63,13 +70,23 @@ export async function RepositoryListScreen({
     readMessages(),
     listWorkspaceGithubRepositories(workspaceId),
     listWorkspaceGithubInstallations(workspaceId),
+    listProjectRepositoryIdentities({
+      workspaceId,
+      projectId: project.projectId,
+    }),
   ]);
   const repositories = repositoryPage.items;
   const t = messages.repositories;
   const hasInstallation = githubInstallations.length > 0;
+  const availableGithubRepositories = excludeCurrentProjectRepositories(
+    githubRepositories,
+    connectedRepositoryIdentities,
+  );
+  const allAccessibleConnected =
+    githubRepositories.length > 0 && availableGithubRepositories.length === 0;
   const state = repositoryScreenState({
     hasInstallation,
-    repositoryCount: repositories.length,
+    repositoryCount: repositoryPage.total,
   });
   const connectLabels = {
     connect: t.connect,
@@ -80,6 +97,7 @@ export async function RepositoryListScreen({
     connected: t.connected,
     add: t.add,
     noAccessible: t.noAccessible,
+    allConnected: t.allConnected,
     updateAccess: t.updateAccess,
     cancel: t.cancel,
   };
@@ -96,8 +114,9 @@ export async function RepositoryListScreen({
               <RepositoryConnect
                 workspaceSlug={workspaceSlug}
                 projectSlug={project.slug}
-                repositories={githubRepositories}
+                repositories={availableGithubRepositories}
                 hasInstallation={false}
+                allAccessibleConnected={false}
                 mode="empty"
                 labels={connectLabels}
               />
@@ -121,8 +140,9 @@ export async function RepositoryListScreen({
             <RepositoryConnect
               workspaceSlug={workspaceSlug}
               projectSlug={project.slug}
-              repositories={githubRepositories}
+              repositories={availableGithubRepositories}
               hasInstallation
+              allAccessibleConnected={allAccessibleConnected}
               mode="inline"
               labels={connectLabels}
             />
@@ -133,8 +153,9 @@ export async function RepositoryListScreen({
               <RepositoryConnect
                 workspaceSlug={workspaceSlug}
                 projectSlug={project.slug}
-                repositories={githubRepositories}
+                repositories={availableGithubRepositories}
                 hasInstallation={hasInstallation}
+                allAccessibleConnected={allAccessibleConnected}
                 mode="dialog"
                 labels={connectLabels}
               />
@@ -191,9 +212,10 @@ export async function RepositoryListScreen({
                       {repository.openIssueCount}
                     </TableCell>
                     <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
-                      {repository.lastReviewAt === null
-                        ? "—"
-                        : formatDate(repository.lastReviewAt)}
+                      <Timestamp
+                        value={repository.lastReviewAt}
+                        variant="compact"
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

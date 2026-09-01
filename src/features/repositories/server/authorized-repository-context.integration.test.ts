@@ -122,6 +122,7 @@ async function issuePrincipal(
   tx: DbExecutor,
   seed: Seed,
   grants: readonly string[],
+  reviewLanguage: "ko" | "en" = "en",
 ): Promise<{ token: string; principalId: string; credentialId: string }> {
   const [principal] = await tx
     .insert(agentPrincipals)
@@ -129,6 +130,7 @@ async function issuePrincipal(
       type: "USER_AGENT",
       ownerUserId: seed.userId,
       displayName: "Codex",
+      reviewLanguage,
     })
     .returning({ id: agentPrincipals.id });
   if (grants.length > 0) {
@@ -213,14 +215,17 @@ describe.skipIf(!enabled)("principal Agent authorized Repository context", () =>
         externalId: "1002",
         fullName: "acme/repo-b",
       });
-      const credential = await issuePrincipal(tx, seed, [
-        seed.a.workspaceId,
-        seed.b.workspaceId,
-      ]);
+      const credential = await issuePrincipal(
+        tx,
+        seed,
+        [seed.a.workspaceId, seed.b.workspaceId],
+        "ko",
+      );
       const authorization = await authenticateAgent(
         request(credential.token),
         tx,
       );
+      expect(authorization.reviewLanguage).toBe("ko");
 
       const a = await resolveAuthorizedRepositoryContext(
         {
@@ -414,6 +419,7 @@ describe.skipIf(!enabled)("principal Agent authorized Repository context", () =>
         principalType: "USER_AGENT",
         actorName: "test",
         capabilities: ["READ", "WRITE"],
+        reviewLanguage: "en",
         authorizedWorkspaceIds: [seed.a.workspaceId],
       };
       await expect(
@@ -435,6 +441,7 @@ describe.skipIf(!enabled)("principal Agent authorized Repository context", () =>
           name: "first",
           expiresAt: null,
           capabilityScopes: ["READ", "WRITE"],
+          reviewLanguage: "ko",
         },
         tx,
       );
@@ -465,6 +472,7 @@ describe.skipIf(!enabled)("principal Agent authorized Repository context", () =>
           name: "rotated",
           expiresAt: null,
           capabilityScopes: ["READ"],
+          reviewLanguage: "ko",
         },
         tx,
       );

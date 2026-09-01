@@ -3,6 +3,7 @@ import type { Route } from "next";
 
 import { CodeLocation } from "@/components/atoms/CodeLocation";
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
+import { Timestamp } from "@/components/atoms/Timestamp";
 import { StatusBadge } from "@/components/atoms/StatusBadge";
 import {
   Table,
@@ -25,7 +26,6 @@ import {
   issueFilterToQueryString,
   type IssueFilter,
 } from "@/features/issues/schemas/issue-filter";
-import { formatDate } from "@/lib/format/date";
 import { readMessages } from "@/lib/ui/appearance";
 import { cn } from "@/lib/utils";
 
@@ -121,6 +121,12 @@ export async function IssueTable({
                     {issue.patternKey}
                   </span>
                 )}
+                <span
+                  className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground lg:hidden"
+                  title={issue.repositoryFullName}
+                >
+                  {issue.repositoryFullName}
+                </span>
               </TableCell>
               <TableCell
                 className={cn(
@@ -158,7 +164,7 @@ export async function IssueTable({
                   "text-xs text-muted-foreground tabular-nums",
                 )}
               >
-                {formatDate(issue.firstDetectedAt)}
+                <Timestamp value={issue.firstDetectedAt} variant="compact" />
               </TableCell>
             </TableRow>
           ))}

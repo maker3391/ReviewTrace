@@ -60,6 +60,25 @@ export async function listRepositoryStatuses(
   return selectRepositoryStatuses(scope, executor, null, 0);
 }
 
+/** GitHub picker에서 현재 Project에 이미 연결된 행만 제외하기 위한 최소 identity 조회. */
+export async function listProjectRepositoryIdentities(
+  scope: ProjectScope,
+  executor: DbExecutor = db(),
+): Promise<{ externalRepositoryId: string; fullName: string }[]> {
+  return executor
+    .select({
+      externalRepositoryId: repositories.externalRepositoryId,
+      fullName: repositories.fullName,
+    })
+    .from(repositories)
+    .where(
+      and(
+        ...scopeConditions(scope),
+        eq(repositories.provider, "GITHUB"),
+      ),
+    );
+}
+
 /**
  * Repository 목록 — 한 쪽씩.
  *

@@ -4,6 +4,7 @@ import type { Route } from "next";
 import { CodeLocation } from "@/components/atoms/CodeLocation";
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
 import { StatusBadge } from "@/components/atoms/StatusBadge";
+import { Timestamp } from "@/components/atoms/Timestamp";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { MetaDot, PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
@@ -18,7 +19,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ReviewDetail } from "@/features/reviews/server/review-query";
-import { formatDate } from "@/lib/format/date";
 import { listPageHref, type PageRequest } from "@/lib/pagination";
 import { readMessages } from "@/lib/ui/appearance";
 
@@ -81,7 +81,7 @@ export async function ReviewDetailScreen({
               </>
             )}
             <MetaDot />
-            <span>{formatDate(review.createdAt)}</span>
+            <Timestamp value={review.createdAt} variant="exact" />
           </>
         }
       />
@@ -116,10 +116,14 @@ export async function ReviewDetailScreen({
           )}
 
           <dt className="text-muted-foreground">{t.ranAt}</dt>
-          <dd className="tabular-nums">
-            {formatDate(review.startedAt)}
-            {review.completedAt !== null &&
-              ` → ${formatDate(review.completedAt)}`}
+          <dd className="flex flex-wrap items-center gap-1 tabular-nums">
+            <Timestamp value={review.startedAt} variant="exact" />
+            {review.completedAt !== null && (
+              <>
+                <span aria-hidden>→</span>
+                <Timestamp value={review.completedAt} variant="exact" />
+              </>
+            )}
           </dd>
         </dl>
       </Section>

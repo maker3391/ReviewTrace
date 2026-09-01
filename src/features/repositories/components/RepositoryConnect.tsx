@@ -31,6 +31,7 @@ export function RepositoryConnect({
   projectSlug,
   repositories,
   hasInstallation,
+  allAccessibleConnected,
   mode,
   labels,
 }: {
@@ -38,6 +39,7 @@ export function RepositoryConnect({
   projectSlug: string;
   repositories: RepositoryOption[];
   hasInstallation: boolean;
+  allAccessibleConnected: boolean;
   mode: "empty" | "inline" | "dialog";
   labels: {
     connect: string;
@@ -48,6 +50,7 @@ export function RepositoryConnect({
     connected: string;
     add: string;
     noAccessible: string;
+    allConnected: string;
     updateAccess: string;
     cancel: string;
   };
@@ -92,7 +95,7 @@ export function RepositoryConnect({
     <div className="flex flex-col items-center gap-2">
       {hasInstallation && (
         <p className="text-xs text-muted-foreground">
-          {labels.noAccessible}
+          {allAccessibleConnected ? labels.allConnected : labels.noAccessible}
         </p>
       )}
       <Button type="button" onClick={install} disabled={pending}>

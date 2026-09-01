@@ -4,6 +4,7 @@ import type { Route } from "next";
 import { CodeLocation } from "@/components/atoms/CodeLocation";
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
 import { StatusBadge } from "@/components/atoms/StatusBadge";
+import { Timestamp } from "@/components/atoms/Timestamp";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { MetaDot, PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
@@ -22,7 +23,10 @@ import { listRepositoryOpenIssues } from "@/features/issues/server/issue-detail-
 import { MoveRepositoryDialog } from "@/features/repositories/components/MoveRepositoryDialog";
 import type { RepositoryDetail } from "@/features/repositories/server/repository-query";
 import { listRepositoryReviews } from "@/features/reviews/server/review-query";
-import { formatAgeInDays, formatDate } from "@/lib/format/date";
+import {
+  formatAgeInDays,
+  formatExactDateTime,
+} from "@/lib/format/date";
 import { readLocale, readMessages } from "@/lib/ui/appearance";
 import { cn } from "@/lib/utils";
 import type { ProjectScope } from "@/types/tenant";
@@ -149,9 +153,12 @@ export async function RepositoryDetailScreen({
             value:
               repository.lastReviewAt === null
                 ? null
-                : formatDate(repository.lastReviewAt),
+                : formatExactDateTime(repository.lastReviewAt),
           },
-          { label: t.registered, value: formatDate(repository.createdAt) },
+          {
+            label: t.registered,
+            value: formatExactDateTime(repository.createdAt),
+          },
         ]}
       />
 
@@ -268,7 +275,7 @@ export async function RepositoryDetailScreen({
                     {review.issueCount}
                   </TableCell>
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
-                    {formatDate(review.createdAt)}
+                    <Timestamp value={review.createdAt} variant="compact" />
                   </TableCell>
                 </TableRow>
               ))}
