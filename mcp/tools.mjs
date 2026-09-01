@@ -46,8 +46,13 @@ const category = z.enum([
   "RELIABILITY",
 ]);
 
-const NARRATIVE_MARKDOWN =
-  "Markdown으로 쓴다. 서로 다른 의미는 빈 줄로 문단을 나누고, 여러 항목은 목록으로 쓰며, 코드 식별자는 inline code로 표시한다. 여러 의미를 한 문단에 이어 붙이지 않는다.";
+export const NARRATIVE_MARKDOWN =
+  "Review Knowledge Markdown document로 쓴다. 서로 다른 의미 단위는 빈 줄로 문단을 나눈다. " +
+  "같은 종류의 원인·조건·영향·해결이 여러 개면 bullet list, 2단계 이상의 failure path는 ordered list를 쓴다. " +
+  "여러 remediation·verification·alternative·regression·residual risk는 bullet list를 쓴다. " +
+  "file·function·class·field·config key·HTTP status·dependency·version·command 같은 technical identifier는 가능한 경우 inline code로 표시한다. " +
+  "실제 source snippet이 필요할 때만 fenced code block을 쓴다. 짧은 한 문장을 억지로 list로 만들지 않는다. " +
+  "UI가 field heading을 제공하므로 field 안에 중복 heading을 쓰지 않고 장식을 위한 Markdown을 넣지 않는다.";
 
 const narrative = (purpose) => `${purpose}. ${NARRATIVE_MARKDOWN}`;
 
@@ -184,8 +189,8 @@ export function registerTools(server, client, state) {
           .string()
           .optional()
           .describe(
-            "이 Review 가 들어갈 Project 의 slug. 생략하면 default Project 로 들어간다. " +
-              "한 Workspace 에서 여러 제품을 다룬다면 넣어라 (없으면 만들어진다).",
+            "이 Review 가 들어갈 기존 Project 의 slug. Repository가 이미 연결되어 있으면 생략한다. " +
+              "미등록 Repository라면 반드시 넣어야 하며, GitHub App 접근권한을 확인한 뒤 연결된다.",
           ),
       },
       annotations: { readOnlyHint: false, idempotentHint: false },
@@ -197,13 +202,6 @@ export function registerTools(server, client, state) {
 
         const result = await client.createReview(
           {
-            /**
-             * 🔴 Project 를 안 보내면 `default` 로 들어간다.
-             *
-             * 보내는 자리를 열어 두는 이유는, 한 Workspace 가 여러 제품을 다룰 때
-             * **MCP 로 들어온 것만 전부 `default` 에 쌓이는** 것을 막기 위해서다.
-             * Workspace 자리는 여기에도 없다 — 그것은 API Key 가 정한다.
-             */
             project:
               typeof args.project === "string" && args.project.trim() !== ""
                 ? { slug: args.project.trim(), name: null }
@@ -541,7 +539,7 @@ export function registerTools(server, client, state) {
     },
     (args) =>
       guard(async () => {
-        const repository = args.repository ?? (await safeFullName());
+        const repository = args.repository ?? (await requiredFullName());
         const result = await client.searchIssues({
           repository,
           status: args.status,
@@ -551,7 +549,7 @@ export function registerTools(server, client, state) {
           q: args.q,
           limit: args.limit,
         });
-        return { repository: repository ?? "(전체)", issues: result.issues };
+        return { requestedRepository: repository, issues: result.issues };
       }),
   );
 
@@ -573,29 +571,18 @@ export function registerTools(server, client, state) {
     },
     (args) =>
       guard(async () => {
-        const repository = args.repository ?? (await safeFullName());
+        const repository = args.repository ?? (await requiredFullName());
         const context = await client.knowledgeContext({
           repository,
           limit: args.limit,
         });
-        /*
- 🔴 **좁히지 못했으면 그렇다고 말한다.** Tool 이름과 설명은 「이 저장소의」인데,
- git 을 못 읽으면(`origin` 없음 · GitHub 이 아닌 remote · git 미설치) `repository`
- 가 `undefined` 가 되어 서버는 **Workspace 전체**의 Pattern·미해결 문제·과거 해결을
- 돌려준다. 그것을 그대로 넘기면 Agent 는 남의 저장소 이야기를 「이 저장소의 규칙」
- 으로 읽는다 — 오류도 경고도 없이 판단만 틀어진다.
- `search_issues` 는 이미 `"(전체)"` 로 표시하고 있었다. 같은 표시를 여기도 붙인다.
-
- 🔴 **표시를 spread «뒤»에 둔다.** 지금 서버 응답에는 `repository` 칸이 없지만,
- 나중에 생기면 앞에 두었을 때 그 값이 우리 표시를 덮어 **범위를 잘못 알린다** —
- 그것도 오류 없이 조용히. 어느 범위로 «불렀는지»는 서버가 아니라 이쪽이 안다.
- */
-        return { ...context, repository: repository ?? "(전체)" };
+        // local git 문자열은 requested일 뿐이다. DB resolution 여부는 서버의 scope가 말한다.
+        return { requestedRepository: repository, ...context };
       }),
   );
 }
 
-/** git 을 못 읽어도 조회는 막지 않는다 — 저장소를 안 좁히면 Workspace 전체를 본다. */
+/** local git remote가 없으면 호출자가 owner/name을 명시해야 한다. */
 async function safeFullName() {
   try {
     const repo = await readRepositoryContext();
@@ -603,6 +590,16 @@ async function safeFullName() {
   } catch {
     return undefined;
   }
+}
+
+async function requiredFullName() {
+  const fullName = await safeFullName();
+  if (fullName === undefined) {
+    throw new ToolError(
+      "현재 git remote에서 GitHub Repository를 읽지 못했다. repository에 owner/name을 명시하라.",
+    );
+  }
+  return fullName;
 }
 
 async function activity(client, state, args, type, done) {
