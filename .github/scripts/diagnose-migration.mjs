@@ -24,6 +24,8 @@
 import fs from "node:fs";
 import { Client } from "pg";
 
+import { formatMigrationFailure } from "./migration-diagnostic-output.mjs";
+
 const FOLDER = "src/db/migrations";
 const raw = process.env.DATABASE_URL ?? "";
 
@@ -45,11 +47,6 @@ function statementsOf(tag) {
     .split("--> statement-breakpoint")
     .map((part) => part.trim())
     .filter((part) => part !== "");
-}
-
-function shorten(sql) {
-  const oneLine = sql.replace(/\s+/g, " ").trim();
-  return oneLine.length > 300 ? `${oneLine.slice(0, 300)} …` : oneLine;
 }
 
 const client = new Client({ connectionString: raw });
@@ -158,18 +155,9 @@ try {
       "   문장 분리 등 다른 지점이다. 위의 이력·표 목록을 함께 보라.",
     );
   } else {
-    console.log(
-      `🔴 실패: ${failed.tag} — ${failed.index}/${failed.total} 번째 문장`,
-    );
-    console.log("");
-    console.log(`  code    : ${failed.error.code ?? "(없음)"}`);
-    console.log(`  message : ${failed.error.message}`);
-    if (failed.error.detail) console.log(`  detail  : ${failed.error.detail}`);
-    if (failed.error.hint) console.log(`  hint    : ${failed.error.hint}`);
-    if (failed.error.position)
-      console.log(`  position: ${failed.error.position}`);
-    console.log("");
-    console.log(`  SQL     : ${shorten(failed.statement)}`);
+    for (const line of formatMigrationFailure(failed)) {
+      console.log(line);
+    }
   }
 } finally {
   await client.end();
