@@ -70,16 +70,16 @@ const optionalPositiveInt = () =>
 /**
  * Review 가 어느 Project 로 들어가는가(스펙 1).
  *
- * 🔴 **선택 항목이다.** 보내지 않으면 Workspace 의 `default` Project 로 들어간다 —
- * Agent 는 화면이 없어 Project 를 미리 만들어 둘 수 없고, 첫 Review 를 통째로 거절하면
- * 무엇을 먼저 만들어야 하는지 알 방법이 없다(`resolveIngestProject`).
+ * 🔴 **등록 Repository에는 선택, 미등록 Repository에는 필수다.** 등록돼 있으면
+ * `repository.project_id`가 정본이고, 미등록인데 생략하면 Default Project를 만들지 않고
+ * 명확히 거절한다(`review-ingest-service.ts`).
  *
  * 🔴 **Workspace 자리는 여기에도 없다.** Payload 가 고를 수 있는 것은 API Key 가 정한
  * Workspace **안의** Project 뿐이다.
  */
 export const reviewProjectSchema = z.object({
   slug: nonEmpty(IDENTIFIER_MAX),
-  /** 새로 만들어질 때 쓰는 표시 이름. 이미 있으면 무시한다 — Agent 가 이름을 덮어쓰지 않는다. */
+  /** Legacy client compatibility. ingestion은 이 값으로 Project를 암묵 생성하지 않는다. */
   name: optionalText(IDENTIFIER_MAX),
 });
 

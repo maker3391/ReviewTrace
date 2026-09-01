@@ -310,6 +310,7 @@ export async function createProject(
  * 옮기는 일이라 실제 데이터를 확인하고 결정했고(0행이라 하나도 만들지 않았다), 이쪽은
  * 앞으로 들어오는 요청을 받는 일이다.
  */
+/** Legacy onboarding/test helper. Production review ingestion은 이 fallback을 호출하지 않는다. */
 export const INGEST_DEFAULT_PROJECT_SLUG = "default";
 
 export interface IngestProjectRef {

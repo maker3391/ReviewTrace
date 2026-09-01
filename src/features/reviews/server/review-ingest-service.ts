@@ -16,11 +16,9 @@ import type {
   ReviewIssueInput,
 } from "@/features/reviews/schemas/review-ingest";
 import { insertCodeEvidence } from "@/features/issues/server/code-evidence-service";
-import { resolveIngestProject } from "@/features/projects/server/project-service";
-import {
-  findIngestRepository,
-  resolveIngestRepository,
-} from "@/features/repositories/server/repository-upsert";
+import { findProjectBySlug } from "@/features/projects/server/project-service";
+import { connectGithubRepositoryByFullName } from "@/features/repositories/server/repository-connect-service";
+import { resolveRepositoryContext } from "@/features/repositories/server/repository-context-service";
 import {
   normalizeTagList,
   type NormalizedTag,
@@ -126,6 +124,47 @@ export async function ingestReview(
 ): Promise<IngestedReview> {
   const { workspaceId, idempotencyKey, payload } = input;
 
+  // Repository가 Project resolution의 source of truth다. Tenant 밖의 행은 resolver가 보지 않는다.
+  const existingContext = await resolveRepositoryContext(
+    workspaceId,
+    {
+      provider: payload.repository.provider,
+      externalRepositoryId: payload.repository.externalRepositoryId,
+      fullName: payload.repository.fullName,
+    },
+    executor,
+  );
+
+  let repositoryId: string;
+  if (existingContext !== null) {
+    if (
+      payload.project !== null &&
+      payload.project.slug !== existingContext.project.slug
+    ) {
+      throw new AppError("REPOSITORY_PROJECT_MISMATCH");
+    }
+    repositoryId = existingContext.repository.id;
+  } else {
+    if (payload.project === null) {
+      throw new AppError("REPOSITORY_NOT_CONNECTED");
+    }
+    const project = await findProjectBySlug(
+      workspaceId,
+      payload.project.slug,
+      executor,
+    );
+    if (project === null) throw new AppError("PROJECT_NOT_FOUND");
+    const connected = await connectGithubRepositoryByFullName(
+      {
+        workspaceId,
+        projectId: project.projectId,
+        fullName: payload.repository.fullName,
+      },
+      executor,
+    );
+    repositoryId = connected.repositoryId;
+  }
+
   return executor.transaction(async (tx) => {
     /**
      * 0. 같은 요청을 이미 저장했는가 — 🔴 **아무것도 쓰기 «전»에** 묻는다.
@@ -140,44 +179,16 @@ export async function ingestReview(
      * 못 찾으면 그 Repository 의 Session 도 있을 수 없으니 그대로 아래로 내려간다.
      */
     if (idempotencyKey !== null) {
-      const knownRepositoryId = await findIngestRepository(
+      const replay = await findSessionByIdempotencyKey(
         tx,
         workspaceId,
-        payload.repository,
+        repositoryId,
+        idempotencyKey,
       );
-
-      if (knownRepositoryId !== null) {
-        const replay = await findSessionByIdempotencyKey(
-          tx,
-          workspaceId,
-          knownRepositoryId,
-          idempotencyKey,
-        );
-        if (replay !== null) {
-          return replay;
-        }
+      if (replay !== null) {
+        return replay;
       }
     }
-
-    /**
-     * 1. Project 확인 / 생성.
-     *
-     * 🔴 Repository 보다 «먼저» 한다 — Repository 가 Project 에 속하기 때문이다(스펙 1).
-     * Transaction 안에서 돌므로, 뒤가 실패하면 여기서 만든 Project 도 남지 않는다.
-     */
-    const projectId = await resolveIngestProject(
-      { workspaceId, project: payload.project },
-      tx,
-    );
-
-    // 2. Repository 확인 / Upsert(`repository-upsert.ts`).
-    // 이름은 GitHub 에서 바뀐다 — 매 Review 마다 최신 표기로 맞춘다.
-    const repositoryId = await resolveIngestRepository(
-      tx,
-      workspaceId,
-      projectId,
-      payload.repository,
-    );
 
     /**
      * 3. 다시 한 번 재전송 확인.

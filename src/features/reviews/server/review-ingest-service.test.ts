@@ -44,6 +44,23 @@ function payload(projectSlug: string, defaultBranch: string) {
 }
 
 describe("ingestReview — 재전송 판정 순서", () => {
+  it("미등록 Repository + project 없음은 Default를 만들지 않고 실패한다", async () => {
+    const fake = fakeExecutor([selects([])]);
+    const withoutProject = payload("default", "main");
+    withoutProject.project = null;
+
+    await expect(
+      ingestReview(
+        {
+          workspaceId: WORKSPACE,
+          idempotencyKey: null,
+          payload: withoutProject,
+        },
+        fake.executor,
+      ),
+    ).rejects.toThrow("REPOSITORY_NOT_CONNECTED");
+    expect(fake.calls.map((call) => call.kind)).toEqual(["select"]);
+  });
   /**
    * # 🔴 재전송이면 아무것도 새로 쓰지 않는다
    *
@@ -66,8 +83,24 @@ describe("ingestReview — 재전송 판정 순서", () => {
    */
   it("🔴 같은 Idempotency-Key 면 쓰기 문장이 한 개도 나가지 않는다", async () => {
     const fake = fakeExecutor([
-      // 1. Repository 를 «찾기만» 한다 — 숫자 id 로 찾아 바로 나온다.
-      selects([{ id: REPOSITORY }]),
+      // 1. Repository → Project → Workspace context를 한 번에 찾는다.
+      selects([
+        {
+          workspaceId: WORKSPACE,
+          workspaceSlug: "acme",
+          projectId: "88888888-8888-4888-8888-888888888888",
+          projectSlug: "ghost",
+          projectName: "Ghost",
+          repositoryId: REPOSITORY,
+          provider: "GITHUB",
+          externalRepositoryId: "100",
+          owner: "acme",
+          name: "app",
+          fullName: "acme/app",
+          defaultBranch: "develop",
+          htmlUrl: null,
+        },
+      ]),
       // 2. 그 Repository 안에서 열쇠로 Session 을 찾는다.
       //    🔴 저장해 둔 Payload 를 함께 읽는다 — 「그 요청이 무엇을 담고 있었는가」의 정본이다.
       selects([
@@ -177,14 +210,13 @@ describe("ingestReview — 재전송 판정 순서", () => {
    */
   it("🔴 아직 없는 Repository 면 재전송으로 접지 않고 저장 경로로 내려간다", async () => {
     const fake = fakeExecutor([
-      // 숫자 id 로 못 찾고,
+      // Repository context가 없고,
       selects([]),
-      // 이름으로도 못 찾는다.
+      // 명시한 Project도 없다.
       selects([]),
     ]);
 
-    // 그 다음 단계(Project 확보)를 적어 두지 않았으므로 Fake 가 그 자리에서 터진다 —
-    // 🔴 「조용히 재전송으로 접혔다」면 여기까지 오지 않는다.
+    // Default Project를 만들지 않고 명확히 실패한다.
     await expect(
       ingestReview(
         {
@@ -194,7 +226,7 @@ describe("ingestReview — 재전송 판정 순서", () => {
         },
         fake.executor,
       ),
-    ).rejects.toThrow(/단계보다 많이 불렸다/);
+    ).rejects.toThrow("PROJECT_NOT_FOUND");
 
     expect(fake.calls.map((call) => call.kind)).toEqual(["select", "select"]);
   });

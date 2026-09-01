@@ -19,6 +19,7 @@ import {
   type KnowledgeExcerpt,
 } from "@/features/knowledge/server/knowledge-page-service";
 import { findProjectBySlug } from "@/features/projects/server/project-service";
+import { resolveRepositoryContext } from "@/features/repositories/server/repository-context-service";
 import type { KnowledgeContextQuery } from "@/features/knowledge/schemas/knowledge-context-query";
 import type { IssueCategory, IssueSeverity, IssueStatus } from "@/types/review";
 
@@ -93,6 +94,19 @@ export interface KnowledgeContext {
     projectSlug: string | null;
     /** 요청한 slug 가 이 Workspace 에서 실제로 찾아졌는가. slug 를 안 보냈으면 `null`. */
     projectResolved: boolean | null;
+    workspace: { resolved: true };
+    repository: {
+      requested: string | null;
+      resolved: boolean | null;
+      id: string | null;
+      fullName: string | null;
+    };
+    project: {
+      requested: string | null;
+      resolved: boolean | null;
+      slug: string | null;
+      resolutionSource: "REPOSITORY" | "PROJECT_SLUG" | null;
+    };
   };
   /** 사람이 적은 Wiki(스펙 10). Review 가 남긴 것과 **출처가 다르다**. */
   wiki: KnowledgeExcerpt[];
@@ -122,14 +136,88 @@ export async function findKnowledgeContext(
 ): Promise<KnowledgeContext> {
   const { workspaceId, query } = input;
 
+  const requestedRepository = query.repository ?? query.repositoryId;
+  const repositoryContext =
+    requestedRepository === null
+      ? null
+      : await resolveRepositoryContext(
+          workspaceId,
+          {
+            provider: "GITHUB",
+            repositoryId: query.repositoryId,
+            fullName: query.repository,
+          },
+          executor,
+        );
+
+  const empty = (scope: KnowledgeContext["scope"]): KnowledgeContext => ({
+    scope,
+    wiki: [],
+    frequentPatterns: [],
+    recentHighSeverityIssues: [],
+    unresolvedIssues: [],
+    pastResolutions: [],
+  });
+
+  if (requestedRepository !== null && repositoryContext === null) {
+    return empty({
+      projectSlug: query.projectSlug,
+      projectResolved: false,
+      workspace: { resolved: true },
+      repository: {
+        requested: requestedRepository,
+        resolved: false,
+        id: null,
+        fullName: null,
+      },
+      project: {
+        requested: query.projectSlug,
+        resolved: false,
+        slug: null,
+        resolutionSource: null,
+      },
+    });
+  }
+
   /**
    * 🔴 Project 도 **slug 가 아니라 소속으로** 찾는다. 조회는 언제나 API Key 가 정한
    * Workspace 안에서 돌고, 그 안에 없는 slug 면 `null` 이다(스펙 3).
    */
   const project =
-    query.projectSlug === null
-      ? null
-      : await findProjectBySlug(workspaceId, query.projectSlug, executor);
+    repositoryContext !== null
+      ? {
+          projectId: repositoryContext.project.id,
+          slug: repositoryContext.project.slug,
+          name: repositoryContext.project.name,
+          description: null,
+        }
+      : query.projectSlug === null
+        ? null
+        : await findProjectBySlug(workspaceId, query.projectSlug, executor);
+
+  if (
+    repositoryContext !== null &&
+    query.projectSlug !== null &&
+    query.projectSlug !== repositoryContext.project.slug
+  ) {
+    return empty({
+      projectSlug: query.projectSlug,
+      projectResolved: false,
+      workspace: { resolved: true },
+      repository: {
+        requested: requestedRepository,
+        resolved: true,
+        id: repositoryContext.repository.id,
+        fullName: repositoryContext.repository.fullName,
+      },
+      project: {
+        requested: query.projectSlug,
+        resolved: false,
+        slug: null,
+        resolutionSource: null,
+      },
+    });
+  }
 
   /**
    * 없는 Project 를 지목했으면 **빈 결과를 준다.**
@@ -139,7 +227,23 @@ export async function findKnowledgeContext(
    */
   if (query.projectSlug !== null && project === null) {
     return {
-      scope: { projectSlug: query.projectSlug, projectResolved: false },
+      scope: {
+        projectSlug: query.projectSlug,
+        projectResolved: false,
+        workspace: { resolved: true },
+        repository: {
+          requested: null,
+          resolved: null,
+          id: null,
+          fullName: null,
+        },
+        project: {
+          requested: query.projectSlug,
+          resolved: false,
+          slug: null,
+          resolutionSource: null,
+        },
+      },
       wiki: [],
       frequentPatterns: [],
       recentHighSeverityIssues: [],
@@ -159,13 +263,9 @@ export async function findKnowledgeContext(
   if (project !== null) {
     filters.push(eq(repositories.projectId, project.projectId));
   }
-  if (query.repositoryId !== null) {
-    filters.push(eq(reviewIssues.repositoryId, query.repositoryId));
-  }
-  if (query.repository !== null) {
-    // GitHub 의 `owner/name` 은 대소문자를 가리지 않는다.
+  if (repositoryContext !== null) {
     filters.push(
-      sql`lower(${repositories.fullName}) = lower(${query.repository})`,
+      eq(reviewIssues.repositoryId, repositoryContext.repository.id),
     );
   }
   if (query.category !== null) {
@@ -271,8 +371,26 @@ export async function findKnowledgeContext(
 
   return {
     scope: {
-      projectSlug: query.projectSlug,
-      projectResolved: query.projectSlug === null ? null : true,
+      projectSlug: project?.slug ?? null,
+      projectResolved: project === null ? null : true,
+      workspace: { resolved: true },
+      repository: {
+        requested: requestedRepository,
+        resolved: requestedRepository === null ? null : true,
+        id: repositoryContext?.repository.id ?? null,
+        fullName: repositoryContext?.repository.fullName ?? null,
+      },
+      project: {
+        requested: query.projectSlug,
+        resolved: project === null ? null : true,
+        slug: project?.slug ?? null,
+        resolutionSource:
+          repositoryContext !== null
+            ? "REPOSITORY"
+            : project !== null
+              ? "PROJECT_SLUG"
+              : null,
+      },
     },
     wiki,
     /**
