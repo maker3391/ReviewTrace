@@ -30,8 +30,14 @@ import {
 
 const HOME_CONFIG = path.join(os.homedir(), ".reviewtrace", "config.json");
 
-/** 사람이 잘못 붙여 넣은 것을 조용히 넘기지 않는다 — 발급 화면이 주는 접두다. */
-const KEY_PREFIX = "ci_";
+/**
+ * 사람이 잘못 붙여 넣은 것을 조용히 넘기지 않는다 — 발급 화면이 주는 접두다.
+ *
+ * 🔴 **`ci_` 가 아니라 `ci_agent_` 다.** 예전 Workspace API Key 는 서버에서 인증 경로가
+ * 사라져 이제 어떤 요청도 통과하지 못한다 — 여기서 통과시키면 그 사실이 매 호출마다
+ * 알맹이 없는 `401` 로만 돌아와, 무엇을 고쳐야 하는지 알 수 없다.
+ */
+const KEY_PREFIX = "ci_agent_";
 
 export function loadConfig() {
   const fromFile = readHomeConfig();

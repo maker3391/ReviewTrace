@@ -21,10 +21,29 @@ const run = promisify(execFile);
 
 /** Repository 하나를 읽는 데 허용하는 시간. git 이 멈춰 있어도 Tool 이 멈추지 않는다. */
 const TIMEOUT_MS = 5_000;
+/** Evidence 대조로 읽는 파일 하나의 상한. 저장소를 통째로 메모리에 올리지 않는다. */
+const MAX_FILE_BYTES = 4 * 1024 * 1024;
+/**
+ * 서버가 «받아들이는» 상한과 같은 값(`MAX_CHANGED_FILES_ACCEPTED`).
+ *
+ * 🔴 여기서 100 으로 줄이지 않는다. 줄이는 일은 서버가 하고, 서버는 얼마나 줄였는지를
+ * 응답(`knowledgePreflight.changedFiles`)에 적어 보낸다 — 두 곳에서 각자 자르면
+ * Agent 가 받는 숫자가 어느 단계의 것인지 알 수 없게 된다.
+ */
+const MAX_CHANGED_FILES = 1_000;
+/**
+ * 경로 목록 한 번을 담는 버퍼 상한.
+ *
+ * 🔴 **개수 상한보다 «먼저» 걸리면 안 된다.** 예전 값(1MB)은 경로 2만 개 언저리에서
+ * 먼저 터졌고, 그때 결과는 「1000 개로 줄인 목록」이 아니라 **0 개**였다 —
+ * `MAX_CHANGED_FILES` 하나로 자른다는 규칙이 조용히 두 개가 돼 있었다.
+ * 크게 잡아 두어 실제로 자르는 자리가 개수 상한 한 곳으로 돌아온다.
+ */
+const MAX_PATH_BYTES = 16 * 1024 * 1024;
 
 export class GitError extends Error {}
 
-export async function readRepositoryContext(cwd = process.cwd()) {
+export async function readRepositoryContext(cwd = process.cwd(), options = {}) {
   const remote = await git(cwd, ["remote", "get-url", "origin"]);
   if (remote === null) {
     throw new GitError(
@@ -41,12 +60,24 @@ export async function readRepositoryContext(cwd = process.cwd()) {
     );
   }
 
-  const [commitSha, branch, defaultBranch, workspaceSlug] = await Promise.all([
-    git(cwd, ["rev-parse", "HEAD"]),
-    git(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]),
-    readDefaultBranch(cwd),
-    git(cwd, ["config", "--local", "--get", "reviewtrace.workspace"]),
-  ]);
+  /**
+   * 🔴 **바뀐 파일 목록은 «필요한 곳에서만» 읽는다.**
+   *
+   * 이것만 git 을 두세 번 더 부른다. `create_review` 는 그 값이 있어야 Knowledge 후보를
+   * 고르지만, `get_issue` 처럼 「지금 저장소가 어디인가」만 알면 되는 자리는 그렇지 않다 —
+   * 후보마다 get_issue 를 부르는 흐름에서 그 차이가 프로세스 수십 개가 된다.
+   */
+  const [commitSha, branch, defaultBranch, workspaceSlug, changed] =
+    await Promise.all([
+      git(cwd, ["rev-parse", "HEAD"]),
+      git(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]),
+      readDefaultBranch(cwd),
+      git(cwd, ["config", "--local", "--get", "reviewtrace.workspace"]),
+      options.includeChangedFiles === false
+        ? // 묻지 않은 것도 「바뀐 파일이 없다」가 아니다 — 아래 flag 가 그것을 말한다.
+          { paths: [], available: false }
+        : readChangedFiles(cwd),
+    ]);
 
   return {
     provider: parsed.provider,
@@ -59,6 +90,14 @@ export async function readRepositoryContext(cwd = process.cwd()) {
     // Detached HEAD 면 git 이 `HEAD` 를 준다 — 그것은 가지 이름이 아니다.
     branch: branch === "HEAD" ? null : branch,
     workspaceSlug,
+    changedFiles: changed.paths,
+    /**
+     * 🔴 **`changedFiles` 가 비어 있는 것을 「바뀐 파일이 없다」로 읽어도 되는가.**
+     *
+     * `false` 면 그 빈 목록은 사실이 아니라 **못 읽었거나 묻지 않은 것**이다.
+     * 이 칸이 없으면 둘이 같은 값으로 접혀, 읽기 실패가 「깨끗한 working tree」로 둔갑한다.
+     */
+    changedFilesAvailable: changed.available,
   };
 }
 
@@ -82,7 +121,85 @@ export function repositoryFromFullName(fullName) {
     commitSha: null,
     branch: null,
     workspaceSlug: null,
+    changedFiles: [],
+    // 다른 저장소를 이름으로만 가리킨 것이라 working tree 를 «본 적이 없다».
+    changedFilesAvailable: false,
   };
+}
+
+/**
+ * Knowledge relevance에는 diff 내용이 아니라 경로만 필요하다.
+ *
+ * - working tree가 바뀌었으면 staged·unstaged·untracked 경로
+ * - 깨끗하면 현재 HEAD commit이 바꾼 경로
+ *
+ * 파일명에는 줄바꿈도 들어갈 수 있어 `-z` 출력만 사용한다. merge commit 은 `git diff-tree`
+ * 가 아무것도 내지 않으므로 빈 목록이 된다 — 실패가 아니라 알려진 한계다.
+ *
+ * ## 🔴 못 읽은 것을 「없다」로 돌려주지 않는다
+ *
+ * 돌려주는 것은 배열이 아니라 `{ paths, available }` 이다. `available: false` 는
+ * **읽기가 중간에 끊겼다**는 뜻이고, 그때 `paths` 는 빈 배열이지만 그것은 사실이 아니다.
+ *
+ * 읽기가 끊긴 실행은 **HEAD commit 경로로 넘어가지 않는다.** 넘어가면 대개 그 조회는
+ * 성공하므로, working tree 를 못 읽은 실행이 **직전 commit 의 파일 목록**을 working tree
+ * 인 것처럼 돌려준다 — 없는 답을 다른 답으로 메우는 것이 빈손보다 나쁘다.
+ *
+ * `maxBytes` 는 시험이 실제 `maxBuffer` 초과를 일으키려고 낮춰 부르는 자리다.
+ */
+export async function readChangedFiles(cwd = process.cwd(), options = {}) {
+  const maxBytes = options.maxBytes ?? MAX_PATH_BYTES;
+  const [tracked, untracked] = await Promise.all([
+    gitPaths(cwd, ["diff", "--name-only", "-z", "HEAD", "--"], maxBytes),
+    gitPaths(
+      cwd,
+      ["ls-files", "--others", "--exclude-standard", "-z"],
+      maxBytes,
+    ),
+  ]);
+  if (!tracked.complete || !untracked.complete) {
+    return unreadable("working tree");
+  }
+
+  const working = uniquePaths([...tracked.paths, ...untracked.paths]);
+  if (working.length > 0) {
+    return { paths: working.slice(0, MAX_CHANGED_FILES), available: true };
+  }
+
+  const committed = await gitPaths(
+    cwd,
+    [
+      "diff-tree",
+      "--root",
+      "--no-commit-id",
+      "--name-only",
+      "-r",
+      "-z",
+      "HEAD",
+      "--",
+    ],
+    maxBytes,
+  );
+  if (!committed.complete) {
+    return unreadable("HEAD commit");
+  }
+
+  return {
+    paths: uniquePaths(committed.paths).slice(0, MAX_CHANGED_FILES),
+    available: true,
+  };
+}
+
+/**
+ * 🔴 **조용히 넘어가지 않는다.** stdout 은 MCP 통신 채널이라 한 줄만 섞여도 Client 가
+ * 끊기므로 진단은 stderr 로만 간다. 경로 이름은 담지 않는다 — 못 읽었다는 사실만 적는다.
+ */
+function unreadable(what) {
+  process.stderr.write(
+    `[reviewtrace] ${what} 의 바뀐 파일 목록을 읽지 못했다. ` +
+      "changedFiles 를 「없음」으로 보내지 않는다.\n",
+  );
+  return { paths: [], available: false };
 }
 
 /**
@@ -182,6 +299,191 @@ async function git(cwd, args) {
     });
     const value = stdout.trim();
     return value === "" ? null : value;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `{ paths, complete }` 를 돌려준다.
+ *
+ * `complete` 는 **git 이 끝까지 돌고 대답했는가**다. 실패했더라도 git 이 스스로
+ * 종료코드를 냈으면(예: commit 이 하나도 없어 `diff HEAD` 가 `128`) 그것은 대답이므로
+ * 빈 목록이 사실이다. 반대로 buffer 초과·timeout·git 실행 실패는 **대답이 아니다.**
+ */
+async function gitPaths(cwd, args, maxBytes = MAX_PATH_BYTES) {
+  try {
+    const { stdout } = await run("git", args, {
+      cwd,
+      timeout: TIMEOUT_MS,
+      windowsHide: true,
+      encoding: "utf8",
+      maxBuffer: maxBytes,
+    });
+    return { paths: parsePaths(stdout), complete: true };
+  } catch (error) {
+    return { paths: [], complete: gitAnswered(error) };
+  }
+}
+
+/**
+ * git 이 종료코드로 «대답한» 실패인가.
+ *
+ * - `ERR_CHILD_PROCESS_STDIO_MAXBUFFER` — Node 가 출력 도중 자식을 죽였다. 대답이 아니다
+ * - `killed === true` — timeout 으로 죽었다. 대답이 아니다
+ * - `ENOENT`·`EACCES` — git 을 실행하지도 못했다. 대답이 아니다
+ * - 숫자 code — git 이 돌고 그 값으로 끝났다. 대답이다
+ */
+function gitAnswered(error) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    error.killed !== true &&
+    typeof error.code === "number"
+  );
+}
+
+function parsePaths(stdout) {
+  return stdout
+    .split("\0")
+    .map((value) => value.trim().replaceAll("\\", "/"))
+    .filter(
+      (value) =>
+        value !== "" &&
+        !value.startsWith("/") &&
+        !value.split("/").includes(".."),
+    );
+}
+
+function uniquePaths(paths) {
+  return [...new Set(paths)].sort();
+}
+
+/**
+ * 이 snapshot 이 **그 commit 에 실제로 있는가**를 로컬 git 으로 확인한다.
+ *
+ * ## 🔴 왜 client 가 판정하는가
+ *
+ * 서버는 `commitSha` 하나만 받는다 — 그것이 「이 코드가 있는 commit」인지 「이 작업의
+ * 바탕 commit」인지 구분할 방법이 없다. 그런데 개발은 늘 **고친다 → 확인한다 → 커밋한다**
+ * 순서라 AFTER 근거는 커밋 전에 만들어지고, 그때 Agent 가 적을 수 있는 SHA 는 HEAD 뿐이다.
+ * 그러면 서버의 대조는 **없는 것을 못 찾아** 정직하게 `MISMATCH` 를 적는다 — 정상적인 개발
+ * 흐름이 구조적으로 「코드 불일치」가 된다.
+ *
+ * **working tree 를 가진 쪽은 client 다.** 그래서 여기서 판정해 서버에 사실대로 말한다.
+ *
+ * ## 🔴 「모르겠다」를 「working tree 다」로 바꾸지 않는다
+ *
+ * | 확인한 것 | 돌려주는 값 | 뜻 |
+ * |---|---|---|
+ * | 그 commit 의 그 자리에 이 코드가 있다 | `"COMMITTED"` | 서버가 대조하면 맞는다 |
+ * | 그 commit 에는 없고 **working tree 에는 있다** | `"WORKING_TREE"` | 아직 커밋 전이다 |
+ * | 그 밖의 모든 경우 | `null` | 판정하지 않는다 — 서버가 대조하게 둔다 |
+ *
+ * 🔴 마지막 줄이 중요하다. git 을 못 읽었다·파일이 없다·둘 다에 없다 — 전부 `null` 이다.
+ * 「확인 못 했으니 커밋 전이겠지」로 넘기면 **진짜 불일치가 조용히 숨는다.**
+ *
+ * 🔴 **서버와 «같은 규칙»으로 비교한다**(`code-evidence-service.ts` 의 `normalize`):
+ * 줄바꿈과 줄 끝 공백만 맞추고 **들여쓰기는 건드리지 않는다.** 여기서만 느슨하게 비교하면
+ * client 는 `COMMITTED` 라고 보내는데 서버는 `MISMATCH` 를 적는다.
+ */
+export async function classifyEvidenceSource(cwd, evidence) {
+  const snapshot = evidence?.snapshot;
+  if (typeof snapshot !== "string" || snapshot.trim() === "") return null;
+  if (typeof evidence.commitSha !== "string" || evidence.commitSha === "")
+    return null;
+  if (typeof evidence.filePath !== "string" || evidence.filePath === "")
+    return null;
+
+  const wanted = normalizeCode(snapshot);
+  if (wanted === "") return null;
+
+  const atCommit = await readFileAtCommit(
+    cwd,
+    evidence.commitSha,
+    evidence.filePath,
+  );
+  if (atCommit !== null && containsSnapshot(atCommit, wanted, evidence)) {
+    return "COMMITTED";
+  }
+  if (atCommit === null) {
+    // commit 이나 파일을 읽지 못했다. 「커밋 전」이라고 단정할 근거가 없다.
+    return null;
+  }
+
+  const inWorkingTree = await readWorkingTreeFile(cwd, evidence.filePath);
+  if (inWorkingTree === null) return null;
+  return containsSnapshot(inWorkingTree, wanted, evidence)
+    ? "WORKING_TREE"
+    : null;
+}
+
+/** 줄 범위가 있으면 그 줄과 같은지, 없으면 파일 안에 들어 있는지 — 서버와 같은 질문이다. */
+function containsSnapshot(fileText, wanted, evidence) {
+  const normalized = normalizeCode(fileText);
+  if (
+    typeof evidence.startLine === "number" &&
+    typeof evidence.endLine === "number"
+  ) {
+    const lines = normalized.split("\n");
+    const slice = normalizeCode(
+      lines.slice(evidence.startLine - 1, evidence.endLine).join("\n"),
+    );
+    if (slice === wanted) return true;
+  }
+  return normalized.includes(wanted);
+}
+
+/** 🔴 `code-evidence-service.ts` 의 `normalize` 와 같은 규칙이다. 갈라지면 판정이 어긋난다. */
+function normalizeCode(text) {
+  return text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/\s+$/, ""))
+    .join("\n")
+    .replace(/\s+$/, "");
+}
+
+async function readFileAtCommit(cwd, commitSha, filePath) {
+  try {
+    const { stdout } = await run(
+      "git",
+      ["show", `${commitSha}:${filePath}`],
+      { cwd, timeout: TIMEOUT_MS, maxBuffer: MAX_FILE_BYTES },
+    );
+    return stdout;
+  } catch {
+    return null;
+  }
+}
+
+async function readWorkingTreeFile(cwd, filePath) {
+  // 🔴 저장소 밖을 읽지 않는다 — git 이 아는 경로만 본다.
+  try {
+    const { stdout } = await run("git", ["show", `:0:${filePath}`], {
+      cwd,
+      timeout: TIMEOUT_MS,
+      maxBuffer: MAX_FILE_BYTES,
+    });
+    // index 에 올라간 내용이 있으면 그것도 「아직 커밋 전」이다.
+    const staged = stdout;
+    const onDisk = await readOnDisk(cwd, filePath);
+    return onDisk === null ? staged : `${staged}\n${onDisk}`;
+  } catch {
+    return readOnDisk(cwd, filePath);
+  }
+}
+
+async function readOnDisk(cwd, filePath) {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const { resolve, relative, isAbsolute } = await import("node:path");
+    const full = resolve(cwd, filePath);
+    // 🔴 `..` 로 저장소 밖을 가리키는 경로를 읽지 않는다.
+    const inside = relative(resolve(cwd), full);
+    if (inside.startsWith("..") || isAbsolute(inside)) return null;
+    const text = await readFile(full, "utf8");
+    return text.length > MAX_FILE_BYTES ? null : text;
   } catch {
     return null;
   }

@@ -8,7 +8,7 @@ const ORIGINAL_URL = process.env.REVIEWTRACE_API_URL;
 const ORIGINAL_KEY = process.env.REVIEWTRACE_API_KEY;
 
 beforeEach(() => {
-  process.env.REVIEWTRACE_API_KEY = `ci_${"x".repeat(43)}`;
+  process.env.REVIEWTRACE_API_KEY = `ci_agent_${"x".repeat(43)}`;
 });
 
 afterEach(() => {
@@ -54,7 +54,7 @@ describe("ReviewTrace credential URL", () => {
     vi.stubGlobal("fetch", fetchMock);
     const client = createClient({
       apiUrl: "https://self-hosted.example",
-      apiKey: `ci_${"x".repeat(43)}`,
+      apiKey: `ci_agent_${"x".repeat(43)}`,
     });
 
     await client.searchIssues({ limit: 1 });
@@ -62,7 +62,7 @@ describe("ReviewTrace credential URL", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBeInstanceOf(URL);
     expect(url.origin).toBe("https://self-hosted.example");
-    expect(init.headers.authorization).toMatch(/^Bearer ci_/);
+    expect(init.headers.authorization).toMatch(/^Bearer ci_agent_/);
     expect(init.redirect).toBe("error");
   });
 });

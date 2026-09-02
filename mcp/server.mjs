@@ -7,6 +7,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { createClient } from "./client.mjs";
 import { ConfigError, loadConfig } from "./config.mjs";
 import {
+  HISTORICAL_PRECEDENT_SAFETY,
   NARRATIVE_MARKDOWN,
   registerTools,
   reviewLanguageInstruction,
@@ -90,6 +91,8 @@ async function main() {
         " " +
         NARRATIVE_MARKDOWN +
         " " +
+        HISTORICAL_PRECEDENT_SAFETY +
+        " " +
         "Code Evidence는 전체 함수나 컴포넌트가 아니라 문제·수정 line과 이해에 필요한 최소 context만 snapshot/startLine/endLine으로 보낸다.",
     },
   );
@@ -104,11 +107,17 @@ async function main() {
   const state = {
     reviewId: null,
     lastIssueId: null,
-    commitSha: null,
     /** 아직 성공하지 못한 `create_review` 의 Idempotency-Key. 성공해야 비워진다. */
     pendingReviewKey: null,
     /** 그 열쇠가 어떤 요청의 것인가(`owner/name@commit`). 다르면 물려주지 않는다. */
     pendingReviewFingerprint: null,
+    /**
+     * 이번 Review 에서 이미 `REVIEWED_AGAIN` encounter 를 남긴 Issue.
+     *
+     * 🔴 encounter 는 **한 Review 에 한 번**이다. `add_issue` 가 기존 행을 다시 만나 남긴 것과
+     * `review_again` 이 남기는 것을 둘 다 세면 한 번의 재발이 두 번으로 집계된다.
+     */
+    encounteredIssueIds: new Set(),
   };
 
   registerTools(server, client, state, { reviewLanguage });
