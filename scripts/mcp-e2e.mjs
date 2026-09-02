@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
-import { generateApiKey } from "../src/lib/api/api-key-token.ts";
+import { generateAgentCredential } from "../src/lib/api/api-key-token.ts";
 
 /**
  * MCP -> Agent API -> Database 전체 E2E(스펙 9·22).
@@ -89,15 +89,20 @@ async function main() {
   await cleanup();
 
   // ── 0. 준비 — 실제 생성기로 Key 를 만들고 Hash 만 저장한다 ────────────────
-  const key = generateApiKey();
+  const key = generateAgentCredential();
   await psql(
     `insert into workspaces (id, slug, name) values ('${WORKSPACE_ID}','${SLUG}','MCP E2E');` +
-      `insert into api_keys (workspace_id, name, key_prefix, key_hash) ` +
-      `values ('${WORKSPACE_ID}','mcp-agent','${key.keyPrefix}','${key.keyHash}');`,
+      // 🔴 자격은 Principal 에 달리고 Workspace 접근은 grant 가 정한다.
+      `insert into agent_principals (id, type, display_name, review_language) ` +
+      `values ('cccccccc-4444-4000-8000-000000000001','SERVICE_AGENT','MCP E2E','ko');` +
+      `insert into agent_workspace_grants (principal_id, workspace_id) ` +
+      `values ('cccccccc-4444-4000-8000-000000000001','${WORKSPACE_ID}');` +
+      `insert into agent_credentials (principal_id, name, key_prefix, key_hash) ` +
+      `values ('cccccccc-4444-4000-8000-000000000001','mcp-agent','${key.keyPrefix}','${key.keyHash}');`,
   );
 
   const stored = await psql(
-    `select count(*) from api_keys where workspace_id='${WORKSPACE_ID}' and key_hash = '${key.plainToken}'`,
+    `select count(*) from agent_credentials where key_hash = '${key.plainToken}'`,
   );
   check(
     stored === "0",

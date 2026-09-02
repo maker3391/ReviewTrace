@@ -91,10 +91,34 @@ FROM review_sessions rs
 JOIN workspaces w ON w.id = rs.workspace_id AND w.slug LIKE 'explain-tmp-%',
  generate_series(1, ${ISSUES}) i;
 
+-- 🔴 **Activity 가 없으면 Frequent Patterns 를 재도 지금 질의를 잰 것이 아니다.**
+-- encounter 집계가 issue_activities 를 LEFT JOIN 하므로, 그 표가 비어 있으면 join 이
+-- 공짜가 되어 실제보다 빠른 숫자가 나온다. 최초 발견(DETECTED) 1건에 더해 일부에
+-- REVIEWED_AGAIN·FIX_ATTEMPTED 를 섞어 실제 모양을 만든다.
+INSERT INTO issue_activities (workspace_id, review_issue_id, type, actor_type, actor_name, created_at)
+SELECT i.workspace_id, i.id, 'DETECTED', 'AGENT', 'codex', i.first_detected_at
+FROM review_issues i
+JOIN workspaces w ON w.id = i.workspace_id AND w.slug LIKE 'explain-tmp-%';
+
+INSERT INTO issue_activities (workspace_id, review_issue_id, type, actor_type, actor_name, created_at)
+SELECT i.workspace_id, i.id, 'REVIEWED_AGAIN', 'AGENT', 'codex',
+ i.first_detected_at + interval '3 days'
+FROM review_issues i
+JOIN workspaces w ON w.id = i.workspace_id AND w.slug LIKE 'explain-tmp-%'
+WHERE ('x' || substr(md5(i.id::text), 1, 4))::bit(16)::int % 3 = 0;
+
+INSERT INTO issue_activities (workspace_id, review_issue_id, type, actor_type, actor_name, created_at)
+SELECT i.workspace_id, i.id, 'FIX_ATTEMPTED', 'AGENT', 'claude',
+ i.first_detected_at + interval '5 days'
+FROM review_issues i
+JOIN workspaces w ON w.id = i.workspace_id AND w.slug LIKE 'explain-tmp-%'
+WHERE ('x' || substr(md5(i.id::text), 1, 4))::bit(16)::int % 5 = 0;
+
 ANALYZE projects;
 ANALYZE repositories;
 ANALYZE review_sessions;
 ANALYZE review_issues;
+ANALYZE issue_activities;
 
 SELECT '전체 review_issues=' || count(*) FROM review_issues;
 SELECT '대상 Workspace 의 review_issues=' || count(*)
@@ -128,8 +152,38 @@ FROM review_issues
 WHERE workspace_id = (SELECT id FROM _ws);
 
 \\echo
-\\echo '===== 3. Workspace Dashboard — Frequent Patterns ====='
-\\echo ' 기대: review_issues_workspace_category_idx 또는 list_idx'
+\\echo '===== 3. Workspace Dashboard — Frequent Patterns (encounter 집계) ====='
+\\echo ' 🔴 이것이 지금 findFrequentPatterns 가 실제로 내는 모양이다.'
+\\echo '    Issue 행 수가 아니라 «최초 발견 + REVIEWED_AGAIN» 을 세므로 issue_activities 를'
+\\echo '    LEFT JOIN 하고, 그 fan-out 을 count(distinct) 로 되돌린다.'
+\\echo ' 기대: review_issues_workspace_category_idx + issue_activities_issue_created_at_idx'
+EXPLAIN (ANALYZE, BUFFERS, COSTS OFF)
+SELECT i.pattern_key, i.category,
+ count(DISTINCT i.id)::int AS unique_issues,
+ (count(DISTINCT i.id)
+   + count(a.id) FILTER (WHERE a.type = 'REVIEWED_AGAIN'))::int AS encounters,
+ count(DISTINCT i.id) FILTER (WHERE i.status = 'RESOLVED')::int AS resolved_count,
+ greatest(
+   max(i.first_detected_at),
+   coalesce(
+     max(a.created_at) FILTER (WHERE a.type = 'REVIEWED_AGAIN'),
+     max(i.first_detected_at)
+   )
+ ) AS last_encounter_at
+FROM review_issues i
+JOIN repositories r
+  ON r.id = i.repository_id AND r.workspace_id = i.workspace_id
+LEFT JOIN issue_activities a
+  ON a.review_issue_id = i.id AND a.workspace_id = i.workspace_id
+WHERE i.workspace_id = (SELECT id FROM _ws) AND i.pattern_key IS NOT NULL
+GROUP BY i.pattern_key, i.category
+ORDER BY 4 DESC, 6 DESC
+LIMIT 8;
+
+\\echo
+\\echo '===== 3-b. 같은 화면의 «옛» 모양 — 비교용으로만 남긴다 ====='
+\\echo ' 🔴 이 질의는 제품에 더 없다. count(distinct) 가 HashAggregate 를 GroupAggregate 로'
+\\echo '    바꾸므로 3 번이 이것보다 느린 것은 정상이다 — 얼마나 벌어지는지를 본다.'
 EXPLAIN (ANALYZE, BUFFERS, COSTS OFF)
 SELECT i.pattern_key, i.category, count(*)::int,
  count(*) FILTER (WHERE i.status = 'RESOLVED')::int,
@@ -140,6 +194,26 @@ WHERE i.workspace_id = (SELECT id FROM _ws) AND i.pattern_key IS NOT NULL
 GROUP BY i.pattern_key, i.category
 ORDER BY count(*) DESC, max(i.first_detected_at) DESC
 LIMIT 8;
+
+\\echo
+\\echo '===== 3-c. create_review Knowledge preflight — 후보 pool (Repository 하나) ====='
+\\echo ' 기대: Repository 로 먼저 좁힌 뒤 Activity 를 index 로 붙는다'
+EXPLAIN (ANALYZE, BUFFERS, COSTS OFF)
+SELECT i.id, i.title, i.status, i.severity, i.file_path,
+ (1 + count(a.id) FILTER (WHERE a.type = 'REVIEWED_AGAIN'))::int AS encounters
+FROM review_issues i
+JOIN repositories r
+  ON r.id = i.repository_id AND r.workspace_id = i.workspace_id
+LEFT JOIN issue_activities a
+  ON a.review_issue_id = i.id AND a.workspace_id = i.workspace_id
+WHERE i.workspace_id = (SELECT id FROM _ws)
+  AND i.repository_id = (
+    SELECT id FROM repositories WHERE workspace_id = (SELECT id FROM _ws) LIMIT 1
+  )
+  AND i.status IN ('OPEN','IN_PROGRESS','REOPENED','RESOLVED')
+GROUP BY i.id, i.title, i.status, i.severity, i.file_path, i.first_detected_at
+ORDER BY i.severity ASC, i.id ASC
+LIMIT 200;
 
 \\echo
 \\echo '===== 4. Project 목록 집계 — 🔴 N+1 이 아닌지 (문장 하나여야 한다) ====='

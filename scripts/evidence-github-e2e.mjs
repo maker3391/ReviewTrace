@@ -2,7 +2,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import { generateApiKey } from "../src/lib/api/api-key-token.ts";
+import { generateAgentCredential } from "../src/lib/api/api-key-token.ts";
 
 /**
  * Code Evidence 의 GitHub 대조 E2E(스펙 15).
@@ -127,11 +127,16 @@ async function main() {
       .slice(0, -1)
       .findIndex((line) => line.trim() === "") + 1;
 
-  const key = generateApiKey();
+  const key = generateAgentCredential();
   await psql(
     `insert into workspaces (id, slug, name) values ('${WORKSPACE_ID}','${SLUG}','Evidence E2E');` +
-      `insert into api_keys (workspace_id, name, key_prefix, key_hash) ` +
-      `values ('${WORKSPACE_ID}','evidence','${key.keyPrefix}','${key.keyHash}');`,
+      // 🔴 자격은 Principal 에 달리고 Workspace 접근은 grant 가 정한다.
+      `insert into agent_principals (id, type, display_name, review_language) ` +
+      `values ('eeeeeeee-4444-4000-8000-000000000001','SERVICE_AGENT','Evidence E2E','ko');` +
+      `insert into agent_workspace_grants (principal_id, workspace_id) ` +
+      `values ('eeeeeeee-4444-4000-8000-000000000001','${WORKSPACE_ID}');` +
+      `insert into agent_credentials (principal_id, name, key_prefix, key_hash) ` +
+      `values ('eeeeeeee-4444-4000-8000-000000000001','evidence','${key.keyPrefix}','${key.keyHash}');`,
   );
 
   const issue = (title, externalId, evidence) => ({
