@@ -6,7 +6,6 @@ import {
   agentCredentials,
   agentPrincipals,
   agentWorkspaceGrants,
-  apiKeys,
   projects,
   repositories,
   reviewIssues,
@@ -30,10 +29,7 @@ import {
   requireAuthorizedIssueWorkspace,
   requireAuthorizedReviewWorkspace,
 } from "@/lib/api/agent-resource-authorization";
-import {
-  generateAgentCredential,
-  generateApiKey,
-} from "@/lib/api/api-key-token";
+import { generateAgentCredential } from "@/lib/api/api-key-token";
 import { isAppError } from "@/lib/errors";
 
 const enabled = process.env.DB_INTEGRATION === "true";
@@ -362,25 +358,49 @@ describe.skipIf(!enabled)("principal Agent authorized Repository context", () =>
     });
   });
 
-  it("CASE 8: legacy key remains a single-Workspace authorization", async () => {
+  /**
+   * 🔴 **여기 있던 CASE 8 은 legacy Workspace API Key 를 검증하던 자리다.**
+   *
+   * `ci_` 인증(`authenticateLegacy`)이 제품에서 제거되면서 검증 대상 자체가 사라졌다 —
+   * assertion 을 약화한 것이 아니라 **그 동작이 더 없다.** 지금은 형식 단계에서
+   * `isApiKeyFormat` 이 `ci_agent_` 아닌 값을 DB 조회 전에 거절하고, 그 회귀는
+   * `lib/api/api-key-token.test.ts` 가 지킨다.
+   *
+   * 「한 자격이 어느 Workspace 를 여는가」라는 이 CASE 의 본래 질문은 아래 CASE 들이
+   * 이어받는다 — grant 가 없으면 아무 Workspace 도 열리지 않고, grant 를 거두면
+   * 그 즉시 닫힌다.
+   */
+  it("CASE 8: grant가 없는 자격은 어떤 Workspace도 열지 못한다", async () => {
     await inRollback(async (tx) => {
-      const seed = await seedTenants(tx);
-      const generated = generateApiKey();
-      await tx.insert(apiKeys).values({
-        workspaceId: seed.a.workspaceId,
-        name: "legacy",
+      await seedTenants(tx);
+      const generated = generateAgentCredential();
+      const [principal] = await tx
+        .insert(agentPrincipals)
+        .values({
+          type: "SERVICE_AGENT",
+          displayName: "no-grant",
+          reviewLanguage: "ko",
+        })
+        .returning({ id: agentPrincipals.id });
+      if (principal === undefined) throw new Error("principal을 만들지 못했다");
+      await tx.insert(agentCredentials).values({
+        principalId: principal.id,
+        name: "no-grant",
         keyPrefix: generated.keyPrefix,
         keyHash: generated.keyHash,
       });
+
       const authorization = await authenticateAgent(
         request(generated.plainToken),
         tx,
       );
-      expect(authorization).toMatchObject({
-        model: "LEGACY_WORKSPACE",
-        authorizedWorkspaceIds: [seed.a.workspaceId],
-        workspaceId: seed.a.workspaceId,
-      });
+
+      // 🔴 인증은 통과해도 열리는 Workspace 가 하나도 없다 — 자격과 접근은 다른 판정이다.
+      expect(authorization.authorizedWorkspaceIds).toEqual([]);
+      expect(authorization.principalType).toBe("SERVICE_AGENT");
+      // legacy 시절의 단일 Workspace 칸은 더 존재하지 않는다.
+      expect(authorization).not.toHaveProperty("workspaceId");
+      expect(authorization).not.toHaveProperty("model");
     });
   });
 
@@ -413,7 +433,6 @@ describe.skipIf(!enabled)("principal Agent authorized Repository context", () =>
         })
         .returning({ id: reviewIssues.id });
       const authorization: AgentAuthorization = {
-        model: "PRINCIPAL",
         credentialId: crypto.randomUUID(),
         principalId: crypto.randomUUID(),
         principalType: "USER_AGENT",
