@@ -30,8 +30,12 @@ SHA-256 hash and can never show it again. Copy it now; if you lose it, revoke it
 a new one.
 
 Configure it once. The credential authenticates a principal; the current git remote resolves the
-Repository, Project, and Workspace inside that principal's live grants. Legacy `ci_…` Workspace
-API keys still work with their existing one-Workspace behavior.
+Repository, Project, and Workspace inside that principal's live grants.
+
+The same screen sets the connection's **review language** (`한국어` / `English`). The server reads
+it at startup, over `GET /api/v1/agent/context`, and folds it into the instructions the agent
+receives — so records land in one language instead of whichever one the session happened to be
+speaking. A ReviewTrace instance too old to answer that request will not start this server.
 
 ### 3. Register the server with your agent
 
@@ -42,7 +46,7 @@ Nothing to install ahead of time: `npx` fetches the package on first run.
 ```bash
 claude mcp add reviewtrace -s user \
   -e "REVIEWTRACE_API_URL=https://reviewtrace.app" \
-  -e "REVIEWTRACE_API_KEY=ci_your_key" \
+  -e "REVIEWTRACE_API_KEY=ci_agent_your_credential" \
   -- npx -y reviewtrace-mcp
 ```
 
@@ -51,7 +55,7 @@ claude mcp add reviewtrace -s user \
 ```bash
 codex mcp add reviewtrace \
   --env "REVIEWTRACE_API_URL=https://reviewtrace.app" \
-  --env "REVIEWTRACE_API_KEY=ci_your_key" \
+  --env "REVIEWTRACE_API_KEY=ci_agent_your_credential" \
   -- npx -y reviewtrace-mcp
 ```
 
@@ -66,7 +70,7 @@ To check it by hand, run it directly:
 
 ```bash
 REVIEWTRACE_API_URL=https://reviewtrace.app \
-REVIEWTRACE_API_KEY=ci_your_key \
+REVIEWTRACE_API_KEY=ci_agent_your_credential \
 npx -y reviewtrace-mcp
 ```
 
@@ -102,7 +106,7 @@ REVIEWTRACE_API_URL=http://localhost:3000
 Instead of environment variables you may write `~/.reviewtrace/config.json`:
 
 ```json
-{ "apiUrl": "https://reviewtrace.app", "apiKey": "ci_your_key" }
+{ "apiUrl": "https://reviewtrace.app", "apiKey": "ci_agent_your_credential" }
 ```
 
 Environment variables win over the file. Put the key in one of those two places — not in
@@ -134,22 +138,28 @@ the Repository is connected in that Workspace.
 | -------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `get_repository_knowledge` | Past patterns, open issues and past resolutions for this repository. Read this _before_ changing code | `repository`, `limit`                                                                                                                  |
 | `search_issues`            | Find issues by status, severity, category, pattern or keyword                                         | `status`, `severity`, `category`, `patternKey`, `q`, `limit`                                                                           |
-| `create_review`            | Open one review for this repository and commit                                                        | `summary`, `reviewer`, `project`                                                                                                       |
-| `add_issue`                | Record one finding on the open review                                                                 | `severity`, `category`, `title`, `problem`, `rootCause`, `filePath`, `startLine`, `patternKey`, `suggestion`, `externalId`, `evidence` |
+| `create_review`            | Open one review and return a compact Knowledge preflight ranked for the changed files                 | `summary`, `reviewer`, `project`                                                                                                       |
+| `add_issue`                | Record one finding; known issues return `alreadyKnown` and `currentStatus`                            | `severity`, `category`, `title`, `problem`, `rootCause`, `filePath`, `startLine`, `patternKey`, `suggestion`, `externalId`, `evidence` |
 | `add_fix_attempt`          | Record that this was fixed this way, and why                                                          | `issueId`, `summary`, `commitSha`, `solution`, `decisionReason`, `evidence`                                                            |
 | `review_again`             | Record a re-review. `stillPresent: true` reopens a closed issue                                       | `issueId`, `summary`, `stillPresent`                                                                                                   |
 | `resolve_issue`            | Close a verified issue. `resolution` is required                                                      | `issueId`, `resolution`, `verification`, `commitSha`                                                                                   |
+| `get_issue`                | Read one issue with its full history                                                                  | `issueId`                                                                                                                              |
 
 Evidence snapshots should contain the problem or changed lines plus only the context
 needed to understand them. Send exact `startLine`/`endLine` values; do not include an
 entire function or component by default.
 
-All Issue and Decision Record narrative fields are Review Knowledge Markdown documents. Separate
-meaning units into paragraphs; use bullets for multiple causes/actions/checks/alternatives/risks and
-an ordered list for a failure path of two or more steps. Put technical identifiers in inline code,
-use fenced blocks only for an actual source snippet, do not force a one-sentence value into a list,
-and do not repeat the UI's field heading inside the field.
-| `get_issue` | Read one issue with its full history | `issueId` |
+All Issue and Decision Record narrative fields are Review Knowledge Markdown documents, written so
+a reader can scan the structure in seconds. Do not leave a complex field as a wall of long
+paragraphs: when it holds two or more distinct points, split them with a subheading named after the
+actual content; use nested lists for sub-points, an ordered list where order carries meaning, and
+bold for the one or two judgements that matter. Put technical identifiers in inline code and use
+fenced blocks only for an actual source snippet. Where one causal chain runs naturally, leave it as
+prose; where the field holds a single fact, one paragraph is best. Never repeat the UI's field
+heading inside the field. The issue `description` (`problem`) is the exception: it is the
+summary read first, so one or two short sentences must say what is broken and what it affects,
+and the analysis stays in `rootCause`, `failurePath` and `suggestion` rather than being
+pre-told here.
 
 `severity` is `CRITICAL · HIGH · MEDIUM · LOW · INFO`.
 `category` is `ARCHITECTURE · SECURITY · PERFORMANCE · DATABASE · TRANSACTION · CONCURRENCY ·
@@ -162,7 +172,8 @@ A review round, as the agent actually calls it:
 ```jsonc
 // 1. Before touching anything — what does this repository keep getting wrong?
 get_repository_knowledge { }
-// -> frequentPatterns: [{ patternKey: "EXTERNAL_IO_IN_TRANSACTION", occurrences: 4 }, …]
+// -> frequentPatterns: [{ patternKey: "EXTERNAL_IO_IN_TRANSACTION",
+//      uniqueIssues: 2, encounters: 4, occurrences: 4 }, …]
 //    unresolvedIssues, pastResolutions, wiki
 
 // 2. Open a review. Repository and commit are read from git.
@@ -170,7 +181,8 @@ create_review {
   "reviewer": "claude-code",
   "summary": "결제 취소 경로 리뷰"
 }
-// -> { reviewId: "…", repository: "acme/billing", commitSha: "a81f3c2" }
+// -> { reviewId: "…", repository: "acme/billing", commitSha: "a81f3c2",
+//      knowledgePreflight: { frequentPatterns, relevantPastIssues, unresolvedIssues, guidance } }
 
 // 3. Record what you found. reviewId omitted — the open one is used.
 add_issue {
@@ -185,7 +197,7 @@ add_issue {
   "externalId": "refund-service-82-ext-io",
   "suggestion": "PG 호출을 트랜잭션 밖으로 뺀다.\n\n- 외부 응답을 먼저 받는다\n- 원장 기록만 별도 transaction으로 커밋한다"
 }
-// -> { issueId: "…", alreadyKnown: false }
+// -> { issueId: "…", alreadyKnown: false, currentStatus: "OPEN" }
 
 // 4. After fixing it. issueId omitted — the last issue is used.
 add_fix_attempt {
@@ -216,6 +228,27 @@ ReviewTrace appends to that issue's history instead of creating a second row.
 - Requests that carry no idempotency key are never retried automatically — a failure is
   reported rather than risking a duplicate row. Use `get_issue` or `search_issues` to check
   what actually landed.
+- Code evidence carries `sourceState` automatically. Before sending, the server asks local
+  git whether the snippet is actually at the commit you named. Code you have not committed
+  yet is sent as `WORKING_TREE`, so it is recorded as "no immutable source to compare
+  against" instead of "differs from the commit source". You do not set this field yourself.
+
+## One repository per server process
+
+The server is started by your agent and lives as long as that session. It reads the
+repository from **its own working directory**, and the "current review / current issue"
+shortcuts (`create_review` then `add_issue` without `reviewId`, `resolve_issue` without
+`issueId`) live in that one process.
+
+Separate agent sessions get separate processes, so two sessions working on two
+repositories never mix. Within **one** session that spans two repositories — parallel
+subagents, `--add-dir`, a git worktree — the process and its shortcuts are shared:
+
+- Name the repository explicitly (`repository: "owner/name"`) for anything outside the
+  process's working directory. Note that a review opened this way has no commit, branch,
+  or changed-file list, because those come from local git.
+- Pass `issueId` explicitly when work runs in parallel, so an implicit "last issue" from
+  the other branch of work is never the target.
 
 ## License
 

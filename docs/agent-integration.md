@@ -27,9 +27,25 @@ call, and here is why we moved the call out instead of adding a Saga" is.
 | `resolve_issue`            | Verification passed. `resolution` is required — that is the part that gets reused.                                 |
 | `get_issue`                | You need the full history of one issue, including every past attempt.                                              |
 
-You almost never pass IDs. `create_review` reads the repository and commit from git.
+You almost never pass IDs. `create_review` reads the repository, branch, commit, and a bounded list
+of changed file paths from git — up to 1000 paths are sent, and the first 100 after normalising and
+de-duplicating are the ones that actually influence ranking. Its response includes a compact
+repository-scoped Knowledge preflight, so the recurring-pattern check still happens when a client
+skipped the separate `get_repository_knowledge` call.
 `add_issue` attaches to the review you just opened. `add_fix_attempt`, `review_again`,
 and `resolve_issue` default to the issue you last touched.
+
+Read `knowledgePreflight.changedFiles` before you trust the ranking. When `truncated` is `true`,
+only `considered` of `total` paths were weighed, and the preflight says so in its own `guidance`.
+If git could not produce the list at all, `create_review` returns a `changedFiles경고` field —
+that means the candidates below it ignore what you changed, so search yourself rather than
+concluding the repository has no history here. When the Knowledge query itself fails the review is
+still recorded and `available` is `false`.
+
+Knowledge candidates are summaries, not ready-made fixes. Before applying one, call
+`get_issue(issueId)` and compare its root cause, decision, verification, regression test, residual
+risk, and Evidence commit with the current HEAD, code structure, dependency versions, and failure
+condition. If those differ, do not copy the historical solution unchanged.
 
 ## Credential and Workspace resolution
 
@@ -51,7 +67,16 @@ git config --local reviewtrace.workspace workspace-slug
 ```
 
 The hint is checked against both the principal grant and the Repository candidate. Do not set it
-globally. Legacy Workspace API keys still work with their original one-Workspace scope.
+globally.
+
+There is exactly one credential form: `ci_agent_` followed by 43 base64url characters. The older
+Workspace API key (`ci_` without `agent_`) has no issuing path and no authentication path left —
+it is rejected on shape, before the database is consulted. If you still have one, create a new
+Agent connection.
+
+Each connection also carries a **review language** (`한국어` / `English`), set on the same screen.
+The MCP server reads it at startup and tells you which language to write records in, so a team
+reading the issue list months later is not reading two languages interleaved.
 
 ## The lifecycle
 
@@ -79,15 +104,32 @@ each attempt keeps its own reasoning instead of overwriting the last one.
 These fields are all optional. An empty field is better than an invented one. But when
 you _do_ know the answer, write it — this is the whole value of the record.
 
-Knowledge fields contain Markdown source. Separate different ideas with a blank line
-instead of joining them into one long paragraph. Prefer an ordered list for a multi-step
-failure or attack path, and bullet lists for multiple suggestions, applied changes, or
-verification commands. Use inline code for identifiers. The server stores this Markdown
-source as text; it does not heuristically rewrite legacy one-line records.
-Use fenced code only for an actual source snippet. Do not turn a short sentence into a decorative
-list, and do not add headings such as `## Root cause` inside a field whose UI already supplies that
-heading. The same contract applies to issue description/root cause/failure path/suggestion/final
-resolution and all seven Decision Record fields.
+Knowledge fields contain Markdown source, and the bar is not "how much Markdown did I use"
+but **can a reader find the structure and the key judgement within five seconds**. Priority
+order: correctness, evidence, causality, information hierarchy, readability, formatting.
+
+Do not end a complex field as two or three long paragraphs — that paragraph wall is the most
+common failure. When a single field holds two or more distinct points, split them with a
+subheading that names the actual content (direct cause / structural problem / blast radius /
+execution path / core change), chosen for this issue rather than copied as a template. Use a
+nested list when a concept has sub-points, an ordered list when order carries meaning (write
+each step so that action, identifier and result read at a glance, with details as nested
+bullets underneath), and bold for the one or two judgements that matter in a section. Put
+technical identifiers in inline code and use fenced code only for an actual source snippet.
+
+Where a single causal chain runs naturally, leave it as prose. Where the field really holds
+one fact, a single paragraph is best — a heading with one sentence under it is empty ceremony.
+Never repeat the field's own name as a heading; the UI already draws it. The server stores this
+Markdown source as text; it does not heuristically rewrite legacy one-line records. The same
+contract applies to issue root cause/failure path/suggestion/final resolution and all seven
+Decision Record fields — the issue description is the one exception, described next.
+
+**`description`** (`problem` in MCP) — the summary a reader meets **first** on the issue
+detail page. One or two short sentences must already answer "what is broken and what does it
+affect", so the reader can move on to the root cause within three to five seconds. Do not
+pre-tell the analysis that belongs in `rootCause`, `failurePath` or `suggestion`; a heading
+or compact bullets are for a genuine topic boundary only (change / impact / judgement) and are
+never required here. Most descriptions are one or two paragraphs.
 
 **`rootCause`** — why the code ended up this way, not what is wrong with it. "The
 transaction boundary was drawn around the whole service method" is a root cause.
@@ -137,6 +179,15 @@ valid and are not rewritten.
 
 Point at a commit SHA, never a branch name. Branches move; the evidence should not.
 
+**You do not set `sourceState`.** Before each evidence item leaves your machine, the MCP server
+asks local git whether that snippet is actually in the commit you named (`git show <sha>:<path>`)
+and, if not, whether it is in the working tree or index (`git show :0:<path>` plus the file on
+disk). It marks the item `COMMITTED` or `WORKING_TREE` accordingly, and marks nothing when git
+cannot answer. The server never compares a `WORKING_TREE` item against GitHub — it records
+`UNAVAILABLE`, which reads as "there was no immutable source to compare against," not
+"the agent's snippet was wrong." `commitSha` is still required, because it is the base the
+uncommitted work sits on. Over plain HTTP the field is accepted and defaults to `COMMITTED`.
+
 ## Repository CLAUDE.md / AGENTS.md
 
 You do not need to paste this guide into your repository. This is enough:
@@ -153,7 +204,7 @@ Tool errors are written for you to act on, not for a human to debug:
 
 | Message                                 | What to do                                                 |
 | --------------------------------------- | ---------------------------------------------------------- |
-| Credential is not valid                 | Stop. Issue or rotate it in Settings > Agent Credentials.  |
+| Credential is not valid                 | Stop. Issue or rotate it in Settings > Agent connections.  |
 | Could not reach the ReviewTrace server  | Stop. The server or `REVIEWTRACE_API_URL` is wrong.        |
 | Not a git repository / no origin remote | Pass `repository` as `owner/name` explicitly.              |
 | Repository not connected or authorized  | Connect it or ask a Workspace owner for an explicit grant. |

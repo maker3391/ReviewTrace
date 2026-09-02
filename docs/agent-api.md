@@ -15,8 +15,8 @@ scope is the principal's explicit Workspace grants intersected with live members
 `USER_AGENT`. Repository identity then resolves Repository -> Project -> Workspace only inside
 that scope. One credential can therefore follow the current repository across Workspaces.
 
-Legacy `ci_...` Workspace API keys remain supported and expose exactly their original one-Workspace
-scope. Existing secrets are not converted or reassigned.
+`ci_agent_...` is the only accepted credential shape. A value that does not carry that prefix is
+rejected on format alone, before any database lookup.
 
 `workspaceSlug` is an optional context hint, never authority. The server first verifies that the
 hint is in the credential's effective scope and matches a Repository candidate. MCP reads it only
@@ -81,6 +81,7 @@ the request un-deduplicated while the caller believed it was protected.
 | `repository.htmlUrl`                                | no          | `http`/`https` only                                                                                    |
 | `target.type`                                       | yes         | `PULL_REQUEST` · `COMMIT` · `BRANCH` · `REPOSITORY` · `MANUAL`                                         |
 | `target.branch` / `commitSha` / `pullRequestNumber` | no          |                                                                                                        |
+| `target.changedFiles[]`                             | no          | Max 1000 paths, ≤1024 chars each. Ranks `knowledgePreflight`; see below                                |
 | `reviewer.type`                                     | yes         | `AGENT` · `HUMAN` · `SYSTEM`                                                                           |
 | `reviewer.name` / `version`                         | yes / no    |                                                                                                        |
 | `summary`                                           | no          |                                                                                                        |
@@ -128,12 +129,35 @@ neither a Repository nor a Default Project.
       "severity": "HIGH",
       "category": "TRANSACTION",
       "status": "OPEN",
+      "currentStatus": "OPEN",
       "alreadyKnown": false
     }
   ],
-  "idempotentReplay": false
+  "idempotentReplay": false,
+  "knowledgePreflight": {
+    "available": true,
+    "changedFiles": { "total": 0, "considered": 0, "truncated": false },
+    "frequentPatterns": [],
+    "relevantPastIssues": [],
+    "unresolvedIssues": [],
+    "guidance": []
+  }
 }
 ```
+
+`changedFiles` reports what the ranking actually saw. Up to 1000 paths are **accepted** — more is a
+`400 VALIDATION_ERROR`, never a silent drop — but only the first 100 after normalising and
+de-duplicating are **considered**. When `truncated` is `true` the preflight also says so in its own
+`guidance`, because a ranking that quietly ignored most of the diff reads exactly like a repository
+with no history.
+
+`knowledgePreflight` is additive and repository-scoped. Each section holds at most 5 entries.
+Candidates are compact summaries ranked
+deterministically from changed file paths, unresolved status, severity, recurrence, and recency.
+Call `GET /api/v1/issues/{issueId}` before reusing a past solution; it is historical precedent,
+not an instruction to copy without checking the current HEAD, dependencies, failure condition,
+and Evidence commit. If the post-write Knowledge query fails, the Review still succeeds with
+`knowledgePreflight.available: false`.
 
 ---
 
@@ -146,6 +170,11 @@ does not create one session per finding.
 reviewer are not accepted here; the session already fixed them.
 
 **Response** — `201` with `reviewSessionId` and `issues[]`.
+
+An existing issue returns its current persisted status in both the compatibility `status` field
+and additive `currentStatus`. If it is `RESOLVED` but is actually present in the new Review, the
+Agent must explicitly re-open it through `review_again(stillPresent=true)`; appending the finding
+does not silently change lifecycle status.
 
 ---
 
@@ -229,6 +258,11 @@ What a repository has learned. Read this before starting work.
 **Response** — `200` with `scope`, `wiki`, `frequentPatterns`,
 `recentHighSeverityIssues`, `unresolvedIssues`, `pastResolutions`.
 
+Each frequent pattern exposes `uniqueIssues`, `encounters`, and `lastEncounterAt`. `encounters`
+means one initial detection per unique Issue plus `REVIEWED_AGAIN` activities; fix attempts,
+resolution, comments, and status-only activities are not counted. `occurrences` and
+`lastDetectedAt` remain compatibility aliases for `encounters` and `lastEncounterAt`.
+
 When `repository` is present and `projectSlug` is absent, scope is resolved as
 Repository → `project_id` → Project → Workspace. `scope.repository.requested` and
 `scope.repository.resolved` distinguish a git-remote string from a DB row;
@@ -236,6 +270,26 @@ Repository → `project_id` → Project → Workspace. `scope.repository.request
 `scope.workspace.id`/`slug`, `scope.repository.externalRepositoryId`, and
 `scope.resolutionStatus` make the resolved tenant explicit. An unknown Repository returns
 `404 NOT_CONNECTED_OR_NOT_AUTHORIZED`; it is never widened to Workspace scope.
+
+---
+
+## `GET /api/v1/agent/context`
+
+Startup context for an MCP client. Requires the `READ` capability.
+
+**Response** — `200`
+
+```json
+{ "reviewLanguage": "en" }
+```
+
+`reviewLanguage` is `ko` or `en`, set per Agent connection in the workspace settings screen. It
+tells the client which language to ask its agent to write records in, so an issue list read months
+later is not two languages interleaved.
+
+This endpoint deliberately exposes **nothing else**. It does not return the principal, the
+credential, the workspaces it may reach, or any identifier — "is this connection alive" and "who am
+I" are different questions, and there is no reason to answer the second one here.
 
 ---
 
@@ -248,9 +302,11 @@ reasoning instead of overwriting the first — that history is the reusable part
 `regressionTest` · `residualRisk`. All optional, each ≤10,000 chars. Sending seven empty
 strings stores nothing.
 
-These values are Markdown source. Put separate ideas in separate paragraphs; use bullet
-lists for multiple verification steps, alternatives, trade-offs, regression checks, or
-residual risks.
+These values are Markdown source, written to be scanned rather than read straight through.
+Use bullet lists for multiple verification steps, alternatives, trade-offs, regression checks,
+or residual risks; a subheading when one field holds two or more distinct points; a nested list
+for sub-points; and an ordered list where order carries meaning. A field holding a single fact
+stays a single paragraph.
 
 `review_issues.resolutionSummary` is separate: it is the issue's final Markdown resolution
 summary, while a decision record is one step on the way there.
@@ -263,9 +319,31 @@ summary, while a decision record is one step on the way there.
 | ----------------------- | -------- | ---------------------------------------------------------------- |
 | `kind`                  | yes      | `BEFORE` · `AFTER`                                               |
 | `commitSha`             | yes      | A commit, never a branch                                         |
+| `sourceState`           | no       | `COMMITTED` (default) · `WORKING_TREE` — see below               |
 | `filePath`              | yes      |                                                                  |
 | `startLine` / `endLine` | no       | Exact range of the minimal relevant snippet                      |
 | `snapshot`              | no       | Problem/changed lines plus only necessary context, ≤20,000 chars |
+
+### `sourceState` — is there an immutable source to compare against?
+
+Development runs **fix → check → commit**, so `AFTER` evidence is usually produced *before*
+the fix is committed. The only SHA an agent can name at that moment is `HEAD` — and that
+commit does not contain the code. Comparing them then fails honestly and the evidence is
+recorded as `MISMATCH`, which reads as "the fix is wrong" when it means nothing of the sort.
+
+`sourceState` separates the two statements:
+
+| Value          | What `commitSha` means                            | Verification                                    |
+| -------------- | ------------------------------------------------- | ----------------------------------------------- |
+| `COMMITTED`    | The snapshot **is at** that commit (default)      | Compared against GitHub                         |
+| `WORKING_TREE` | The work sits **on top of** that commit, uncommitted | Not compared — recorded as `UNAVAILABLE`     |
+
+`commitSha` stays required for `WORKING_TREE`: without it the snippet has no point in time.
+
+> `WORKING_TREE` is not a "skip verification" switch. It states that no immutable source
+> exists to compare against. Sending it for committed code means code that *could* be
+> verified never is. Send it only when you have confirmed the code is not committed —
+> the ReviewTrace MCP server determines this from local git and fills the field in for you.
 
 The server checks the snapshot against GitHub at that commit **after** the response is
 sent, so verification never delays your request. The result is recorded separately —
@@ -279,7 +357,7 @@ should not submit an entire function or component when a smaller changed range i
 | `UNVERIFIED`   | Not checked yet                                                                                                         |
 | `VERIFIED`     | Matched GitHub at that commit and line range. With no line range, the snippet was found in the file                     |
 | `MISMATCH`     | The file exists at that commit but the content differs                                                                  |
-| `UNAVAILABLE`  | Could not look: private repo without Workspace installation access, missing commit/file, rate limit, or network failure |
+| `UNAVAILABLE`  | Could not look: private repo without Workspace installation access, missing commit/file, rate limit, network failure, or `sourceState: WORKING_TREE` (nothing to compare against yet) |
 
 If no snapshot is sent and the lines are readable, the server fills it in from GitHub so
 the record survives the repository being deleted or going private. With no line range and

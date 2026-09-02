@@ -122,8 +122,10 @@ Then:
 
 1. **Sign in with GitHub.** The first sign-in _is_ sign-up. A personal workspace is created and you
    own it.
-2. **Issue an API key** at `/w/{workspace}/settings` → API Keys (owner only). The token starts with
-   `ci_` and is **shown exactly once** — only its SHA-256 hash is stored.
+2. **Create an Agent connection** at `/w/{workspace}/settings` → Agent connections. The credential
+   starts with `ci_agent_` and is **shown exactly once** — only its SHA-256 hash is stored. Allow it
+   the Workspaces it should reach; a Workspace `OWNER` controls each grant. Pick a review language
+   here too — the MCP server reads it at startup and asks the agent to write records in it.
 3. Create a Project and choose **Repositories → Connect repository**. Install the GitHub App for a
    personal account or organization, then pick one of the public/private repositories that the
    installation is allowed to access.
@@ -212,6 +214,8 @@ Never put it in your project's `.env` — that file is inside a repository.
 - [Agent integration guide](docs/agent-integration.md) — which tool to call when, and what makes a
   record worth keeping. Written for the agent, not for you.
 - [Agent API reference](docs/agent-api.md) — the HTTP contract the MCP server sits on.
+- [Deployment and operations](docs/deployment.md) — environment variables, the Supabase connection
+  to pick for each purpose, and why migrations are applied by a human pressing a button.
 
 ---
 
@@ -261,8 +265,8 @@ blank field beats a field an agent invented to satisfy a validator.
 
 **Code evidence** — the lines themselves.
 
-`kind` (`BEFORE` / `AFTER`) · `commitSha` · `filePath` · `startLine` · `endLine` · `snapshot` ·
-`verification` · `verifiedAt`
+`kind` (`BEFORE` / `AFTER`) · `commitSha` · `sourceState` · `filePath` · `startLine` · `endLine` ·
+`snapshot` · `verification` · `verifiedAt`
 
 Issues also carry free-form `tags`, separate from `category` (a fixed technical area) and
 `patternKey` (a normalized name for a recurring problem, e.g. `N_PLUS_ONE`).
@@ -316,7 +320,30 @@ The snapshot is what the agent claims it read. Whether GitHub agrees is recorded
 
 Keeping "the agent sent this" apart from "GitHub confirms this" is the point. The verification pass
 runs _outside_ the write transaction, so a slow or unreachable GitHub never blocks a recording, and
-the snapshot fallback means the UI still shows something for private or deleted repositories.
+the snapshot fallback means the UI still shows something for private or deleted repositories. One
+request asks GitHub about at most ten pieces of evidence; everything past that cap is closed out as
+`UNAVAILABLE` in the same pass rather than left `UNVERIFIED` forever, because nothing would come
+back to re-check it.
+
+### Not everything an agent reads is committed yet
+
+An agent often finds a problem in code it has just written and has not committed. Comparing that
+against the commit it names would always say `MISMATCH` — and `MISMATCH` means "the agent claimed
+something that is not there," which is the wrong accusation.
+
+So each piece of evidence also carries a `sourceState`:
+
+| `sourceState`  | Meaning                                                | Verification                            |
+| -------------- | ------------------------------------------------------ | --------------------------------------- |
+| `COMMITTED`    | The snippet is in that commit                          | Compared against GitHub                 |
+| `WORKING_TREE` | The work sits **on top of** that commit, uncommitted   | Not compared; recorded as `UNAVAILABLE` |
+
+**The agent does not choose this.** Before sending, the MCP server asks local git — `git show
+<sha>:<path>` first, then the index and the working file — and labels the item itself; when git
+cannot answer, it labels nothing and the server's default (`COMMITTED`) applies. `commitSha` stays
+required either way: it is the base the uncommitted work sits on. The issue page shows such
+evidence as "not committed yet", puts a `+` after the short SHA, and links to that base commit
+instead of pretending to link to the code.
 
 Public repositories can be checked anonymously. Private repositories are read only with a
 short-lived token from a GitHub App installation connected to the same Workspace and explicitly
@@ -372,9 +399,10 @@ mcp/server.mjs ─────────► POST   /api/v1/reviews
                           GET    /api/v1/issues
                           GET    /api/v1/issues/{issueId}
                           GET    /api/v1/knowledge/context
+                          GET    /api/v1/agent/context
                                    │
                                    ▼
-                          API key auth → Zod → Application service
+                          Credential auth → Zod → Application service
                                    │
                           ┌────────┴────────┐
                           ▼                 ▼
@@ -396,17 +424,24 @@ message queue, no cache layer, no vector database.
 
 ## Security model
 
-- **The API key _is_ the tenant.** There is no workspace field in any payload or query; a client
-  cannot name a workspace. Every agent query is scoped by the key's workspace.
-- **Keys are stored as SHA-256 hashes.** The plaintext exists only in the issuing response and is
-  shown once. Malformed tokens are rejected before touching the database.
+- **The credential decides the tenant, not the payload.** A credential authenticates a _principal_;
+  the workspaces it may reach are explicit grants, intersected with live membership. No request body
+  carries a workspace. The one hint a client may send — `?workspaceSlug=` — is checked against both
+  the grant set and the repository candidates and is never the reason access is allowed.
+- **Credentials are stored as SHA-256 hashes.** The plaintext exists only in the issuing response
+  and is shown once. Only `ci_agent_` + 43 base64url characters is a valid shape, and anything else
+  is rejected before touching the database. The earlier `ci_` workspace key has no issuing path and
+  no authentication path left.
 - **Rejections are indistinguishable.** Missing, malformed, unknown, revoked, and expired keys all
   return the same `UNAUTHORIZED`. Distinguishing them leaks the existence of a key.
 - **Someone else's resource is `404`, not `403`.** A `403` confirms the id exists and lets you
   enumerate other tenants.
 - **Revocation does not delete.** Revoked keys keep their row so their history survives.
-- **GitHub tokens stay server-side.** Sign-in uses GitHub OAuth with database sessions; the access
-  token lives in the `accounts` table and never reaches the session object or the browser.
+- **GitHub sign-in tokens are not stored at all.** Sign-in uses GitHub OAuth with database sessions,
+  and the adapter is wrapped so that `access_token` and `refresh_token` are stripped before the
+  `accounts` row is written. Nothing after the callback reads them, so encrypting a value we never
+  use would only add key rotation to the list of things that can go wrong. Evidence verification
+  uses the server's own GitHub App installation, never a user's login token.
 - **Security headers** are set for every response — `frame-ancestors 'none'`, `nosniff`,
   `strict-origin-when-cross-origin` (workspace and project names are in the URL path), and HSTS in
   production only (`next.config.ts`).
@@ -420,7 +455,7 @@ Agents never have to be told internal identifiers.
 
 | You'd expect to supply | Where it actually comes from                                                |
 | ---------------------- | --------------------------------------------------------------------------- |
-| Workspace id           | The API key                                                                 |
+| Workspace id           | The credential's grants, narrowed by the repository that resolved           |
 | Project                | Resolved from the registered Repository; required only for first connection |
 | Repository             | `git remote` in the current checkout                                        |
 | Commit                 | `git HEAD`                                                                  |
@@ -478,11 +513,13 @@ with `psql` — "it returned 200" is not accepted as proof that something was st
 
 ### A green `pnpm test` is not proof of tenant safety
 
-`pnpm test` skips two whole files, because they need a live PostgreSQL:
-
-- `src/lib/workspace/workspace.integration.test.ts` — sign-up, membership, invitations
-- `src/features/projects/server/project.integration.test.ts` — projects, dashboards, wiki scope,
-  detail lookups
+`pnpm test` skips every test that needs a live PostgreSQL — a few hundred of them, spread over the
+`*.integration.test.ts` files and a handful of gated cases inside ordinary suites. They cover, among
+others, sign-up and membership (`src/lib/workspace/workspace.integration.test.ts`), projects,
+dashboards and wiki scope (`src/features/projects/server/project.integration.test.ts`), review
+ingestion, code evidence, repository context resolution, agent credentials, invitations, member
+removal, workspace and account deletion, and the global lock order
+(`src/db/lock-order.integration.test.ts`).
 
 Until you pass `DB_INTEGRATION=true`, **none of the following is checked**:
 
@@ -508,9 +545,12 @@ the skipped half matters less.
 
 ### Running the database tests in CI
 
-Not wired up — this is the recipe, not a description of an existing workflow. On GitHub Actions,
-add a `services.postgres` container to the job, point `DATABASE_URL` at it, run `pnpm db:migrate`,
-and run the suite with `DB_INTEGRATION=true`:
+Wired up — `.github/workflows/ci.yml` runs lint, typecheck, `pnpm test`, `pnpm db:migrate`,
+`DB_INTEGRATION=true pnpm test`, and `pnpm build`, in that order, against a `postgres:17-alpine`
+service container. The build is last on purpose: `next build` rewrites `.next`, and there is no
+reason to run it when an earlier step already failed.
+
+To reproduce it elsewhere, the shape is:
 
 ```yaml
 services:
@@ -531,9 +571,15 @@ pnpm db:migrate
 DB_INTEGRATION=true pnpm test
 ```
 
-Two details that will bite otherwise: the tests call `process.loadEnvFile(".env")`, so CI needs a
-`.env` containing at least `DATABASE_URL` (write it in a step, do not commit it); and this must be
-a throwaway database — the tests roll back, but `db:migrate` does not.
+Two details that will bite otherwise. `DATABASE_URL` in the job environment is enough — the
+integration bootstrap (`src/db/testing/integration-env.ts`) tries `process.loadEnvFile(".env")`
+only when the variable is not already set, and swallows exactly one error, `ENOENT`; a missing
+`DATABASE_URL` is still a hard failure with a message saying it is a configuration error, not a
+test failure. And this must be a throwaway database — the tests roll back, but `db:migrate` does
+not.
+
+🔴 **The CI job never touches production Supabase.** Do not add a production `DATABASE_URL`
+secret to it; the rollback discipline is not a reason for tests to connect there.
 
 The evidence script is the one that proves `VERIFIED` is reachable at all: it reads real lines from
 a public repository at a real commit, sends them back as evidence, and checks that matching content
@@ -552,13 +598,20 @@ server alive but serving 500s on some routes.
 
 - GitHub OAuth sign-in, database-backed sessions, workspaces, invitations, roles
 - Projects → repositories → reviews → issues → activities → evidence
-- Agent REST API (7 endpoints) with API-key auth and tenant isolation
+- Agent REST API (8 endpoints) with credential auth and tenant isolation
 - MCP server with 8 tools, verified against Claude Code
-- Code evidence with GitHub verification and snapshot fallback
+- Code evidence with GitHub verification, snapshot fallback, and `COMMITTED` / `WORKING_TREE`
+  classification done by local git
+- A repository-scoped Knowledge preflight returned by `create_review`, ranked against the files
+  this review actually changed
 - Decision records on every activity
 - Workspace and project dashboards, issue / review / repository detail pages, markdown wiki
-- API key issue and revoke UI
+- Editing an issue's narrative without disturbing its status or its history
+- Paginated lists (25 / 50 / 100) with the page state in the URL, and timestamps rendered in the
+  viewer's own time zone
+- Agent connections: create, revoke, per-workspace grants, and a per-connection review language
 - Deleting a project or a workspace, with the impact counted before you confirm
+- Removing a member, with the last-owner rule enforced by a row lock rather than by the UI
 - A hosted instance at https://reviewtrace.app
 - The MCP server on npm as `reviewtrace-mcp`, installed with `npx -y reviewtrace-mcp`
 
@@ -569,7 +622,7 @@ server alive but serving 500s on some routes.
 
 **Planned**
 
-- Removing members; renaming a workspace
+- Renaming a workspace
 - Deeper GitHub integration (pull request context)
 - LLM- or embedding-based features are explicitly deferred until the structured data justifies them
 

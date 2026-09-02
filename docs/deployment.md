@@ -154,6 +154,22 @@ Supabase 의 인증서는 **자체 CA(`prod-ca-2021.crt`)로 서명돼 있어** 
 3) merge/push -> Vercel 이 배포
 ```
 
+🔴 **이 순서를 바꾸지 마라.** 배포가 먼저 나가면 새 코드가 아직 없는 Column 을 읽는다.
+Vercel 은 push 에 자동 배포하므로, **Migration 을 먼저 눌러 두는 것 말고는 순서를 강제할 방법이
+없다.** 그래서 workflow 는 세 가지를 스스로 지킨다:
+
+- `confirm` 에 `migrate` 를 정확히 적지 않으면 첫 step 에서 멈춘다
+- `if: github.ref == 'refs/heads/main'` — production Secret 으로 도는 코드는 보호된 `main` 뿐이다
+- 🔴 **`db:migrate` 가 깨져도 job 이 그 자리에서 끝나지 않는다.** `continue-on-error: true` 로
+  다음 step(`diagnose-db-connection.mjs`)이 돌 기회를 주고, 마지막 step 이 `steps.migrate.outcome`
+  을 보고 **실패를 다시 세운다** — 진단 로그를 얻으면서 결과는 빨갛게 남는다.
+  `drizzle-kit` 이 실패 이유를 삼켜 「비밀번호가 틀렸다」와 「SQL 이 깨졌다」가 **같은 출력**이라
+  이 장치가 필요하다
+
+**어디서 깨지는지 먼저 보고 싶으면** `.github/workflows/diagnose-migration.yml` 을 누른다.
+`BEGIN … ROLLBACK` 안에서 재생만 하고 Migration 이력은 읽기만 해서 **Database 를 바꾸지 않는다** —
+그래서 확인 입력도 요구하지 않는다. 🔴 **그것이 실제 적용을 대신하지는 않는다.**
+
 🔴 **왜 자동이 아닌가**
 
 - **애플리케이션 요청 중에 돌리지 않는다.** 첫 요청이 스키마를 바꾸는 구조는 실패가 사용자에게 그대로 드러난다
@@ -179,8 +195,25 @@ Supabase 의 인증서는 **자체 CA(`prod-ca-2021.crt`)로 서명돼 있어** 
 
 ---
 
-## 5. 하지 않은 것
+## 5. 지금 실제로 서 있는 것 (2026-09-02 확인)
 
-- **실제 배포 · `npm publish` · 운영 Migration 실행** — 준비까지만 했다
+🔴 **여기는 「준비했다」가 아니라 「확인했다」만 적는다.**
+
+| | 상태 |
+| --- | --- |
+| **Vercel 배포** | **살아 있다.** `https://reviewtrace.app` 이 `200` 을 돌려준다 |
+| **운영 Migration** | **돌았다.** 운영 Database 는 **`0012` 까지** 적용돼 있다 — `diagnose-migration.yml` 로 확인 |
+| **`npm publish`** | **했다.** `reviewtrace-mcp` 가 registry 에 있고 `latest` 는 **`0.2.0`** 이다(`0.1.0` 도 남아 있다) |
+
+🔴 **저장소의 Migration 은 `0014` 까지 있다.** 즉 **`0013`·`0014` 가 아직 운영에 적용되지
+않았다** — `0013` 은 `issue_code_evidences.source_state`(+ `evidence_source_state` enum),
+`0014` 는 `issue_activities_reviewed_again_idx` 다. 새 코드를 배포하기 전에
+**3장 순서대로 Migrate workflow 를 먼저 누른다.**
+
+### 아직 하지 않은 것
+
+- **운영 환경 smoke** — 배포된 화면과 Agent API 를 운영 주소로 눌러 확인하지 않았다.
+  확인한 것은 `200` 응답과 Migration 이력까지다
 - **Dockerfile** — Vercel 배포라 필요 없다. `docker-compose.yml` 은 **로컬 PostgreSQL 전용**이고 그대로 둔다
 - **Supabase SDK** — PostgreSQL 만 쓰므로 넣지 않는다
+- **연결 고갈 대응** — 위 「연결 고갈」 절 그대로다. `Pool` 의 `max` 는 아직 기본값(10)이다
