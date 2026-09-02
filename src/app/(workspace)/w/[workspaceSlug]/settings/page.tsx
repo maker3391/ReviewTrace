@@ -2,14 +2,12 @@ import type { Metadata } from "next";
 
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { Section } from "@/components/molecules/Section";
-import { AgentIntegrationPanel } from "@/features/api-keys/components/AgentIntegrationPanel";
-import { ApiKeyPanel } from "@/features/api-keys/components/ApiKeyPanel";
 import { AgentCredentialPanel } from "@/features/agent-credentials/components/AgentCredentialPanel";
+import { AgentIntegrationPanel } from "@/features/agent-credentials/components/AgentIntegrationPanel";
 import {
   listUserAgentCredentials,
   listUserAgentWorkspaceGrants,
 } from "@/features/agent-credentials/server/agent-credential-service";
-import { listApiKeys } from "@/features/api-keys/server/api-key-service";
 import { listProjectOptions } from "@/features/projects/server/project-service";
 import { listWorkspaceMembers } from "@/features/invitations/server/invitation-service";
 import { DeleteAccountPanel } from "@/features/users/components/DeleteAccountPanel";
@@ -30,9 +28,9 @@ export async function generateMetadata(): Promise<Metadata> {
  * 멤버·초대는 Members 화면으로 옮겼다(스펙 3) — 이 화면은 **Workspace 자신에 대한 것**만
  * 다룬다.
  *
- * 🔴 **API Key 는 OWNER 에게만 보인다.** 그 Workspace 의 Agent API 를 통째로 여는
- * 자격이라 초대와 같은 급이다 — 화면에서 감추는 것은 편의일 뿐이고, 실제 판정은
- * Server Action 안의 `requireOwner` 가 한다.
+ * 🔴 **Agent 연결 모델은 하나뿐이다.** 예전의 Workspace API Key(`ci_`)는 화면에서도
+ * 서버에서도 걷어냈다 — 처음 오는 사람에게 「연결 방법 둘 중 무엇을 고를까」를 묻지
+ * 않는다. 지금 남은 것은 Agent 연결(Principal Credential) 하나다.
  *
  * 🔴 **아직 없는 것을 있는 것처럼 그리지 않는다.** Workspace 이름·slug 변경은 만들지 않았다.
  */
@@ -45,14 +43,12 @@ export default async function WorkspaceSettingsPage({
   const { user, workspace } = await requireWorkspace(workspaceSlug);
   const messages = await readMessages();
   const t = messages.settings;
-  const keys = messages.apiKeys;
 
   const isOwner = workspace.role === "OWNER";
 
   const [
     members,
     projects,
-    apiKeys,
     agentCredentials,
     agentWorkspaceGrants,
     locale,
@@ -62,8 +58,6 @@ export default async function WorkspaceSettingsPage({
     await Promise.all([
       listWorkspaceMembers(workspace.workspaceId),
       listProjectOptions(workspace.workspaceId),
-      // 🔴 OWNER 가 아니면 조회하지도 않는다. 화면에서 감추는 것으로 대신하지 않는다.
-      isOwner ? listApiKeys(workspace.workspaceId) : Promise.resolve([]),
       listUserAgentCredentials(user.id),
       listUserAgentWorkspaceGrants(user.id),
       readLocale(),
@@ -100,7 +94,7 @@ export default async function WorkspaceSettingsPage({
     <PageContainer className="gap-8">
       {/*
  🔴 **맨 위에 「설정」을 다시 적지 않는다.** 사이드바가 이미 그 낱말이고, 아래
- Section 머리글(워크스페이스 · API Key · Agent 연동 · 계정)이 화면의 구조다.
+ Section 머리글(워크스페이스 · Agent 연결 · Agent 연동 · 계정)이 화면의 구조다.
  */}
       <Section title={t.workspaceSection}>
         {/*
@@ -153,6 +147,13 @@ export default async function WorkspaceSettingsPage({
       </Section>
 
       <Section title={t.agentCredentialsSection}>
+        {/*
+ 🔴 **이 사전에는 함수가 없다.** 개수를 문장으로 적던 두 칸(`retiredConnections`·
+ `workspaceCount`)을 화면에서 걷어내며 사전에서도 지웠다 — 함수를 그대로 넘기면
+ 「Functions cannot be passed directly to Client Components」로 이 화면 전체가
+ 오류로 떨어지므로(`AgentIntegrationPanel` 의 `copyCommand` 가 그 자리다),
+ 여기에 다시 함수를 들이지 마라.
+ */}
         <AgentCredentialPanel
           workspaceSlug={workspace.slug}
           currentUserId={user.id}
@@ -163,72 +164,48 @@ export default async function WorkspaceSettingsPage({
         />
       </Section>
 
-      {isOwner && (
-        <Section title={t.apiKeysSection}>
-          <p className="pt-3 text-xs text-muted-foreground">
-            {t.apiKeysDescription}
-          </p>
-          <details className="group mt-3">
-            <summary className="cursor-pointer text-xs font-medium text-foreground marker:text-muted-foreground">
-              {t.apiKeysManage}
-            </summary>
-            <div className="pt-3">
-              {/*
- 🔴 문구는 서버가 읽어 «그리는 낱말만» 넘긴다 — Client Component 는 쿠키를
- 스스로 읽을 수 없다.
+      {/*
+ 🔴 **OWNER 조건을 붙이지 않는다.** Agent 연결은 역할과 무관하게 «그 사람»이 만드는
+ 것이라(바로 위 Section), 그것을 MCP Client 에 등록하는 방법만 OWNER 에게 감추면
+ 연결을 만들어 놓고 쓸 방법을 못 찾는 멤버가 생긴다. 이 자리에 비밀값은 없다 —
+ 주소 하나와 `<your-api-key>` 자리표시자뿐이다.
  */}
-              <ApiKeyPanel
-                workspaceSlug={workspace.slug}
-                apiKeys={apiKeys}
-                labels={{
-                  ...keys,
-                  expiry: {
-                    "30": keys.expiry30,
-                    "90": keys.expiry90,
-                    "365": keys.expiry365,
-                    NEVER: keys.expiryNever,
-                  },
-                }}
-              />
-            </div>
-          </details>
-        </Section>
-      )}
-
-      {isOwner && (
-        <Section title={t.integrationSection} variant="raised" bleed>
-          {/*
+      <Section title={t.integrationSection} variant="raised" bleed>
+        {/*
  🔴 **주소만 서버가 채우고 키는 채우지 않는다.** 키가 사람 눈에 보이는 자리는
  발급 직후 1회뿐이다 — 여기에 끼워 넣으면 화면·복사기록·스크린샷으로 한 번 더
  퍼진다.
  */}
-          <AgentIntegrationPanel
-            apiUrl={serverEnv().APP_URL}
-            labels={{
-              ...messages.integration,
-              copy: keys.copy,
-              copied: keys.copied,
-              /*
+        <AgentIntegrationPanel
+          apiUrl={serverEnv().APP_URL}
+          labels={{
+            /*
+ 🔴 **다른 Section 의 사전에서 낱말을 빌려 오지 않는다.** `copy`·`copied` 는
+ 예전에 `messages.apiKeys` 에서 왔는데, 그 사전을 지우자 이 화면이 통째로
+ `ReferenceError: keys is not defined` 로 떨어졌다(실제 500). 지금은 이 화면의
+ 사전인 `integration` 이 그 둘을 갖고 있어 spread 하나로 끝난다.
+ */
+            ...messages.integration,
+            /*
  🔴 **함수는 여기서 끝난다.** 사전의 `copyCommand` 는 함수라 그대로 넘기면
  「Functions cannot be passed directly to Client Components」로 이 화면
  전체가 오류로 떨어진다 — 서버에서 완성한 «문자열»만 건넨다.
  */
-              copyCommand: {
-                step1: messages.integration.copyCommand(
-                  messages.integration.step1,
-                ),
-                step2: messages.integration.copyCommand(
-                  messages.integration.step2,
-                ),
-              },
-              note: {
-                "claude-code": messages.integration.claudeNote,
-                codex: messages.integration.codexNote,
-              },
-            }}
-          />
-        </Section>
-      )}
+            copyCommand: {
+              step1: messages.integration.copyCommand(
+                messages.integration.step1,
+              ),
+              step2: messages.integration.copyCommand(
+                messages.integration.step2,
+              ),
+            },
+            note: {
+              "claude-code": messages.integration.claudeNote,
+              codex: messages.integration.codexNote,
+            },
+          }}
+        />
+      </Section>
 
       {deletionImpact !== null && (
         <Section title={t.dangerSection}>

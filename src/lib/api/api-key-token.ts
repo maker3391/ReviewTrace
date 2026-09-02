@@ -14,12 +14,11 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
  */
 
 /**
- * 사람이 보고 「이건 ReviewTrace 키다」를 알 수 있게 하는 표시.
+ * 사람이 보고 「이건 ReviewTrace 자격이다」를 알 수 있게 하는 표시.
  *
- * 🔴 **제품명이 바뀌어도 `ci_` 는 그대로 둔다.** 이미 발급된 Key 의 접두사이고,
+ * 🔴 **제품명이 바뀌어도 이 접두사는 그대로 둔다.** 이미 발급된 Credential 의 앞머리이고,
  * Agent 설정에 박혀 있는 값이라 바꾸면 밖에서 쓰던 것이 끊긴다.
  */
-export const API_KEY_PREFIX = "ci_";
 export const AGENT_CREDENTIAL_PREFIX = "ci_agent_";
 
 /**
@@ -38,26 +37,13 @@ const PREFIX_SECRET_CHARS = 8;
 /** base64url 은 `A-Za-z0-9_-` 만 쓴다. 32 바이트는 padding 없이 43자다. */
 const SECRET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
-export interface GeneratedApiKey {
+export interface GeneratedAgentCredential {
   /** 🔴 **딱 한 번** 사용자에게 보여 주고 버린다. 어디에도 저장하지 않는다. */
   plainToken: string;
-  /** 목록 표시용. `ci_` + 앞 8자. */
+  /** 목록 표시용. `ci_agent_` + 앞 8자. */
   keyPrefix: string;
   /** DB 에 남는 유일한 값. */
   keyHash: string;
-}
-
-export type GeneratedAgentCredential = GeneratedApiKey;
-
-export function generateApiKey(): GeneratedApiKey {
-  const secret = randomBytes(SECRET_BYTES).toString("base64url");
-  const plainToken = `${API_KEY_PREFIX}${secret}`;
-
-  return {
-    plainToken,
-    keyPrefix: keyPrefixOf(plainToken),
-    keyHash: hashApiKey(plainToken),
-  };
 }
 
 export function generateAgentCredential(): GeneratedAgentCredential {
@@ -74,10 +60,6 @@ export function generateAgentCredential(): GeneratedAgentCredential {
   };
 }
 
-export function keyPrefixOf(plainToken: string): string {
-  return plainToken.slice(0, API_KEY_PREFIX.length + PREFIX_SECRET_CHARS);
-}
-
 export function hashApiKey(plainToken: string): string {
   return createHash("sha256").update(plainToken, "utf8").digest("hex");
 }
@@ -89,20 +71,14 @@ export function hashApiKey(plainToken: string): string {
  * 요청마다 인덱스를 한 번씩 태우게 된다.
  */
 export function isApiKeyFormat(value: string): boolean {
-  const prefix = value.startsWith(AGENT_CREDENTIAL_PREFIX)
-    ? AGENT_CREDENTIAL_PREFIX
-    : value.startsWith(API_KEY_PREFIX)
-      ? API_KEY_PREFIX
-      : null;
-  return prefix !== null && SECRET_PATTERN.test(value.slice(prefix.length));
-}
-
-export function isPrincipalCredential(value: string): boolean {
-  return value.startsWith(AGENT_CREDENTIAL_PREFIX);
+  return (
+    value.startsWith(AGENT_CREDENTIAL_PREFIX) &&
+    SECRET_PATTERN.test(value.slice(AGENT_CREDENTIAL_PREFIX.length))
+  );
 }
 
 /**
- * `Authorization: Bearer ci_xxx` 에서 토큰을 꺼낸다.
+ * `Authorization: Bearer ci_agent_xxx` 에서 토큰을 꺼낸다.
  *
  * 🔴 형식이 아니면 `null` 이다. **받은 값을 오류 메시지에 되돌려 담지 않는다** —
  * 그것이 곧 토큰을 로그에 남기는 길이다.

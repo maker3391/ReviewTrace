@@ -94,7 +94,18 @@ export const agentCredentials = pgTable(
   ],
 );
 
-/** Explicit Workspace access. Revocation is retained as authorization history. */
+/**
+ * Explicit Workspace access. Revocation is retained as authorization history.
+ *
+ * 🔴 **접근은 Principal(사람) 단위이지 Credential 단위가 아니다.** PK 가
+ * `(principal_id, workspace_id)` 이고, 한 사용자에게 살아 있는 `USER_AGENT` Principal 은
+ * 하나뿐이다(`agent_principals_active_user_owner_unique`). 그래서 **한 Workspace 를 끄면
+ * 그 사람의 «모든» 연결에서 함께 꺼진다** — 연결마다 다른 범위를 줄 수 없다.
+ *
+ * 🔴 **화면이 이것을 다르게 그리지 않게 한다.** 「이 Agent 가 쓸 수 있는 Workspace」처럼
+ * 적으면 사용자는 연결별로 범위를 나눌 수 있다고 읽는다. 실제 문구는
+ * `AgentCredentialPanel` 이 「Workspace 접근」으로 두고 있고, 그 이유가 여기 있다.
+ */
 export const agentWorkspaceGrants = pgTable(
   "agent_workspace_grants",
   {

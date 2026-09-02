@@ -7,14 +7,9 @@ import {
   agentCredentials,
   agentPrincipals,
   agentWorkspaceGrants,
-  apiKeys,
   workspaceMembers,
 } from "@/db/schema";
-import {
-  hashApiKey,
-  isPrincipalCredential,
-  readBearerToken,
-} from "@/lib/api/api-key-token";
+import { hashApiKey, readBearerToken } from "@/lib/api/api-key-token";
 import { AppError } from "@/lib/errors";
 import {
   AGENT_CAPABILITIES,
@@ -24,22 +19,25 @@ import {
 } from "@/types/agent";
 
 export interface AgentAuthorization {
-  model: "LEGACY_WORKSPACE" | "PRINCIPAL";
   credentialId: string;
-  principalId: string | null;
-  principalType: AgentPrincipalType | null;
+  principalId: string;
+  principalType: AgentPrincipalType;
+  /**
+   * 🔴 **이 Review·Activity 를 «누가» 남겼는가** — `agent_credentials.name` 이다
+   * (`codex-ci` · `claude-code-mcp`). principal 의 `display_name` 이 아니다:
+   * 그것은 사람 한 명당 하나라 Agent 를 구별하지 못한다.
+   *
+   * 🔴 **받는 쪽은 이 값을 «snapshot» 으로 저장한다** — `review_sessions.reviewer_name`·
+   * `issue_activities.actor_name` 은 JOIN 이 아니라 박힌 문자열이다. 연결은 나중에
+   * 폐기되거나 이름이 바뀔 수 있고, 그때 과거 Review 의 «그때 누가 만들었는가» 가
+   * 함께 바뀌면 Review history 가 거짓말이 된다(CLAUDE.md 1·2).
+   */
   actorName: string;
   capabilities: readonly AgentCapability[];
   /** Default language for Agent-authored Review Knowledge. UI locale is separate. */
   reviewLanguage: AgentReviewLanguage;
   /** Live, effective Workspace scope. Repository queries must start inside this set. */
   authorizedWorkspaceIds: readonly string[];
-  /** @deprecated Legacy-key compatibility only. New principal credentials omit it. */
-  workspaceId?: string;
-  /** @deprecated Use credentialId. */
-  apiKeyId?: string;
-  /** @deprecated Use actorName. */
-  apiKeyName?: string;
 }
 
 const LAST_USED_REFRESH = sql`interval '1 minute'`;
@@ -57,61 +55,6 @@ export function requireAgentCapability(
   }
 }
 
-async function authenticateLegacy(
-  keyHash: string,
-  executor: DbExecutor,
-): Promise<AgentAuthorization> {
-  const rows = await executor
-    .select({
-      id: apiKeys.id,
-      workspaceId: apiKeys.workspaceId,
-      name: apiKeys.name,
-      expiresAt: apiKeys.expiresAt,
-      revokedAt: apiKeys.revokedAt,
-    })
-    .from(apiKeys)
-    .where(eq(apiKeys.keyHash, keyHash))
-    .limit(1);
-
-  const key = rows[0];
-  const now = new Date();
-  if (
-    key === undefined ||
-    key.revokedAt !== null ||
-    (key.expiresAt !== null && key.expiresAt.getTime() <= now.getTime())
-  ) {
-    throw new AppError("AGENT_UNAUTHORIZED");
-  }
-
-  await executor
-    .update(apiKeys)
-    .set({ lastUsedAt: now })
-    .where(
-      and(
-        eq(apiKeys.id, key.id),
-        or(
-          isNull(apiKeys.lastUsedAt),
-          lt(apiKeys.lastUsedAt, sql`now() - ${LAST_USED_REFRESH}`),
-        ),
-      ),
-    );
-
-  return {
-    model: "LEGACY_WORKSPACE",
-    credentialId: key.id,
-    principalId: null,
-    principalType: null,
-    actorName: key.name,
-    capabilities: AGENT_CAPABILITIES,
-    // Legacy keys predate an authoring preference. Preserve their historical contract.
-    reviewLanguage: "en",
-    authorizedWorkspaceIds: [key.workspaceId],
-    workspaceId: key.workspaceId,
-    apiKeyId: key.id,
-    apiKeyName: key.name,
-  };
-}
-
 async function authenticatePrincipal(
   keyHash: string,
   executor: DbExecutor,
@@ -120,12 +63,21 @@ async function authenticatePrincipal(
     .select({
       id: agentCredentials.id,
       principalId: agentCredentials.principalId,
+      /**
+       * 🔴 **Agent 신원은 principal 이 아니라 «그 연결»의 이름이다.**
+       *
+       * `agent_principals.display_name` 은 사람 한 명당 하나다
+       * (`agent_principals_active_user_owner_unique` — USER_AGENT 는 owner 당 한 행).
+       * 그것을 행위자 이름으로 쓰면 한 사람이 만든 **모든 연결이 같은 이름으로
+       * 뭉개진다** — codex 가 남긴 Review 와 claude-code 가 남긴 Review 를 구별할 수
+       * 없게 된다. 실제로 그랬다(`ReviewTrace Agent` 가 모든 행에 박혔다).
+       */
+      name: agentCredentials.name,
       capabilityScopes: agentCredentials.capabilityScopes,
       expiresAt: agentCredentials.expiresAt,
       credentialRevokedAt: agentCredentials.revokedAt,
       principalType: agentPrincipals.type,
       ownerUserId: agentPrincipals.ownerUserId,
-      displayName: agentPrincipals.displayName,
       reviewLanguage: agentPrincipals.reviewLanguage,
       principalRevokedAt: agentPrincipals.revokedAt,
     })
@@ -205,11 +157,10 @@ async function authenticatePrincipal(
     );
 
   return {
-    model: "PRINCIPAL",
     credentialId: credential.id,
     principalId: credential.principalId,
     principalType: credential.principalType,
-    actorName: credential.displayName,
+    actorName: credential.name,
     capabilities: validCapabilities(credential.capabilityScopes),
     reviewLanguage: credential.reviewLanguage,
     authorizedWorkspaceIds: workspaceRows.map((row) => row.workspaceId),
@@ -226,8 +177,5 @@ export async function authenticateAgent(
     throw new AppError("AGENT_UNAUTHORIZED");
   }
 
-  const keyHash = hashApiKey(token);
-  return isPrincipalCredential(token)
-    ? authenticatePrincipal(keyHash, executor)
-    : authenticateLegacy(keyHash, executor);
+  return authenticatePrincipal(hashApiKey(token), executor);
 }

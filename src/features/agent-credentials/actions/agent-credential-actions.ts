@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 
-import { resolveExpiresAt } from "@/features/api-keys/schemas/api-key";
 import {
   issueUserAgentCredential,
   revokeUserAgentCredential,
@@ -10,6 +9,7 @@ import {
 } from "@/features/agent-credentials/server/agent-credential-service";
 import {
   issueAgentCredentialSchema,
+  resolveExpiresAt,
   type IssueAgentCredentialInput,
 } from "@/features/agent-credentials/schemas/agent-credential";
 import { actionFromError } from "@/lib/action/action-error";
