@@ -14,6 +14,7 @@ import {
 import {
   codeEvidenceKindEnum,
   evidenceVerificationEnum,
+  evidenceSourceStateEnum,
   issueActivityTypeEnum,
   issueCategoryEnum,
   issueSeverityEnum,
@@ -414,6 +415,21 @@ export const issueCodeEvidences = pgTable(
   ],
 );
 
+
+    /**
+     * `commitSha` 가 **무엇을 가리키는가**(`EvidenceSourceState`).
+     *
+     * 🔴 **이 칸이 없으면 「커밋 전 코드」와 「커밋된 코드」가 구분되지 않는다.** 개발은 늘
+     * 고친 뒤에 커밋하므로 AFTER 근거는 커밋 전에 만들어지고, 그때 적을 수 있는 SHA 는
+     * HEAD 뿐이다 — 그 commit 에 없는 코드를 가리키게 되어 대조가 **구조적으로**
+     * `MISMATCH` 가 된다. 「코드가 다르다」가 아니라 **「맞대 볼 원본이 아직 없다」**인데도.
+     *
+     * 🔴 **기본값이 `COMMITTED` 인 것이 중요하다.** 이 칸을 모르는 옛 Client 는 지금까지와
+     * 똑같이 대조된다 — 검증을 조용히 느슨하게 만드는 기본값을 두지 않는다.
+     */
+    sourceState: evidenceSourceStateEnum("source_state")
+      .notNull()
+      .default("COMMITTED"),
 export const tags = pgTable(
   "tags",
   {

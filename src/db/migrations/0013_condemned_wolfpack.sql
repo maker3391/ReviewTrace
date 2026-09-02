@@ -1,0 +1,2 @@
+CREATE TYPE "public"."evidence_source_state" AS ENUM('COMMITTED', 'WORKING_TREE');--> statement-breakpoint
+ALTER TABLE "issue_code_evidences" ADD COLUMN "source_state" "evidence_source_state" DEFAULT 'COMMITTED' NOT NULL;

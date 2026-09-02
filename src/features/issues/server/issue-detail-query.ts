@@ -15,6 +15,7 @@ import {
 import {
   OPEN_ISSUE_STATUSES,
   type CodeEvidenceKind,
+  type EvidenceSourceState,
   type EvidenceVerification,
   type IssueActivityType,
   type IssueCategory,
@@ -63,6 +64,8 @@ export interface IssueEvidenceEntry {
   id: string;
   kind: CodeEvidenceKind;
   commitSha: string;
+  /** `commitSha` 가 이 snapshot 자체를 가리키는가, 이 작업의 바탕을 가리키는가. */
+  sourceState: EvidenceSourceState;
   filePath: string;
   startLine: number | null;
   endLine: number | null;
@@ -207,6 +210,7 @@ export async function findIssueDetail(
         issueActivityId: issueCodeEvidences.issueActivityId,
         kind: issueCodeEvidences.kind,
         commitSha: issueCodeEvidences.commitSha,
+        sourceState: issueCodeEvidences.sourceState,
         filePath: issueCodeEvidences.filePath,
         startLine: issueCodeEvidences.startLine,
         endLine: issueCodeEvidences.endLine,

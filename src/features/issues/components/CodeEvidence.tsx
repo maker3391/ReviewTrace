@@ -159,14 +159,94 @@ export interface EvidenceLabels {
   checkedAt: string;
   showAllLines: (count: number) => string;
   verification: Record<EvidenceVerification, string>;
+  /** 상시 노출하지 않는다 — 상태 낱말의 `title` 로만 붙는다. */
+  verificationHint: Record<EvidenceVerification, string>;
+  /**
+   * 아직 커밋되지 않은 근거의 낱말.
+   *
+   * 🔴 **`UNAVAILABLE` 과 같은 문구를 쓰지 않는다.** 저장된 결과는 둘 다 `UNAVAILABLE` 이지만
+   * 사람이 알아야 할 것은 다르다 — 저쪽은 「읽지 못했다」이고 이쪽은 **「아직 맞대 볼 원본이
+   * 없다」**다. 같은 낱말로 그리면 「우리 저장소를 못 읽는 건가」로 읽힌다.
+   */
+  workingTree: string;
+  workingTreeHint: string;
+  /** 🔴 `WORKING_TREE` 의 링크는 이 코드가 아니라 **바탕 commit** 을 연다. 그렇게 말한다. */
+  viewBaseCommit: string;
 }
 
-const VERIFICATION_CLASS: Record<EvidenceVerification, string> = {
-  UNVERIFIED: "border-border bg-background text-muted-foreground",
-  VERIFIED: "border-border bg-muted/70 text-foreground",
-  MISMATCH: "border-destructive/30 bg-destructive/10 text-destructive",
-  UNAVAILABLE: "border-border bg-muted text-muted-foreground",
+/*
+ 🔴 **한 카드 안에 서로 다른 두 가지 축이 있다. 같은 모양으로 그리지 않는다.**
+
+ | 축 | 무엇을 말하는가 | 어디에 그리는가 |
+ |---|---|---|
+ | 역할·변경 비교 | 이 조각이 고침의 «전»인가 «후»인가, 짝과 견줘 어느 줄이 바뀌었나 | 머리의 알약 + 코드 줄의 −/+ |
+ | 원본 검증 | 저장된 조각이 **표시된 commit 의 원본**과 같은가 | commit SHA 옆의 점 + 낱말 |
+
+ 둘을 나란한 알약 두 개로 두면 「수정 코드인데 왜 코드 불일치인가」라는 질문이 생긴다 —
+ 둘은 **애초에 다른 질문에 대한 답**이라 견줄 것이 아니다. 그래서 검증 결과를 그것이
+ 가리키는 **commit SHA 바로 옆**으로 내렸다. 무엇과 무엇을 맞대 본 것인지가 자리로 보인다.
+
+ 🔴 **red/green 은 검증이 아니다.** diff 계열 색은 «짝이 있어 줄을 견줄 수 있었을 때»만
+ 나온다(`hasLineComparison`) — 그래야 초록이 `VERIFIED`, 빨강이 `MISMATCH` 로 읽히지 않는다.
+ 짝이 없는 근거는 알약도 코드도 diff 색을 쓰지 않아 「왜 얘만 색이 없지」가 답을 갖는다.
+*/
+const VERIFICATION_TEXT_CLASS: Record<EvidenceVerification, string> = {
+  UNVERIFIED: "text-muted-foreground",
+  VERIFIED: "text-foreground",
+  MISMATCH: "text-destructive",
+  UNAVAILABLE: "text-muted-foreground",
 };
+
+const VERIFICATION_DOT_CLASS: Record<EvidenceVerification, string> = {
+  UNVERIFIED: "bg-muted-foreground/35",
+  VERIFIED: "bg-foreground/60",
+  MISMATCH: "bg-destructive",
+  // 🔴 「보지 못했다」는 채워진 점이 아니다 — 결과가 없다는 것을 빈 고리로 말한다.
+  UNAVAILABLE: "border border-muted-foreground/50",
+};
+
+/**
+ * 검증 자리에 무엇을 그릴지.
+ *
+ * 🔴 **저장된 `verification` 을 그대로 낱말로 바꾸지 않는다.** 아직 커밋되지 않은 근거는
+ * 결과가 `UNAVAILABLE` 이지만 그 뜻이 다르다 — 「읽지 못했다」가 아니라 **「맞대 볼 원본이
+ * 아직 없다」**다. 사람에게는 그 차이가 전부다.
+ *
+ * 🔴 **그렇다고 검증된 것처럼 그리지 않는다.** 점은 `UNAVAILABLE` 과 같은 빈 고리이고
+ * 글자도 강조하지 않는다. 확인한 적이 없다는 사실은 그대로 남는다.
+ */
+export function evidenceVerificationView(
+  evidence: Pick<IssueEvidenceEntry, "verification" | "sourceState">,
+  labels: EvidenceLabels,
+): { text: string; hint: string; textClass: string; dotClass: string } {
+  if (evidence.sourceState === "WORKING_TREE") {
+    return {
+      text: labels.workingTree,
+      hint: labels.workingTreeHint,
+      textClass: "text-muted-foreground",
+      dotClass: "border border-muted-foreground/50",
+    };
+  }
+  return {
+    text: labels.verification[evidence.verification],
+    hint: labels.verificationHint[evidence.verification],
+    textClass: VERIFICATION_TEXT_CLASS[evidence.verification],
+    dotClass: VERIFICATION_DOT_CLASS[evidence.verification],
+  };
+}
+
+/** 알약의 톤. diff 색은 실제로 줄을 견준 짝에만 쓴다. */
+function roleClass(
+  kind: IssueEvidenceEntry["kind"],
+  hasLineComparison: boolean,
+): string {
+  if (!hasLineComparison) {
+    return "bg-primary/10 text-primary";
+  }
+  return kind === "BEFORE"
+    ? "bg-destructive/10 text-destructive"
+    : "bg-diff-addition text-diff-addition-foreground";
+}
 
 export async function EvidenceList({
   evidence,
@@ -219,8 +299,20 @@ export async function EvidenceList({
             ? diffEvidenceLines(beforeDisplay.code, afterDisplay.code)
             : null;
 
+        /*
+ 🔴 **두 카드가 «한 비교»라는 것만 보이면 된다.**
+ BEFORE 와 AFTER 는 짝인데, 여러 짝이 이어지면 어디까지가 한 쌍인지 간격만으로는
+ 읽히지 않았다. 그렇다고 바깥에 큰 Card 를 한 겹 더 씌우면 안쪽 카드가 이중 테두리
+ 안에 갇힌다 — **왼쪽에 가는 선 하나**로 묶는 쪽이 계층을 늘리지 않는다.
+
+ 🔴 **pairing 규칙 자체는 손대지 않았다**(`code-evidence-diff.ts` 의
+ 같은 Activity · 같은 filePath · FIFO 1:1). 여기서 바꾼 것은 그 결과를 그리는 방식뿐이다.
+ */
         return (
-          <div key={`${before.id}:${after.id}`} className="flex flex-col gap-2">
+          <div
+            key={`${before.id}:${after.id}`}
+            className="flex flex-col gap-2 border-l-2 border-primary/20 pl-2.5"
+          >
             <CodeEvidenceBlock
               evidence={before}
               displaySnapshot={beforeDisplay?.code ?? null}
@@ -228,6 +320,7 @@ export async function EvidenceList({
                 beforeDisplay?.lineStructureChanged ?? false
               }
               changedLines={diff?.beforeChanged}
+              hasLineComparison={diff !== null}
               repositoryFullName={repositoryFullName}
               labels={labels}
             />
@@ -238,6 +331,7 @@ export async function EvidenceList({
                 afterDisplay?.lineStructureChanged ?? false
               }
               changedLines={diff?.afterChanged}
+              hasLineComparison={diff !== null}
               repositoryFullName={repositoryFullName}
               labels={labels}
             />
@@ -253,6 +347,7 @@ export function CodeEvidenceBlock({
   displaySnapshot,
   displayLineStructureChanged = false,
   changedLines = new Set(),
+  hasLineComparison = false,
   repositoryFullName,
   labels,
 }: {
@@ -262,6 +357,12 @@ export function CodeEvidenceBlock({
   /** true면 gutter는 실제 source line이 아니라 1부터 시작하는 상대 display line이다. */
   displayLineStructureChanged?: boolean;
   changedLines?: ReadonlySet<number>;
+  /**
+   * 짝이 있어 **줄 단위 비교를 실제로 했는가**. 🔴 `changedLines.size > 0` 로 대신하지
+   * 않는다 — 바뀐 줄이 하나도 없는 짝도 「비교했다」가 사실이다. 이 값이 false 면 −/+ 도
+   * diff 색도 그리지 않는다: 없는 비교 결과를 만들어 내지 않기 위해서다.
+   */
+  hasLineComparison?: boolean;
   repositoryFullName: string;
   labels: EvidenceLabels;
 }) {
@@ -271,12 +372,24 @@ export function CodeEvidenceBlock({
   const firstLine = displayLineStructureChanged ? 1 : (evidence.startLine ?? 1);
   const preview =
     snapshot === null ? null : buildEvidencePreview(snapshot, changedLines);
+  const view = evidenceVerificationView(evidence, labels);
 
   return (
     <article className="min-w-0 overflow-hidden rounded-md border border-border/70">
       <header className="bg-surface-muted/40 px-3 py-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+              roleClass(evidence.kind, hasLineComparison),
+            )}
+          >
+            {hasLineComparison && (
+              // 🔴 코드 줄의 cue 와 **같은 글자**다. 색이 아니라 이 기호가 뜻을 나른다.
+              <span aria-hidden="true" className="font-mono">
+                {evidence.kind === "BEFORE" ? "−" : "+"}
+              </span>
+            )}
             {evidence.kind === "BEFORE" ? labels.before : labels.after}
           </span>
           {language !== null && (
@@ -284,14 +397,6 @@ export function CodeEvidenceBlock({
               {language.label}
             </span>
           )}
-          <span
-            className={cn(
-              "rounded-full border px-2 py-0.5 text-[10px] font-medium",
-              VERIFICATION_CLASS[evidence.verification],
-            )}
-          >
-            {labels.verification[evidence.verification]}
-          </span>
         </div>
         <span
           className="mt-1.5 block min-w-0 truncate font-mono text-[11px] text-foreground"
@@ -301,8 +406,40 @@ export function CodeEvidenceBlock({
         </span>
         <div className="mt-1 flex min-w-0 items-center justify-between gap-3">
           <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
-            <span className="font-mono">{evidence.commitSha.slice(0, 7)}</span>
-            {evidence.verifiedAt !== null && (
+            {/*
+ 🔴 **`WORKING_TREE` 에서 이 SHA 의 뜻이 바뀐다.** 「이 코드가 있는 commit」이 아니라
+ 「이 작업이 그 위에서 이뤄진 바탕 commit」이다. 뒤의 `+` 가 그 차이를 말한다 —
+ 낱말을 더 늘리지 않고도 「그 commit 자체는 아니다」가 보인다.
+ */}
+            <span className="font-mono">
+              {evidence.commitSha.slice(0, 7)}
+              {evidence.sourceState === "WORKING_TREE" && (
+                <span aria-hidden="true">+</span>
+              )}
+            </span>
+            {/*
+ 🔴 **검증 결과는 그것이 가리키는 commit 바로 옆에 선다.** 「무엇과 무엇이 다르다는
+ 말인가」의 답이 자리로 드러난다 — 저장된 조각과 **이 commit 의 원본**이다.
+ 긴 설명은 화면에 상시로 두지 않고 `title` 로만 붙인다.
+ */}
+            <span
+              className={cn("inline-flex items-center gap-1", view.textClass)}
+              title={view.hint}
+              data-verification={evidence.verification}
+              data-source-state={evidence.sourceState}
+            >
+              <span
+                aria-hidden="true"
+                className={cn("size-1.5 rounded-full", view.dotClass)}
+              />
+              {view.text}
+            </span>
+            {/*
+ 🔴 **「확인 <시각>」은 맞대 본 근거에만 붙는다.** 아직 커밋 전인 근거에도 붙이면
+ 「아직 맞대 볼 원본이 없다」 옆에 확인 시각이 서서 서로를 부정한다.
+ */}
+            {evidence.verifiedAt !== null &&
+              evidence.sourceState !== "WORKING_TREE" && (
               <span className="tabular-nums">
                 {labels.checkedAt}{" "}
                 <Timestamp value={evidence.verifiedAt} variant="exact" />
@@ -315,7 +452,9 @@ export function CodeEvidenceBlock({
             rel="noreferrer noopener"
             className="shrink-0 text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
-            {labels.viewCode}
+            {evidence.sourceState === "WORKING_TREE"
+              ? labels.viewBaseCommit
+              : labels.viewCode}
           </a>
         </div>
       </header>
@@ -381,8 +520,13 @@ function CodeViewport({
       ? null
       : highlighter.highlight(language.highlighter, code);
 
+  /*
+ 🔴 **가로 스크롤을 유지한다.** 긴 코드 줄을 자르거나 wrap 으로 접으면 그 줄이 원본과
+ 다른 것이 되어 근거로서의 값이 사라진다. 다만 막대를 «얇게» 만든다 —
+ 기본 굵기가 서너 줄짜리 근거에서는 코드보다 먼저 눈에 들어왔다(`globals.css`).
+ */
   return (
-    <div className="max-w-full overflow-x-auto bg-muted/30">
+    <div className="scroll-thin max-w-full overflow-x-auto bg-muted/30">
       <div className="grid min-w-max grid-cols-[auto_1fr] text-xs leading-5">
         <ol
           aria-hidden="true"

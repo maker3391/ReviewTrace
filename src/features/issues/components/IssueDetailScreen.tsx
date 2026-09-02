@@ -15,6 +15,7 @@ import {
 import { IssueActivityForm } from "@/features/issues/components/IssueActivityForm";
 import { EvidenceList } from "@/features/issues/components/CodeEvidence";
 import { DecisionRecord } from "@/features/issues/components/DecisionRecord";
+import { IssueEditDialog } from "@/features/issues/components/IssueEditDialog";
 import { MarkdownContent } from "@/features/issues/components/MarkdownContent";
 import { IssueStatusControl } from "@/features/issues/components/IssueStatusControl";
 import type {
@@ -117,6 +118,54 @@ export async function IssueDetailScreen({
             )}
           </>
         }
+        /*
+ 🔴 **머리글의 Action 은 하나다.** 상태를 옮기는 일과 History 를 남기는 일은 각각
+ 제자리(상태 Section · History Section)에 이미 있다 — 같은 일을 하는 버튼을 위에 한 번
+ 더 두면 어느 쪽이 정본인지 흐려진다. 여기 서는 것은 **다른 곳에 자리가 없는 것** 하나다.
+
+ 🔴 **삭제 버튼을 두지 않았다.** `review_issues` 를 지우면 `issue_activities` ·
+ `issue_code_evidences` · `issue_tags` 가 `ON DELETE CASCADE` 로 함께 사라진다
+ (실제 catalog 확인). 이 제품이 지키려는 것이 바로 그 History 다(스펙 1·2) — 「더 이상
+ 활성 이슈로 보지 않는다」는 상태 Section 의 `IGNORED` · `FALSE_POSITIVE` 가 맡는다.
+ 그 둘은 `OPEN_ISSUE_STATUSES` 밖이라 목록·Dashboard 의 「열린 Issue」에서 빠지면서도
+ 무엇을 왜 접었는지가 History 에 남는다.
+
+ 🔴 **그 둘을 여기 `⋯` 메뉴로 한 번 더 꺼내 놓지 않는다.** 상태 Select 는 곁 열의 첫
+ Section 에 늘 떠 있고 여섯 상태를 «전부» 담고 있어, 메뉴를 두어도 **깊이가 줄지 않는다**
+ (열기 → 고르기 → 실행, 어느 쪽이나 세 번이다). 대신 같은 전이가 두 곳에 서서 어느 쪽이
+ 정본인지 흐려지고, 그중 하나는 되돌릴 자리(다시 `OPEN` 으로)가 없는 반쪽 문이 된다.
+ */
+        actions={
+          canAct ? (
+            <IssueEditDialog
+              workspaceSlug={workspaceSlug}
+              projectSlug={projectSlug}
+              issueId={issue.id}
+              /* 🔴 Issue 전체가 아니라 이 폼이 고치는 칸만 Client 로 내려간다. */
+              issue={{
+                title: issue.title,
+                description: issue.description,
+                rootCause: issue.rootCause,
+                failurePath: issue.failurePath,
+                suggestion: issue.suggestion,
+              }}
+              labels={{
+                trigger: t.edit,
+                title: t.editTitle,
+                description: t.editHint,
+                issueTitle: t.issueTitle,
+                optional: t.optional,
+                markdownHint: t.markdownHint,
+                issueDescription: t.description,
+                rootCause: t.rootCause,
+                failurePath: t.failurePath,
+                suggestion: t.suggestion,
+                cancel: t.cancelEdit,
+                submit: t.saveEdit,
+              }}
+            />
+          ) : undefined
+        }
       />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -180,6 +229,10 @@ export async function IssueDetailScreen({
                   checkedAt: t.checkedAt,
                   showAllLines: t.showAllEvidenceLines,
                   verification: t.evidenceVerification,
+                  verificationHint: t.evidenceVerificationHint,
+                  workingTree: t.evidenceWorkingTree,
+                  workingTreeHint: t.evidenceWorkingTreeHint,
+                  viewBaseCommit: t.evidenceViewBaseCommit,
                 }}
               />
             </Section>
@@ -217,6 +270,10 @@ export async function IssueDetailScreen({
                       checkedAt: t.checkedAt,
                       showAllEvidenceLines: t.showAllEvidenceLines,
                       evidenceVerification: t.evidenceVerification,
+                      evidenceVerificationHint: t.evidenceVerificationHint,
+                      evidenceWorkingTree: t.evidenceWorkingTree,
+                      evidenceWorkingTreeHint: t.evidenceWorkingTreeHint,
+                      evidenceViewBaseCommit: t.evidenceViewBaseCommit,
                     }}
                   />
                 ))}
@@ -236,8 +293,7 @@ export async function IssueDetailScreen({
                     commitSha: t.commitSha,
                     optional: t.optional,
                     description: t.activityDescription,
-                    recording: t.recording,
-                    record: t.record,
+                    recordActions: t.recordActions,
                     typeOptions: label.activityType,
                   }}
                 />
@@ -468,6 +524,10 @@ function ActivityRow({
                 checkedAt: labels.checkedAt,
                 showAllLines: labels.showAllEvidenceLines,
                 verification: labels.evidenceVerification,
+                verificationHint: labels.evidenceVerificationHint,
+                workingTree: labels.evidenceWorkingTree,
+                workingTreeHint: labels.evidenceWorkingTreeHint,
+                viewBaseCommit: labels.evidenceViewBaseCommit,
               }}
             />
           </div>
@@ -496,4 +556,8 @@ interface ActivityKnowledgeLabels {
   checkedAt: string;
   showAllEvidenceLines: (count: number) => string;
   evidenceVerification: Record<EvidenceVerification, string>;
+  evidenceVerificationHint: Record<EvidenceVerification, string>;
+  evidenceWorkingTree: string;
+  evidenceWorkingTreeHint: string;
+  evidenceViewBaseCommit: string;
 }

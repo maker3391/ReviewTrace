@@ -2,7 +2,10 @@ import { z } from "zod";
 
 import { rule } from "@/lib/validation/validation-rule";
 import { narrativeDescription } from "@/lib/markdown/narrative";
-import { CODE_EVIDENCE_KINDS } from "@/types/review";
+import {
+  CODE_EVIDENCE_KINDS,
+  EVIDENCE_SOURCE_STATES,
+} from "@/types/review";
 
 /**
  * Decision Record 와 Code Evidence 의 Payload 계약(스펙 4·15).
@@ -91,6 +94,23 @@ export const codeEvidenceSchema = z
   .object({
     kind: z.enum(CODE_EVIDENCE_KINDS),
     commitSha: z.string().trim().min(1).max(SHA_MAX),
+    /**
+     * `commitSha` 가 가리키는 것이 **이 snapshot 자체인가, 이 작업의 바탕인가**.
+     *
+     * 🔴 **보내지 않으면 `COMMITTED` 다.** 이 칸을 모르는 Client 는 지금까지와 똑같이
+     * 대조된다 — 새 칸이 검증을 조용히 느슨하게 만들지 않는다.
+     *
+     * 🔴 **`WORKING_TREE` 를 「검증 건너뛰기」로 쓰지 마라.** 커밋된 코드에 붙이면
+     * 확인할 수 있는 것을 확인하지 않게 된다. 보내는 쪽이 **아직 커밋되지 않았음을
+     * 실제로 확인했을 때만** 붙인다.
+     */
+    sourceState: z
+      .enum(EVIDENCE_SOURCE_STATES)
+      .nullish()
+      .transform((v) => v ?? "COMMITTED")
+      .describe(
+        "COMMITTED = 이 코드가 commitSha 에 있다(기본값). WORKING_TREE = 아직 커밋하지 않은 코드이고 commitSha 는 작업의 바탕 commit 이다. 커밋 전 코드에 COMMITTED 를 쓰면 원본 대조가 MISMATCH 로 남는다.",
+      ),
     filePath: z.string().trim().min(1).max(PATH_MAX),
     startLine: z
       .int()

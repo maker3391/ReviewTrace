@@ -333,3 +333,151 @@ describe.skipIf(!enabled)("확인하지 못한 Code Evidence 닫기", () => {
     });
   });
 });
+
+/**
+ * # 🔴 아직 커밋되지 않은 근거가 「코드 불일치」로 기록되지 않는다
+ *
+ * 개발은 늘 **고친다 → 확인한다 → 커밋한다** 순서로 흐른다. 그래서 AFTER 근거는 커밋되기
+ * 전에 만들어지고, 그때 Agent 가 적을 수 있는 SHA 는 HEAD 뿐이다 — 그 commit 에는 그 코드가
+ * **없으므로** 대조는 정직하게 실패하고 근거가 `MISMATCH` 로 남았다. 실제로 그렇게 쌓인
+ * 근거가 이 저장소에 있었다.
+ *
+ * 🔴 **「코드가 다르다」가 아니라 「맞대 볼 원본이 아직 없다」다.** `sourceState` 가 그 둘을
+ * 가른다. 이 시험은 여섯 가지 결말을 **한 번의 확인**으로 전부 못 박는다.
+ *
+ * | 근거 | 결말 |
+ * |---|---|
+ * | 커밋된 BEFORE, 원본과 같음 | `VERIFIED` |
+ * | 커밋된 AFTER, 원본과 같음 | `VERIFIED` |
+ * | **커밋 전 AFTER** | `UNAVAILABLE` — 🔴 `MISMATCH` 가 아니고, GitHub 을 부르지도 않는다 |
+ * | 커밋된 것인데 내용이 다름 | `MISMATCH` — 진짜 불일치는 그대로 잡힌다 |
+ * | 원본을 읽지 못함 | `UNAVAILABLE` |
+ * | 확인에 넘기지 않음 | `UNVERIFIED` |
+ */
+describe.skipIf(!enabled)("커밋 전 근거와 진짜 불일치를 가른다", () => {
+  /** 어떤 경로를 실제로 물어봤는지 기록한다 — 「부르지 않았다」를 증명해야 한다. */
+  function stubGithubRecording(): string[] {
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", (input: unknown) => {
+      const url = String(input);
+      asked.push(url);
+      if (url.includes("/contents/")) {
+        // 읽을 수 없는 파일 하나를 둔다 — UNAVAILABLE 의 진짜 경로다.
+        if (url.includes("missing.ts")) {
+          return Promise.resolve(new Response("not found", { status: 404 }));
+        }
+        return Promise.resolve(new Response(`${LINE}\n`, { status: 200 }));
+      }
+      if (url.includes("/repos/")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ private: false }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }
+      return Promise.reject(new Error(`예상하지 않은 곳: ${url}`));
+    });
+    return asked;
+  }
+
+  it("🔴 커밋 전 AFTER 는 MISMATCH 가 아니라 UNAVAILABLE 이고, 진짜 불일치는 그대로 MISMATCH 다", async () => {
+    await inRollback(async (tx) => {
+      const { workspaceId, reviewIssueId } = await seedIssue(tx);
+      const asked = stubGithubRecording();
+
+      const base = {
+        workspaceId,
+        reviewIssueId,
+        commitSha: COMMIT,
+        startLine: 1,
+        endLine: 1,
+      };
+      const inserted = await tx
+        .insert(issueCodeEvidences)
+        .values([
+          // 1. 커밋된 BEFORE — 원본과 같다
+          { ...base, kind: "BEFORE" as const, filePath: FILE, snapshot: LINE },
+          // 2. 커밋된 AFTER — 원본과 같다
+          { ...base, kind: "AFTER" as const, filePath: FILE, snapshot: LINE },
+          // 3. 🔴 커밋 전 AFTER — 원본에 «없는» 코드다. 옛 구현이면 MISMATCH 였다.
+          {
+            ...base,
+            kind: "AFTER" as const,
+            filePath: FILE,
+            snapshot: "const a = 2; // 아직 커밋하지 않은 수정",
+            sourceState: "WORKING_TREE" as const,
+          },
+          // 4. 커밋된 것인데 내용이 다르다 — 진짜 불일치
+          {
+            ...base,
+            kind: "BEFORE" as const,
+            filePath: FILE,
+            snapshot: "const zzz = 99;",
+          },
+          // 5. 원본을 읽지 못한다
+          {
+            ...base,
+            kind: "BEFORE" as const,
+            filePath: "src/missing.ts",
+            snapshot: LINE,
+          },
+        ])
+        .returning({ id: issueCodeEvidences.id });
+
+      const ids = inserted.map((row) => row.id);
+      // 6. 확인에 넘기지 않는 근거 하나 — 손대지 않았다는 것이 사실이어야 한다.
+      const untouched = await tx
+        .insert(issueCodeEvidences)
+        .values({ ...base, kind: "AFTER" as const, filePath: FILE, snapshot: LINE })
+        .returning({ id: issueCodeEvidences.id });
+
+      await verifyCodeEvidence(workspaceId, ids, tx);
+
+      const seen = await readVerification(tx, [...ids, untouched[0]!.id]);
+      expect(seen.get(ids[0]!)?.verification).toBe("VERIFIED");
+      expect(seen.get(ids[1]!)?.verification).toBe("VERIFIED");
+      // 🔴 이 한 줄이 이 작업의 전부다.
+      expect(seen.get(ids[2]!)?.verification).toBe("UNAVAILABLE");
+      expect(seen.get(ids[3]!)?.verification).toBe("MISMATCH");
+      expect(seen.get(ids[4]!)?.verification).toBe("UNAVAILABLE");
+      expect(seen.get(untouched[0]!.id)?.verification).toBe("UNVERIFIED");
+
+      // 🔴 「대조하지 않았다」가 말뿐이 아니다 — 그 snapshot 을 GitHub 에 물어본 적이 없다.
+      expect(asked.some((url) => url.includes("missing.ts"))).toBe(true);
+      expect(
+        asked.filter((url) => url.includes("/contents/")),
+      ).toHaveLength(4);
+    });
+  });
+
+  /** 🔴 새 칸이 **검증을 느슨하게** 만들지 않는다 — 보내지 않으면 지금까지와 같다. */
+  it("🔴 sourceState 를 보내지 않은 근거는 예전처럼 대조된다", async () => {
+    await inRollback(async (tx) => {
+      const { workspaceId, reviewIssueId } = await seedIssue(tx);
+      stubGithubRecording();
+
+      const inserted = await tx
+        .insert(issueCodeEvidences)
+        .values({
+          workspaceId,
+          reviewIssueId,
+          kind: "AFTER",
+          commitSha: COMMIT,
+          filePath: FILE,
+          startLine: 1,
+          endLine: 1,
+          snapshot: "const a = 2;",
+        })
+        .returning({
+          id: issueCodeEvidences.id,
+          sourceState: issueCodeEvidences.sourceState,
+        });
+
+      expect(inserted[0]?.sourceState).toBe("COMMITTED");
+      await verifyCodeEvidence(workspaceId, [inserted[0]!.id], tx);
+      const seen = await readVerification(tx, [inserted[0]!.id]);
+      expect(seen.get(inserted[0]!.id)?.verification).toBe("MISMATCH");
+    });
+  });
+});

@@ -337,6 +337,12 @@ export const ko = {
     patterns: {
       title: "반복 패턴",
       empty: "패턴이 없습니다",
+      /**
+       * 🔴 두 숫자는 «단위가 다르다». `issues` 는 고유 Issue 수이고 `encounters` 는
+       * 최초 발견 + 재발 횟수다 — 낱말 없이 나란히 두면 같은 모집단의 「발생 / 해결」로
+       * 읽힌다. 비교되는 쌍(문제 · 해결)만 같은 단위로 둔다.
+       */
+      encounters: (count: number) => `발견 ${count}회`,
       resolved: (count: number) => `해결 ${count}`,
     },
     activity: {
@@ -370,7 +376,8 @@ export const ko = {
       empty: "패턴이 없습니다.",
       colPattern: "패턴",
       colCategory: "분류",
-      colOccurrences: "발생",
+      colIssues: "문제",
+      encounters: (count: number) => `발견 ${count}회`,
       colResolved: "해결",
       colLast: "최근",
     },
@@ -464,9 +471,18 @@ export const ko = {
     connectTitle: "GitHub 저장소 연결",
     connectDescription: "이 Project에서 리뷰할 GitHub 저장소를 연결합니다.",
     chooseTitle: "연결할 저장소",
-    noAccessible: "GitHub App에서 허용된 저장소가 없습니다.",
-    allConnected: "접근 가능한 저장소가 모두 이 Project에 연결되어 있습니다.",
-    updateAccess: "GitHub 접근 범위 변경",
+    /**
+     * 🔴 **내부 구현이 아니라 «사용자가 지금 무엇을 할 수 있는가»를 말한다.**
+     * 「접근 가능한 저장소가 모두 연결되어 있습니다」는 사실이지만, 다른 저장소를
+     * 붙이려던 사람에게는 다음에 무엇을 해야 하는지가 빠져 있다. 「GitHub 접근 범위」는
+     * 우리 쪽 개념이라 CTA 로 쓰면 어디로 가는지 알 수 없다.
+     */
+    emptyTitle: "추가할 수 있는 저장소가 없습니다",
+    noAccessible:
+      "ReviewTrace가 접근할 수 있는 GitHub 저장소가 아직 없습니다. GitHub에서 ReviewTrace가 사용할 저장소를 지정해 주세요.",
+    allConnected:
+      "지금 ReviewTrace가 접근할 수 있는 저장소는 모두 이 Project에 연결되어 있습니다. 다른 저장소를 연결하려면 GitHub에서 ReviewTrace가 사용할 저장소를 추가해 주세요.",
+    updateAccess: "GitHub에서 저장소 추가",
     cancel: "취소",
     viewGithub: "GitHub에서 보기",
   },
@@ -534,25 +550,25 @@ export const ko = {
     scale: "규모",
     statProjects: "프로젝트",
     statMembers: "멤버",
-    apiKeysSection: "기존 API Key",
-    apiKeysDescription:
-      "이전 Agent 연동 방식과의 호환성을 위한 설정입니다. 새로운 Agent 연결에는 위의 Agent 연결을 사용하세요.",
-    apiKeysManage: "기존 API Key 관리",
     agentCredentialsSection: "Agent 연결",
     integrationSection: "Agent 연동",
     accountSection: "계정",
     dangerSection: "워크스페이스 삭제",
   },
 
+  /**
+   * Agent 연결 화면의 낱말.
+   *
+   * 🔴 **설명 문장을 두지 않는다.** 남는 것은 머리글 · 입력 이름표 · 현재 상태 ·
+   * 할 수 있는 일뿐이다 — 화면이 이미 말하는 것을 한 번 더 적으면 읽을 것만 늘고
+   * 정보는 늘지 않는다(CLAUDE.md 16).
+   */
   agentCredentials: {
-    description:
-      "Codex, Claude Code 등에서 사용할 Agent 인증 정보를 관리합니다. 한 번 등록하면 허용된 Workspace의 Repository를 자동으로 인식합니다.",
     issue: "Agent 연결 생성",
     name: "이름",
-    namePlaceholder: "예: Codex / Claude Code",
     readOnly: "읽기 전용",
     readWrite: "읽기·쓰기",
-    never: "만료 없음",
+    never: "무기한",
     days30: "30일",
     days90: "90일",
     days365: "365일",
@@ -567,19 +583,25 @@ export const ko = {
     expires: "만료",
     status: "상태",
     active: "활성",
-    revoked: "폐기됨",
-    expired: "만료됨",
     revoke: "폐기",
     cancel: "취소",
     revokeConfirmTitle: "이 Agent 연결을 폐기할까요?",
     revokeConfirmConsequence:
       "이 인증 정보를 사용하는 Client는 다음 요청부터 401을 받습니다. 연결 기록은 유지됩니다.",
-    workspaceAccess: "이 Agent가 사용할 수 있는 Workspace",
-    workspaceAccessDescription:
-      "현재 멤버이며 명시적으로 허용된 Workspace만 사용할 수 있습니다.",
-    granted: "사용 가능",
-    notGranted: "사용 안 함",
-    grant: "사용 허용",
+    /**
+     * 🔴 **내부 인증 모델을 낱말로 노출하지 않는다.** Principal · Credential · Grant 는
+     * 서버가 쓰는 이름이다 — 화면은 「Agent 가 어디에 들어갈 수 있는가」만 말한다.
+     *
+     * 🔴 **동작까지 바꾸지는 않았다.** 접근 권한은 여전히 연결 하나가 아니라 «이 사람»에게
+     * 붙는다(`agent_workspace_grants` 의 PK 는 `(principal_id, workspace_id)`) — 그래서
+     * 「이 Agent 연결만」처럼 연결별로 나눌 수 있다는 뜻이 되는 문구는 쓰지 않는다.
+     */
+    workspaceAccess: "Workspace 접근",
+    granted: "허용됨",
+    notGranted: "허용 안 됨",
+    grant: "허용",
+    /** 🔴 연결 「폐기」와 다른 일이다 — 사라지는 것은 이 Workspace 접근뿐이다. */
+    revokeGrant: "허용 해제",
     ownerRequired: "OWNER만 변경 가능",
     issuedTitle: "Agent 연결이 생성되었습니다",
     issuedWarning:
@@ -587,6 +609,13 @@ export const ko = {
     copy: "복사",
     copied: "복사됨",
     close: "닫기",
+    /**
+     * 🔴 **화면에 나오는 것은 「지금 쓸 수 있는 연결」뿐이다.** 폐기·만료된 연결을 열어
+     * 보는 자리가 없어졌으므로 그것을 가리키는 낱말도 두지 않는다 — 다만 그 행 자체는
+     * `revoked_at` 과 함께 Database 에 그대로 남는다(`revokeUserAgentCredential`).
+     */
+    activeConnections: "사용 중인 연결",
+    neverUsed: "없음",
   },
 
   /**
@@ -642,58 +671,19 @@ export const ko = {
     confirmSuffix: "를 그대로 입력하세요.",
   },
 
-  apiKeys: {
-    /**
-     * 🔴 **이름표가 화면에 없는 칸이라 placeholder 가 그 자리를 대신한다**(`ApiKeyPanel`).
-     * 예시(`예: codex-ci`)를 두었지만 이름 짓기에 규칙이 있는 칸이 아니라 아무것도 돕지
-     * 못했다 — 칸 이름만 남긴다.
-     */
-    nameLabel: "Key 이름",
-    issue: "발급",
-    empty: "발급된 Key가 없습니다.",
-    expiresAt: "만료",
-    /** 만료 선택지. 🔴 값(`30`·`NEVER`)은 Schema 의 것이고 여기 있는 것은 이름표뿐이다. */
-    expiry30: "30일",
-    expiry90: "90일",
-    expiry365: "1년",
-    expiryNever: "만료 없음",
-    columnName: "이름",
-    columnPrefix: "Prefix",
-    columnLastUsed: "마지막 사용",
-    columnExpires: "만료",
-    columnStatus: "상태",
-    never: "없음",
-    revoked: "폐기됨",
-    expired: "만료됨",
-    active: "사용 중",
-    revoking: "폐기 중",
-    revoke: "폐기",
-    cancel: "취소",
-    /** 🔴 「이」를 붙이지 않는다 — 어느 Key 인지는 바로 아래 이름이 말한다. */
-    revokeConfirmTitle: "API Key를 폐기할까요?",
-    /**
-     * 🔴 **「복구할 수 없다」고 적지 않는다.** 폐기는 행을 지우는 것이 아니라 `revokedAt`
-     * 을 찍는 것이라 「이 키가 언제까지 무엇을 했는가」는 그대로 남는다 —
-     * 사라지는 것은 **인증 자격**이다. 실제로 일어나는 일만 적는다.
-     *
-     * 🔴 **두 사실을 한 문장으로 잇지 않는다.** 잃는 것(인증)과 남는 것(기록)은 성격이
-     * 다른 사실이라, 이어 붙이면 뒤엣것이 앞엣것의 단서처럼 읽힌다. 줄을 나눠 둔다.
-     */
-    revokeConfirmAuthLoss: "폐기하면 이 Key로 더 이상 인증할 수 없습니다.",
-    revokeConfirmRecordKept: "기존 기록은 그대로 유지됩니다.",
-    copy: "복사",
-    copied: "복사됨",
-    close: "닫기",
-    issuedTitle: "API Key 발급 완료",
-    /** 🔴 남긴다 — 다시 볼 수 없다는 사실을 이 화면에서 놓치면 키를 잃는다. */
-    issuedWarning:
-      "전체 API Key는 다시 확인할 수 없습니다. 지금 복사해 안전한 곳에 보관해 주세요.",
-  },
-
   integration: {
     step1: "1. 등록",
     step2: "2. 확인",
     copyCommand: (step: string) => `${step} 명령 복사`,
+    /*
+ 🔴 **이 낱말의 자리는 여기다.** 복사 버튼을 실제로 그리는 것은
+ `AgentIntegrationPanel` 이고 그 화면의 사전이 `integration` 이다 — 예전에는
+ `apiKeys` 에서 빌려 썼는데, 그 사전이 사라지자 화면이 `ReferenceError` 로
+ 떨어졌다. 남의 Section 사전에서 낱말을 빌려 오면 그 Section 이 사라질 때
+ 이쪽이 함께 깨진다. `agentCredentials` 도 같은 이유로 빌릴 자리가 아니다.
+ */
+    copy: "복사",
+    copied: "복사됨",
     /** 🔴 남긴다 — 모르면 실제로 막히거나 키가 새는 자리다. 장식이 아니다. */
     claudeNote:
       "설정은 user 범위에 저장됩니다. 저장소의.mcp.json은 사용하지 마세요.",
@@ -771,6 +761,18 @@ export const ko = {
     resolution: "해결",
     history: "이력",
     noHistory: "기록이 없습니다",
+    /**
+     * 서술 수정(`IssueEditDialog`).
+     *
+     * 🔴 **「해결 요약」은 여기 없다** — 그 칸은 상태와 한 몸이라 상태 자리에서 고친다.
+     */
+    edit: "수정",
+    editTitle: "이슈 수정",
+    editHint: "이슈의 서술을 다듬습니다. 상태·이력·코드 근거는 바뀌지 않습니다.",
+    issueTitle: "제목",
+    markdownHint: "Markdown 원문 그대로 저장됩니다.",
+    cancelEdit: "취소",
+    saveEdit: "저장",
     status: "상태",
     location: "위치",
     identity: "식별",
@@ -794,8 +796,21 @@ export const ko = {
     commit: "커밋",
     commitSha: "커밋 SHA",
     activityDescription: "내용",
-    recording: "남기는 중",
-    record: "기록 남기기",
+    /**
+     * History 에 한 줄 남기는 폼(`IssueActivityForm`)의 실행 버튼.
+     *
+     * 🔴 **한 낱말이 아니라 Type 마다 다르다.** 그 폼은 「메모」·「수정 시도」·「재검토」
+     * 셋을 만드는 **범용 폼**이고 기본 선택이 「메모」다 — 「기록 남기기」 하나로 두면
+     * 누르기 전에 **무엇이 History 에 남는지** 알 수 없다. 고른 것이 곧 버튼에 적힌다.
+     *
+     * 🔴 **상태를 바꾸는 Type 은 여기 없다**(`MANUAL_ACTIVITY_TYPES`) — 「해결」·「재발생」·
+     * 「무시」는 상태 전이가 남기는 것이라 상태 Section 이 맡는다.
+     */
+    recordActions: {
+      COMMENT: "메모 남기기",
+      FIX_ATTEMPTED: "수정 시도 남기기",
+      REVIEWED_AGAIN: "재검토 남기기",
+    },
     decision: "판단 기록",
     solution: "해결책",
     decisionReason: "선택 이유",
@@ -805,20 +820,58 @@ export const ko = {
     regressionTest: "회귀 테스트",
     residualRisk: "남은 위험",
     codeEvidence: "코드 근거",
-    before: "문제 코드",
-    after: "수정 코드",
+    /**
+     * 🔴 **대칭이어야 한다.** 「문제 코드 / 수정 코드」는 짝이 아니라 서로 다른 두 가지를
+     * 말하는 것처럼 읽혔다 — 하나는 성질(문제)이고 하나는 행위(수정)였다.
+     * 둘은 **한 고침의 앞뒤**이므로 같은 축의 낱말로 둔다.
+     */
+    before: "수정 전",
+    after: "수정 후",
     viewCode: "GitHub에서 보기",
     noSnapshot: "저장된 코드 스냅샷이 없습니다.",
     deletedLines: "삭제된 줄",
     addedLines: "추가된 줄",
     checkedAt: "확인",
     showAllEvidenceLines: (count: number) => `전체 ${count}줄 보기`,
+    /**
+     * 🔴 **「무엇과 무엇이」가 낱말 안에 있어야 한다.**
+     *
+     * 옛 낱말은 「코드 일치 / 코드 불일치」였다. 무엇과 무엇을 맞대 본 것인지 말하지 않아
+     * 「수정 코드인데 왜 코드 불일치인가」·「수정이 실패했다는 뜻인가」·「BEFORE 와 AFTER 가
+     * 서로 다르다는 뜻인가」로 읽혔다. 셋 다 아니다 — 맞대 본 것은 **저장된 조각과 그 옆에
+     * 적힌 commit 의 원본**이고, 고침의 성패와도 BEFORE↔AFTER 비교와도 무관하다.
+     *
+     * 그래서 네 낱말이 전부 **「커밋 원본」을 주어로** 쓴다. 화면에서는 commit SHA 바로
+     * 옆에 서므로 그 「커밋」이 어느 것인지도 자리로 드러난다.
+     */
     evidenceVerification: {
-      UNVERIFIED: "코드 확인 전",
-      VERIFIED: "코드 일치",
-      MISMATCH: "코드 불일치",
-      UNAVAILABLE: "소스 확인 불가",
+      UNVERIFIED: "커밋 원본 확인 전",
+      VERIFIED: "커밋 원본과 일치",
+      MISMATCH: "커밋 원본과 다름",
+      UNAVAILABLE: "커밋 원본 확인 불가",
     },
+    /** 🔴 화면에 상시 노출하지 않는다 — 위 낱말의 `title` 로만 붙는다. */
+    evidenceVerificationHint: {
+      UNVERIFIED: "저장된 코드를 이 커밋의 원본과 아직 대조하지 않았습니다.",
+      VERIFIED: "저장된 코드가 이 커밋의 원본과 같았습니다.",
+      /**
+       * 🔴 **「아직 커밋 전이라 그렇다」는 설명을 여기서 걷어냈다.** 그런 근거는 이제
+       * `MISMATCH` 로 오지 않는다(`sourceState = WORKING_TREE`) — 설명을 남겨 두면
+       * 진짜 불일치를 보고도 「커밋 안 해서 그런가 보다」로 넘기게 된다.
+       */
+      MISMATCH:
+        "저장된 코드가 이 커밋의 원본과 달랐습니다. 수정의 성공 여부와는 무관합니다.",
+      UNAVAILABLE: "이 커밋의 원본을 읽지 못해 대조하지 못했습니다.",
+    },
+    /**
+     * 🔴 **「확인 불가」와 같은 낱말을 쓰지 않는다.** 저장된 결과는 둘 다 `UNAVAILABLE`
+     * 이지만 사람이 알아야 할 것은 다르다 — 저쪽은 「읽지 못했다」이고 이쪽은
+     * **「아직 맞대 볼 원본이 없다」**다. 같은 낱말이면 「우리 저장소를 못 읽나」로 읽힌다.
+     */
+    evidenceWorkingTree: "아직 커밋 전",
+    evidenceWorkingTreeHint:
+      "아직 커밋되지 않은 코드라 맞대 볼 커밋 원본이 없습니다. 옆의 커밋은 이 작업의 바탕입니다.",
+    evidenceViewBaseCommit: "바탕 커밋 보기",
   },
 
   reviewDetail: {
@@ -911,8 +964,16 @@ export const ko = {
     cancel: "취소",
     noAuthor: "작성자 없음",
     edit: "수정",
-    /** 🔴 날짜와 낱말의 «순서»가 언어를 탄다 — 화면에서 이어 붙이지 않는다. */
-    updatedAt: (date: string) => `${date} 수정`,
+    /**
+     * 🔴 **날짜와 낱말의 «순서»가 언어를 탄다** — 화면이 제 마음대로 이어 붙이지 않는다.
+     *
+     * 🔴 **그런데 시각은 문자열로 굳힐 수 없다.** 보는 사람의 시간대로 그려야 하는데
+     * 서버는 그것을 모르므로 `Timestamp` 가 브라우저에서 마무리한다
+     * (`components/atoms/Timestamp.tsx`). 그래서 «완성된 문장»이 아니라 **시각의 앞뒤에
+     * 놓일 조각**을 준다 — 순서는 여전히 사전이 정하고, 화면은 그대로 놓기만 한다.
+     * 쓰지 않는 쪽은 빈 문자열이다.
+     */
+    updatedAt: { before: "", after: "수정" },
     backToList: "목록",
     emptyBody: "본문이 비어 있습니다.",
   },

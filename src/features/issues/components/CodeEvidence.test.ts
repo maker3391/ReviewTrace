@@ -11,8 +11,8 @@ import {
 import type { IssueEvidenceEntry } from "@/features/issues/server/issue-detail-query";
 
 const labels = {
-  before: "Before",
-  after: "After",
+  before: "Before fix",
+  after: "After fix",
   viewCode: "View on GitHub",
   noSnapshot: "No snapshot",
   deletedLines: "Deleted lines",
@@ -20,11 +20,20 @@ const labels = {
   checkedAt: "Checked",
   showAllLines: (count: number) => `Show all ${count} lines`,
   verification: {
-    UNVERIFIED: "Unverified",
-    VERIFIED: "Verified",
-    MISMATCH: "Mismatch",
-    UNAVAILABLE: "Unavailable",
+    UNVERIFIED: "Commit source not checked",
+    VERIFIED: "Matches commit source",
+    MISMATCH: "Differs from commit source",
+    UNAVAILABLE: "Commit source unavailable",
   },
+  verificationHint: {
+    UNVERIFIED: "Not compared with the commit source yet.",
+    VERIFIED: "Matched the commit source.",
+    MISMATCH: "Differed from the commit source.",
+    UNAVAILABLE: "The commit source could not be read.",
+  },
+  workingTree: "Not committed yet",
+  workingTreeHint: "No commit source to compare against.",
+  viewBaseCommit: "View base commit",
 } as const;
 
 function evidence(
@@ -34,6 +43,7 @@ function evidence(
     id: "evidence-1",
     kind: "AFTER",
     commitSha: "abcdef1234567890",
+    sourceState: "COMMITTED",
     filePath: "src/example.tsx",
     startLine: 12,
     endLine: 14,
@@ -230,7 +240,15 @@ describe("CodeEvidenceBlock", () => {
     expect(markup).toContain("src/example.tsx:12-14");
     expect(markup).toContain("src/example.tsx:20-22");
     expect(markup).toContain("abcdef1");
-    expect(markup).toContain("2026-09-01 10:23:41 UTC");
+    /**
+     * 🔴 **화면 문자열에는 시간대 이름을 붙이지 않는다.** 사람은 자기 시계와 같은 값을
+     * 볼 뿐이라 `UTC` 는 알려 주는 것이 없다. SSR 은 보는 사람의 시간대를 모르므로
+     * UTC 로 «그리기만» 하고, 브라우저가 hydration 뒤 지역 시각으로 바꾼다(`Timestamp`).
+     * 기계가 읽는 정확한 instant 는 `dateTime` 속성에 그대로 남는다.
+     */
+    expect(markup).toContain("2026-09-01 10:23:41");
+    expect(markup).not.toContain("10:23:41 UTC");
+    expect(markup).toContain('dateTime="2026-09-01T10:23:41');
     expect(markup).toContain("#L20-L22");
     expect(markup).toContain("TSX");
     expect(markup).toContain("<span>12</span>");
@@ -324,10 +342,117 @@ describe("CodeEvidenceBlock", () => {
     });
     const markup = renderToStaticMarkup(tree);
 
-    expect(markup).toContain("Mismatch");
+    expect(markup).toContain("Differs from commit source");
     expect(markup).toContain("bg-diff-addition");
     expect(markup).toContain('data-change-kind="addition"');
   });
+
+  it("검증 결과는 commit SHA 옆의 낱말이고 역할 알약과 다른 자리·다른 모양이다", () => {
+    const markup = renderToStaticMarkup(
+      createElement(CodeEvidenceBlock, {
+        evidence: evidence({ verification: "MISMATCH" }),
+        repositoryFullName: "acme/reviewtrace",
+        labels,
+      }),
+    );
+
+    // 🔴 옛 모양 — 역할 알약과 나란히 선 «두 번째 알약» 은 없어야 한다.
+    expect(markup).not.toContain(
+      'class="rounded-full border px-2 py-0.5 text-[10px] font-medium',
+    );
+    expect(markup).toContain('data-verification="MISMATCH"');
+    // 검증 낱말이 commit SHA 뒤에 온다 — 무엇과 맞대 본 것인지가 자리로 드러난다.
+    expect(markup.indexOf("abcdef1")).toBeLessThan(
+      markup.indexOf("Differs from commit source"),
+    );
+    expect(markup).toContain("After fix");
+  });
+
+  it.each([
+    ["VERIFIED", "Matches commit source", "Matched the commit source."],
+    [
+      "MISMATCH",
+      "Differs from commit source",
+      "Differed from the commit source.",
+    ],
+    [
+      "UNVERIFIED",
+      "Commit source not checked",
+      "Not compared with the commit source yet.",
+    ],
+    [
+      "UNAVAILABLE",
+      "Commit source unavailable",
+      "The commit source could not be read.",
+    ],
+  ] as const)(
+    "%s 는 커밋 원본을 주어로 말하고 설명은 title 로만 붙는다",
+    (verification, word, hint) => {
+      const markup = renderToStaticMarkup(
+        createElement(CodeEvidenceBlock, {
+          evidence: evidence({ verification }),
+          repositoryFullName: "acme/reviewtrace",
+          labels,
+        }),
+      );
+
+      expect(markup).toContain(word);
+      // 🔴 설명은 상시 노출이 아니다 — `title` 속성 안에만 있고 본문 text 로 나오지 않는다.
+      expect(markup).toContain(`title="${hint}"`);
+      expect(markup).not.toContain(`>${hint}`);
+    },
+  );
+
+  it("짝이 있으면 알약이 −/+ 와 diff 색을 얻고, 짝이 없으면 둘 다 없다", async () => {
+    const paired = renderToStaticMarkup(
+      await EvidenceList({
+        evidence: [
+          evidence({ id: "p-before", kind: "BEFORE", snapshot: "old" }),
+          evidence({ id: "p-after", kind: "AFTER", snapshot: "new" }),
+        ],
+        repositoryFullName: "acme/reviewtrace",
+        labels,
+      }),
+    );
+    // 알약 자체가 −/+ 를 갖는다 — 색이 아니라 글자가 뜻을 나른다.
+    expect(paired).toContain(
+      '<span aria-hidden="true" class="font-mono">−</span>Before fix',
+    );
+    expect(paired).toContain(
+      '<span aria-hidden="true" class="font-mono">+</span>After fix',
+    );
+    expect(paired).toContain("bg-destructive/10 text-destructive");
+    expect(paired).toContain("bg-diff-addition text-diff-addition-foreground");
+
+    const standalone = renderToStaticMarkup(
+      await EvidenceList({
+        evidence: [
+          evidence({
+            id: "s-before",
+            kind: "BEFORE",
+            filePath: "src/only-before.ts",
+            snapshot: "old",
+          }),
+        ],
+        repositoryFullName: "acme/reviewtrace",
+        labels,
+      }),
+    );
+    // 🔴 없는 비교 결과를 만들어 내지 않는다.
+    expect(standalone).toContain("Before fix");
+    expect(standalone).not.toContain('class="font-mono">−');
+    expect(standalone).not.toContain("bg-destructive/10 text-destructive");
+    expect(standalone).not.toContain('data-change-kind="deletion"');
+    expect(standalone).toContain("bg-primary/10 text-primary");
+  });
+
+  /*
+ 🔴 아래 두 시험은 **두 축이 섞이지 않는지**를 본다.
+ - 역할·변경 비교: 「수정 전/수정 후」 알약 · −/+ · diff 색
+ - 원본 검증: commit SHA 옆의 낱말 · 점
+
+ 초록이 `VERIFIED` 로, 빨강이 `MISMATCH` 로 읽히면 이 시험들이 빨개져야 한다.
+ */
 
   it("긴 기존 Evidence는 preview와 native 전체 보기를 제공한다", () => {
     const snapshot = Array.from(

@@ -99,6 +99,7 @@ export async function insertCodeEvidence(
           issueActivityId: target.issueActivityId,
           kind: target.evidence.kind,
           commitSha: target.evidence.commitSha,
+          sourceState: target.evidence.sourceState,
           filePath: target.evidence.filePath,
           startLine: target.evidence.startLine,
           endLine: target.evidence.endLine,
@@ -123,11 +124,16 @@ export async function insertCodeEvidence(
  * |---|---|
  * | `VERIFIED` | GitHub 의 그 Commit·파일·줄 범위와 같았다. Agent 가 안 보냈으면 GitHub 것을 채운다 |
  * | `MISMATCH` | GitHub 에 있는데 내용이 달랐다 |
- * | `UNAVAILABLE` | 볼 수 없었다 (Private · 없는 Commit/파일 · 한도 초과 · 응답 실패) |
+ * | `UNAVAILABLE` | 볼 수 없었다 (Private · 없는 Commit/파일 · 한도 초과 · 응답 실패 · 아직 커밋 전) |
+ *
+ * 🔴 **`sourceState = WORKING_TREE` 는 아예 읽지 않는다.** 그 근거의 `commitSha` 는
+ * 「이 코드가 거기 있다」가 아니라 「이 작업의 바탕이 거기다」이므로, 그 commit 을 읽어
+ * 맞대면 **없는 것이 당연해 언제나 `MISMATCH`** 가 된다. 맞대 볼 원본이 없다는 사실은
+ * `UNAVAILABLE` 이지 「코드가 다르다」가 아니다.
  *
  * 🔴 **이 호출이 끝나면 `evidenceIds` 안에 `UNVERIFIED` 가 남지 않는다.** 상한을 넘었든,
- * GitHub 이 아닌 Provider 든, 도중에 오류가 났든 — 못 본 것은 `UNAVAILABLE` 로 닫힌다
- * (`MAX_VERIFY_PER_REQUEST` 주석). 그것들을 다시 확인해 줄 경로가 없기 때문이다.
+ * GitHub 이 아닌 Provider 든, 아직 커밋 전이든, 도중에 오류가 났든 — 못 본 것은
+ * `UNAVAILABLE` 로 닫힌다(`MAX_VERIFY_PER_REQUEST` 주석). 다시 확인해 줄 경로가 없기 때문이다.
  */
 export async function verifyCodeEvidence(
   workspaceId: string,
@@ -178,6 +184,22 @@ export async function verifyCodeEvidence(
           eq(issueCodeEvidences.workspaceId, workspaceId),
           inArray(issueCodeEvidences.id, [...evidenceIds]),
           eq(issueCodeEvidences.verification, "UNVERIFIED"),
+          /**
+           * 🔴 **아직 커밋되지 않은 코드는 «맞대 볼 원본이 없다».**
+           *
+           * 이 행의 `commitSha` 는 「이 코드가 거기 있다」가 아니라 「이 작업의 바탕이
+           * 거기다」라는 뜻이다. 그 commit 을 읽어 대조하면 **없는 것이 당연하므로**
+           * 결과는 언제나 `MISMATCH` 다 — 정상적인 개발 흐름이 구조적으로 「코드 불일치」로
+           * 기록되던 자리다.
+           *
+           * 🔴 **그렇다고 `VERIFIED` 로 만들지 않는다.** 확인한 적이 없기 때문이다.
+           * 여기서 빼 두면 아래 `closeOutUnverified` 가 **`UNAVAILABLE`** 로 닫는다 —
+           * 「보지 못했다」가 사실이고, 다시 확인해 줄 경로도 없다.
+           *
+           * 🔴 **GitHub 왕복 한도(`MAX_VERIFY_PER_REQUEST`)도 아끼게 된다.** 대조할 수
+           * 없는 행이 확인할 수 있는 행의 자리를 뺏지 않는다.
+           */
+          eq(issueCodeEvidences.sourceState, "COMMITTED"),
         ),
       )
       /**
@@ -293,8 +315,9 @@ export async function verifyCodeEvidence(
  * 이 요청에서 **끝내 보지 못한** 근거를 `UNAVAILABLE` 로 닫는다.
  *
  * 🔴 **이것이 「조용히 영원한 `UNVERIFIED`」를 없애는 자리다.** 상한을 넘은 행, GitHub 이
- * 아닌 Provider, 도중에 오류가 나 건너뛴 행 — 셋 다 여기서 같은 결론을 받는다.
- * 다시 확인해 줄 경로가 없으므로 「아직 안 봤다」가 아니라 **「보지 못했다」가 사실**이다.
+ * 아닌 Provider, 아직 커밋되지 않아 맞대 볼 원본이 없는 행(`WORKING_TREE`), 도중에 오류가 나
+ * 건너뛴 행 — 넷 다 여기서 같은 결론을 받는다. 다시 확인해 줄 경로가 없으므로 「아직 안
+ * 봤다」가 아니라 **「보지 못했다」가 사실**이다.
  *
  * 🔴 **문장 하나다.** 확인한 행은 이미 `UNVERIFIED` 가 아니라 조건에서 저절로 빠진다 —
  * 무엇을 봤는지 목록을 따로 들고 다니지 않는다.

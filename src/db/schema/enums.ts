@@ -10,6 +10,7 @@ import {
   SCM_PROVIDERS,
   WORKSPACE_ROLES,
   CODE_EVIDENCE_KINDS,
+  EVIDENCE_SOURCE_STATES,
   EVIDENCE_VERIFICATIONS,
 } from "@/types/review";
 
@@ -62,4 +63,10 @@ export const codeEvidenceKindEnum = pgEnum(
 export const evidenceVerificationEnum = pgEnum(
   "evidence_verification",
   EVIDENCE_VERIFICATIONS,
+);
+
+/** Snapshot 이 맞대 볼 immutable source 좌표를 갖는가(COMMITTED · WORKING_TREE). */
+export const evidenceSourceStateEnum = pgEnum(
+  "evidence_source_state",
+  EVIDENCE_SOURCE_STATES,
 );

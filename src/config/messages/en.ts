@@ -207,6 +207,12 @@ export const en: Messages = {
     patterns: {
       title: "Frequent Patterns",
       empty: "No patterns yet",
+      /**
+       * 🔴 두 숫자는 «단위가 다르다». `issues` 는 고유 Issue 수이고 `encounters` 는
+       * 최초 발견 + 재발 횟수다 — 낱말 없이 나란히 두면 같은 모집단의 「발생 / 해결」로
+       * 읽힌다. 비교되는 쌍(문제 · 해결)만 같은 단위로 둔다.
+       */
+      encounters: (count: number) => `seen ${count}×`,
       resolved: (count: number) => `${count} resolved`,
     },
     activity: {
@@ -239,7 +245,8 @@ export const en: Messages = {
       empty: "No patterns yet.",
       colPattern: "Pattern",
       colCategory: "Category",
-      colOccurrences: "Occurrences",
+      colIssues: "Issues",
+      encounters: (count: number) => `seen ${count}×`,
       colResolved: "Resolved",
       colLast: "Last seen",
     },
@@ -333,9 +340,13 @@ export const en: Messages = {
     connectTitle: "Connect a GitHub repository",
     connectDescription: "Connect the GitHub repositories reviewed in this Project.",
     chooseTitle: "Repository to connect",
-    noAccessible: "The GitHub App has no accessible repositories.",
-    allConnected: "All accessible repositories are already connected to this Project.",
-    updateAccess: "Update GitHub access",
+    /** 🔴 Says what the person can do next, not how our access model is shaped. */
+    emptyTitle: "No repositories left to add",
+    noAccessible:
+      "ReviewTrace cannot reach any GitHub repository yet. Choose the repositories it may use on GitHub.",
+    allConnected:
+      "Every repository ReviewTrace can currently reach is already connected to this Project. To connect another one, add it to ReviewTrace on GitHub.",
+    updateAccess: "Add repositories on GitHub",
     cancel: "Cancel",
     viewGithub: "View on GitHub",
   },
@@ -392,22 +403,16 @@ export const en: Messages = {
     scale: "Size",
     statProjects: "Projects",
     statMembers: "Members",
-    apiKeysSection: "Legacy API Keys",
-    apiKeysDescription:
-      "These settings keep older Agent integrations compatible. Use Agent connections above for new integrations.",
-    apiKeysManage: "Manage legacy API Keys",
     agentCredentialsSection: "Agent connections",
     integrationSection: "Agent Integration",
     accountSection: "Account",
     dangerSection: "Delete workspace",
   },
 
+  /** 🔴 No explanatory sentences — heading, field label, current state, action only. */
   agentCredentials: {
-    description:
-      "Manage Agent authentication for Codex, Claude Code, and other MCP clients. Register it once to recognize repositories in allowed Workspaces.",
     issue: "Create Agent connection",
     name: "Name",
-    namePlaceholder: "For example, Codex / Claude Code",
     readOnly: "Read only",
     readWrite: "Read and write",
     never: "Never expires",
@@ -425,19 +430,21 @@ export const en: Messages = {
     expires: "Expires",
     status: "Status",
     active: "Active",
-    revoked: "Revoked",
-    expired: "Expired",
     revoke: "Revoke",
     cancel: "Cancel",
     revokeConfirmTitle: "Revoke this Agent connection?",
     revokeConfirmConsequence:
       "Clients using this authentication value will receive 401 from their next request. The connection record is retained.",
-    workspaceAccess: "Workspaces this Agent can use",
-    workspaceAccessDescription:
-      "Only Workspaces with current membership and explicit access can be used.",
-    granted: "Available",
-    notGranted: "Not available",
+    /**
+     * 🔴 The wording stays out of the internal auth model — see ko.ts. The behaviour
+     * is unchanged: access is granted to the person, not to one connection.
+     */
+    workspaceAccess: "Workspace access",
+    granted: "Allowed",
+    notGranted: "Not allowed",
     grant: "Allow",
+    /** 🔴 Different from revoking a connection — only this Workspace access goes away. */
+    revokeGrant: "Disallow",
     ownerRequired: "Only an OWNER can change this",
     issuedTitle: "Agent connection created",
     issuedWarning:
@@ -445,6 +452,9 @@ export const en: Messages = {
     copy: "Copy",
     copied: "Copied",
     close: "Close",
+    /** 🔴 Only usable connections are listed; revoked rows stay in the database. */
+    activeConnections: "Active connections",
+    neverUsed: "never",
   },
 
   workspaceDelete: {
@@ -492,42 +502,13 @@ export const en: Messages = {
     confirmSuffix: " to confirm.",
   },
 
-  apiKeys: {
-    nameLabel: "Key name",
-    issue: "Create",
-    empty: "No keys yet.",
-    expiresAt: "Expires",
-    expiry30: "30 days",
-    expiry90: "90 days",
-    expiry365: "1 year",
-    expiryNever: "Never expires",
-    columnName: "Name",
-    columnPrefix: "Prefix",
-    columnLastUsed: "Last used",
-    columnExpires: "Expires",
-    columnStatus: "Status",
-    never: "Never",
-    revoked: "Revoked",
-    expired: "Expired",
-    active: "Active",
-    revoking: "Revoking",
-    revoke: "Revoke",
-    cancel: "Cancel",
-    revokeConfirmTitle: "Revoke API key?",
-    revokeConfirmAuthLoss: "Once revoked, this key can no longer authenticate.",
-    revokeConfirmRecordKept: "Existing records are kept.",
-    copy: "Copy",
-    copied: "Copied",
-    close: "Close",
-    issuedTitle: "API key created",
-    issuedWarning:
-      "The full API key cannot be shown again. Copy it now and keep it somewhere safe.",
-  },
-
   integration: {
     step1: "1. Register",
     step2: "2. Verify",
     copyCommand: (step: string) => `Copy the ${step} command`,
+    /* 🔴 Owned by the Section that draws the copy buttons — see ko.ts. */
+    copy: "Copy",
+    copied: "Copied",
     claudeNote:
       "The configuration is stored in the user scope. Do not use a repository's .mcp.json.",
     codexNote:
@@ -585,6 +566,14 @@ export const en: Messages = {
     resolution: "Resolution",
     history: "History",
     noHistory: "No history yet",
+    edit: "Edit",
+    editTitle: "Edit issue",
+    editHint:
+      "Refine the issue narrative. Status, history and code evidence are untouched.",
+    issueTitle: "Title",
+    markdownHint: "Saved exactly as the Markdown source you type.",
+    cancelEdit: "Cancel",
+    saveEdit: "Save",
     status: "Status",
     location: "Location",
     identity: "Identity",
@@ -608,8 +597,11 @@ export const en: Messages = {
     commit: "Commit",
     commitSha: "Commit SHA",
     activityDescription: "Details",
-    recording: "Saving",
-    record: "Add to history",
+    recordActions: {
+      COMMENT: "Add comment",
+      FIX_ATTEMPTED: "Add fix attempt",
+      REVIEWED_AGAIN: "Add re-review",
+    },
     decision: "Decision record",
     solution: "Solution",
     decisionReason: "Why this approach",
@@ -619,8 +611,8 @@ export const en: Messages = {
     regressionTest: "Regression test",
     residualRisk: "Residual risk",
     codeEvidence: "Code evidence",
-    before: "Problem code",
-    after: "Fixed code",
+    before: "Before fix",
+    after: "After fix",
     viewCode: "View on GitHub",
     noSnapshot: "No code snapshot was stored.",
     deletedLines: "Deleted lines",
@@ -628,11 +620,23 @@ export const en: Messages = {
     checkedAt: "Checked",
     showAllEvidenceLines: (count: number) => `Show all ${count} lines`,
     evidenceVerification: {
-      UNVERIFIED: "Code not checked",
-      VERIFIED: "Code matches",
-      MISMATCH: "Code mismatch",
-      UNAVAILABLE: "Source unavailable",
+      UNVERIFIED: "Commit source not checked",
+      VERIFIED: "Matches commit source",
+      MISMATCH: "Differs from commit source",
+      UNAVAILABLE: "Commit source unavailable",
     },
+    evidenceVerificationHint: {
+      UNVERIFIED:
+        "The stored snippet has not been compared with this commit's source yet.",
+      VERIFIED: "The stored snippet matched this commit's source.",
+      MISMATCH:
+        "The stored snippet differed from this commit's source. It says nothing about whether the fix worked.",
+      UNAVAILABLE: "This commit's source could not be read, so no comparison.",
+    },
+    evidenceWorkingTree: "Not committed yet",
+    evidenceWorkingTreeHint:
+      "This code is not committed yet, so there is no commit source to compare against. The commit beside it is the base this work sits on.",
+    evidenceViewBaseCommit: "View base commit",
   },
 
   reviewDetail: {
@@ -712,7 +716,8 @@ export const en: Messages = {
     cancel: "Cancel",
     noAuthor: "No author",
     edit: "Edit",
-    updatedAt: (date: string) => `Updated ${date}`,
+    /** 🔴 English puts the word first — the dictionary owns that order, not the screen. */
+    updatedAt: { before: "Updated", after: "" },
     backToList: "All pages",
     emptyBody: "This page is empty.",
   },

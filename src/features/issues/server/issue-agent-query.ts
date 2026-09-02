@@ -294,6 +294,7 @@ async function findActivities(
       issueActivityId: issueCodeEvidences.issueActivityId,
       kind: issueCodeEvidences.kind,
       commitSha: issueCodeEvidences.commitSha,
+      sourceState: issueCodeEvidences.sourceState,
       filePath: issueCodeEvidences.filePath,
       startLine: issueCodeEvidences.startLine,
       endLine: issueCodeEvidences.endLine,

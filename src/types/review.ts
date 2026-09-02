@@ -119,8 +119,34 @@ export type CodeEvidenceKind = (typeof CODE_EVIDENCE_KINDS)[number];
  * | `UNVERIFIED` | 아직 확인하지 않았다 |
  * | `VERIFIED` | GitHub 의 해당 Commit·파일·줄 범위와 같았다 |
  * | `MISMATCH` | GitHub 에 있긴 한데 내용이 달랐다 |
- * | `UNAVAILABLE` | 볼 수 없었다 (Private · 없는 Commit/파일 · GitHub 응답 실패) |
+ * | `UNAVAILABLE` | 볼 수 없었다 (Private · 없는 Commit/파일 · GitHub 응답 실패 · 아직 커밋 전이라 맞대 볼 원본이 없음) |
  */
+/**
+ * Snapshot 이 **맞대 볼 immutable source 좌표를 갖는가**.
+ *
+ * 🔴 **`commitSha` 는 원래 「이 코드가 그 commit 에 있다」는 주장이었다.** 그런데 개발은 늘
+ * 「고친다 → 확인한다 → 커밋한다」 순서로 흐르고 **AFTER 근거는 커밋되기 전에 만들어진다.**
+ * 그때 Agent 가 적을 수 있는 SHA 는 HEAD 뿐이라, 그 commit 에 **없는** 코드를 가리키는 주장이
+ * 되고 대조는 정직하게 실패해 `MISMATCH` 로 남는다 — 실제로 그렇게 쌓인 근거가 있었다.
+ *
+ * 🔴 **그것은 「코드가 다르다」가 아니라 「맞대 볼 원본이 아직 없다」다.** 두 문장은 다르다.
+ * 그래서 좌표의 성격을 값으로 갈라 둔다.
+ *
+ * | 값 | `commitSha` 의 뜻 | 대조 |
+ * |---|---|---|
+ * | `COMMITTED` | 이 snapshot 이 **그 commit 에 있다** | GitHub 과 맞대 본다 |
+ * | `WORKING_TREE` | 이 작업이 **그 commit 위에서** 이뤄졌다(아직 커밋 전) | 맞대지 않는다 |
+ *
+ * 🔴 **`WORKING_TREE` 는 「검증 면제」가 아니다.** 확인을 건너뛰라는 표시가 아니라 **확인할
+ * 대상이 존재하지 않는다는 사실**이다. 커밋된 코드에 이 값을 붙이면 확인할 수 있는 것을
+ * 확인하지 않게 되므로, 이 값은 **보내는 쪽이 실제로 확인했을 때만** 붙인다.
+ *
+ * 🔴 **좌표를 버리지 않는다.** `commitSha` 는 `WORKING_TREE` 에서도 필수다 — 「어느 코드
+ * 위에서 한 작업인가」를 잃으면 그 근거는 시점 없는 문자열이 된다.
+ */
+export const EVIDENCE_SOURCE_STATES = ["COMMITTED", "WORKING_TREE"] as const;
+export type EvidenceSourceState = (typeof EVIDENCE_SOURCE_STATES)[number];
+
 export const EVIDENCE_VERIFICATIONS = [
   "UNVERIFIED",
   "VERIFIED",
