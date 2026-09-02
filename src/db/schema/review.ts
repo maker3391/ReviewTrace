@@ -10,11 +10,12 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 import {
   codeEvidenceKindEnum,
-  evidenceVerificationEnum,
   evidenceSourceStateEnum,
+  evidenceVerificationEnum,
   issueActivityTypeEnum,
   issueCategoryEnum,
   issueSeverityEnum,
@@ -341,6 +342,30 @@ export const issueActivities = pgTable(
       table.reviewIssueId,
       table.createdAt,
     ),
+    /**
+     * 「이 문제를 몇 번 다시 만났는가」 전용.
+     *
+     * 🔴 **추측으로 더한 Index 가 아니다.** Pattern 집계와 Knowledge preflight 는
+     * `issue_activities` 를 LEFT JOIN 한 뒤 **`REVIEWED_AGAIN` 만** 세는데, 위의
+     * `(review_issue_id, created_at)` 은 `type` 을 담고 있지 않아 Issue 하나마다 그 Issue 의
+     * **모든** Activity 를 heap 에서 읽어 와 걸러야 했다. Issue 5,625개 · Activity 172,641행에서
+     * 그 join 하나가 `EXPLAIN (ANALYZE, BUFFERS)` 기준 **25,493 buffer** 를 썼다.
+     *
+     * 실측(같은 데이터셋 · 5회 중앙값): **29.2ms → 14.5ms**. Index 크기는 **약 2MB** 로
+     * 표(18MB)와 위 Index(17MB)에 견주면 작다 — `REVIEWED_AGAIN` 이 Activity 의 일부라
+     * 나머지 종류는 이 Index 에 행을 만들지 않는다.
+     *
+     * 🔴 **`workspace_id` 를 넣지 않았다.** 넣어 보니 오히려 느렸다(15.7ms) — join 조건의
+     * 나머지는 heap 을 이미 읽은 뒤 거르는 편이 싸다. 근거 없이 열을 늘리지 않는다.
+     *
+     * 🔴 **partial index 는 질의가 그 조건을 «말해 줘야» 쓰인다.** 그래서 두 질의가
+     * `type = 'REVIEWED_AGAIN'` 을 aggregate FILTER 에만 두지 않고 **LEFT JOIN 의 ON** 에도
+     * 올려 둔다(`pattern-query.ts` · `review-knowledge-preflight.ts`). 결과는 같다 —
+     * 두 질의 모두 `issue_activities` 를 그 FILTER 밖에서 쓰지 않는다.
+     */
+    index("issue_activities_reviewed_again_idx")
+      .on(table.reviewIssueId, table.createdAt)
+      .where(sql`${table.type} = 'REVIEWED_AGAIN'`),
   ],
 );
 
@@ -390,6 +415,21 @@ export const issueCodeEvidences = pgTable(
 
     /** 🔴 Commit 은 **필수**다. 없으면 이 코드가 언제의 것인지 영원히 알 수 없다. */
     commitSha: text("commit_sha").notNull(),
+
+    /**
+     * `commitSha` 가 **무엇을 가리키는가**(`EvidenceSourceState`).
+     *
+     * 🔴 **이 칸이 없으면 「커밋 전 코드」와 「커밋된 코드」가 구분되지 않는다.** 개발은 늘
+     * 고친 뒤에 커밋하므로 AFTER 근거는 커밋 전에 만들어지고, 그때 적을 수 있는 SHA 는
+     * HEAD 뿐이다 — 그 commit 에 없는 코드를 가리키게 되어 대조가 **구조적으로**
+     * `MISMATCH` 가 된다. 「코드가 다르다」가 아니라 **「맞대 볼 원본이 아직 없다」**인데도.
+     *
+     * 🔴 **기본값이 `COMMITTED` 인 것이 중요하다.** 이 칸을 모르는 옛 Client 는 지금까지와
+     * 똑같이 대조된다 — 검증을 조용히 느슨하게 만드는 기본값을 두지 않는다.
+     */
+    sourceState: evidenceSourceStateEnum("source_state")
+      .notNull()
+      .default("COMMITTED"),
     filePath: text("file_path").notNull(),
     startLine: integer("start_line"),
     endLine: integer("end_line"),
@@ -415,21 +455,6 @@ export const issueCodeEvidences = pgTable(
   ],
 );
 
-
-    /**
-     * `commitSha` 가 **무엇을 가리키는가**(`EvidenceSourceState`).
-     *
-     * 🔴 **이 칸이 없으면 「커밋 전 코드」와 「커밋된 코드」가 구분되지 않는다.** 개발은 늘
-     * 고친 뒤에 커밋하므로 AFTER 근거는 커밋 전에 만들어지고, 그때 적을 수 있는 SHA 는
-     * HEAD 뿐이다 — 그 commit 에 없는 코드를 가리키게 되어 대조가 **구조적으로**
-     * `MISMATCH` 가 된다. 「코드가 다르다」가 아니라 **「맞대 볼 원본이 아직 없다」**인데도.
-     *
-     * 🔴 **기본값이 `COMMITTED` 인 것이 중요하다.** 이 칸을 모르는 옛 Client 는 지금까지와
-     * 똑같이 대조된다 — 검증을 조용히 느슨하게 만드는 기본값을 두지 않는다.
-     */
-    sourceState: evidenceSourceStateEnum("source_state")
-      .notNull()
-      .default("COMMITTED"),
 export const tags = pgTable(
   "tags",
   {

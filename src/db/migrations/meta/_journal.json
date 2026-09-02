@@ -92,6 +92,20 @@
       "when": 1788263281831,
       "tag": "0012_common_colonel_america",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788331667175,
+      "tag": "0013_condemned_wolfpack",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1788332198122,
+      "tag": "0014_wise_major_mapleleaf",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+CREATE INDEX "issue_activities_reviewed_again_idx" ON "issue_activities" USING btree ("review_issue_id","created_at") WHERE "issue_activities"."type" = 'REVIEWED_AGAIN';
