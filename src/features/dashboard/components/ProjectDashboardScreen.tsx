@@ -25,8 +25,8 @@ import type { ProjectContext } from "@/features/projects/types/project";
  봤는가」의 표기 규칙을 여기에 다시 적지 않고 주인 Feature 것을 불러 쓴다 — 두 곳에 적으면
  한쪽만 고쳐져 같은 값이 두 화면에서 다르게 그려진다(실제로 그랬다).
 */
+import { ReviewTargetCell } from "@/features/reviews/components/ReviewTargetCell";
 import {
-  describeTarget,
   REVIEW_COL,
   REVIEW_TABLE,
 } from "@/features/reviews/components/review-table-columns";
@@ -218,8 +218,13 @@ export async function ProjectDashboardScreen({
                 <TableHead className="hidden w-44 lg:table-cell">
                   {t.patterns.colCategory}
                 </TableHead>
+                {/*
+ 🔴 **「발생」이 아니라 「문제」다.** 이 칸은 이제 고유 Issue 수라 옆의 「해결」과
+ 같은 단위이고, 재발까지 센 횟수는 셀 안의 보조 줄로 내려간다 — 열을 하나 더
+ 만들면 이미 390px 에서 아슬아슬한 이 표가 다시 넘친다.
+ */}
                 <TableHead className="w-24 text-right">
-                  {t.patterns.colOccurrences}
+                  {t.patterns.colIssues}
                 </TableHead>
                 <TableHead className="w-24 text-right">
                   {t.patterns.colResolved}
@@ -250,7 +255,12 @@ export async function ProjectDashboardScreen({
                     {label.category[pattern.category]}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {pattern.occurrences}
+                    {pattern.uniqueIssues}
+                    {pattern.encounters > pattern.uniqueIssues && (
+                      <span className="block text-[11px] font-normal text-muted-foreground">
+                        {t.patterns.encounters(pattern.encounters)}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right tabular-nums text-muted-foreground">
                     {pattern.resolvedCount}
@@ -322,11 +332,6 @@ export async function ProjectDashboardScreen({
             </TableHeader>
             <TableBody>
               {dashboard.recentReviews.map((review) => {
-                const target = describeTarget(
-                  review,
-                  label.targetType[review.targetType],
-                );
-
                 return (
                   <TableRow key={review.id}>
                     <TableCell
@@ -348,20 +353,13 @@ export async function ProjectDashboardScreen({
                       {review.repositoryFullName}
                     </TableCell>
                     {/*
- 실제 branch/commit 이 주가 되고 종류는 아랫줄로 내린다 — 종류가 언제나
- 아랫줄에 있어 **행 높이가 데이터에 따라 들쭉날쭉해지지 않는다.**
+ 🔴 **그리는 자리까지 주인 Feature 것을 쓴다.** 예전에는 규칙(`describeTarget`)만
+ 공유하고 markup 은 두 화면에 복사돼 있었다 — 한쪽만 고치면 같은 값이 다르게 보인다.
  */}
-                    <TableCell className={REVIEW_COL.target}>
-                      <span
-                        className="block truncate font-mono text-xs"
-                        title={target.full}
-                      >
-                        {target.primary}
-                      </span>
-                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-                        {target.secondary}
-                      </span>
-                    </TableCell>
+                    <ReviewTargetCell
+                      review={review}
+                      typeLabel={label.targetType[review.targetType]}
+                    />
                     <TableCell
                       className={cn(REVIEW_COL.issues, "tabular-nums")}
                     >

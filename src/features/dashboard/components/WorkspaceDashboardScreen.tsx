@@ -274,12 +274,26 @@ export async function WorkspaceDashboardScreen({
                       {label.category[pattern.category]}
                     </p>
                   </div>
+                  {/*
+ 🔴 **비교되는 두 숫자는 같은 단위여야 한다.** 큰 숫자를 encounter 로 두고 그 아래
+ 「해결 3」을 적으면 「8건 중 3건 해결」로 읽히는데, 8 은 재발까지 센 «횟수»라
+ 3 과 같은 모집단이 아니다. 그래서 위에는 고유 Issue 수를 두어 「해결」과 짝을
+ 맞추고, 반복 횟수는 낱말을 달아 옆에 둔다.
+ */}
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-semibold tabular-nums">
-                      {pattern.occurrences}
+                      {pattern.uniqueIssues}
                     </p>
                     <p className="text-[11px] tabular-nums text-muted-foreground">
                       {t.patterns.resolved(pattern.resolvedCount)}
+                      {pattern.encounters > pattern.uniqueIssues && (
+                        <>
+                          <span aria-hidden className="mx-1 text-border">
+                            ·
+                          </span>
+                          {t.patterns.encounters(pattern.encounters)}
+                        </>
+                      )}
                     </p>
                   </div>
                 </li>

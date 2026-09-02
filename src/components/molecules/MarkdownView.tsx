@@ -96,13 +96,34 @@ export function MarkdownView({
               {children}
             </h2>
           ),
+          /*
+ 🔴 **heading 이 문단 속 bold 보다 «약해» 보이면 안 된다.**
+
+ 실측한 적이 있다 — `###` 은 `14px/500` 인데 문단 안 `**bold**` 는 `14px/700` 이었다.
+ 크기도 색도 같아서 **구조를 가르는 heading 이 문장 속 강조보다 덜 두드러졌고**,
+ 읽는 사람은 그것을 「bold 로 쓴 소제목」으로 읽었다. 정보 계층이 뒤집힌 것이다.
+
+ 🔴 **글자를 키우거나 새 장치를 만들어 풀지 않는다.** 이 앱에는 「본문 안의 하위 라벨」이
+ 이미 있고 전부 **`11px/600`·선 없음**이다 — `판단 기록`·`해결책`·`코드 근거`. field 제목은
+ `13px/600` 이다. 그러니 Markdown 의 subheading 이 설 자리는 **그 둘 사이가 아니라 그
+ 하위 라벨과 같은 칸**이다. 옛 `14px/500` 은 **부모인 field 제목보다 커서** 계층이 뒤집혀
+ 있었고, 굵기는 문단 속 bold(`700`)보다 낮아 강조보다도 약했다.
+
+ 🔴 **가로선을 새로 들이지 않는다.** 잠시 넣어 봤지만 이 앱의 본문 안 라벨은 선을 쓰지
+ 않는다 — 없던 장치를 하나 더 만드는 것이라 되돌렸다. 구조는 **크기·굵기·위 여백**이 말한다.
+
+ 계단: 페이지 제목 `20/600` > field 제목 `13/600` > **subheading `11/600`** > 본문 `14/400`.
+ (`components/molecules/MarkdownView.tsx` 가 Markdown 을 아는 유일한 자리다 — CLAUDE.md 6)
+ */
           h2: ({ children }) => (
-            <h3 className="mt-4 text-sm font-semibold tracking-tight">
+            <h3 className="mt-5 text-[13px] font-semibold tracking-tight">
               {children}
             </h3>
           ),
           h3: ({ children }) => (
-            <h4 className="mt-3 text-sm font-medium">{children}</h4>
+            <h4 className="mt-4 text-[11px] font-semibold tracking-tight">
+              {children}
+            </h4>
           ),
           /*
  Markdown 의 빈 줄은 paragraph 로 나뉘고, paragraph 안의 단일 newline 은 Text node 로

@@ -1,3 +1,5 @@
+import type { ReactElement } from "react";
+
 import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -21,8 +23,14 @@ import { cn } from "@/lib/utils";
  */
 export interface Stat {
   label: string;
-  /** 🔴 값이 없는 것과 0 은 다르다. 없으면 `—` 다 — 0 으로 그리면 거짓말이 된다. */
-  value: number | string | null;
+  /**
+   * 🔴 값이 없는 것과 0 은 다르다. 없으면 `—` 다 — 0 으로 그리면 거짓말이 된다.
+   *
+   * 🔴 **Element 도 받는다.** 시각은 보는 사람의 시간대로 그려야 해서 서버에서
+   * 문자열로 굳힐 수 없다(`Timestamp`) — 그런 값만 Element 로 온다.
+   * `undefined` 는 일부러 받지 않는다: 「없음」은 `null` 하나로만 말한다.
+   */
+  value: number | string | null | ReactElement;
   /**
    * 값에 붙는 단위(`%` 등).
    *

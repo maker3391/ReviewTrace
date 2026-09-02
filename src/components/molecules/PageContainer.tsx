@@ -43,7 +43,24 @@ export type PageWidth = "wide" | "default" | "reading";
  * 그 본문을 쓰는 편집 폼이 **같은 폭**이라야 쓰면서 결과를 가늠할 수 있다
  */
 const WIDTH: Record<PageWidth, string> = {
-  wide: "max-w-7xl",
+  /**
+   * 🔴 **`2xl` 위에서만 한 단계 더 연다(1280 -> 1440).**
+   *
+   * 넓히는 이유는 「넓으면 좋아서」가 아니라 이 결의 화면이 **가로로 비교하는 것들**이기
+   * 때문이다 — Evidence 의 코드 줄(가로 스크롤이 붙는다) · Repository 표 ·
+   * Issue/Review metadata · Decision Record. 1280 에서는 코드가 몇 글자마다 스크롤로
+   * 넘어간다.
+   *
+   * 🔴 **그렇다고 화면 끝까지 펴지 않는다.** Sidebar(`md:w-64` = 256px)를 빼면 1920 에서
+   * 본문 영역이 1664px 이라, 1440 이면 좌우로 각 112px 가 남는다. 한때 1760 까지 열었다가
+   * 되돌린 것이 바로 이 여백이 사라져 **관리자용 DB 뷰어처럼** 보였기 때문이다 —
+   * 1760 은 1664 보다 넓어서 애초에 여백이 0 이었다.
+   *
+   * 🔴 **`2xl`(1536px viewport) 아래는 한 픽셀도 바뀌지 않는다.** 1440 laptop 은 본문
+   * 영역이 1184px 라 이 상한에 닿지도 않고, Mobile·Tablet 은 `max-w-*` 가 아니라 화면
+   * 폭이 정한다 — 이 변경은 큰 Desktop 에서만 보인다.
+   */
+  wide: "max-w-7xl 2xl:max-w-[90rem]",
   default: "max-w-5xl",
   reading: "max-w-3xl",
 };

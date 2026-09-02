@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { LOCALES } from "@/config/i18n";
-import { issueApiKeySchema } from "@/features/api-keys/schemas/api-key";
+import { issueAgentCredentialSchema } from "@/features/agent-credentials/schemas/agent-credential";
 import { inviteMemberSchema } from "@/features/invitations/schemas/invitation";
 import { issueStatusUpdateSchema } from "@/features/issues/schemas/issue-status-update";
 import { knowledgePageSchema } from "@/features/knowledge/schemas/knowledge-page";
@@ -188,7 +188,7 @@ describe("🔴 전역을 건드리지 않는다", () => {
     const before = z.config().localeError;
 
     createProjectSchema.safeParse({ name: "" }, parseOptions("ko"));
-    issueApiKeySchema.safeParse({ name: "" }, parseOptions("en"));
+    issueAgentCredentialSchema.safeParse({ name: "" }, parseOptions("en"));
 
     expect(z.config().localeError).toBe(before);
   });

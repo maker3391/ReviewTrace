@@ -33,7 +33,6 @@ import {
   PROJECT_ITEMS,
   projectSectionHref,
   sectionHref,
-  WORKSPACE_FOOTER_ITEMS,
   WORKSPACE_ITEMS,
   type ProjectMenuKey,
   type WorkspaceMenuKey,
@@ -52,14 +51,19 @@ import { cn } from "@/lib/utils";
  *
  * ```
  * [ CodeApex ▼ ] Workspace Switcher — Tenant
- * Dashboard / Projects / Wiki
+ * Dashboard / Projects / Wiki / Members / Settings
  * ──────────
  * PROJECT 머리글 (지금 어느 Project 안인가)
  * SMIL
  * Overview / Reviews / Issues / Wiki / Repositories / Settings
- * ──────────
- * Members / Settings 가끔 여는 것
  * ```
+ *
+ * 🔴 **Workspace 항목을 위아래 두 묶음으로 쪼개지 않는다.** Members·Settings 도 그 Tenant
+ * 자신에 대한 navigation 이라 나머지와 같은 층이다 — 바닥에 따로 두면 한 계층이 화면
+ * 양 끝으로 갈리고, 낮은 화면에서는 손이 닿기 어려워진다.
+ *
+ * 🔴 **「설정」이 두 번 나오는 것은 실수가 아니다.** 위는 Workspace Settings, 아래는 그
+ * Project 의 Settings 다 — 서로 다른 scope 이고, 어느 묶음에 속했는지와 divider 로 갈린다.
  *
  * 🔴 **모든 메뉴를 같은 강도로 그리지 않는다.** 활성 항목은 **배경 + 굵기 + Icon 색** 셋으로
  * 드러내되 **강한 색을 넓게 깔지 않는다**.
@@ -272,32 +276,13 @@ export function AppSidebar({
           </ul>
         </>
       )}
-
-      <Divider className="mt-auto" />
-
-      <ul className="flex flex-col gap-0.5">
-        {WORKSPACE_FOOTER_ITEMS.map((item) => (
-          <NavLink
-            key={item.key}
-            href={sectionHref(currentSlug, item.section)}
-            label={labels.workspace[item.key]}
-            icon={WORKSPACE_ICONS[item.key]}
-            pathname={pathname}
-            collapsed={collapsed}
-            muted
-          />
-        ))}
-      </ul>
     </nav>
   );
 }
 
-function Divider({ className }: { className?: string }) {
+function Divider() {
   return (
-    <div
-      aria-hidden
-      className={cn("my-2.5 border-t border-sidebar-border/70", className)}
-    />
+    <div aria-hidden className="my-2.5 border-t border-sidebar-border/70" />
   );
 }
 
@@ -356,7 +341,6 @@ function NavLink({
   pathname,
   collapsed,
   exact = false,
-  muted = false,
 }: {
   href: Route;
   label: string;
@@ -364,7 +348,6 @@ function NavLink({
   pathname: string;
   collapsed: boolean;
   exact?: boolean;
-  muted?: boolean;
 }) {
   const active = exact
     ? pathname === href
@@ -380,11 +363,11 @@ function NavLink({
         // 🔴 접기 버튼(위)과 «같은» 초점 표시다. 사이드바 안에서 Tab 이 어디에 있는지
         // 행 모양 그대로 드러난다 — 얇은 브라우저 기본 outline 으로 두지 않는다.
         "outline-none focus-visible:ring-3 focus-visible:ring-sidebar-ring/50",
+        // 🔴 한 묶음 안의 항목은 «같은» 강도로 그린다. Members·Settings 만 흐리게 두면
+        // 같은 Workspace 계층 안에 divider 없는 두 번째 층이 생겨 잘못 읽힌다.
         active
           ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-          : muted
-            ? "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-            : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+          : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
       )}
     >
       {Icon !== undefined && (

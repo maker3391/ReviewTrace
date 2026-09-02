@@ -15,8 +15,8 @@ import { Timestamp } from "@/components/atoms/Timestamp";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { TablePagination } from "@/components/organisms/TablePagination";
+import { ReviewTargetCell } from "@/features/reviews/components/ReviewTargetCell";
 import {
-  describeTarget,
   REVIEW_COL,
   REVIEW_TABLE,
 } from "@/features/reviews/components/review-table-columns";
@@ -95,11 +95,6 @@ export async function ReviewListScreen({
             </TableHeader>
             <TableBody>
               {reviews.map((review) => {
-                const target = describeTarget(
-                  review,
-                  label.targetType[review.targetType],
-                );
-
                 return (
                   <TableRow key={review.id}>
                     <TableCell className={REVIEW_COL.reviewer}>
@@ -133,21 +128,15 @@ export async function ReviewListScreen({
                       {review.repositoryFullName}
                     </TableCell>
                     {/*
- 「무엇을 봤는가」는 한 덩어리다 — 종류와 실제 branch/commit 을 열 둘로
- 쪼개면 표가 옆으로 길어지고 정작 값이 좁아진다.
- 실제 값이 주가 되고 종류는 그 아래 보조 줄로 내린다.
+ 「무엇을 봤는가」는 한 덩어리다 — branch 와 commit 을 열 둘로 쪼개면 표가
+ 옆으로 길어지고 정작 이름이 묻힌다(CLAUDE.md 16). 한 칸 안에서 한 줄로
+ 둔다 — 그리는 규칙은 `ReviewTargetCell` 한 곳이고 Project Overview 가
+ 같은 것을 쓴다.
  */}
-                    <TableCell className={REVIEW_COL.target}>
-                      <span
-                        className="block truncate font-mono text-xs"
-                        title={target.full}
-                      >
-                        {target.primary}
-                      </span>
-                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-                        {target.secondary}
-                      </span>
-                    </TableCell>
+                    <ReviewTargetCell
+                      review={review}
+                      typeLabel={label.targetType[review.targetType]}
+                    />
                     <TableCell
                       className={cn(REVIEW_COL.issues, "tabular-nums")}
                     >

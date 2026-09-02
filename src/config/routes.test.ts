@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  ALL_WORKSPACE_ITEMS,
   currentSection,
   DEFAULT_SECTION,
   PROJECT_ITEMS,
   projectSectionHref,
   sectionHref,
+  WORKSPACE_ITEMS,
 } from "@/config/navigation";
 import {
   isPublicPath,
@@ -91,9 +91,9 @@ describe("isPublicPath", () => {
 
 describe("navigation 과 routes 는 갈라지지 않는다", () => {
   it("사이드바가 링크로 거는 Workspace Section 은 전부 보호 경로다", () => {
-    expect(ALL_WORKSPACE_ITEMS.length).toBeGreaterThan(0);
+    expect(WORKSPACE_ITEMS.length).toBeGreaterThan(0);
 
-    for (const item of ALL_WORKSPACE_ITEMS) {
+    for (const item of WORKSPACE_ITEMS) {
       expect(isPublicPath(sectionHref("acme", item.section))).toBe(false);
     }
   });
@@ -109,7 +109,7 @@ describe("navigation 과 routes 는 갈라지지 않는다", () => {
   });
 
   it("Section 이름이 중복되지 않는다 — 같은 주소를 두 메뉴가 가리키면 활성 표시가 갈린다", () => {
-    const workspaceSections = ALL_WORKSPACE_ITEMS.map((item) => item.section);
+    const workspaceSections = WORKSPACE_ITEMS.map((item) => item.section);
     expect(new Set(workspaceSections).size).toBe(workspaceSections.length);
 
     const projectSections = PROJECT_ITEMS.map((item) => item.section);

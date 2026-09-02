@@ -17,8 +17,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TablePagination } from "@/components/organisms/TablePagination";
+import { Timestamp } from "@/components/atoms/Timestamp";
 import { findKnowledgePageList } from "@/features/knowledge/server/knowledge-page-service";
-import { formatDate } from "@/lib/format/date";
 import {
   listPageHref,
   parsePageRequest,
@@ -123,8 +123,18 @@ export async function KnowledgeScreen({
                   <TableCell className="max-w-[10rem] truncate text-xs text-muted-foreground">
                     {page.authorName ?? "—"}
                   </TableCell>
+                  {/*
+ 🔴 **화면마다 다른 시각 표기를 만들지 않는다.** 여기만 `formatDate` 로
+ 날짜만 그려 **서버의 UTC 날짜**가 나갔다 — 같은 목록인 Review·Issue 는
+ 이미 `Timestamp` 로 «보는 사람의 시간대»에 분까지 그리고 있었고, 그래서
+ 한국에서 방금 고친 문서가 목록에서만 하루 전 날짜로 보일 수 있었다.
+
+ 목록이므로 `compact`(`09-01 14:32`)다 — 상세의 `exact` 는 초까지라 자릿수가
+ 늘고, 목록에서 초는 비교에 쓰이지 않는다. 정확한 instant 는 `<time>` 의
+ `dateTime`·`title` 에 그대로 남는다.
+ */}
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
-                    {formatDate(page.updatedAt)}
+                    <Timestamp value={page.updatedAt} variant="compact" />
                   </TableCell>
                 </TableRow>
               ))}

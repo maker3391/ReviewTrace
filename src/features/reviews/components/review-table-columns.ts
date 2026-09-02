@@ -89,8 +89,27 @@ export const REVIEW_TABLE = "table-fixed min-w-[22rem]";
  * 첫 행만 131px 이었다 — 브랜치가 87px 칸 안에서 글자 단위로 일곱 줄 접혔기 때문이다.
  */
 export const REVIEW_COL = {
-  /** `claude-code` 가 14px 로 들어가는 폭. 더 긴 이름은 잘리고 전문은 `title` 에 남는다. */
-  reviewer: "w-32",
+  /**
+   * 어느 Agent 가 남겼나.
+   *
+   * 🔴 **이 칸의 값은 이제 사람이 지은 «연결 이름»이다**(`agent_credentials.name` —
+   * `lib/api/api-key-auth.ts`). 예전엔 `codex`·`claude-code` 처럼 짧고 예측 가능해
+   * `w-32`(글자 자리 104px)로 충분했는데, 지금은 `claude-code-mcp`(116px)·
+   * `browser-credential-verify` 같은 이름이 들어온다 — 그 폭에서는 `claude-code-mc…`
+   * 로 잘려 **끝에서만 갈리는 이름 둘을 구별하지 못한다**(`claude-code-mcp` ·
+   * `claude-code-cli`). 그것은 이번에 고친 회귀가 픽셀 수준에서 다시 생기는 것이다.
+   *
+   * 🔴 **그렇다고 모든 폭에서 넓히지 않는다.** 390·768 에서 넓히면 그만큼 대상 칸을
+   * 빼앗는다(실측: 144→112 · 254→222). 그 구간은 표가 이미 가로로 넘치는 자리라,
+   * 자리가 생기는 `lg` 부터만 넓힌다 — 저장소 칸이 열리는 것과 같은 자리다.
+   *
+   * ```
+   * 리뷰어 대상
+   * 390·768 128 (예전과 같다) 144·254 (예전과 같다)
+   * 1024~ 160 (`claude-code-mcp` 가 온전히) 187 (−16)
+   * ```
+   */
+  reviewer: "w-32 lg:w-40",
   repository: "hidden lg:table-cell",
   /** 폭을 적지 않는다 — 저장소와 남는 폭을 나눠 갖는다. */
   target: "",
@@ -109,15 +128,25 @@ export const REVIEW_COL = {
  * 🔴 **`targetType` 에 없는 값을 지어내지 않는다.** 값은 `PULL_REQUEST`·`COMMIT`·`BRANCH`·
  * `REPOSITORY`·`MANUAL` 다섯뿐이고(`types/review.ts`), `branch`·`commitSha` 는 **둘 다
  * Nullable** 이다(`db/schema/review.ts`). 그래서 종류만으로 무엇을 그릴지 정하지 않고
- * **실제로 있는 값 중 가장 구체적인 것**을 앞줄에 세운다.
+ * **실제로 있는 값 중 가장 구체적인 것**을 앞에 세운다.
  *
  * ```
- * branch 있음 feature/auth-… Commit · a81f3c2
- * branch 없음·SHA 있음 a81f3c2 Commit
- * 둘 다 없음 — Manual
+ * branch 있음 feature/auth-… a81f3c2
+ * branch 없음·SHA 있음 a81f3c2
+ * 둘 다 없음 Manual
  * ```
  *
- * 종류는 언제나 아랫줄에 남으므로 **행 높이가 데이터에 따라 들쭉날쭉해지지 않는다.**
+ * ## 🔴 종류(`typeLabel`)는 «더 구체적인 값이 없을 때만» 그린다
+ *
+ * 예전에는 종류가 언제나 둘째 줄에 남아 한 칸이 두 줄이었다. 그런데 한 Project 의
+ * Review 는 대개 같은 종류라 그 줄은 **모든 행에서 같은 낱말을 되풀이하면서** 행 높이를
+ * 55px 로 밀어 올렸다 — 세로로 훑는 표에서 가장 값이 낮은 정보가 가장 비싼 자리를 썼다.
+ * 「대상」이 답해야 하는 것은 «무슨 종류의 Review 였나»가 아니라 **«어느 코드를 봤나»**다.
+ *
+ * 종류가 사라지는 것이 아니다 — branch 도 SHA 도 없는 `REPOSITORY`·`MANUAL` 은 그것이
+ * 유일하게 남은 값이라 그 행에서는 여전히 그린다. 나머지 행의 종류는 Review 상세의
+ * 「대상」 절에 `targetType`·`branch`·`commit`·PR 번호로 온전히 남아 있다
+ * (`ReviewDetailScreen`).
  *
  * 🔴 **목록에는 짧은 SHA 만 쓴다.** 40자는 끊을 자리가 없어 어떤 폭에서도 칸을 밀어낸다 —
  * 전체 값은 Review 상세에 있다(`ReviewDetailScreen`).
@@ -126,33 +155,39 @@ export const REVIEW_COL = {
  * `TYPE · branch · sha` 를 한 줄로 이어 붙여 그렸는데, 그 문자열에는 끊을 자리가 없어
  * 대상 칸이 **어느 폭에서나 770px** 로 굳었다 — 저장소 칸이 94px 로 뭉개지고 표가 1440
  * 에서도 61px 가로로 넘쳤다. 같은 뜻의 칸을 두 곳에서 다르게 그리면 한쪽만 고쳐진다.
+ * 🔴 그래서 **그리는 자리도 하나**로 모았다 — `ReviewTargetCell`.
  *
  * 🔴 **`server-only` 모듈에서 타입을 끌어오지 않는다.** 필요한 것은 두 칸뿐이라 구조로
  * 받는다 — 이 파일이 조회 계층에 묶이지 않는다.
+ *
+ * @returns `primary` 는 이 Review 를 알아보는 값(잘릴 수 있다), `detail` 은 그 옆에 붙는
+ *   **짧은 SHA**(없으면 `null` — 좁은 화면에서 접히는 자리다), `full` 은 잘린 값의
+ *   전문(`title`).
  */
 export function describeTarget(
   review: { branch: string | null; commitSha: string | null },
   typeLabel: string,
-): { primary: string; secondary: string; full: string | undefined } {
+): { primary: string; detail: string | null; full: string | undefined } {
   const shortSha =
     review.commitSha === null ? null : review.commitSha.slice(0, 7);
 
   if (review.branch !== null) {
-    return {
-      primary: review.branch,
-      secondary: shortSha === null ? typeLabel : `${typeLabel} · ${shortSha}`,
-      full: review.branch,
-    };
+    return { primary: review.branch, detail: shortSha, full: review.branch };
   }
 
   if (shortSha !== null) {
     return {
       primary: shortSha,
-      secondary: typeLabel,
+      detail: null,
       // 상세로 가기 전에도 전체 SHA 를 확인할 수 있게 한다.
       full: review.commitSha ?? undefined,
     };
   }
 
-  return { primary: "—", secondary: typeLabel, full: undefined };
+  /*
+ 🔴 **여기서는 종류가 «가장 구체적인 값»이라 앞자리에 세운다.** 보조 자리에 두면 안
+ 된다 — 그 자리는 좁은 화면에서 접히므로(`ReviewTargetCell`), 390px 에서 이 행이
+ 「—」 하나만 남는다. **접혀도 되는 것은 더 구체적인 값이 옆에 있을 때뿐이다.**
+ */
+  return { primary: typeLabel, detail: null, full: undefined };
 }

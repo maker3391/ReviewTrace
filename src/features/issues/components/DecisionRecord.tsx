@@ -70,13 +70,21 @@ export function DecisionRecord({
 
       {secondary.length > 0 && (
         <dl className="mt-3 grid gap-x-5 gap-y-3 sm:grid-cols-2">
-          {secondary.map((entry) => (
+          {secondary.map((entry, index) => (
             <div
               key={entry.label}
               className="min-w-0 border-l border-border/70 pl-2.5"
             >
-              <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                {entry.label}
+              <dt className="flex items-baseline gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                {/* 읽기 순서 표시일 뿐 데이터가 아니다. 그려진 칸에 이어서 매기므로
+                    비어 있는 field 가 있어도 번호가 건너뛰지 않는다. */}
+                <span
+                  aria-hidden
+                  className="shrink-0 font-normal tabular-nums text-muted-foreground/70"
+                >
+                  {sectionIndex(index)}
+                </span>
+                <span className="min-w-0">{entry.label}</span>
               </dt>
               <dd className="mt-1 text-muted-foreground">
                 <MarkdownContent
@@ -91,6 +99,10 @@ export function DecisionRecord({
       )}
     </section>
   );
+}
+
+function sectionIndex(index: number): string {
+  return String(index + 1).padStart(2, "0");
 }
 
 function compact(

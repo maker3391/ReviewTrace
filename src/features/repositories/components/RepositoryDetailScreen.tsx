@@ -23,10 +23,7 @@ import { listRepositoryOpenIssues } from "@/features/issues/server/issue-detail-
 import { MoveRepositoryDialog } from "@/features/repositories/components/MoveRepositoryDialog";
 import type { RepositoryDetail } from "@/features/repositories/server/repository-query";
 import { listRepositoryReviews } from "@/features/reviews/server/review-query";
-import {
-  formatAgeInDays,
-  formatExactDateTime,
-} from "@/lib/format/date";
+import { formatAgeInDays } from "@/lib/format/date";
 import { readLocale, readMessages } from "@/lib/ui/appearance";
 import { cn } from "@/lib/utils";
 import type { ProjectScope } from "@/types/tenant";
@@ -148,16 +145,20 @@ export async function RepositoryDetailScreen({
             value: repository.openIssueCount,
             hint: t.now,
           },
+          /*
+ 🔴 **시각은 서버에서 문자열로 굳히지 않는다.** 보는 사람의 시간대로 그려야 하는데
+ 서버는 그것을 알 수 없다 — `Timestamp` 가 브라우저에서 마무리한다.
+ */
           {
             label: t.lastReview,
             value:
-              repository.lastReviewAt === null
-                ? null
-                : formatExactDateTime(repository.lastReviewAt),
+              repository.lastReviewAt === null ? null : (
+                <Timestamp value={repository.lastReviewAt} variant="exact" />
+              ),
           },
           {
             label: t.registered,
-            value: formatExactDateTime(repository.createdAt),
+            value: <Timestamp value={repository.createdAt} variant="exact" />,
           },
         ]}
       />

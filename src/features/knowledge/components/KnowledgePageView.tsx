@@ -5,8 +5,8 @@ import { MarkdownView } from "@/components/molecules/MarkdownView";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { Button } from "@/components/ui/button";
 import { DeleteKnowledgePageButton } from "@/features/knowledge/components/DeleteKnowledgePageButton";
+import { Timestamp } from "@/components/atoms/Timestamp";
 import type { KnowledgePageDetail } from "@/features/knowledge/server/knowledge-page-service";
-import { formatDate } from "@/lib/format/date";
 import { readMessages } from "@/lib/ui/appearance";
 
 /**
@@ -50,7 +50,16 @@ export async function KnowledgePageView({
             {" · "}
             {page.authorName ?? t.noAuthor}
             {" · "}
-            {t.updatedAt(formatDate(page.updatedAt))}
+            {/*
+ 🔴 **상세는 `exact` 다** — Review·Issue·Repository 상세와 같은 기준이다.
+ 목록은 훑는 자리라 분까지(`compact`)면 되지만, 문서 하나를 보는 자리에서는
+ 「언제 고쳤나」가 그 자체로 사실이라 초까지 남긴다.
+
+ 낱말과 시각의 순서는 사전이 갖는다 — 화면은 조각을 그 순서대로 놓기만 한다.
+ */}
+            {t.updatedAt.before === "" ? null : `${t.updatedAt.before} `}
+            <Timestamp value={page.updatedAt} variant="exact" />
+            {t.updatedAt.after === "" ? null : ` ${t.updatedAt.after}`}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">

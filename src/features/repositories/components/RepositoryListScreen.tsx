@@ -96,6 +96,8 @@ export async function RepositoryListScreen({
     public: t.public,
     connected: t.connected,
     add: t.add,
+    emptyTitle: t.emptyTitle,
+    connectDescription: t.connectDescription,
     noAccessible: t.noAccessible,
     allConnected: t.allConnected,
     updateAccess: t.updateAccess,
@@ -179,25 +181,39 @@ export async function RepositoryListScreen({
               <TableBody>
                 {repositories.map((repository) => (
                   <TableRow key={repository.id}>
+                    {/*
+ 🔴 **이름과 바깥으로 나가는 링크를 «줄»로 가른다.**
+
+ 둘 다 inline 이라, `break-all` 로 끊기는 긴 이름의 마지막 글자 바로 뒤에 링크가
+ 붙어 한 문자열처럼 읽혔다 — `…testing-purposes-hereGitHub에서 보기 ↗`.
+ `mt-1` 은 inline 요소에서 아무 일도 하지 않아 간격이 생기지 않았다.
+
+ 셀 안을 **식별자 영역 + 보조 action 영역**으로만 나눈다. 열을 더하지 않는 이유는
+ 그 편이 표를 옆으로 늘리고 이름을 묻기 때문이다(CLAUDE.md 16 — 「한 셀 안에서
+ 계층을 만들 수 있다」). `items-start` 라 링크가 셀 폭만큼 늘어나지 않고,
+ 이름이 아무리 길어도 링크를 밀어내지 못한다.
+ */}
                     <TableCell className={cn(NAME_CELL, "whitespace-normal")}>
-                      <Link
-                        href={`${basePath}/${repository.id}` as Route}
-                        className="break-all font-mono text-xs underline-offset-4 hover:underline"
-                      >
-                        {repository.fullName}
-                      </Link>
-                      {repository.htmlUrl !== null &&
-                        isSafeExternalUrl(repository.htmlUrl) && (
-                          <a
-                            href={repository.htmlUrl}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                          >
-                            {t.viewGithub}
-                            <ExternalLink className="size-3" aria-hidden />
-                          </a>
-                        )}
+                      <div className="flex min-w-0 flex-col items-start gap-1">
+                        <Link
+                          href={`${basePath}/${repository.id}` as Route}
+                          className="block max-w-full break-all font-mono text-xs underline-offset-4 hover:underline"
+                        >
+                          {repository.fullName}
+                        </Link>
+                        {repository.htmlUrl !== null &&
+                          isSafeExternalUrl(repository.htmlUrl) && (
+                            <a
+                              href={repository.htmlUrl}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                            >
+                              {t.viewGithub}
+                              <ExternalLink className="size-3" aria-hidden />
+                            </a>
+                          )}
+                      </div>
                     </TableCell>
                     <TableCell
                       className="max-w-[8rem] truncate font-mono text-xs text-muted-foreground"

@@ -39,22 +39,20 @@ export interface NavigationItem<Key extends string> {
 }
 
 /**
- * Workspace 층의 상단 메뉴.
+ * Workspace 층의 메뉴.
  *
- * Members·Settings 는 매일 보는 것이 아니라 아래(`WORKSPACE_FOOTER_ITEMS`)로 내린다 —
- * 모든 메뉴를 같은 시각적 강도로 두지 않는다.
+ * 🔴 **Members·Settings 를 사이드바 바닥으로 내리지 않는다.** 그 둘은 utility 가 아니라
+ * **Workspace 자신에 대한 navigation** 이다 — Dashboard·Projects·Wiki 와 같은 층이다.
+ * 바닥에 따로 두면 한 Tenant 의 메뉴가 이유 없이 두 영역으로 갈리고, 화면이 낮을 때
+ * 밀려 내려가 닿기 어려워진다. 계층은 «위치»가 아니라 그룹과 divider 로 드러낸다.
  */
 export const WORKSPACE_ITEMS: readonly NavigationItem<WorkspaceMenuKey>[] = [
   { key: "DASHBOARD", section: "dashboard" },
   { key: "PROJECTS", section: "projects" },
   { key: "WIKI", section: "wiki" },
+  { key: "MEMBERS", section: "members" },
+  { key: "SETTINGS", section: "settings" },
 ] as const;
-
-export const WORKSPACE_FOOTER_ITEMS: readonly NavigationItem<WorkspaceMenuKey>[] =
-  [
-    { key: "MEMBERS", section: "members" },
-    { key: "SETTINGS", section: "settings" },
-  ] as const;
 
 /** Project 층의 메뉴. Project 를 고른 뒤에만 그린다. */
 export const PROJECT_ITEMS: readonly NavigationItem<ProjectMenuKey>[] = [
@@ -68,10 +66,6 @@ export const PROJECT_ITEMS: readonly NavigationItem<ProjectMenuKey>[] = [
 
 /** Workspace 를 바꿔도 보고 있던 Section 을 유지하기 위한 기본 Section. */
 export const DEFAULT_SECTION = "dashboard";
-
-/** 사이드바가 링크로 거는 Workspace Section 전체. 시험이 라우트와 맞대어 본다. */
-export const ALL_WORKSPACE_ITEMS: readonly NavigationItem<WorkspaceMenuKey>[] =
-  [...WORKSPACE_ITEMS, ...WORKSPACE_FOOTER_ITEMS];
 
 /**
  * `/w/{slug}/{section}` 주소를 만든다.
@@ -106,6 +100,6 @@ export function projectSectionHref(
 export function currentSection(pathname: string): string {
   // ["", "w", "{slug}", "{section}",...]
   const section = pathname.split("/")[3] ?? "";
-  const known = ALL_WORKSPACE_ITEMS.find((item) => item.section === section);
+  const known = WORKSPACE_ITEMS.find((item) => item.section === section);
   return known?.section ?? DEFAULT_SECTION;
 }
