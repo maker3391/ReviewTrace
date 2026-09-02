@@ -5,7 +5,7 @@ import {
   ACTIVITY_TYPE_BY_STATUS,
   issueStatusUpdateSchema,
 } from "@/features/issues/schemas/issue-status-update";
-import { ISSUE_STATUSES } from "@/types/review";
+import { ISSUE_STATUSES, OPEN_ISSUE_STATUSES } from "@/types/review";
 
 /**
  * 되돌림 확인(2026-08-28): `issueStatusUpdateSchema` 의 마지막 `.refine` 을 떼면
@@ -72,6 +72,24 @@ describe("ACTIVITY_TYPE_BY_STATUS", () => {
   it("RESOLVED 와 REOPENED 는 스펙 33 의 Activity 를 남긴다", () => {
     expect(ACTIVITY_TYPE_BY_STATUS.RESOLVED).toBe("RESOLVED");
     expect(ACTIVITY_TYPE_BY_STATUS.REOPENED).toBe("REOPENED");
+  });
+
+  /**
+   * 🔴 **이 Issue 를 지우는 길은 만들지 않았다.** `review_issues` 한 행을 지우면
+   * `issue_activities`·`issue_code_evidences`·`issue_tags` 가 `ON DELETE CASCADE` 로
+   * 함께 사라진다 — 이 제품이 지키려는 것이 바로 그 History 다(스펙 1·2).
+   *
+   * 대신 「더 이상 활성으로 보지 않는다」는 **상태 전이** 둘이 맡는다. 그것이 성립하려면
+   * 두 가지가 동시에 참이어야 한다 — 목록·Dashboard 의 「열린 Issue」에서 **빠지고**,
+   * 무엇을 왜 접었는지가 History 에 **남는다**.
+   */
+  it("🔴 IGNORED·FALSE_POSITIVE 는 접히면서도 History 를 남긴다", () => {
+    for (const status of ["IGNORED", "FALSE_POSITIVE"] as const) {
+      // 접힌다 — 「지금 봐야 할 수」에서 빠진다.
+      expect(OPEN_ISSUE_STATUSES).not.toContain(status);
+      // 남는다 — 삭제와 다른 점이다.
+      expect(ACTIVITY_TYPE_BY_STATUS[status]).toBe("IGNORED");
+    }
   });
 });
 

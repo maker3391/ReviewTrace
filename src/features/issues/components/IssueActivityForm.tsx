@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Controller } from "react-hook-form";
+import { Controller, useWatch } from "react-hook-form";
 
 import { Spinner } from "@/components/atoms/Spinner";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
   MANUAL_ACTIVITY_TYPES,
   type IssueActivityFormInput,
   type IssueActivityFormValues,
+  type ManualActivityType,
 } from "@/features/issues/schemas/issue-form";
 import { useLocalizedForm } from "@/lib/validation/use-localized-form";
 
@@ -42,8 +43,18 @@ export interface IssueActivityLabels {
   commitSha: string;
   optional: string;
   description: string;
-  recording: string;
-  record: string;
+  /**
+   * 실행 버튼의 낱말. **고른 Type 마다 다르다.**
+   *
+   * 🔴 **「기록 남기기」 같은 한 낱말로 두지 않는다.** 이 폼은 세 가지 Activity 를 만드는
+   * 범용 폼이고 기본값이 `COMMENT` 라, 한 낱말이면 누르기 전에 **무엇이 History 에
+   * 남는지 알 수 없다** — 「메모」를 남기려는 사람과 「수정 시도」를 남기려는 사람이
+   * 같은 버튼을 본다. 고른 것이 곧 버튼에 적히면 그 자리에서 확인된다.
+   *
+   * 🔴 `Record<ManualActivityType, string>` 이다 — 고를 수 있는 Type 이 하나 늘면
+   * 낱말이 빠진 채로 넘어오지 못한다.
+   */
+  recordActions: Record<ManualActivityType, string>;
   /** 🔴 값의 이름표. Select 의 `value` 는 `IssueActivityType` 그대로다. */
   typeOptions: Record<IssueActivityType, string>;
 }
@@ -68,6 +79,12 @@ export function IssueActivityForm({
   >(issueActivityFormSchema, {
     defaultValues: { type: "COMMENT", description: "", commitSha: "" },
   });
+
+  /*
+ 🔴 `form.watch()` 로 읽지 않는다 — 매 렌더마다 새 함수를 돌려줘 메모이제이션이 깨진다
+ (`IssueStatusControl` 과 같은 이유). 구독은 `useWatch` 로 한다.
+ */
+  const type = useWatch({ control: form.control, name: "type" });
 
   async function onSubmit(values: IssueActivityFormInput) {
     setFailure(null);
@@ -170,9 +187,12 @@ export function IssueActivityForm({
 
       <div>
         <Button type="submit" size="sm" disabled={form.formState.isSubmitting}>
-          {/* 🔴 label 을 갈아 끼우지 않는다 — 무엇을 실행 중인지가 계속 보여야 한다. */}
+          {/*
+ 🔴 **진행 중이라고 label 을 갈아 끼우지 않는다** — 무엇을 실행 중인지가 계속 보여야 한다.
+ 바뀌는 것은 「고른 Activity Type」뿐이고, 그것은 누르기 «전에» 알아야 하는 정보다.
+ */}
           {form.formState.isSubmitting && <Spinner />}
-          {labels.record}
+          {labels.recordActions[type]}
         </Button>
       </div>
     </form>

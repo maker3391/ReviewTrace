@@ -4,11 +4,16 @@ import { revalidatePath } from "next/cache";
 
 import { projectBasePath, projectPath } from "@/config/routes";
 import {
+  issueEditSchema,
+  type IssueEditInput,
+} from "@/features/issues/schemas/issue-edit";
+import {
   issueActivityFormSchema,
   type IssueActivityFormInput,
 } from "@/features/issues/schemas/issue-form";
 import { issueStatusUpdateSchema } from "@/features/issues/schemas/issue-status-update";
 import { addIssueActivity } from "@/features/issues/server/issue-activity-service";
+import { updateIssueContent } from "@/features/issues/server/issue-edit-service";
 import { updateIssueStatus } from "@/features/issues/server/issue-status-service";
 import { actionFromError } from "@/lib/action/action-error";
 import { actionOk, type ActionResult } from "@/lib/action/action-result";
@@ -124,6 +129,57 @@ export async function updateIssueStatusAction(
  🔴 이 Issue 상세만 달라지지 않는다. 목록의 Status 칸과 Dashboard 의 「열린 Issue」
  집계가 함께 달라진다 — Project 아래를 통째로 서버가 다시 그리게 한다.
  상세 화면(`.../issues/{id}`)도 이 아래에 있다.
+ */
+    revalidatePath(
+      projectBasePath(target.workspaceSlug, target.projectSlug),
+      "layout",
+    );
+
+    return actionOk();
+  } catch (error) {
+    return actionFromError(error);
+  }
+}
+
+/**
+ * Issue 의 서술을 고친다.
+ *
+ * 🔴 **상태를 건드리지 않는다.** 이 Action 이 부르는 `updateIssueContent` 는
+ * `status`·`resolvedAt`·`resolutionSummary` 를 `UPDATE` 문장에 담지 않는다 —
+ * 그 셋은 `updateIssueStatusAction` 이 History 와 함께 움직이는 값이다.
+ *
+ * 🔴 **범위는 `requireProject` 가 확인해 준 Project 까지다.** 화면이 보낸 slug 는 주소창의
+ * 문자열일 뿐이고, 실제 `workspaceId`·`projectId` 는 여기서 소속을 확인해 얻는다.
+ * 범위 밖 Issue 와 없는 Issue 는 둘 다 `RESOURCE_NOT_FOUND` 로 끝난다.
+ */
+export async function updateIssueContentAction(
+  target: IssueActionTarget,
+  input: IssueEditInput,
+): Promise<ActionResult> {
+  const parsed = await parseActionInput(issueEditSchema, input);
+  if (!parsed.ok) {
+    return parsed.failure;
+  }
+
+  try {
+    const { workspace, project } = await requireProject(
+      target.workspaceSlug,
+      target.projectSlug,
+    );
+
+    await updateIssueContent({
+      scope: {
+        workspaceId: workspace.workspaceId,
+        projectId: project.projectId,
+      },
+      issueId: target.issueId,
+      update: parsed.data,
+    });
+
+    /*
+ 🔴 제목은 이 화면에만 있는 값이 아니다. Issue 목록의 첫 칸과 Dashboard 의
+ 「Needs Attention」이 같은 문자열을 그린다 — 상태 변경과 같은 이유로 Project 아래를
+ 통째로 다시 그리게 한다.
  */
     revalidatePath(
       projectBasePath(target.workspaceSlug, target.projectSlug),

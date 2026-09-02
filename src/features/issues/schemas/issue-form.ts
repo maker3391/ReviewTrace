@@ -41,6 +41,15 @@ export const MANUAL_ACTIVITY_TYPES = [
 ] as const;
 
 /**
+ * 🔴 **사람이 고를 수 있는 Activity 는 이 셋뿐이다.**
+ *
+ * 버튼의 낱말이 「고른 Type 이 무엇인지」를 그대로 말하려면
+ * (`IssueActivityLabels.recordActions`) 낱말 사전이 이 집합을 **빠짐없이** 덮어야 한다 —
+ * 여기 값이 하나 늘면 그 사전을 넘겨받는 자리에서 곧바로 typecheck 가 깨진다.
+ */
+export type ManualActivityType = (typeof MANUAL_ACTIVITY_TYPES)[number];
+
+/**
  * 🔴 **필드 정의를 베끼지 않고 Agent API 의 Schema 에서 덜어낸다.**
  * `actor` 만 빼고 `type` 만 좁힌다 — `description`·`commitSha` 의 상한과 정규화는
  * 두 경로가 같은 규칙을 쓴다.
