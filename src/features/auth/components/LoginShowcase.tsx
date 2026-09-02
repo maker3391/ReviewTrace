@@ -75,7 +75,12 @@ export function LoginShowcase({
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none relative hidden select-none xl:block"
+      /*
+       🔴 **여기서 접지 않는다.** 어느 폭에서 이 미리보기를 보여 줄지는 배치를 아는
+       `LoginLandingPage` 의 감싼 항목이 정한다 — 두 곳이 정하면 「감싼 쪽은 보여 주는데
+       속은 `hidden`」인 조합이 조용히 생긴다. 실제로 그렇게 있었다.
+      */
+      className="pointer-events-none relative select-none"
     >
       {/*
  배경. 「보이지만 신경 쓰이지 않는」 선까지만 — 아주 옅은 radial glow 하나와

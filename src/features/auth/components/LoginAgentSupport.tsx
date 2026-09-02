@@ -88,8 +88,17 @@ const AGENTS = [
 
 export function LoginAgentSupport({ label }: { label: string }) {
   return (
-    // 🔴 `max-w-[32rem]` 은 subhead 와 같은 값이다 — 왼쪽 단의 오른쪽 끝을 맞춘다.
-    <div className="mt-8 flex max-w-[32rem] flex-wrap items-center justify-between gap-x-4 gap-y-2.5 rounded-xl border border-border/70 bg-surface-muted/50 px-4 py-3">
+    // 🔴 `max-w-[32rem]` 은 subhead 와 같은 값이다 — 소개 단의 오른쪽 끝을 맞춘다.
+    //
+    // 🔴 **`order-3` 은 모바일(< 640) 전용이다.** 그 폭에서는 소개 `<section>` 이
+    // `display: contents` 로 풀려 이 띠가 grid 항목이 되고, 「소개 -> 로그인 CTA -> 연동」
+    // 순서의 «마지막»에 선다. 640 이상에서는 다시 section 안의 block 이라 `order` 가 아무
+    // 일도 하지 않고, 이 띠는 지금처럼 소개 단의 바닥이다.
+    //
+    // 🔴 **위 여백이 폭마다 다르다.** 640 이상에서는 features 바로 아래라 `mt-8` 이 맞고,
+    // 모바일에서는 위에 오는 것이 로그인 카드라 층이 바뀐다 — 같은 32px 이면 CTA 에 딸린
+    // 부속처럼 붙어 읽힌다.
+    <div className="order-3 mt-12 flex max-w-[32rem] flex-wrap items-center justify-between gap-x-4 gap-y-2.5 rounded-xl border border-border/70 bg-surface-muted/50 px-4 py-3 sm:mt-8">
       {/* 🔴 대문자 eyebrow 를 쓰지 않는다 — 그것이 「마디 제목」으로 읽히던 원인이다. */}
       <p className="text-[0.8125rem] break-keep text-foreground/75">{label}</p>
 
