@@ -40,23 +40,46 @@ export function pairEvidenceByFile(
     afterByPath.set(item.filePath, queue);
   });
 
+  /**
+   * 🔴 **짝짓기를 «먼저» 끝내고 그 다음에 순서대로 내보낸다.**
+   *
+   * 한 번의 순회로 하면 배열에서 `AFTER` 가 `BEFORE` 보다 앞설 때 그 `AFTER` 가
+   * standalone 으로 «확정»돼 버리고, 뒤에 오는 짝은 쓸 것이 없어 둘 다 홀로 남는다.
+   *
+   * 🔴 **그 순서는 우리가 정하는 것이 아니다.** 목록은 `(createdAt, id)` 로 정렬되는데
+   * 한 Transaction 에서 들어온 근거들은 `createdAt` 이 전부 같다 — 즉 **무작위 UUID 가
+   * diff 를 그릴지 말지를 정하고 있었다.** 같은 Activity 의 같은 파일인데도 어떤 화면에는
+   * red/green 이 나오고 어떤 화면에는 안 나왔다.
+   *
+   * 규칙 자체는 그대로다 — 같은 목록·정확히 같은 `filePath`·FIFO 1:1. 다른 Activity 를
+   * 넘나들거나 basename 만 같은 파일을 묶지 않는다.
+   */
   const used = new Set<number>();
-  const groups: EvidenceGroup[] = [];
-  evidence.forEach((item, index) => {
-    if (used.has(index)) return;
-    if (item.kind === "BEFORE") {
-      const afterIndex = afterByPath
-        .get(item.filePath)
-        ?.find((candidate) => !used.has(candidate));
-      if (afterIndex !== undefined) {
-        used.add(index);
-        used.add(afterIndex);
-        groups.push({ type: "pair", beforeIndex: index, afterIndex });
-        return;
-      }
-    }
+  /** 짝을 «먼저 나오는 쪽» 자리에 놓아 화면 순서를 흔들지 않는다. */
+  const pairAt = new Map<number, { beforeIndex: number; afterIndex: number }>();
 
+  evidence.forEach((item, index) => {
+    if (item.kind !== "BEFORE") return;
+    const afterIndex = afterByPath
+      .get(item.filePath)
+      ?.find((candidate) => !used.has(candidate));
+    if (afterIndex === undefined) return;
     used.add(index);
+    used.add(afterIndex);
+    pairAt.set(Math.min(index, afterIndex), {
+      beforeIndex: index,
+      afterIndex,
+    });
+  });
+
+  const groups: EvidenceGroup[] = [];
+  evidence.forEach((_item, index) => {
+    const pair = pairAt.get(index);
+    if (pair !== undefined) {
+      groups.push({ type: "pair", ...pair });
+      return;
+    }
+    if (used.has(index)) return;
     groups.push({ type: "single", index });
   });
 

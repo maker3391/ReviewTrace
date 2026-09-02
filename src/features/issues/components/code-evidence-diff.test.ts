@@ -21,6 +21,48 @@ describe("pairEvidenceByFile", () => {
       { type: "single", index: 3 },
     ]);
   });
+
+  /**
+   * 🔴 **목록 안의 순서가 diff 표시 여부를 정하면 안 된다.**
+   *
+   * 화면 목록은 `(createdAt, id)` 로 정렬되는데 한 Transaction 에서 들어온 근거들은
+   * `createdAt` 이 전부 같다 — 그래서 실제로 **무작위 UUID 가 순서를 정했고**, 같은
+   * Activity 의 같은 파일인데도 어떤 Activity 에는 red/green 이 나오고 어떤 Activity 에는
+   * 나오지 않았다. 실제 화면에서 그렇게 보였다.
+   */
+  it("🔴 AFTER 가 BEFORE 보다 앞서 있어도 같은 파일이면 짝을 짓는다", () => {
+    expect(
+      pairEvidenceByFile([
+        { kind: "AFTER", filePath: "src/a.ts" },
+        { kind: "BEFORE", filePath: "src/a.ts" },
+      ]),
+    ).toEqual([{ type: "pair", beforeIndex: 1, afterIndex: 0 }]);
+  });
+
+  it("짝은 둘 중 먼저 나오는 자리에 선다 — 화면 순서를 흔들지 않는다", () => {
+    expect(
+      pairEvidenceByFile([
+        { kind: "AFTER", filePath: "src/a.ts" },
+        { kind: "BEFORE", filePath: "src/only-before.ts" },
+        { kind: "BEFORE", filePath: "src/a.ts" },
+      ]),
+    ).toEqual([
+      { type: "pair", beforeIndex: 2, afterIndex: 0 },
+      { type: "single", index: 1 },
+    ]);
+  });
+
+  it("짝이 없는 AFTER 는 그대로 홀로 남는다 — 없는 비교를 만들지 않는다", () => {
+    expect(
+      pairEvidenceByFile([
+        { kind: "AFTER", filePath: "src/a.ts" },
+        { kind: "BEFORE", filePath: "src/b.ts" },
+      ]),
+    ).toEqual([
+      { type: "single", index: 0 },
+      { type: "single", index: 1 },
+    ]);
+  });
 });
 
 describe("diffEvidenceLines", () => {
