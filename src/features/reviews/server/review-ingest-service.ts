@@ -75,6 +75,8 @@ export interface IngestedIssue {
   severity: IssueSeverity;
   category: IssueCategory;
   status: IssueStatus;
+  /** Agent가 기존 Issue의 재발 여부를 판단할 때 읽는 additive alias. */
+  currentStatus: IssueStatus;
   /** 이미 알고 있던 Issue 인가. `source + externalId` 로 같은 행을 다시 찾은 경우다. */
   alreadyKnown: boolean;
 }
@@ -367,7 +369,7 @@ async function insertSessionIssues(
       issue: PreparedIssue;
       id: string;
       alreadyKnown: boolean;
-      view: Omit<IngestedIssue, "id" | "alreadyKnown">;
+      view: Omit<IngestedIssue, "id" | "alreadyKnown" | "currentStatus">;
     }[] = created.map((issue) => ({
       issue,
       id: issue.localId,
@@ -460,6 +462,7 @@ async function insertSessionIssues(
       issues: resolved.map((entry) => ({
         id: entry.id,
         ...entry.view,
+        currentStatus: entry.view.status,
         alreadyKnown: entry.alreadyKnown,
       })),
       evidenceIds,
@@ -785,6 +788,7 @@ async function findSessionByIdempotencyKey(
       severity: issue.severity,
       category: issue.category,
       status: issue.status,
+      currentStatus: issue.status,
       alreadyKnown: true,
     })),
     idempotentReplay: true,

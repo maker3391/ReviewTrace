@@ -49,6 +49,20 @@ export const MAX_ISSUES_PER_REVIEW = 500;
 
 /** 한 Issue 의 Tag 수. Tag 는 분류이지 목록이 아니다. */
 const MAX_TAGS_PER_ISSUE = 20;
+/**
+ * Knowledge preflight 용 경로 목록의 «입력» 상한. diff 내용은 받지 않는다.
+ *
+ * 🔴 **tags · evidence · issues 와 «일부러» 다른 정책이다.** 저 셋은 「저장해 달라」고 보낸
+ * 값이라, 넘치는 것을 조용히 버리면 그 자체가 데이터 손실이다 — 그래서 거절이 맞다.
+ * changedFiles 는 저장이 목적이 아니라 **이번 Review 의 Knowledge 후보를 고르는 힌트**다.
+ * 초과분을 버려도 부르는 쪽이 남기려던 것은 하나도 잃지 않는다. 그런 보조 값 때문에
+ * 이미 만들 수 있는 Review 를 통째로 거절하면, 잃는 쪽이 비교할 수 없이 크다.
+ *
+ * 그렇다고 무제한은 아니다. 여기서 «받아들이는» 상한을 두고, 그중 실제 relevance 계산에
+ * 쓰는 개수는 Application 경계가 다시 줄인다(`KNOWLEDGE_CHANGED_FILE_LIMIT`) —
+ * 그 줄임은 응답에 그대로 적어 보낸다.
+ */
+export const MAX_CHANGED_FILES_ACCEPTED = 1_000;
 
 const nonEmpty = (max: number) => z.string().trim().min(1).max(max);
 
@@ -155,6 +169,14 @@ export const reviewTargetSchema = z.object({
   commitSha: optionalText(IDENTIFIER_MAX),
   /** 🔴 PR 은 Optional Metadata 다. Domain Root 가 아니다. */
   pullRequestNumber: optionalPositiveInt(),
+  /**
+   * 현재 Review와 과거 Issue의 결정론적 relevance를 계산할 때만 쓰는 파일 경로 목록.
+   * MCP는 git의 이름 목록만 보내며 diff 내용이나 파일 본문을 넣지 않는다.
+   */
+  changedFiles: z
+    .array(z.string().trim().min(1).max(1024))
+    .max(MAX_CHANGED_FILES_ACCEPTED)
+    .default([]),
 });
 
 export const reviewerSchema = z.object({

@@ -12,9 +12,14 @@ import {
   runAgentRoute,
   validationErrorResponse,
 } from "@/lib/api/agent-route";
+import { describeErrorForLog } from "@/lib/errors";
 import { reviewIngestSchema } from "@/features/reviews/schemas/review-ingest";
 import { ingestReview } from "@/features/reviews/server/review-ingest-service";
 import { resolveAgentReviewWorkspace } from "@/features/reviews/server/agent-review-context";
+import {
+  findReviewKnowledgePreflight,
+  unavailableKnowledgePreflight,
+} from "@/features/knowledge/server/review-knowledge-preflight";
 
 /**
  * `POST /api/v1/reviews` — Agent Review Ingestion(스펙 29).
@@ -65,6 +70,26 @@ export async function POST(request: Request): Promise<Response> {
 
     const { evidenceIds, ...body } = result;
     /**
+     * Review transaction은 위에서 이미 끝났다. Knowledge는 시작 판단을 돕는 additive read라
+     * 실패해도 성공한 Review를 rollback하거나 5xx로 바꾸지 않는다.
+     *
+     * 🔴 **삼키되 «조용히» 삼키지는 않는다.** 응답은 `available: false` 로 나가지만, 그것만
+     * 남으면 preflight 가 며칠째 깨져 있어도 운영자가 알 방법이 없다 — 원인은 서버 Log 에만
+     * 남긴다(`code-evidence-service.ts` 의 GitHub 확인 실패와 같은 처리다).
+     * 🔴 오류 객체를 그대로 넘기지 않는다 — Drizzle 이 바인딩된 값을 message 에 싣는다.
+     */
+    const knowledgePreflight = await findReviewKnowledgePreflight({
+      workspaceId,
+      repositoryId: result.repositoryId,
+      changedFiles: parsed.data.target.changedFiles,
+    }).catch((error: unknown) => {
+      console.error(
+        "[knowledge] Review preflight를 읽지 못했다:",
+        describeErrorForLog(error),
+      );
+      return unavailableKnowledgePreflight();
+    });
+    /**
      * 🔴 **GitHub 확인은 응답을 붙잡지 않는다.**
      *
      * `after()` 는 응답이 나간 **뒤** 도는 자리다. 확인 하나에 GitHub 왕복이 최대 4초 걸리는데
@@ -73,6 +98,9 @@ export async function POST(request: Request): Promise<Response> {
      */
     after(() => verifyCodeEvidence(workspaceId, evidenceIds));
 
-    return Response.json(body, { status: body.idempotentReplay ? 200 : 201 });
+    return Response.json(
+      { ...body, knowledgePreflight },
+      { status: body.idempotentReplay ? 200 : 201 },
+    );
   });
 }

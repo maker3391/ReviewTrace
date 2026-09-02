@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  MAX_CHANGED_FILES_ACCEPTED,
   MAX_ISSUES_PER_REVIEW,
   reviewIngestSchema,
 } from "@/features/reviews/schemas/review-ingest";
@@ -151,6 +152,46 @@ describe("reviewIngestSchema", () => {
 
     expect(result.success).toBe(true);
     expect(result.data?.issues).toEqual([]);
+  });
+
+  /**
+   * 🔴 **보조 힌트가 Review 저장을 깨지 않는다.**
+   *
+   * `tags`·`evidence`·`issues` 는 「저장해 달라」고 보낸 값이라 넘치면 거절이 맞다.
+   * `changedFiles` 는 Knowledge 후보를 고르는 힌트라, 100 을 넘겼다고 Review 를 통째로
+   * 되돌리면 부르는 쪽이 실제로 남기려던 것까지 함께 잃는다. 받아들이되 relevance 계산은
+   * Application 경계가 줄이고, 줄였다는 사실을 응답에 적는다.
+   */
+  it("changedFiles 100개 초과가 Review 저장을 거절시키지 않는다", () => {
+    const withoutPaths = reviewIngestSchema.parse(validPayload);
+    expect(withoutPaths.target.changedFiles).toEqual([]);
+
+    const overKnowledgeLimit = reviewIngestSchema.safeParse({
+      ...validPayload,
+      target: {
+        ...validPayload.target,
+        changedFiles: Array.from(
+          { length: 101 },
+          (_, index) => `src/file-${index}.ts`,
+        ),
+      },
+    });
+    expect(overKnowledgeLimit.success).toBe(true);
+    expect(overKnowledgeLimit.data?.target.changedFiles).toHaveLength(101);
+  });
+
+  it("그렇다고 무제한은 아니다 — 받아들이는 상한을 넘으면 거절한다", () => {
+    const tooMany = reviewIngestSchema.safeParse({
+      ...validPayload,
+      target: {
+        ...validPayload.target,
+        changedFiles: Array.from(
+          { length: MAX_CHANGED_FILES_ACCEPTED + 1 },
+          (_, index) => `src/file-${index}.ts`,
+        ),
+      },
+    });
+    expect(tooMany.success).toBe(false);
   });
 
   it("Issue 상한을 넘으면 거절한다", () => {

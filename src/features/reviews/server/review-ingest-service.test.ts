@@ -188,6 +188,7 @@ describe("ingestReview — 재전송 판정 순서", () => {
       severity: "CRITICAL",
       category: "CONCURRENCY",
       status: "RESOLVED",
+      currentStatus: "RESOLVED",
       alreadyKnown: true,
     });
 

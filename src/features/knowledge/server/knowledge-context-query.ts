@@ -12,12 +12,16 @@ import {
 } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
-import { asCount, asDate } from "@/db/raw-value";
+import { asDate } from "@/db/raw-value";
 import { repositories, reviewIssues } from "@/db/schema";
 import {
   listKnowledgeExcerpts,
   type KnowledgeExcerpt,
 } from "@/features/knowledge/server/knowledge-page-service";
+import {
+  findFrequentPatterns,
+  type PatternCount,
+} from "@/features/issues/server/pattern-query";
 import { findProjectBySlug } from "@/features/projects/server/project-service";
 import {
   resolveRepositoryContext,
@@ -53,13 +57,7 @@ const UNRESOLVED_STATUSES: readonly IssueStatus[] = [
 /** 「지금 당장 봐야 하는」 등급. */
 const HIGH_SEVERITIES: readonly IssueSeverity[] = ["CRITICAL", "HIGH"];
 
-export interface FrequentPattern {
-  patternKey: string;
-  category: IssueCategory;
-  occurrences: number;
-  resolvedCount: number;
-  lastDetectedAt: Date;
-}
+export type FrequentPattern = PatternCount;
 
 export interface KnowledgeIssueSummary {
   id: string;
@@ -310,7 +308,7 @@ export async function findKnowledgeContext(
 
   const [
     wiki,
-    patternRows,
+    frequentPatterns,
     recentHighSeverityIssues,
     unresolvedIssues,
     resolutionRows,
@@ -330,24 +328,20 @@ export async function findKnowledgeContext(
       executor,
     ),
 
-    executor
-      .select({
-        patternKey: sql<string>`${reviewIssues.patternKey}`,
-        category: reviewIssues.category,
-        // `count(*)` 는 bigint 라 Driver 가 문자열로 준다. 세는 값은 숫자로 받는다.
-        occurrences: sql<number>`count(*)::int`,
-        resolvedCount: sql<number>`count(*) filter (where ${reviewIssues.status} = 'RESOLVED')::int`,
-        lastDetectedAt: sql<Date>`max(${reviewIssues.firstDetectedAt})`,
-      })
-      .from(reviewIssues)
-      .innerJoin(repositories, eq(repositories.id, reviewIssues.repositoryId))
-      .where(and(scope, isNotNull(reviewIssues.patternKey)))
-      .groupBy(reviewIssues.patternKey, reviewIssues.category)
-      .orderBy(
-        desc(sql`count(*)`),
-        desc(sql`max(${reviewIssues.firstDetectedAt})`),
-      )
-      .limit(limit),
+    findFrequentPatterns(
+      {
+        scope:
+          project === null
+            ? { workspaceId }
+            : { workspaceId, projectId: project.projectId },
+        repositoryId: repositoryContext?.repository.id ?? null,
+        category: query.category,
+        severity: query.severity,
+        patternKey: query.pattern,
+        limit,
+      },
+      executor,
+    ),
 
     executor
       .select(issueSummaryColumns)
@@ -435,12 +429,7 @@ export async function findKnowledgeContext(
      * 여기를 그대로 두면 `2026-08-30 10:00:00+00` 이 나간다 — 같은 계약 안의 같은
      * 종류 값이 Agent 마다 다르게 해석된다.
      */
-    frequentPatterns: patternRows.map((row) => ({
-      ...row,
-      occurrences: asCount(row.occurrences),
-      resolvedCount: asCount(row.resolvedCount),
-      lastDetectedAt: asDate(row.lastDetectedAt),
-    })),
+    frequentPatterns,
     recentHighSeverityIssues,
     unresolvedIssues,
     // `resolvedAt` 은 위 질의가 `IS NOT NULL` 로 걸러 온 열이다.

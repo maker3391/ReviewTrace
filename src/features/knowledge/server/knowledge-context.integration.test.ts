@@ -2,10 +2,20 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
-import { projects, repositories, reviewIssues, users } from "@/db/schema";
+import {
+  issueActivities,
+  projects,
+  repositories,
+  reviewIssues,
+  users,
+} from "@/db/schema";
 import { loadIntegrationDbEnv } from "@/db/testing/integration-env";
 import { knowledgeContextQuerySchema } from "@/features/knowledge/schemas/knowledge-context-query";
 import { findKnowledgeContext } from "@/features/knowledge/server/knowledge-context-query";
+import {
+  findReviewKnowledgePreflight,
+  KNOWLEDGE_CHANGED_FILE_LIMIT,
+} from "@/features/knowledge/server/review-knowledge-preflight";
 import { reviewIngestSchema } from "@/features/reviews/schemas/review-ingest";
 import { ingestReview } from "@/features/reviews/server/review-ingest-service";
 import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
@@ -95,7 +105,7 @@ async function connectRepository(
   tx: DbExecutor,
   workspaceId: string,
   externalRepositoryId: string,
-): Promise<void> {
+): Promise<string> {
   const [project] = await tx
     .insert(projects)
     .values({
@@ -106,16 +116,23 @@ async function connectRepository(
     .returning({ id: projects.id });
   if (project === undefined) throw new Error("시험용 Project를 만들지 못했다");
 
-  await tx.insert(repositories).values({
-    workspaceId,
-    projectId: project.id,
-    provider: "GITHUB",
-    externalRepositoryId,
-    owner: "acme",
-    name: externalRepositoryId,
-    fullName: `acme/${externalRepositoryId}`,
-    defaultBranch: "main",
-  });
+  const [repository] = await tx
+    .insert(repositories)
+    .values({
+      workspaceId,
+      projectId: project.id,
+      provider: "GITHUB",
+      externalRepositoryId,
+      owner: "acme",
+      name: externalRepositoryId,
+      fullName: `acme/${externalRepositoryId}`,
+      defaultBranch: "main",
+    })
+    .returning({ id: repositories.id });
+  if (repository === undefined) {
+    throw new Error("테스트 Repository를 만들지 못했다");
+  }
+  return repository.id;
 }
 
 const QUERY = knowledgeContextQuerySchema.parse({});
@@ -253,6 +270,284 @@ describe.skipIf(!enabled)(
         expect(wire.recentHighSeverityIssues[0]?.firstDetectedAt).toMatch(ISO);
         // 🔴 원시 조각 경로. 고치기 전에는 `2026-08-30 10:00:00+00` 이었다.
         expect(wire.frequentPatterns[0]?.lastDetectedAt).toMatch(ISO);
+      });
+    });
+
+    it.each([null, "stable-a"])(
+      "고유 Issue와 실제 encounter를 분리하고 externalId=%s에 의존하지 않는다",
+      async (externalId) => {
+        await inRollback(async (tx) => {
+          const workspaceId = await makeWorkspace(tx);
+          const repo = unique("encounters");
+          await connectRepository(tx, workspaceId, repo);
+
+          const ingested = await ingestReview(
+            {
+              workspaceId,
+              idempotencyKey: null,
+              payload: reviewIngestSchema.parse({
+                repository: {
+                  provider: "GITHUB",
+                  externalRepositoryId: repo,
+                  owner: "acme",
+                  name: repo,
+                  fullName: `acme/${repo}`,
+                },
+                target: { type: "COMMIT", commitSha: "a81f3c2" },
+                reviewer: { type: "AGENT", name: "codex" },
+                issues: [
+                  {
+                    severity: "HIGH",
+                    category: "RELIABILITY",
+                    title: "Issue A",
+                    patternKey: "RECURRING_CONTEXT",
+                    source: externalId === null ? null : "codex",
+                    externalId,
+                  },
+                  {
+                    severity: "MEDIUM",
+                    category: "RELIABILITY",
+                    title: "Issue B",
+                    patternKey: "RECURRING_CONTEXT",
+                  },
+                ],
+              }),
+            },
+            tx,
+          );
+          const issueA = ingested.issues.find(
+            (issue) => issue.title === "Issue A",
+          );
+          if (issueA === undefined) throw new Error("Issue A가 없다");
+
+          const initialDetection = new Date("2026-08-01T00:00:00.000Z");
+          for (const issue of ingested.issues) {
+            await tx
+              .update(reviewIssues)
+              .set({ firstDetectedAt: initialDetection })
+              .where(eq(reviewIssues.id, issue.id));
+          }
+
+          const firstRecurrence = new Date("2026-08-30T10:00:00.000Z");
+          const lastRecurrence = new Date("2026-09-01T12:34:56.000Z");
+          await tx.insert(issueActivities).values([
+            {
+              workspaceId,
+              reviewIssueId: issueA.id,
+              type: "REVIEWED_AGAIN",
+              actorType: "AGENT",
+              actorName: "codex",
+              createdAt: firstRecurrence,
+            },
+            {
+              workspaceId,
+              reviewIssueId: issueA.id,
+              type: "REVIEWED_AGAIN",
+              actorType: "AGENT",
+              actorName: "codex",
+              createdAt: lastRecurrence,
+            },
+            // 해결 시도는 encounter가 아니다.
+            {
+              workspaceId,
+              reviewIssueId: issueA.id,
+              type: "FIX_ATTEMPTED",
+              actorType: "AGENT",
+              actorName: "codex",
+              createdAt: new Date("2026-09-02T00:00:00.000Z"),
+            },
+          ]);
+
+          const context = await findKnowledgeContext(
+            {
+              workspaceId,
+              query: knowledgeContextQuerySchema.parse({
+                repository: `acme/${repo}`,
+              }),
+            },
+            tx,
+          );
+          const pattern = context.frequentPatterns[0];
+
+          expect(pattern).toMatchObject({
+            uniqueIssues: 2,
+            encounters: 4,
+            // compatibility alias도 수정된 의미를 쓴다.
+            occurrences: 4,
+          });
+          expect(pattern?.lastEncounterAt).toEqual(lastRecurrence);
+          expect(pattern?.lastDetectedAt).toEqual(lastRecurrence);
+        });
+      },
+    );
+
+    it("create_review preflight는 현재 Repository 후보만 결정론적으로 반환한다", async () => {
+      await inRollback(async (tx) => {
+        const workspaceId = await makeWorkspace(tx);
+        const repoA = unique("preflight-a");
+        const repoB = unique("preflight-b");
+        const repositoryAId = await connectRepository(tx, workspaceId, repoA);
+        await connectRepository(tx, workspaceId, repoB);
+
+        const ingest = async (repo: string, title: string, filePath: string) =>
+          ingestReview(
+            {
+              workspaceId,
+              idempotencyKey: null,
+              payload: reviewIngestSchema.parse({
+                repository: {
+                  provider: "GITHUB",
+                  externalRepositoryId: repo,
+                  owner: "acme",
+                  name: repo,
+                  fullName: `acme/${repo}`,
+                },
+                target: { type: "COMMIT", commitSha: "a81f3c2" },
+                reviewer: { type: "AGENT", name: "codex" },
+                issues: [
+                  {
+                    severity: "HIGH",
+                    category: "RELIABILITY",
+                    title,
+                    patternKey: "REPOSITORY_CONTEXT",
+                    filePath,
+                    source: "codex",
+                    externalId: title,
+                  },
+                ],
+              }),
+            },
+            tx,
+          );
+
+        const resolved = await ingest(
+          repoA,
+          "Repo A precedent",
+          "src/repository/context.ts",
+        );
+        await ingest(repoA, "Repo A open", "src/repository/other.ts");
+        await ingest(repoB, "Repo B must not leak", "src/repository/context.ts");
+
+        await tx
+          .update(reviewIssues)
+          .set({
+            status: "RESOLVED",
+            resolvedAt: new Date("2026-08-30T00:00:00.000Z"),
+            resolutionSummary: "Repository 범위를 먼저 고정했다.",
+          })
+          .where(eq(reviewIssues.id, resolved.issues[0]?.id ?? ""));
+
+        const preflight = await findReviewKnowledgePreflight(
+          {
+            workspaceId,
+            repositoryId: repositoryAId,
+            changedFiles: ["src/repository/context.ts"],
+            now: new Date("2026-09-02T00:00:00.000Z"),
+          },
+          tx,
+        );
+
+        expect(preflight.available).toBe(true);
+        expect(preflight.relevantPastIssues[0]).toMatchObject({
+          title: "Repo A precedent",
+          repositoryFullName: `acme/${repoA}`,
+          relevanceReasons: expect.arrayContaining([
+            "SAME_FILE",
+            "RESOLVED_PRECEDENT",
+          ]),
+        });
+        expect(preflight.unresolvedIssues[0]).toMatchObject({
+          title: "Repo A open",
+          repositoryFullName: `acme/${repoA}`,
+          relevanceReasons: expect.arrayContaining([
+            "SAME_DIRECTORY",
+            "UNRESOLVED",
+          ]),
+        });
+        expect(
+          [
+            ...preflight.relevantPastIssues,
+            ...preflight.unresolvedIssues,
+          ].some((candidate) => candidate.title === "Repo B must not leak"),
+        ).toBe(false);
+        // 자르지 않았으면 자르지 않았다고 말한다.
+        expect(preflight.changedFiles).toEqual({
+          total: 1,
+          considered: 1,
+          truncated: false,
+        });
+      });
+    });
+
+    /**
+     * 🔴 **relevance 가 «바뀐 파일 전부»를 봤다고 거짓말하지 않는다.**
+     *
+     * API 는 100 개를 넘겨도 Review 를 거절하지 않는다. 대신 순위 계산에 쓴 개수를 응답에
+     * 적어, Agent 가 후보에 없는 파일을 「과거에 문제가 없던 파일」로 읽지 않게 한다.
+     */
+    /**
+     * 🔴 **바뀐 파일이 하나도 없는 Review 가 가장 흔한 요청이다.**
+     *
+     * changedFiles 를 보내지 않는 옛 Client, merge commit, 「이 commit 은 깨끗했다」 —
+     * 전부 빈 목록으로 들어온다. 그런데 그 경로에서 `ORDER BY 0` 이 나가
+     * `42P10` 으로 preflight 가 통째로 죽었고, 응답에는 `available: false` 만 남아
+     * **아무도 몰랐다.** 실제 HTTP 왕복과 서버 Log 로 잡았다.
+     */
+    it("바뀐 파일이 하나도 없어도 preflight가 살아 있다", async () => {
+      await inRollback(async (tx) => {
+        const workspaceId = await makeWorkspace(tx);
+        const repo = unique("no-changed-files");
+        const repositoryId = await connectRepository(tx, workspaceId, repo);
+
+        const preflight = await findReviewKnowledgePreflight(
+          {
+            workspaceId,
+            repositoryId,
+            changedFiles: [],
+            now: new Date("2026-09-02T00:00:00.000Z"),
+          },
+          tx,
+        );
+
+        expect(preflight.available).toBe(true);
+        expect(preflight.changedFiles).toEqual({
+          total: 0,
+          considered: 0,
+          truncated: false,
+        });
+      });
+    });
+
+    it("relevance에 쓴 경로 수를 줄였으면 그 사실을 응답에 적는다", async () => {
+      await inRollback(async (tx) => {
+        const workspaceId = await makeWorkspace(tx);
+        const repo = unique("truncation");
+        const repositoryId = await connectRepository(tx, workspaceId, repo);
+
+        const many = Array.from(
+          { length: KNOWLEDGE_CHANGED_FILE_LIMIT + 40 },
+          (_, index) => `src/zone${index}/file.ts`,
+        );
+
+        const preflight = await findReviewKnowledgePreflight(
+          {
+            workspaceId,
+            repositoryId,
+            changedFiles: many,
+            now: new Date("2026-09-02T00:00:00.000Z"),
+          },
+          tx,
+        );
+
+        expect(preflight.available).toBe(true);
+        expect(preflight.changedFiles).toEqual({
+          total: KNOWLEDGE_CHANGED_FILE_LIMIT + 40,
+          considered: KNOWLEDGE_CHANGED_FILE_LIMIT,
+          truncated: true,
+        });
+        expect(preflight.guidance.join(" ")).toContain(
+          String(KNOWLEDGE_CHANGED_FILE_LIMIT + 40),
+        );
       });
     });
   },
