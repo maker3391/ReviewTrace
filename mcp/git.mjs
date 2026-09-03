@@ -406,8 +406,21 @@ export async function classifyEvidenceSource(cwd, evidence) {
   if (atCommit !== null && containsSnapshot(atCommit, wanted, evidence)) {
     return "COMMITTED";
   }
-  if (atCommit === null) {
-    // commit 이나 파일을 읽지 못했다. 「커밋 전」이라고 단정할 근거가 없다.
+  /**
+   * 🔴 **`readFileAtCommit` 의 `null` 은 두 가지 다른 사실이다.**
+   *
+   * - commit 자체를 읽지 못했다 — 다른 저장소의 SHA 이거나 없는 SHA 다
+   * - commit 은 유효한데 **그 안에 그 경로가 없다** — 그 시점엔 없던 «새 파일»이다
+   *
+   * 둘을 같이 두면 새 파일을 만들며 고친 작업의 근거가 index·디스크를 보지도 못하고
+   * 돌아가, `sourceState` 없이 나가 서버 기본값 `COMMITTED` 로 저장된다. 그 뒤
+   * `verifyCodeEvidence` 가 GitHub 에서 그 경로를 찾지 못해 `UNAVAILABLE` 로 닫으므로,
+   * 화면이 「아직 커밋 전」 대신 「확인할 수 없음」을 그린다.
+   *
+   * 🔴 **commit 을 읽지 못한 쪽의 `null` 은 그대로 둔다.** 다른 저장소의 근거를 건드리지
+   * 않는 보증이 거기 있다.
+   */
+  if (atCommit === null && !(await commitExists(cwd, evidence.commitSha))) {
     return null;
   }
 
@@ -457,6 +470,23 @@ function normalizeCode(text) {
     .map((line) => line.replace(/\s+$/, ""))
     .join("\n")
     .replace(/\s+$/, "");
+}
+
+/**
+ * 그 SHA 가 **이 저장소의 commit 인가**. 경로는 보지 않는다.
+ *
+ * `^{commit}` 을 붙여 tag·tree 가 아니라 commit 으로만 풀리게 한다.
+ */
+async function commitExists(cwd, commitSha) {
+  try {
+    await run("git", ["rev-parse", "--verify", "--quiet", `${commitSha}^{commit}`], {
+      cwd,
+      timeout: TIMEOUT_MS,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function readFileAtCommit(cwd, commitSha, filePath) {

@@ -531,6 +531,70 @@ describe("classifyEvidenceSource", { timeout: 30_000 }, () => {
     }
   });
 
+  /**
+   * 🔴 **새 파일을 만들며 고치는 것은 흔한 작업이다.**
+   *
+   * 그 파일은 바탕 commit 에 «없다». 예전에는 `git show <sha>:<path>` 가 실패한 것을
+   * 「commit 을 읽지 못했다」와 같이 다뤄 index·디스크를 보지도 않고 돌아갔다 —
+   * `sourceState` 가 붙지 않아 서버 기본값 `COMMITTED` 로 저장되고, GitHub 대조가
+   * 그 경로를 찾지 못해 화면이 「아직 커밋 전」 대신 「확인할 수 없음」을 그렸다.
+   */
+  it("🔴 그 commit 에 «없던» 새 파일도 WORKING_TREE 다", async () => {
+    const directory = await createRepository();
+    try {
+      const head = (
+        await run("git", ["-C", directory, "rev-parse", "HEAD"])
+      ).stdout.trim();
+      // 바탕 commit 에는 존재하지 않는 파일이다. Agent 가 적을 SHA 는 여전히 HEAD 다.
+      await writeFile(
+        join(directory, "created.txt"),
+        "brand new line\n",
+        "utf8",
+      );
+
+      await expect(
+        classifyEvidenceSource(directory, {
+          commitSha: head,
+          filePath: "created.txt",
+          startLine: 1,
+          endLine: 1,
+          snapshot: "brand new line",
+        }),
+      ).resolves.toBe("WORKING_TREE");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  /**
+   * 🔴 **commit 을 읽지 못한 것까지 「커밋 전」으로 밀면 보증이 사라진다.**
+   *
+   * 다른 저장소의 SHA 를 적어 보내면 그 근거는 이 저장소가 판정할 대상이 아니다.
+   */
+  it("🔴 이 저장소의 commit 이 아니면 파일이 있어도 판정하지 않는다", async () => {
+    const directory = await createRepository();
+    try {
+      await writeFile(
+        join(directory, "created.txt"),
+        "brand new line\n",
+        "utf8",
+      );
+
+      await expect(
+        classifyEvidenceSource(directory, {
+          // 형식은 SHA 인데 이 저장소에 없는 commit 이다.
+          commitSha: "0".repeat(40),
+          filePath: "created.txt",
+          startLine: 1,
+          endLine: 1,
+          snapshot: "brand new line",
+        }),
+      ).resolves.toBeNull();
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   /** 🔴 이것이 「검증 면제 스위치」가 되지 않게 막는 자리다. */
   it("🔴 그 commit 에도 working tree 에도 없는 코드는 판정하지 않는다", async () => {
     const directory = await createRepository();
