@@ -204,6 +204,22 @@ const narrative = (purpose, reviewLanguage) =>
 const summaryNarrative = (purpose, reviewLanguage) =>
   `${purpose}. ${reviewLanguageInstruction(reviewLanguage)} ${SUMMARY_FIELD_HINT}`;
 
+/**
+ * 🔴 **앞 field 가 없는 칸은 연속성을 전제할 수 없다.**
+ *
+ * `NARRATIVE_FIELD_HINT` 는 한 Issue 안에서 **순서를 갖는 chapter** 를 위한 줄이다.
+ * 그런데 `create_review.summary` 는 Review 의 유일한 서술이고, Activity 요약 둘은
+ * History 타임라인에서 **한 줄씩 따로** 읽힌다 — 전제할 앞 field 가 없다.
+ *
+ * 그 칸에 연속성을 요구하면 Agent 가 있지도 않은 앞 문맥을 전제해 배경을 생략하고,
+ * 그 요약만 보이는 화면에서 문서가 자립하지 못한다.
+ */
+export const STANDALONE_FIELD_HINT =
+  "이 칸은 앞뒤 field 없이 «단독으로» 읽히는 자리다 — 이 한 칸만 보고도 무엇을 했고 무엇이 달라졌는지 알 수 있게 쓴다.";
+
+const standaloneNarrative = (purpose, reviewLanguage) =>
+  `${purpose}. ${reviewLanguageInstruction(reviewLanguage)} ${STANDALONE_FIELD_HINT}`;
+
 export const EVIDENCE_COMMIT_CONTRACT =
   "이 snapshot 이 «실제로 존재하는» commit SHA. " +
   "🔴 아직 커밋하지 않은 코드라면 이 근거를 보내지 말고 커밋한 뒤에 붙여라 — " +
@@ -372,6 +388,8 @@ export function registerTools(
 ) {
   const describeNarrative = (purpose) => narrative(purpose, reviewLanguage);
   const describeSummary = (purpose) => summaryNarrative(purpose, reviewLanguage);
+  const describeStandalone = (purpose) =>
+    standaloneNarrative(purpose, reviewLanguage);
   const decision = decisionFields(reviewLanguage);
   /** 🔴 Repository 를 사람에게 묻지 않는다 — git remote 가 정본이다(스펙 7). */
   async function resolveRepository(fullName) {
@@ -399,7 +417,7 @@ export function registerTools(
         summary: z
           .string()
           .optional()
-          .describe(describeNarrative("이번 Review 가 무엇을 봤는지 한두 줄")),
+          .describe(describeStandalone("이번 Review 가 무엇을 봤는지 한두 줄")),
         reviewer: actorName,
         repository: z
           .string()
@@ -647,7 +665,7 @@ export function registerTools(
           .string()
           .optional()
           .describe("생략하면 마지막으로 다룬 Issue"),
-        summary: z.string().optional().describe(describeNarrative("고침 시도의 요약")),
+        summary: z.string().optional().describe(describeStandalone("고침 시도의 요약")),
         commitSha: z.string().optional().describe("고친 commit"),
         actor: actorName,
         evidence: z.array(evidenceItem).optional(),
@@ -671,7 +689,7 @@ export function registerTools(
         "검증까지 통과했으면 resolve_issue 를 부른다.",
       inputSchema: {
         issueId: z.string().optional(),
-        summary: z.string().optional().describe(describeNarrative("다시 본 결과")),
+        summary: z.string().optional().describe(describeStandalone("다시 본 결과")),
         stillPresent: z
           .boolean()
           .optional()

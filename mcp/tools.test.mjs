@@ -11,6 +11,7 @@ const {
   EVIDENCE_COMMIT_CONTRACT,
   NARRATIVE_FIELD_HINT,
   NARRATIVE_MARKDOWN,
+  STANDALONE_FIELD_HINT,
   SUMMARY_FIELD_HINT,
   registerTools,
   reviewLanguageInstruction,
@@ -985,4 +986,53 @@ it("Evidence 계약이 커밋 전 코드를 근거로 보내지 말라고 말한
   expect(evidence).toContain("실제로 존재하는");
   expect(evidence).toContain("아직 커밋하지 않은");
   expect(evidence).toContain("MISMATCH");
+});
+
+/**
+ * 🔴 **연속성 hint 는 앞 field 가 있는 칸에만 붙어야 한다.**
+ *
+ * `NARRATIVE_FIELD_HINT` 가 「앞 field 가 세운 사실을 전제로」로 바뀌면서, 그 문장이
+ * 앞 field 가 없는 칸(`create_review.summary` 와 Activity 요약 둘)에도 실렸다. Agent 는
+ * 있지도 않은 앞 문맥을 전제해 배경을 생략하고, 그 요약만 보이는 화면에서 문서가 자립하지
+ * 못한다. 경계를 **양쪽으로** 못 박는다 — 붙어야 할 칸과 붙으면 안 되는 칸을 함께 본다.
+ */
+describe("연속성 hint 의 적용 범위", () => {
+  const descriptionsOf = () => {
+    const meta = new Map();
+    registerTools(
+      { registerTool: (name, m) => meta.set(name, m) },
+      {},
+      { pendingReviewKey: null },
+      { reviewLanguage: "ko" },
+    );
+    return (tool, field) => meta.get(tool).inputSchema[field].description;
+  };
+
+  it("🔴 앞 field 가 없는 칸은 연속성 대신 «단독으로 읽힌다»를 받는다", () => {
+    const describe_ = descriptionsOf();
+    for (const [tool, field] of [
+      ["create_review", "summary"],
+      ["add_fix_attempt", "summary"],
+      ["review_again", "summary"],
+    ]) {
+      const d = describe_(tool, field);
+      expect(d).not.toContain(NARRATIVE_FIELD_HINT);
+      expect(d).toContain(STANDALONE_FIELD_HINT);
+    }
+  });
+
+  it("한 Issue 안의 chapter 는 연속성 hint 를 그대로 받는다", () => {
+    const describe_ = descriptionsOf();
+    for (const [tool, field] of [
+      ["add_issue", "rootCause"],
+      ["add_issue", "failurePath"],
+      ["add_issue", "suggestion"],
+      ["add_fix_attempt", "solution"],
+      ["resolve_issue", "resolution"],
+    ]) {
+      const d = describe_(tool, field);
+      expect(d).toContain(NARRATIVE_FIELD_HINT);
+      expect(d).not.toContain(STANDALONE_FIELD_HINT);
+    }
+  });
 });
