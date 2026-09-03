@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/atoms/StatusBadge";
 import { Timestamp } from "@/components/atoms/Timestamp";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { MetaDot, PageHeader } from "@/components/molecules/PageHeader";
+import { MarkdownView } from "@/components/molecules/MarkdownView";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { TablePagination } from "@/components/organisms/TablePagination";
 import {
@@ -86,7 +87,7 @@ export async function ReviewDetailScreen({
         }
       />
 
-      <Section title={t.target} variant="raised">
+      <Section title={t.target} variant="raised" tone="narrative">
         {/*
  🔴 **`1fr` 은 「남는 폭」이 아니라 「min-content 아래로는 안 줄어드는 폭」이다.**
  Commit SHA 40자는 끊을 자리가 없어 그 칸의 min-content 가 288px 이고, 목록 전체가
@@ -129,10 +130,17 @@ export async function ReviewDetailScreen({
       </Section>
 
       {review.summary !== null && (
-        <Section title={t.summary} variant="raised">
-          <p className="whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed">
-            {review.summary}
-          </p>
+        <Section title={t.summary} variant="raised" tone="narrative">
+          {/*
+ 🔴 **평문으로 그리지 않는다.** 여기는 Agent 가 «Markdown 문서»로 쓰는 자리다
+ (`mcp/tools.mjs` 의 `NARRATIVE_MARKDOWN` 이 heading·list·inline code 를 쓰라고
+ 지시한다). 예전에는 `<p className="whitespace-pre-wrap">` 이라 `## 무엇을 보는가`
+ 가 **그 글자 그대로** 보였다 — 저장된 구조가 있는데 화면이 버리고 있었다.
+
+ 🔴 Issue 상세와 «같은» 렌더러를 쓴다(`components/molecules/MarkdownView`). 두 화면이
+ 서로 다른 Markdown 규칙을 갖지 않게 한다.
+ */}
+          <MarkdownView content={review.summary} emptyLabel="—" />
         </Section>
       )}
 
@@ -141,6 +149,7 @@ export async function ReviewDetailScreen({
         /* 🔴 «이 쪽에 몇 개」가 아니라 «이 Review 가 몇 건을 남겼나»다. */
         description={t.foundIssuesHint(review.issues.total)}
         variant="raised"
+        tone="narrative"
         bleed
       >
         {review.issues.total === 0 ? (

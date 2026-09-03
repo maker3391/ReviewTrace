@@ -78,7 +78,7 @@ export function MarkdownView({
  */
     <div
       className={cn(
-        "flex flex-col gap-3 text-sm leading-relaxed break-words",
+        "flex flex-col gap-4 text-sm leading-relaxed break-words",
         className,
       )}
     >
@@ -91,39 +91,83 @@ export function MarkdownView({
  */
         rehypePlugins={[rehypeHighlight]}
         components={{
+          /*
+ 🔴 **heading 이 본문보다 «작으면» 안 된다 — 그것이 이 화면의 실제 결함이었다.**
+
+ ## 무엇이 틀렸었나
+
+ 앞선 판단은 이랬다 — 이 Markdown 은 field 카드 «안»에 있으므로, subheading 은 부모인
+ field 제목(`13px/600`)보다 작아야 계층이 뒤집히지 않는다. 그래서 `##` 를 `13px`,
+ `###` 를 `11px` 로 두었다.
+
+ 그 판단은 **`##` 와 `###` 를 «둘 다» 쓴다는 전제**에 기대고 있었다. 실제 데이터는
+ 그렇지 않다 — 저장된 38행을 전수 조회한 결과 **`##` 는 모든 field·모든 행에서 0건**이고
+ 쓰인 heading 은 `###` 하나뿐이다. 그래서 `13px` 칸은 영원히 비고 **모든 구조 신호가 가장
+ 작은 `11px` 한 칸에 몰렸다.**
+
+ 결과가 뒤집혀 있었다:
+
+ ```
+ 본문 p            14px / 400
+ 문단 안 **bold**  14px / 700   <- 가장 크고 가장 굵다
+ subheading        11px / 600   <- 구조를 가르는 것이 제일 작다
+ ```
+
+ **자기 본문보다 작은 heading 은 heading 으로 읽히지 않는다.** 훑는 눈에 층이 생기지
+ 않고, 문단 속 강조가 소제목처럼 보인다.
+
+ ## 무엇으로 바꿨나 — 크기가 아니라 «위 여백»이 주인공이다
+
+ heading 을 본문 위로 올리되 최소한만 올린다. 층을 만드는 것은 **위·아래 여백의 비**다.
+
+ | | 크기 | 위 여백(gap 포함) | 아래 여백 |
+ |---|---|---|---|
+ | `#` | `text-base` 16px | 32 + 16 = 48px | 16px |
+ | `##` | `0.9375rem` 15px | 32 + 16 = 48px | 16px |
+ | `###` | `text-sm` 14px | 24 + 16 = 40px | 16px |
+ | `####` | `text-xs` 12px · uppercase | 20 + 16 = 36px | 16px |
+
+ `###` 은 본문과 같은 14px 이지만 **위가 40px 이고 아래가 16px** 이라 아래 문단을
+ 「거느린」 것으로 읽힌다. 문단 속 bold 는 줄 한가운데 있어 40px 을 가진 적이 없다 —
+ 그래서 굵기가 같아도 둘이 섞이지 않는다.
+
+ 🔴 **`####` override 를 새로 만들었다.** 없으면 브라우저 기본 `<h4>` 가 나와 계단
+ 밖으로 튄다(기본 margin 이 이 flex 리듬을 깬다).
+
+ 🔴 **`first:mt-0` 을 붙인다.** field 가 heading 으로 시작하면 카드 위쪽에 40px 이
+ 죽은 자리로 남는다.
+
+ 🔴 **가로선을 늘리지 않는다.** `#` 하나만 밑줄을 갖고 나머지는 여백과 굵기로 말한다 —
+ heading 마다 선을 그으면 카드 안에 칸막이가 늘어선다.
+
+ 🔴 **`strong` 은 손대지 않는다.** 시험이 `<strong>…</strong>` 를 class 없이 확인한다
+ (`MarkdownView.test.ts`·`DecisionRecord.test.ts`) — class 를 붙이면 그 assertion 이 깨진다.
+ bold 를 누르는 대신 heading 을 올려 푼 이유가 이것이기도 하다.
+ */
           h1: ({ children }) => (
-            <h2 className="mt-4 border-b border-border pb-1 text-base font-semibold tracking-tight">
+            <h2 className="mt-8 border-b border-border pb-1.5 text-base font-semibold tracking-tight first:mt-0">
               {children}
             </h2>
           ),
-          /*
- 🔴 **heading 이 문단 속 bold 보다 «약해» 보이면 안 된다.**
-
- 실측한 적이 있다 — `###` 은 `14px/500` 인데 문단 안 `**bold**` 는 `14px/700` 이었다.
- 크기도 색도 같아서 **구조를 가르는 heading 이 문장 속 강조보다 덜 두드러졌고**,
- 읽는 사람은 그것을 「bold 로 쓴 소제목」으로 읽었다. 정보 계층이 뒤집힌 것이다.
-
- 🔴 **글자를 키우거나 새 장치를 만들어 풀지 않는다.** 이 앱에는 「본문 안의 하위 라벨」이
- 이미 있고 전부 **`11px/600`·선 없음**이다 — `판단 기록`·`해결책`·`코드 근거`. field 제목은
- `13px/600` 이다. 그러니 Markdown 의 subheading 이 설 자리는 **그 둘 사이가 아니라 그
- 하위 라벨과 같은 칸**이다. 옛 `14px/500` 은 **부모인 field 제목보다 커서** 계층이 뒤집혀
- 있었고, 굵기는 문단 속 bold(`700`)보다 낮아 강조보다도 약했다.
-
- 🔴 **가로선을 새로 들이지 않는다.** 잠시 넣어 봤지만 이 앱의 본문 안 라벨은 선을 쓰지
- 않는다 — 없던 장치를 하나 더 만드는 것이라 되돌렸다. 구조는 **크기·굵기·위 여백**이 말한다.
-
- 계단: 페이지 제목 `20/600` > field 제목 `13/600` > **subheading `11/600`** > 본문 `14/400`.
- (`components/molecules/MarkdownView.tsx` 가 Markdown 을 아는 유일한 자리다 — CLAUDE.md 6)
- */
           h2: ({ children }) => (
-            <h3 className="mt-5 text-[13px] font-semibold tracking-tight">
+            <h3 className="mt-8 text-[0.9375rem] font-semibold tracking-tight first:mt-0">
               {children}
             </h3>
           ),
           h3: ({ children }) => (
-            <h4 className="mt-4 text-[11px] font-semibold tracking-tight">
+            <h4 className="mt-6 text-sm font-semibold tracking-tight first:mt-0">
               {children}
             </h4>
+          ),
+          /*
+ 🔴 네 번째 층은 «크기»로 더 내려갈 자리가 없다 — 본문이 이미 14px 이다.
+ 그래서 크기 대신 **대문자·자간·흐린 색**으로 가른다. 이 앱의 다른 하위 라벨과
+ 같은 문법이라 새 장치를 만드는 것이 아니다.
+ */
+          h4: ({ children }) => (
+            <h5 className="mt-5 text-xs font-semibold tracking-wide text-muted-foreground uppercase first:mt-0">
+              {children}
+            </h5>
           ),
           /*
  Markdown 의 빈 줄은 paragraph 로 나뉘고, paragraph 안의 단일 newline 은 Text node 로
@@ -134,18 +178,18 @@ export function MarkdownView({
             <p className="whitespace-pre-wrap text-sm">{children}</p>
           ),
           ul: ({ children }) => (
-            <ul className="list-disc space-y-1 pl-5 text-sm">{children}</ul>
+            <ul className="list-disc space-y-1.5 pl-5 text-sm marker:text-muted-foreground">{children}</ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal space-y-1 pl-5 text-sm">{children}</ol>
+            <ol className="list-decimal space-y-1.5 pl-5 text-sm marker:text-muted-foreground">{children}</ol>
           ),
           blockquote: ({ children }) => (
-            <blockquote className="border-l-2 border-border pl-3 text-sm text-muted-foreground">
+            <blockquote className="border-l-2 border-border bg-surface-muted/50 py-2 pr-3 pl-3 text-sm text-muted-foreground">
               {children}
             </blockquote>
           ),
           code: ({ children }) => (
-            <code className="rounded-sm bg-muted px-1 py-0.5 font-mono text-xs">
+            <code className="rounded-sm bg-muted/70 px-1 py-0.5 font-mono text-[0.9em]">
               {children}
             </code>
           ),

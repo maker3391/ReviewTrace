@@ -172,19 +172,19 @@ export async function IssueDetailScreen({
         {/* ── 본문 ─────────────────────────────────────────────────────── */}
         <div className="flex min-w-0 flex-col gap-5">
           {issue.description !== null && (
-            <Section title={t.description} variant="raised">
+            <Section title={t.description} variant="raised" tone="narrative">
               <MarkdownContent content={issue.description} emptyLabel="—" />
             </Section>
           )}
 
           {issue.rootCause !== null && (
-            <Section title={t.rootCause} variant="raised">
+            <Section title={t.rootCause} variant="raised" tone="narrative">
               <MarkdownContent content={issue.rootCause} emptyLabel="—" />
             </Section>
           )}
 
           {issue.failurePath !== null && (
-            <Section title={t.failurePath} variant="raised">
+            <Section title={t.failurePath} variant="raised" tone="narrative">
               <MarkdownContent content={issue.failurePath} emptyLabel="—" />
             </Section>
           )}
@@ -194,13 +194,13 @@ export async function IssueDetailScreen({
  제안과 해결은 나란히 서 있고 제목이 이미 그 차이를 말한다.
  */}
           {issue.suggestion !== null && (
-            <Section title={t.suggestion} variant="raised">
+            <Section title={t.suggestion} variant="raised" tone="narrative">
               <MarkdownContent content={issue.suggestion} emptyLabel="—" />
             </Section>
           )}
 
           {issue.resolutionSummary !== null && (
-            <Section title={t.resolution} variant="raised">
+            <Section title={t.resolution} variant="raised" tone="narrative">
               {/*
  해결 기록만 브랜드 톤을 얹는다 — 이 화면에서 가장 값진 한 칸이기 때문이다.
  🔴 색은 의미에만 쓴다.
@@ -215,7 +215,7 @@ export async function IssueDetailScreen({
           )}
 
           {issue.evidence.length > 0 && (
-            <Section title={t.codeEvidence} variant="raised">
+            <Section title={t.codeEvidence} variant="raised" tone="narrative">
               <EvidenceList
                 evidence={issue.evidence}
                 repositoryFullName={issue.repositoryFullName}
@@ -238,7 +238,7 @@ export async function IssueDetailScreen({
             </Section>
           )}
 
-          <Section title={t.history} variant="raised">
+          <Section title={t.history} variant="raised" tone="narrative">
             {issue.activities.length === 0 ? (
               <SectionEmpty title={t.noHistory} />
             ) : (

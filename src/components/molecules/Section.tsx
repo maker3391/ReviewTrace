@@ -25,6 +25,7 @@ export function Section({
   action,
   actions,
   variant = "plain",
+  tone = "default",
   emphasis = false,
   bleed = false,
   children,
@@ -35,6 +36,29 @@ export function Section({
   /** 버튼처럼 링크가 아닌 것. `action` 과 함께 쓰지 않는다. */
   actions?: ReactNode;
   variant?: "plain" | "raised";
+  /**
+   * **긴 서술(Markdown 문서)을 담는 영역인가.**
+   *
+   * 🔴 **새 디자인이 아니라 «층»을 하나 되찾는 스위치다.** 이 영역의 본문은
+   * `MarkdownView` 가 그리는 문서이고, 그 문서에는 자기 heading 계단이 있다
+   * (`##` 15px · `###` 14px · `####` 12px). 기본 section 제목은 13px 이라
+   * **문서 안 heading 이 자기를 담은 section 제목보다 커진다** — 부모와 자식이
+   * 뒤집혀 화면이 평평해 보이던 자리다.
+   *
+   * 그래서 이 tone 은 두 가지만 바꾼다.
+   *
+   * - 제목을 `text-base`(16px)로 올려 문서의 가장 큰 heading(15px) 위에 세운다
+   * - 머리에 옅은 면(`--surface-muted`)을 깔아 **본문과 «다른 층»**임을 보인다
+   *
+   * 🔴 **크기 1px 차이에 기대지 않는다.** 층을 만드는 것은 면이다 — 제목은 카드
+   * 머리의 면 위에 있고 문서 heading 은 카드 본문 위에 있다. 훑는 눈이 먼저 보는
+   * 것은 글자 크기가 아니라 그 경계다.
+   *
+   * 🔴 **eyebrow 라벨을 새로 만들지 않았다.** 재사용할 기존 용어가 없어 영어 낱말을
+   * 지어내야 했고, 그것은 화면에 없던 어휘를 더하는 일이다. badge 도 두지 않는다 —
+   * 이 자리에 필요한 것은 이름이 아니라 경계다.
+   */
+  tone?: "default" | "narrative";
   /**
    * 이 화면에서 **먼저 봐야 하는** 영역.
    *
@@ -61,13 +85,19 @@ export function Section({
           variant === "raised"
             ? "border-b border-border/70 px-5 py-3.5"
             : "pb-2",
+          // 🔴 서술 영역의 머리만 옅은 면 위에 세운다 — 본문과 층을 가른다.
+          variant === "raised" && tone === "narrative" && "bg-surface-muted/40",
         )}
       >
         <div className="min-w-0">
           <h2
             className={cn(
               "font-semibold tracking-tight text-foreground",
-              emphasis ? "text-sm" : "text-[13px]",
+              tone === "narrative"
+                ? "text-base"
+                : emphasis
+                  ? "text-sm"
+                  : "text-[13px]",
             )}
           >
             {title}
