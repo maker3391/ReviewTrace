@@ -218,6 +218,8 @@ describe.skipIf(!enabled)("MCP Markdown normal path", () => {
         createElement(MarkdownView, {
           content: `${stored.description}\n\n${stored.failurePath}`,
           emptyLabel: "Empty",
+          // 🔴 렌더링 문맥을 부르는 쪽이 밝힌다 — 페이지 제목 `<h1>` 바로 아래.
+          baseHeadingLevel: 1,
         }),
       );
       expect(markup).toContain("<p ");
@@ -315,15 +317,19 @@ describe.skipIf(!enabled)("MCP Markdown 구조 전체 round-trip", () => {
         createElement(MarkdownView, {
           content: `${stored.rootCause}\n\n${stored.failurePath}\n\n${activity.solution}`,
           emptyLabel: "Empty",
+          baseHeadingLevel: 1,
         }),
       );
 
       /**
-       * 🔴 heading 은 «한 단계 내려» 그려진다 — `##` 은 `<h3>` 이다.
-       * 화면에는 이미 페이지 제목과 field heading 이 있어서, 본문의 `##` 을 그대로
-       * `<h2>` 로 두면 문서 개요에서 본문이 화면 제목과 같은 급이 된다
-       * (`MarkdownView` 의 `h1`->`h2`, `h2`->`h3`, `h3`->`h4`).
-       * renderer 의 결함이 아니라 의도이므로 시험이 그 의도를 못 박는다.
+       * 🔴 heading 단계는 **부르는 쪽이 밝힌 자리**에서 시작한다.
+       *
+       * 예전에는 Markdown 깊이가 DOM 단계에 고정 대응했다(`h1`->`h2`, `h2`->`h3`).
+       * 지금은 `baseHeadingLevel` 아래로 내려가므로, 위에서 `1`(페이지 제목 `<h1>` 바로
+       * 아래)을 넘긴 이 문서의 `##` 은 `<h3>` 이다 — 값이 달라지면 결과도 함께 움직인다.
+       *
+       * 본문이 화면 제목과 같은 급이 되면 안 된다는 판단은 그대로다. 그래서 `<h2>` 가
+       * 나오지 않는지도 함께 본다.
        */
       expect(markup).toMatch(/<h3[ >]/);
       expect(markup).not.toMatch(/<h2[ >]/);
@@ -342,6 +348,7 @@ describe.skipIf(!enabled)("MCP Markdown 구조 전체 round-trip", () => {
         createElement(MarkdownView, {
           content: "<script>alert(1)</script>\n\n일반 문단",
           emptyLabel: "Empty",
+          baseHeadingLevel: 1,
         }),
       );
       expect(injected).not.toContain("<script>");

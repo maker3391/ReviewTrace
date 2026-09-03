@@ -142,7 +142,24 @@ type HeadingTag = (typeof HEADING_TAGS)[number];
  * 줄어드는 것뿐이라 **건너뛰기가 되지 않는다** — 깊이가 얕아지는 쪽은 안전하다.
  */
 function headingTag(baseHeadingLevel: number, depth: number): HeadingTag {
-  const level = Math.min(baseHeadingLevel + depth, 6);
+  /*
+ 🔴 **타입이 닿지 않는 자리에서 조용히 `<h6>` 로 무너졌다.**
+
+ `baseHeadingLevel` 은 TypeScript 에서 계속 **필수**다. 그런데 `.mjs` 처럼 `tsc` 가 보지
+ 않는 자리에서 빠뜨리면 `undefined + depth` 가 `NaN` 이 되고, 아래 `??` 가 그것을
+ **최하위 heading** 으로 번역해 문서 구조가 통째로 뭉갠 채 나갔다(실측: 모든 heading 이
+ `<h6>`). `??` 는 안전장치처럼 보였지만 실제로는 잘못된 입력을 «그럴듯한 값»으로 덮었다.
+
+ 🔴 **이 fallback 을 공개 계약으로 읽지 마라.** prop 은 여전히 required 이고, 여기서
+ 하는 일은 「값이 계약 범위를 벗어났을 때 문서를 무너뜨리지 않는 것」 하나다.
+  */
+  const base =
+    Number.isInteger(baseHeadingLevel) &&
+    baseHeadingLevel >= 1 &&
+    baseHeadingLevel <= 4
+      ? baseHeadingLevel
+      : 1;
+  const level = Math.min(base + depth, 6);
   return HEADING_TAGS[level - 2] ?? "h6";
 }
 

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -411,5 +413,73 @@ describe("inline code 를 한 덩어리로 붙드는 판정", () => {
     expect(pre).not.toContain("whitespace-nowrap");
     // 같은 문서의 inline expression 에는 붙는다.
     expect(markup).toContain("whitespace-nowrap");
+  });
+});
+
+/**
+ * 🔴 **타입이 닿지 않는 자리에서 조용히 `<h6>` 로 무너졌다.**
+ *
+ * `baseHeadingLevel` 은 TypeScript 에서 필수인데, `.mjs` 처럼 `tsc` 가 보지 않는 자리에서
+ * 빠뜨리면 `undefined + depth` 가 `NaN` 이 되고 `HEADING_TAGS[NaN] ?? "h6"` 가 그것을
+ * **최하위 heading** 으로 번역했다 — 문서의 모든 heading 이 `<h6>` 로 나갔다.
+ * CI 의 `DB_INTEGRATION` 시험이 그것을 잡았다(run 33732041214).
+ */
+describe("baseHeadingLevel 의 런타임 경계", () => {
+  /** `tsc` 를 지나 런타임에 도달하는 호출을 흉내낸다. */
+  const renderWith = (props: Record<string, unknown>) =>
+    renderToStaticMarkup(
+      createElement(
+        MarkdownView,
+        { content: "## 소제목\n\n본문", emptyLabel: "—", ...props } as never,
+      ),
+    );
+
+  const headingOf = (markup: string) =>
+    (markup.match(/<(h[1-6])[ >]/) ?? [])[1] ?? "(없음)";
+
+  it("🔴 값을 빠뜨린 런타임 호출이 h6 로 무너지지 않는다", () => {
+    expect(headingOf(renderWith({}))).not.toBe("h6");
+    // 계약 범위 밖의 값도 마찬가지다 — 문서를 뭉개는 대신 «페이지 바로 아래»로 떨어진다.
+    for (const bad of [undefined, null, 0, 9, 1.5, "2", NaN]) {
+      expect(headingOf(renderWith({ baseHeadingLevel: bad }))).not.toBe("h6");
+    }
+  });
+
+  it("유효한 값은 기존 계산을 그대로 따른다", () => {
+    // `##` 은 Markdown 깊이 2 다 — tag 는 base + 2 다.
+    expect(headingOf(renderWith({ baseHeadingLevel: 1 }))).toBe("h3");
+    expect(headingOf(renderWith({ baseHeadingLevel: 2 }))).toBe("h4");
+    expect(headingOf(renderWith({ baseHeadingLevel: 3 }))).toBe("h5");
+    expect(headingOf(renderWith({ baseHeadingLevel: 4 }))).toBe("h6");
+  });
+
+  it("🔴 fallback 이 생겨도 TypeScript 계약은 required 그대로다", () => {
+    const markup = renderToStaticMarkup(
+      /*
+ 🔴 아래 지시자가 이 시험의 전부다. `baseHeadingLevel` 을 선택 prop 으로 되돌리면
+ 이 자리에 오류가 없어져 지시자가 «쓰이지 않게» 되고, `tsc` 가 그것을 실패로 알린다.
+      */
+      // @ts-expect-error baseHeadingLevel 을 빠뜨리면 tsc 가 잡아야 한다.
+      createElement(MarkdownView, { content: "본문", emptyLabel: "—" }),
+    );
+    expect(markup).toContain("본문");
+  });
+});
+
+/**
+ * 🔴 **`.mjs` 시험은 `tsc` 가 보지 않는다.** 그래서 그 호출이 렌더링 문맥을 실제로
+ * 밝히는지는 소스로 확인할 수밖에 없다 — 빠뜨리면 위 fallback 뒤에 숨는다.
+ */
+describe("integration 시험의 MarkdownView 호출", () => {
+  it("세 호출 모두 baseHeadingLevel 을 명시한다", () => {
+    const source = readFileSync(
+      "mcp/markdown-authoring.integration.test.mjs",
+      "utf8",
+    );
+    const calls = source.split("createElement(MarkdownView").slice(1);
+    expect(calls).toHaveLength(3);
+    for (const call of calls) {
+      expect(call.slice(0, 400)).toContain("baseHeadingLevel:");
+    }
   });
 });
