@@ -179,24 +179,40 @@ export function IssueFilterBar({
   return (
     <form
       onSubmit={handleSubmit(navigate)}
-      className="flex flex-wrap items-end gap-3 border-b border-border px-1 py-3 sm:px-4"
+      className="border-b border-border px-1 py-3 sm:px-4"
     >
-      <div className="flex min-w-0 flex-1 flex-col sm:flex-none">
-        <SearchField
-          label={labels.search}
-          placeholder={labels.searchPlaceholder}
-          className="w-full sm:w-64"
-          aria-invalid={errors.q !== undefined}
-          {...register("q")}
-        />
-        {errors.q !== undefined && (
-          <span role="alert" className="mt-1 text-xs text-destructive">
-            {errors.q.message}
-          </span>
-        )}
-      </div>
-
       {/*
+ 🔴 **Filter 줄 «전체»를 한 덩어리로 가운데 세운다.** 표는 화면 폭을 그대로 쓰는데 도구는
+ 왼쪽에 붙어 있어, 넓은 화면에서 오른쪽에 빈 자리가 크게 남는다 — Filter 하나하나를
+ 가운데로 옮기는 것이 아니라 이 묶음의 폭만큼만 잡아 그 자리를 좌우로 나눈다.
+
+ 🔴 **`justify-center` 가 아니라 `w-fit` 이다.** `justify-center` 는 줄이 넘칠 때 «접힌
+ 줄들까지» 가운데로 모아, 좁은 화면에서 왼쪽 정렬로 쌓이던 모양이 함께 바뀐다. `w-fit` 은
+ 한 줄에 다 들어가는 폭에서만 묶음이 내용만큼 좁아져 `mx-auto` 가 실제로 남는 자리를
+ 나누고, 좁아지면 폭이 그대로 부모를 채워 **`mx-auto` 가 아무 일도 하지 않는다** —
+ 중앙 배치가 켜지는 조건을 임의의 breakpoint 로 정하지 않고 «한 줄에 들어가는가»가 정한다.
+
+ 🔴 **가운데의 기준은 화면이 아니라 이 화면의 content 영역이다.** 좌우 padding 이 같은
+ `form` 안에서 나누므로 그 중심은 아래 표의 중심과 같다 — Sidebar 를 포함한 창 전체의
+ 가운데가 아니다.
+ */}
+      <div className="mx-auto flex w-fit max-w-full flex-wrap items-end gap-3">
+        <div className="flex min-w-0 flex-1 flex-col sm:flex-none">
+          <SearchField
+            label={labels.search}
+            placeholder={labels.searchPlaceholder}
+            className="w-full sm:w-64"
+            aria-invalid={errors.q !== undefined}
+            {...register("q")}
+          />
+          {errors.q !== undefined && (
+            <span role="alert" className="mt-1 text-xs text-destructive">
+              {errors.q.message}
+            </span>
+          )}
+        </div>
+
+        {/*
  🔴 **저장소가 몇 개든 «늘» 그린다.** 심각도·분류·상태가 그 Project 에 실제로 쓰인 값이
  몇 가지든 늘 서 있는 것과 같은 규칙이다 — Filter 줄의 모양이 데이터에 따라 달라지면
  같은 Workspace 의 Project 를 오갈 때마다 도구가 있었다 없었다 한다.
@@ -209,68 +225,68 @@ export function IssueFilterBar({
  그쪽은 «결과»를 넘기는 도구라 넘길 곳이 없으면 누를 것도 없지만, 이쪽은 조건을 «세우는»
  도구라 지금 무엇으로 좁혀져 있는지가 늘 보여야 한다.
  */}
-      <Controller
-        control={control}
-        name="repositoryId"
-        render={({ field }) => (
-          <FilterSelectField
-            label={labels.repository}
-            value={field.value}
-            onValueChange={field.onChange}
-            options={repositoryOptions}
-            /*
+        <Controller
+          control={control}
+          name="repositoryId"
+          render={({ field }) => (
+            <FilterSelectField
+              label={labels.repository}
+              value={field.value}
+              onValueChange={field.onChange}
+              options={repositoryOptions}
+              /*
  `owner/repository` 는 심각도·상태보다 길다 — 좁은 화면에서는 한 줄을 통째로 쓰고
  넓은 화면에서만 옆에 선다. 🔴 다른 Filter 의 폭을 줄여 자리를 만들지 않는다.
  넘치는 이름은 Trigger 가 한 줄로 잘라 그린다(`ui/select.tsx`).
  */
-            className="w-full sm:w-56"
-          />
-        )}
-      />
+              className="w-full sm:w-56"
+            />
+          )}
+        />
 
-      <Controller
-        control={control}
-        name="severity"
-        render={({ field }) => (
-          <FilterSelectField
-            label={labels.severity}
-            value={field.value}
-            onValueChange={field.onChange}
-            options={severityOptions}
-            className="w-[calc(50%-0.375rem)] sm:w-40"
-          />
-        )}
-      />
+        <Controller
+          control={control}
+          name="severity"
+          render={({ field }) => (
+            <FilterSelectField
+              label={labels.severity}
+              value={field.value}
+              onValueChange={field.onChange}
+              options={severityOptions}
+              className="w-[calc(50%-0.375rem)] sm:w-40"
+            />
+          )}
+        />
 
-      <Controller
-        control={control}
-        name="category"
-        render={({ field }) => (
-          <FilterSelectField
-            label={labels.category}
-            value={field.value}
-            onValueChange={field.onChange}
-            options={categoryOptions}
-            className="w-[calc(50%-0.375rem)] sm:w-52"
-          />
-        )}
-      />
+        <Controller
+          control={control}
+          name="category"
+          render={({ field }) => (
+            <FilterSelectField
+              label={labels.category}
+              value={field.value}
+              onValueChange={field.onChange}
+              options={categoryOptions}
+              className="w-[calc(50%-0.375rem)] sm:w-52"
+            />
+          )}
+        />
 
-      <Controller
-        control={control}
-        name="status"
-        render={({ field }) => (
-          <FilterSelectField
-            label={labels.status}
-            value={field.value}
-            onValueChange={field.onChange}
-            options={statusOptions}
-            className="w-[calc(50%-0.375rem)] sm:w-40"
-          />
-        )}
-      />
+        <Controller
+          control={control}
+          name="status"
+          render={({ field }) => (
+            <FilterSelectField
+              label={labels.status}
+              value={field.value}
+              onValueChange={field.onChange}
+              options={statusOptions}
+              className="w-[calc(50%-0.375rem)] sm:w-40"
+            />
+          )}
+        />
 
-      {/*
+        {/*
  🔴 **Spinner 가 뜬다고 버튼이 넓어지지 않는다.** 아이콘을 조건부로 «더하면» 그 폭만큼
  버튼이 자라고 옆의 「초기화」가 통째로 밀린다 — 누른 순간 손끝 아래에서 도구가 움직인다.
  그렇다고 쉴 때 빈 자리를 잡아 두면 이번엔 「조회」가 늘 오른쪽으로 치우친다.
@@ -289,19 +305,19 @@ export function IssueFilterBar({
  🔴 **가운데를 `translate` 로 잡지 않는다.** `animate-spin` 의 keyframe 이 `transform` 을
  통째로 덮어써 아이콘이 제자리를 잃는다 — `inset-0 m-auto` 로 세운다.
  */}
-      <Button
-        type="submit"
-        size="sm"
-        disabled={isPending}
-        aria-busy={isPending}
-        className="relative"
-      >
-        {isPending && <Spinner className="absolute inset-0 m-auto" />}
-        <span className={isPending ? "opacity-0" : undefined}>
-          {labels.submit}
-        </span>
-      </Button>
-      {/*
+        <Button
+          type="submit"
+          size="sm"
+          disabled={isPending}
+          aria-busy={isPending}
+          className="relative"
+        >
+          {isPending && <Spinner className="absolute inset-0 m-auto" />}
+          <span className={isPending ? "opacity-0" : undefined}>
+            {labels.submit}
+          </span>
+        </Button>
+        {/*
  🔴 **「조회」와 같은 강도로 세우지 않는다.** 표면 없이 두면 배경에 묻혀 누를 것으로
  읽히지 않고, 채워 두면 어느 쪽이 주 동작인지 사라진다 — 테두리만 있는 `outline` 이
  그 사이다. 같은 화면 밖의 보조 동작(`error.tsx` 의 다시 시도 · Repository 연결 ·
@@ -311,26 +327,27 @@ export function IssueFilterBar({
  갈 뿐이다 — 첫 쪽에서 「이전」을 죽이는 `organisms/TablePagination.tsx`,
  고친 것이 없으면 저장을 죽이는 `IssueEditDialog` 와 같은 규칙이다.
  */}
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        disabled={!canReset}
-        onClick={() => {
-          const cleared = {
-            q: "",
-            repositoryId: FILTER_ALL,
-            severity: FILTER_ALL,
-            category: FILTER_ALL,
-            status: FILTER_ALL,
-          } as const;
-          reset(cleared);
-          // 초기화도 같은 길로 간다 — 쪽 크기는 남고 쪽 번호만 처음으로 돌아간다.
-          navigate(cleared);
-        }}
-      >
-        {labels.reset}
-      </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={!canReset}
+          onClick={() => {
+            const cleared = {
+              q: "",
+              repositoryId: FILTER_ALL,
+              severity: FILTER_ALL,
+              category: FILTER_ALL,
+              status: FILTER_ALL,
+            } as const;
+            reset(cleared);
+            // 초기화도 같은 길로 간다 — 쪽 크기는 남고 쪽 번호만 처음으로 돌아간다.
+            navigate(cleared);
+          }}
+        >
+          {labels.reset}
+        </Button>
+      </div>
     </form>
   );
 }
