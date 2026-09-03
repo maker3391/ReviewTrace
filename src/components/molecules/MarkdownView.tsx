@@ -322,6 +322,20 @@ export function MarkdownView({
         */
         "[--md-gap:1.25rem] flex flex-col text-sm leading-relaxed break-keep [overflow-wrap:break-word]",
         "[&>*:first-child]:mt-0",
+        /*
+ 🔴 **`>` 는 직계 자식만 고른다 — 중첩된 첫 문단은 초기화되지 않았다.**
+
+ 위 한 줄은 컨테이너의 첫 요소만 본다. 그런데 `p` override 는 «모든» 문단에 위 여백을
+ 붙이므로 `blockquote` 안의 첫 문단과 loose list 의 `<li>` 안 첫 문단이 그 여백을 그대로
+ 이고 부모의 padding 위에 얹혔다 — 실측(1440px): 인용문 안쪽이 **위 28px / 아래 8px**
+ 인데 padding 은 `8px / 8px` 로 대칭이었다.
+
+ 🔴 **여기서 되돌리는 것이 `p` 쪽 규칙을 좁히는 것보다 안전하다.** `.md blockquote > *:first-child`
+ 는 utility class 하나(`.mt-…`)보다 명시도가 높아 **선언 순서와 무관하게** 이긴다 —
+ arbitrary variant 끼리 순서로 다투게 두지 않는다.
+        */
+        "[&_blockquote>*:first-child]:mt-0",
+        "[&_li>*:first-child]:mt-0",
         /* heading 은 자기 아래 것과 «묶인다» — 위 여백의 1/5 남짓만 둔다. */
         "[&>:where(h1,h2,h3,h4,h5,h6)+*]:mt-[calc(var(--md-gap)*0.4)]",
         /* 표·코드블록·인용은 덩어리다 — 들어갈 때처럼 «나올 때»도 문단 사이보다 넓다. */

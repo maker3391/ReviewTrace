@@ -483,3 +483,30 @@ describe("integration 시험의 MarkdownView 호출", () => {
     }
   });
 });
+
+/**
+ * 🔴 **중첩된 첫 문단이 최상위 리듬의 여백을 그대로 이고 있었다.**
+ *
+ * `p` override 는 모든 문단에 위 여백을 붙이는데 초기화는 컨테이너의 «직계 자식»만
+ * 대상이었다. 그래서 인용문 안쪽이 실측(1440px)에서 **위 28px / 아래 8px** 이 됐다 —
+ * padding 은 `8px / 8px` 로 대칭인데 첫 문단의 20px 가 얹힌 것이다.
+ */
+describe("중첩 블록 안의 첫 문단", () => {
+  it("🔴 인용문과 목록 항목의 첫 문단은 위 여백을 되돌린다", () => {
+    const markup = renderToStaticMarkup(
+      createElement(MarkdownView, {
+        content: "> 인용 첫 문단\n>\n> 인용 둘째 문단\n\n- 느슨한 항목\n\n- 다음 항목",
+        emptyLabel: "—",
+        baseHeadingLevel: 1,
+      }),
+    );
+
+    // 되돌리는 규칙이 실제로 실려 나간다 — 명시도가 높아 선언 순서와 무관하다.
+    expect(markup).toContain("[&amp;_blockquote&gt;*:first-child]:mt-0");
+    expect(markup).toContain("[&amp;_li&gt;*:first-child]:mt-0");
+
+    // 그리고 중첩 문단은 여전히 «최상위와 같은» class 를 갖는다 — 되돌림은 CSS 가 한다.
+    const nested = markup.slice(markup.indexOf("<blockquote"));
+    expect(nested).toContain("<p class=\"mt-[var(--md-gap)]");
+  });
+});
