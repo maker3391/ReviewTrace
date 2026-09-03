@@ -123,3 +123,25 @@ export function issueFilterToQueryString(filter: IssueFilter): string {
 
   return params.toString();
 }
+
+/**
+ * 되돌릴 것이 있는가.
+ *
+ * 「초기화」가 실제로 무언가를 바꾸는지를 판정한다 — 전부 기본값이면 눌러도 같은 주소로
+ * 다시 갈 뿐이라 `TablePagination` 의 첫 쪽 화살표·`IssueEditDialog` 의 저장과 같은 자리다.
+ *
+ * 🔴 **URL 의 `IssueFilter` 가 아니라 «폼» 의 값을 본다.** 검색어를 쳐 놓고 아직 조회하지
+ * 않은 상태에서도 지울 것은 있다 — 주소만 보면 그 글자가 없는 것으로 읽힌다.
+ *
+ * 🔴 **`page`·`pageSize` 는 세지 않는다.** 그 둘은 조회 조건이 아니라 「어떻게 보는가」라
+ * 초기화가 되돌리는 대상이 아니다(`navigate` 가 `pageSize` 를 그대로 두는 것과 같은 규칙).
+ */
+export function hasIssueFilterValue(form: IssueFilterForm): boolean {
+  return (
+    form.q.trim() !== "" ||
+    form.repositoryId !== FILTER_ALL ||
+    form.severity !== FILTER_ALL ||
+    form.category !== FILTER_ALL ||
+    form.status !== FILTER_ALL
+  );
+}

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   FILTER_ALL,
+  hasIssueFilterValue,
   issueFilterFormSchema,
   issueFilterToQueryString,
   parseIssueFilter,
+  type IssueFilterForm,
 } from "@/features/issues/schemas/issue-filter";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { parseOptions } from "@/lib/validation/zod-error-map";
@@ -170,4 +172,37 @@ describe("issueFilterFormSchema", () => {
       expect(result.error?.issues[0]?.message).toContain(part);
     },
   );
+});
+
+describe("hasIssueFilterValue", () => {
+  const empty: IssueFilterForm = {
+    q: "",
+    repositoryId: FILTER_ALL,
+    severity: FILTER_ALL,
+    category: FILTER_ALL,
+    status: FILTER_ALL,
+  };
+
+  it("전부 기본값이면 되돌릴 것이 없다", () => {
+    expect(hasIssueFilterValue(empty)).toBe(false);
+  });
+
+  /**
+   * 🔴 **공백만 친 검색어는 조건이 아니다.** `issueFilterToQueryString` 이 `q` 를
+   * trim 해 비어 있으면 주소에 적지 않으므로, 여기서만 「있다」고 하면 눌러도 아무것도
+   * 바뀌지 않는 버튼이 살아난다.
+   */
+  it("공백뿐인 검색어는 세지 않는다", () => {
+    expect(hasIssueFilterValue({ ...empty, q: "   " })).toBe(false);
+  });
+
+  it.each([
+    ["검색어", { q: "race" }],
+    ["저장소", { repositoryId: REPOSITORY_ID }],
+    ["심각도", { severity: "HIGH" }],
+    ["분류", { category: "TRANSACTION" }],
+    ["상태", { status: "OPEN" }],
+  ] as const)("%s 하나만 걸려 있어도 되돌릴 것이 있다", (_label, partial) => {
+    expect(hasIssueFilterValue({ ...empty, ...partial })).toBe(true);
+  });
 });

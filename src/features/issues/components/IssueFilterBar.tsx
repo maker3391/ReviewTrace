@@ -3,7 +3,7 @@
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Controller } from "react-hook-form";
+import { Controller, useWatch } from "react-hook-form";
 
 import { Spinner } from "@/components/atoms/Spinner";
 import {
@@ -14,6 +14,7 @@ import { SearchField } from "@/components/molecules/SearchField";
 import { Button } from "@/components/ui/button";
 import {
   FILTER_ALL,
+  hasIssueFilterValue,
   issueFilterFormSchema,
   issueFilterToQueryString,
   type IssueFilter,
@@ -142,6 +143,19 @@ export function IssueFilterBar({
     },
   });
 
+  /*
+ 🔴 **주소(`filter`)가 아니라 «지금 폼에 들어 있는 값»을 본다.** 검색어를 쳐 놓고 아직
+ 조회하지 않았어도 지울 것은 있다 — 주소만 보면 그 글자가 없는 것으로 읽힌다.
+ */
+  const current = useWatch({ control });
+  const canReset = hasIssueFilterValue({
+    q: current.q ?? "",
+    repositoryId: current.repositoryId ?? FILTER_ALL,
+    severity: current.severity ?? FILTER_ALL,
+    category: current.category ?? FILTER_ALL,
+    status: current.status ?? FILTER_ALL,
+  });
+
   function navigate(next: IssueFilterForm) {
     /*
  Filter 가 바뀌면 1페이지부터 본다 — 3페이지에서 조건을 바꾸면 빈 화면이 나온다.
@@ -256,15 +270,52 @@ export function IssueFilterBar({
         )}
       />
 
-      <Button type="submit" size="sm" disabled={isPending}>
-        {/* 🔴 label 을 갈아 끼우지 않는다 — 무엇을 실행 중인지가 계속 보여야 한다. */}
-        {isPending && <Spinner />}
-        {labels.submit}
+      {/*
+ 🔴 **Spinner 가 뜬다고 버튼이 넓어지지 않는다.** 아이콘을 조건부로 «더하면» 그 폭만큼
+ 버튼이 자라고 옆의 「초기화」가 통째로 밀린다 — 누른 순간 손끝 아래에서 도구가 움직인다.
+ 그렇다고 쉴 때 빈 자리를 잡아 두면 이번엔 「조회」가 늘 오른쪽으로 치우친다.
+
+ 그래서 **이름표를 지우지 않고 «감춘다».** 글자가 자리를 그대로 차지하니 버튼은 자기
+ 폭을 유지하고, Spinner 는 `absolute` 로 흐름 밖에서 그 한가운데에 선다. 쉴 때 버튼에
+ 남는 여분은 없다 — 「조회」가 좌우 같은 여백 사이의 정중앙이다.
+
+ 🔴 **`invisible` 이 아니라 `opacity-0` 이다.** `visibility: hidden` 은 자리는 남기지만
+ **접근성 트리에서 사라져** 읽는 도구에게 이름 없는 버튼이 된다 — 지금 누른 것이
+ 무엇이었는지가 그 순간 없어진다. 투명하게 두면 이름은 남는다.
+
+ 🔴 **label 을 갈아 끼우지도 않는다**(`atoms/Spinner.tsx`). 사전의 `submitting` 은 그래서
+ 화면에 쓰이지 않는다 — 짧은 조회에서 글자가 바뀌면 무엇을 눌렀는지가 흔들린다.
+
+ 🔴 **가운데를 `translate` 로 잡지 않는다.** `animate-spin` 의 keyframe 이 `transform` 을
+ 통째로 덮어써 아이콘이 제자리를 잃는다 — `inset-0 m-auto` 로 세운다.
+ */}
+      <Button
+        type="submit"
+        size="sm"
+        disabled={isPending}
+        aria-busy={isPending}
+        className="relative"
+      >
+        {isPending && <Spinner className="absolute inset-0 m-auto" />}
+        <span className={isPending ? "opacity-0" : undefined}>
+          {labels.submit}
+        </span>
       </Button>
+      {/*
+ 🔴 **「조회」와 같은 강도로 세우지 않는다.** 표면 없이 두면 배경에 묻혀 누를 것으로
+ 읽히지 않고, 채워 두면 어느 쪽이 주 동작인지 사라진다 — 테두리만 있는 `outline` 이
+ 그 사이다. 같은 화면 밖의 보조 동작(`error.tsx` 의 다시 시도 · Repository 연결 ·
+ Project 설정)이 이미 쓰는 자리라 새 모양을 만들지 않았다.
+
+ 🔴 **되돌릴 것이 없으면 누를 수 없다.** 전부 기본값인데 눌러 봐야 같은 주소로 다시
+ 갈 뿐이다 — 첫 쪽에서 「이전」을 죽이는 `organisms/TablePagination.tsx`,
+ 고친 것이 없으면 저장을 죽이는 `IssueEditDialog` 와 같은 규칙이다.
+ */}
       <Button
         type="button"
         size="sm"
-        variant="ghost"
+        variant="outline"
+        disabled={!canReset}
         onClick={() => {
           const cleared = {
             q: "",
