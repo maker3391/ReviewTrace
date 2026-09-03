@@ -567,6 +567,60 @@ describe("classifyEvidenceSource", { timeout: 30_000 }, () => {
   });
 
   /**
+   * 🔴 **「유효한 commit 인가」로는 부족하다 — 「지금의 바탕인가」를 물어야 한다.**
+   *
+   * `rev-parse` 는 full SHA 뿐 아니라 short SHA · tag · branch · `HEAD~n` 을 전부 받는다.
+   * 그래서 「commit 으로 풀리는가」만 보면 **오래된 ref 를 준 것만으로 이미 커밋된 파일이
+   * `WORKING_TREE` 로 분류되어** 서버의 원본 대조를 통째로 건너뛴다. reviewer 가 다섯
+   * 형태를 모두 재현했다.
+   */
+  it("🔴 오래된 ref 로는 이미 커밋된 파일을 커밋 전으로 만들지 못한다", async () => {
+    const directory = await createRepository();
+    try {
+      const commit = async (message) =>
+        run("git", [
+          "-C", directory,
+          "-c", "user.name=ReviewTrace",
+          "-c", "user.email=reviewtrace@example.test",
+          "commit", "-m", message,
+        ]);
+
+      // 첫 commit 에는 없던 파일을 «커밋한다». 작업 tree 는 깨끗하다.
+      const before = (await run("git", ["-C", directory, "rev-parse", "HEAD"])).stdout.trim();
+      await run("git", ["-C", directory, "tag", "v-old"]);
+      await writeFile(join(directory, "added.txt"), "committed later\n", "utf8");
+      await run("git", ["-C", directory, "add", "added.txt"]);
+      await commit("add file");
+
+      const evidence = {
+        filePath: "added.txt",
+        startLine: 1,
+        endLine: 1,
+        snapshot: "committed later",
+      };
+
+      // 그 파일이 «없던» 시절을 가리키는 값들 — 전부 판정하지 않는다.
+      for (const stale of [before, before.slice(0, 7), "HEAD~1", "v-old"]) {
+        await expect(
+          classifyEvidenceSource(directory, { ...evidence, commitSha: stale }),
+          stale,
+        ).resolves.toBeNull();
+      }
+
+      // 🔴 지금의 바탕(HEAD)을 «어떤 철자로 적든» 커밋된 것은 COMMITTED 다.
+      const head = (await run("git", ["-C", directory, "rev-parse", "HEAD"])).stdout.trim();
+      for (const now of [head, head.slice(0, 7), "HEAD"]) {
+        await expect(
+          classifyEvidenceSource(directory, { ...evidence, commitSha: now }),
+          now,
+        ).resolves.toBe("COMMITTED");
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  /**
    * 🔴 **commit 을 읽지 못한 것까지 「커밋 전」으로 밀면 보증이 사라진다.**
    *
    * 다른 저장소의 SHA 를 적어 보내면 그 근거는 이 저장소가 판정할 대상이 아니다.

@@ -419,8 +419,11 @@ export async function classifyEvidenceSource(cwd, evidence) {
    *
    * 🔴 **commit 을 읽지 못한 쪽의 `null` 은 그대로 둔다.** 다른 저장소의 근거를 건드리지
    * 않는 보증이 거기 있다.
+   *
+   * 🔴 **「commit 이 있다」가 아니라 「그것이 지금의 바탕이다」를 묻는다.** 오래된 ref 를
+   * 받아 주면 이미 커밋된 파일까지 `WORKING_TREE` 가 되어 서버 대조를 건너뛴다.
    */
-  if (atCommit === null && !(await commitExists(cwd, evidence.commitSha))) {
+  if (atCommit === null && !(await isWorkingTreeBase(cwd, evidence.commitSha))) {
     return null;
   }
 
@@ -473,20 +476,39 @@ function normalizeCode(text) {
 }
 
 /**
- * 그 SHA 가 **이 저장소의 commit 인가**. 경로는 보지 않는다.
+ * 그 값이 **지금 작업 tree 가 얹혀 있는 그 commit** 인가.
+ *
+ * 🔴 **「이 저장소의 commit 인가」로는 부족하다.** `rev-parse` 는 full SHA 뿐 아니라
+ * short SHA · tag · branch · `HEAD~2` 같은 revision expression 을 전부 받는다. 그래서
+ * 「commit 으로 풀리는가」만 물으면 **오래된 ref 를 준 것만으로 이미 커밋된 파일이
+ * `WORKING_TREE` 가 되어** 서버의 원본 대조를 통째로 건너뛴다 — 검증 면제 스위치다.
+ *
+ * `WORKING_TREE` 는 「그 commit 에는 없고 지금 작업 tree 에 있다」는 뜻이고, 여기서
+ * 「그 commit」은 **작업의 바탕**이다. 바탕은 언제나 현재 `HEAD` 이므로 둘을 full OID
+ * 로 풀어 같은지 본다 — 철자가 아니라 «가리키는 commit» 을 비교한다.
  *
  * `^{commit}` 을 붙여 tag·tree 가 아니라 commit 으로만 풀리게 한다.
  */
-async function commitExists(cwd, commitSha) {
+async function resolveCommit(cwd, revision) {
   try {
-    await run("git", ["rev-parse", "--verify", "--quiet", `${commitSha}^{commit}`], {
-      cwd,
-      timeout: TIMEOUT_MS,
-    });
-    return true;
+    const { stdout } = await run(
+      "git",
+      ["rev-parse", "--verify", "--quiet", `${revision}^{commit}`],
+      { cwd, timeout: TIMEOUT_MS },
+    );
+    const oid = stdout.trim();
+    return oid === "" ? null : oid;
   } catch {
-    return false;
+    return null;
   }
+}
+
+async function isWorkingTreeBase(cwd, commitSha) {
+  const [supplied, head] = await Promise.all([
+    resolveCommit(cwd, commitSha),
+    resolveCommit(cwd, "HEAD"),
+  ]);
+  return supplied !== null && head !== null && supplied === head;
 }
 
 async function readFileAtCommit(cwd, commitSha, filePath) {
