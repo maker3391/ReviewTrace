@@ -91,7 +91,7 @@ export async function LoginLandingPage({
  - **sm 이상**: 다시 `block` 이라 넷이 한 덩어리다. 자리는 `order`(sm)와
    `row-start`/`col-start`(832 이상)가 정한다
  */}
-        <section className="contents sm:order-2 sm:block min-[52rem]:col-start-1 min-[52rem]:row-start-2 xl:col-start-1 xl:row-start-1">
+        <section className="contents text-center [&_li]:text-left sm:order-1 sm:block min-[52rem]:col-start-1 min-[52rem]:row-start-2 xl:col-start-1 xl:row-start-1 xl:text-left">
           {/*
  🔴 `break-keep` 이 이 화면에서 가장 중요한 한 줄이다. 없으면 한국어가
  낱말·조사 중간에서 끊긴다 — 그것은 취향이 아니라 오식이다.
@@ -102,11 +102,13 @@ export async function LoginLandingPage({
             <span className="text-primary">{t.headlineAccent}</span>
           </h1>
 
-          <p className="mt-6 max-w-[32rem] text-base leading-[1.75] break-keep text-foreground/70">
+          <p className="mx-auto mt-6 max-w-[32rem] text-base leading-[1.75] break-keep text-foreground/70 xl:mx-0">
             {t.subhead}
           </p>
 
-          <LoginFeatureList features={t.features} />
+          <div className="mx-auto max-w-[32rem] xl:mx-0">
+            <LoginFeatureList features={t.features} />
+          </div>
 
           {/*
  🔴 **왼쪽 단의 «맨 아래»가 이 줄의 자리다.** 위의 셋이 「무엇을 해 주는가」를
@@ -163,7 +165,7 @@ export async function LoginLandingPage({
 
  `order-2` 는 모바일 전용이다 — features(order 0) 와 Agent 띠(`order-3`) 사이가 CTA 자리다.
  */}
-        <section className="order-2 mx-auto mt-12 w-full max-w-md rounded-2xl border border-border/80 bg-card px-7 py-9 shadow-[0_1px_2px_0_oklch(0_0_0/0.04),0_12px_32px_-20px_oklch(0_0_0/0.16)] sm:order-1 sm:mt-0 sm:px-9 min-[52rem]:col-span-2 min-[52rem]:row-start-1 xl:col-span-1 xl:col-start-2 xl:row-start-1">
+        <section className="order-3 mx-auto mt-12 w-full max-w-md rounded-2xl border border-border/80 bg-card px-7 py-9 shadow-[0_1px_2px_0_oklch(0_0_0/0.04),0_12px_32px_-20px_oklch(0_0_0/0.16)] sm:order-2 sm:mt-0 sm:px-9 min-[52rem]:col-span-2 min-[52rem]:row-start-1 xl:col-span-1 xl:col-start-2 xl:row-start-1">
           {/* 🔴 마크는 `public/logo.png` 하나다(`ReviewTraceMark`). */}
           <div className="flex items-center justify-center gap-2.5">
             <ReviewTraceMark size={96} className="size-9" />
@@ -208,7 +210,21 @@ export async function LoginLandingPage({
  한 줄도 접히지 않는다(실측: 420px 부터 전부 한 줄).
  좌우로 설 때는 단 폭이 이미 정해져 있어 상한을 푼다.
  */}
-        <div className="order-4 mx-auto hidden w-full max-w-md sm:block min-[52rem]:col-start-2 min-[52rem]:row-start-2 min-[52rem]:max-w-none xl:col-start-3 xl:row-start-1">
+        {/*
+ 🔴 **모바일에서 위 여백을 «직접» 준다.** 640 이상은 `gap-y-14` 가 간격을 만들지만
+ base 는 `gap-y-0` 이라(위 주석 참고) 각 블록의 margin 이 간격을 정한다. 이 카드에만
+ margin 이 없어 로그인 카드와 **테두리가 맞닿았다**(실측 0px).
+
+ 🔴 **`overflow-x-clip` 은 장식 glow 때문이다.** `LoginShowcase` 의 glow 는
+ `-inset-x-7`(좌우 28px)로 카드 밖까지 번지는데, 페이지 좌우 여백은 16px 이라
+ **504px 미만에서 12px 이 화면 밖으로 나가 가로 스크롤이 생긴다**(실측: 320~480 에서
+ 12px, 504 부터 0). 640 이상에서는 여유 공간이 glow 를 흡수하므로 그 위로는 풀어
+ 데스크톱의 번짐을 그대로 둔다.
+
+ 🔴 `clip` 이지 `hidden` 이 아니다 — `hidden` 은 스크롤 컨테이너를 만들어 이 카드가
+ 자기 안에서 스크롤되게 한다.
+ */}
+        <div className="order-4 mx-auto mt-12 w-full max-w-md overflow-x-clip sm:mt-0 sm:overflow-x-visible min-[52rem]:col-start-2 min-[52rem]:row-start-2 min-[52rem]:max-w-none xl:col-start-3 xl:row-start-1">
           <LoginShowcase
             issue={t.showcaseIssue}
             decision={t.showcaseDecision}
