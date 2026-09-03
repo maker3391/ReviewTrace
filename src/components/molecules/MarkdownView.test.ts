@@ -8,6 +8,7 @@ import {
   MarkdownView,
   keepsInlineExpressionTogether,
 } from "@/components/molecules/MarkdownView";
+import { renderMarkdownViewMarkup } from "@/components/molecules/markdown-view-testing";
 
 describe("MarkdownView knowledge content", () => {
   it("paragraph, blank line, bullet list, inline code와 single newline을 보존한다", () => {
@@ -438,11 +439,19 @@ describe("baseHeadingLevel 의 런타임 경계", () => {
     (markup.match(/<(h[1-6])[ >]/) ?? [])[1] ?? "(없음)";
 
   it("🔴 값을 빠뜨린 런타임 호출이 h6 로 무너지지 않는다", () => {
-    expect(headingOf(renderWith({}))).not.toBe("h6");
-    // 계약 범위 밖의 값도 마찬가지다 — 문서를 뭉개는 대신 «페이지 바로 아래»로 떨어진다.
-    for (const bad of [undefined, null, 0, 9, 1.5, "2", NaN]) {
-      expect(headingOf(renderWith({ baseHeadingLevel: bad }))).not.toBe("h6");
+    /*
+ 🔴 **「`h6` 이 아니다」로는 계약이 지켜지지 않는다.** 그것은 고쳐진 증상 하나를 배제할 뿐이라
+ fallback 을 `2` 로 바꾼 판(`<h4>`)도 통과한다. 계약은 「범위 밖이면 `1`」이므로 `##`(Markdown
+ 깊이 2)은 **정확히 `<h3>`** 이어야 한다 — 값을 그대로 못 박는다.
+    */
+    expect(headingOf(renderWith({}))).toBe("h3");
+    for (const bad of [undefined, null, 0, 9, 1.5, "2", NaN, -1, "", true]) {
+      expect(headingOf(renderWith({ baseHeadingLevel: bad }))).toBe("h3");
     }
+    // 그리고 그 값은 «명시적으로 1 을 준 것»과 같아야 한다.
+    expect(headingOf(renderWith({}))).toBe(
+      headingOf(renderWith({ baseHeadingLevel: 1 })),
+    );
   });
 
   it("유효한 값은 기존 계산을 그대로 따른다", () => {
@@ -467,20 +476,35 @@ describe("baseHeadingLevel 의 런타임 경계", () => {
 });
 
 /**
- * 🔴 **`.mjs` 시험은 `tsc` 가 보지 않는다.** 그래서 그 호출이 렌더링 문맥을 실제로
- * 밝히는지는 소스로 확인할 수밖에 없다 — 빠뜨리면 위 fallback 뒤에 숨는다.
+ * 🔴 **`.mjs` 시험의 required prop 은 이제 «타입 경계»가 지킨다.**
+ *
+ * 예전에는 이 자리에 `.mjs` 원문을 TypeScript compiler API 로 파싱하는 검사가 있었다.
+ * 그런데 라운드마다 우회가 하나씩 나왔다 — 문자열·주석, `React.createElement` 형태,
+ * spread 와 computed key 의 덮어쓰기, accessor·method·shorthand 의 무효화,
+ * `const MV = MarkdownView` 로 갈아타기. 막을 때마다 다음 것이 나왔고, JS 가
+ * 이름을 갈아탈 수 있는 표면은 그런 식으로 닫히지 않는다.
+ *
+ * 그래서 **시험 안에 정적 분석기를 두는 대신 경계를 옮겼다** —
+ * `markdown-view-testing.ts` 의 `renderMarkdownViewMarkup()` 하나만 `.mjs` 가 부르고,
+ * required prop 은 그 `.ts` 파일에서 `tsc` 가 본다. 아래 시험은 그 경계가
+ * **실제로 그 자리에 남아 있는지**만 확인한다.
  */
-describe("integration 시험의 MarkdownView 호출", () => {
-  it("세 호출 모두 baseHeadingLevel 을 명시한다", () => {
+describe("integration 시험이 지나는 타입 경계", () => {
+  it("🔴 .mjs 는 MarkdownView 를 직접 만들지 않고 타입 검사되는 helper 를 부른다", () => {
     const source = readFileSync(
       "mcp/markdown-authoring.integration.test.mjs",
       "utf8",
     );
-    const calls = source.split("createElement(MarkdownView").slice(1);
-    expect(calls).toHaveLength(3);
-    for (const call of calls) {
-      expect(call.slice(0, 400)).toContain("baseHeadingLevel:");
-    }
+
+    expect(source).toContain("renderMarkdownViewMarkup");
+    // 직접 만들면 `tsc` 가 보지 않는 자리가 다시 생긴다.
+    expect(source).not.toContain("createElement");
+  });
+
+  it("helper 가 렌더링 문맥을 밝힌 채로 그린다", () => {
+    // `baseHeadingLevel: 1` — 페이지 제목 `<h1>` 바로 아래. `##` 은 `<h3>` 이다.
+    expect(renderMarkdownViewMarkup("## 제목\n\n본문")).toMatch(/<h3[ >]/);
+    expect(renderMarkdownViewMarkup("## 제목\n\n본문")).not.toMatch(/<h2[ >]/);
   });
 });
 

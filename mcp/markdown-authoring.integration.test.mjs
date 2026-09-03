@@ -1,9 +1,7 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { and, eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { MarkdownView } from "../src/components/molecules/MarkdownView.tsx";
+import { renderMarkdownViewMarkup } from "../src/components/molecules/markdown-view-testing.ts";
 import { db } from "../src/db/index.ts";
 import {
   projects,
@@ -214,13 +212,8 @@ describe.skipIf(!enabled)("MCP Markdown normal path", () => {
           "- 한글 paragraph를 확인했다.\n- `ci_agent_` identifier를 유지했다.",
         regressionTest: "UTF-8 JSON round-trip test가 재발을 막는다.",
       });
-      const markup = renderToStaticMarkup(
-        createElement(MarkdownView, {
-          content: `${stored.description}\n\n${stored.failurePath}`,
-          emptyLabel: "Empty",
-          // 🔴 렌더링 문맥을 부르는 쪽이 밝힌다 — 페이지 제목 `<h1>` 바로 아래.
-          baseHeadingLevel: 1,
-        }),
+      const markup = renderMarkdownViewMarkup(
+        `${stored.description}\n\n${stored.failurePath}`,
       );
       expect(markup).toContain("<p ");
       expect(markup).toContain("<ul");
@@ -313,12 +306,8 @@ describe.skipIf(!enabled)("MCP Markdown 구조 전체 round-trip", () => {
         .where(eq(issueActivities.reviewIssueId, stored.id));
       expect(activity.solution).toBe(solution);
 
-      const markup = renderToStaticMarkup(
-        createElement(MarkdownView, {
-          content: `${stored.rootCause}\n\n${stored.failurePath}\n\n${activity.solution}`,
-          emptyLabel: "Empty",
-          baseHeadingLevel: 1,
-        }),
+      const markup = renderMarkdownViewMarkup(
+        `${stored.rootCause}\n\n${stored.failurePath}\n\n${activity.solution}`,
       );
 
       /**
@@ -344,12 +333,8 @@ describe.skipIf(!enabled)("MCP Markdown 구조 전체 round-trip", () => {
       // inline code 도 함께.
       expect(markup).toContain("buildFilePriority");
       // 🔴 raw HTML 은 렌더하지 않는다 — 계약이 금지하는 것을 renderer 도 막는다.
-      const injected = renderToStaticMarkup(
-        createElement(MarkdownView, {
-          content: "<script>alert(1)</script>\n\n일반 문단",
-          emptyLabel: "Empty",
-          baseHeadingLevel: 1,
-        }),
+      const injected = renderMarkdownViewMarkup(
+        "<script>alert(1)</script>\n\n일반 문단",
       );
       expect(injected).not.toContain("<script>");
       expect(injected).toContain("일반 문단");
