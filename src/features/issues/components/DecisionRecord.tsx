@@ -67,7 +67,7 @@ export function DecisionRecord({
                   content={entry.value}
                   emptyLabel="—"
                   baseHeadingLevel={3}
-                  className="gap-2 [&_p]:text-[13px]"
+                  className="[--md-gap:0.5rem] [&_p]:text-[13px]"
                 />
               </dd>
             </div>
@@ -98,7 +98,7 @@ export function DecisionRecord({
                   content={entry.value}
                   emptyLabel="—"
                   baseHeadingLevel={3}
-                  className="gap-1.5 text-muted-foreground [&_p]:text-xs"
+                  className="[--md-gap:0.375rem] text-muted-foreground [&_p]:text-xs"
                 />
               </dd>
             </div>

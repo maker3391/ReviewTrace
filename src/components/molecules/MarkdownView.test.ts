@@ -2,7 +2,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { MarkdownView } from "@/components/molecules/MarkdownView";
+import {
+  MarkdownView,
+  keepsInlineExpressionTogether,
+} from "@/components/molecules/MarkdownView";
 
 describe("MarkdownView knowledge content", () => {
   it("paragraph, blank line, bullet list, inline code와 single newline을 보존한다", () => {
@@ -77,7 +80,14 @@ describe("MarkdownView knowledge content", () => {
       }),
     );
 
-    expect(markup).toContain("break-words");
+    /*
+ 🔴 **`break-words` 로 쓰면 tailwind-merge 가 `break-keep` 과 같은 그룹으로 묶어 지운다.**
+ 둘은 서로 다른 속성(`overflow-wrap` · `word-break`)인데 한쪽만 남아, 빈칸 없는 긴
+ identifier 가 문단을 밀어 `<main>` 이 가로로 스크롤했다 — 그래서 arbitrary property 다.
+    */
+    expect(markup).toContain("[overflow-wrap:break-word]");
+    expect(markup).toContain("break-keep");
+    expect(markup).not.toContain("<script>");
   });
 
   it("raw HTML과 javascript link를 실행 가능한 node로 만들지 않는다", () => {
@@ -137,10 +147,45 @@ describe("MarkdownView knowledge content", () => {
     // 🔴 `####` override 가 없으면 브라우저 기본 h4 가 나와 계단 밖으로 튄다.
     expect(markup).toContain("<h5");
 
-    expect(markup).toContain("uppercase");
+    /*
+ 🔴 **`uppercase` 에 기대지 않는다.** 이 화면의 heading 은 한국어라 대문자 변환이 아무 일도
+ 하지 않는다 — 갈리는 것은 그 안의 Latin identifier 뿐이었다. 층은 크기·굵기·색이 만든다.
+    */
+    expect(markup).not.toContain("uppercase");
 
-    // 층을 만드는 것은 위 여백이다 — heading 마다  가 붙는다.
-    expect(markup).toContain("first:mt-0");
+    // 🔴 heading 은 본문 bold(700)에 지지 않아야 한다 — 깊이 1~3 이 `font-bold` 다.
+    expect(markup).toContain("font-bold");
+
+    // 층을 만드는 것은 위 여백이다 — heading 마다 `mt-*` 가 붙는다.
+    expect(markup).toContain("mt-10");
+    expect(markup).toContain("mt-9");
+    expect(markup).toContain("mt-8");
+  });
+
+  /**
+   * 🔴 **heading 은 이전 것과 «떨어지고» 자기 아래 것과 «묶여야» 한다.**
+   *
+   * 예전에는 컨테이너의 `gap-4` 가 모든 형제 사이에 16px 을 똑같이 넣어, heading 아래
+   * 간격이 문단 사이 간격과 «같았다»(실측 1440px: 위 48px / 아래 16px / 문단 사이 16px).
+   * 「묶인다」는 신호가 0 이었다. 지금은 인접 형제 규칙이 그 자리를 좁힌다.
+   */
+  it("heading 아래는 문단 사이보다 «좁게» 묶인다", () => {
+    const markup = renderToStaticMarkup(
+      createElement(MarkdownView, {
+        content: "## 소제목\n\n본문 문단.\n\n다음 문단.",
+        emptyLabel: "Empty",
+        baseHeadingLevel: 1,
+      }),
+    );
+
+    // 🔴 균일 gap 이 남아 있으면 아래를 좁힐 방법이 없다.
+    expect(markup).not.toContain("gap-4");
+    // heading 바로 다음 형제만 «좁은» 위 여백을 받는다.
+    expect(markup).toContain(
+      "[&amp;&gt;:where(h1,h2,h3,h4,h5,h6)+*]:mt-[calc(var(--md-gap)*0.4)]",
+    );
+    // 문단은 기본 리듬을 소유한다.
+    expect(markup).toContain("mt-[var(--md-gap)]");
   });
 
   it("문서가 heading으로 시작하면 위 여백을 죽이지 않는다", () => {
@@ -153,10 +198,59 @@ describe("MarkdownView knowledge content", () => {
     );
 
     // 첫 요소의 위 여백을 죽이지 않으면 카드 위쪽에 죽은 자리가 남는다.
-    expect(markup).toContain("first:mt-0");
+    expect(markup).toContain("[&amp;&gt;*:first-child]:mt-0");
     expect(markup).toContain("첫 줄부터 heading");
   });
 
+  /**
+   * 🔴 **`text-sm` 재선언이 `leading-relaxed` 를 죽이고 있었다.**
+   *
+   * 컨테이너가 `text-sm leading-relaxed`(14px / 1.625 = 22.75px)를 주는데 `p`·`ul`·`ol`·
+   * `blockquote` 가 각자 `text-sm` 을 다시 선언해 line-height 가 **20px 로 덮였다**(실측).
+   * 장문이 1.43 행간으로 그려져 줄이 붙었다.
+   */
+  it("prose 가 컨테이너의 행간을 덮지 않는다", () => {
+    const markup = renderToStaticMarkup(
+      createElement(MarkdownView, {
+        content: "본문 문단.\n\n- 항목\n\n> 인용",
+        emptyLabel: "Empty",
+        baseHeadingLevel: 1,
+      }),
+    );
+
+    expect(markup).toContain("leading-relaxed");
+    // 🔴 `p`·`ul`·`blockquote` 어디에도 `text-sm` 이 다시 붙지 않는다.
+    expect(markup.match(/text-sm/g)).toHaveLength(1);
+  });
+
+  /**
+   * 🔴 **읽기 폭은 prose 에만 건다.** 표와 코드블록은 넓은 자리가 필요하다 —
+   * 그것들까지 묶으면 비교할 열이 잘리거나 가로 스크롤이 일찍 생긴다.
+   */
+  it("읽기 폭 상한이 표·코드블록에는 걸리지 않는다", () => {
+    const markup = renderToStaticMarkup(
+      createElement(MarkdownView, {
+        content: "본문.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n```\ncode\n```",
+        emptyLabel: "Empty",
+        baseHeadingLevel: 1,
+      }),
+    );
+
+    const proseCapped = markup.match(/max-w-\[48rem\]/g) ?? [];
+    expect(proseCapped).toHaveLength(1); // 문단 하나뿐
+
+    // 표 wrapper 와 pre 는 상한 없이 제 폭을 쓴다.
+    expect(markup).toContain('<div class="mt-[calc(var(--md-gap)*1.35)] overflow-x-auto"');
+    expect(markup).not.toMatch(/<pre[^>]*max-w-\[48rem\]/);
+  });
+
+  /**
+   * 🔴 **글쓴이가 단계를 건너뛰어도 DOM 은 건너뛰지 않는다.**
+   *
+   * `##` 다음에 곧바로 `####` 가 오면 고정 대응은 `<h3>` 뒤에 `<h5>` 를 낸다 —
+   * axe 의 `heading-order` 위반이고 낭독기가 「빠진 층」으로 읽는다. 저장된 원문은
+   * 그대로 두고 그리는 쪽에서 층을 메운다.
+   */
   it("heading이 단계를 건너뛰어도 DOM heading level은 이어진다", () => {
     const markup = renderToStaticMarkup(
       createElement(MarkdownView, {
@@ -258,5 +352,64 @@ describe("MarkdownView knowledge content", () => {
     expect(markup).toContain("<h5");
     expect(markup).toContain("<h6");
     expect(markup).not.toContain("<h7");
+  });
+});
+
+/**
+ * 🔴 **inline code 가 제 안의 빈칸에서 갈렸다.**
+ *
+ * 제 규칙이 없어 본문의 `white-space: normal` 을 상속했고, 그래서
+ * `baseHeadingLevel + 1` 이 «baseHeadingLevel + / 1» 로 나뉘어 한 expression 이
+ * 두 줄에 걸쳤다. 판정 규칙만 떼어 시험한다 — 화면 없이 확인할 수 있어야 한다.
+ */
+describe("inline code 를 한 덩어리로 붙드는 판정", () => {
+  it("짧은 expression 은 붙든다", () => {
+    for (const expression of [
+      "baseHeadingLevel + 1",
+      "Math.min(2, 1 + 1)",
+      "previous + 1",
+    ]) {
+      expect(keepsInlineExpressionTogether(expression)).toBe(true);
+    }
+  });
+
+  it("빈칸 없는 identifier 는 손대지 않는다 — 끊길 자리가 애초에 없다", () => {
+    expect(keepsInlineExpressionTogether("baseHeadingLevel")).toBe(false);
+    expect(
+      keepsInlineExpressionTogether("rotateRefreshTokenFamilyAtomically"),
+    ).toBe(false);
+  });
+
+  /*
+ 🔴 붙들면 넘칠 수 있는 길이는 붙들지 않는다. 그 자리는 상속된
+ `overflow-wrap: break-word` 가 그대로 받는다.
+  */
+  it("좁은 본문에 들어가지 못할 길이는 붙들지 않는다", () => {
+    expect(keepsInlineExpressionTogether("a".repeat(23) + " b")).toBe(false);
+    expect(
+      keepsInlineExpressionTogether("Math.min(baseHeadingLevel + depth, 6)"),
+    ).toBe(false);
+  });
+
+  it("🔴 줄바꿈이 있으면 fenced block 이므로 붙들지 않는다", () => {
+    expect(keepsInlineExpressionTogether("const a = 1\nconst b = 2")).toBe(
+      false,
+    );
+    expect(keepsInlineExpressionTogether("h2 이력\n")).toBe(false);
+  });
+
+  it("🔴 fenced code block 에는 whitespace-nowrap 이 붙지 않는다", () => {
+    const markup = renderToStaticMarkup(
+      createElement(MarkdownView, {
+        content: "```\nconst a = 1\n```\n\n본문 `a + 1` 끝",
+        emptyLabel: "Empty",
+        baseHeadingLevel: 1,
+      }),
+    );
+
+    const pre = markup.slice(markup.indexOf("<pre"), markup.indexOf("</pre>"));
+    expect(pre).not.toContain("whitespace-nowrap");
+    // 같은 문서의 inline expression 에는 붙는다.
+    expect(markup).toContain("whitespace-nowrap");
   });
 });

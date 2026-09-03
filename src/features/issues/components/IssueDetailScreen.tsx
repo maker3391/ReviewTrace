@@ -519,7 +519,7 @@ function ActivityRow({
           <MarkdownContent
             content={activity.description}
             emptyLabel="—"
-            className="mt-1 gap-2 text-muted-foreground [&_p]:text-xs"
+            className="mt-1 [--md-gap:0.5rem] text-muted-foreground [&_p]:text-xs"
             baseHeadingLevel={2}
           />
         )}

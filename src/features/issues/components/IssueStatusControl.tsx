@@ -256,7 +256,7 @@ export function IssueStatusControl({
                 emptyLabel={labels.emptyResolutionSummary}
                 /* 🔴 이 패널을 감싼 `Section` 의 제목이 `<h2>` 다. */
                 baseHeadingLevel={2}
-                className="gap-2 [&_p]:text-xs"
+                className="[--md-gap:0.5rem] [&_p]:text-xs"
               />
             </div>
           )}

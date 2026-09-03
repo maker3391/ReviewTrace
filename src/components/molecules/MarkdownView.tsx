@@ -154,26 +154,50 @@ function headingTag(baseHeadingLevel: number, depth: number): HeadingTag {
  */
 type MarkdownDepth = 1 | 2 | 3 | 4 | 5 | 6;
 
-const HEADING_CLASS: Record<MarkdownDepth, string> = {
-  1: "mt-8 border-b border-border pb-1.5 text-base font-semibold tracking-tight first:mt-0",
-  2: "mt-8 text-[0.9375rem] font-semibold tracking-tight first:mt-0",
-  3: "mt-6 text-sm font-semibold tracking-tight first:mt-0",
-  /*
- 🔴 네 번째 층은 «크기»로 더 내려갈 자리가 없다 — 본문이 이미 14px 이다.
- 그래서 크기 대신 **대문자·자간·흐린 색**으로 가른다. 이 앱의 다른 하위 라벨과
- 같은 문법이라 새 장치를 만드는 것이 아니다.
-  */
-  4: "mt-5 text-xs font-semibold tracking-wide text-muted-foreground uppercase first:mt-0",
-  /*
- 🔴 **다섯째·여섯째 층은 «굵기와 위 여백»으로만 가른다.** 크기 축은 넷째에서 이미 바닥이다.
+/**
+ * heading 안의 inline code 를 «누른다».
+ *
+ * ## 🔴 pill 이 제목보다 먼저 눈에 들어왔다
+ *
+ * 본문에서 `code` 는 배경 pill 로 identifier 를 갈라 주는 옳은 장치다. 그런데 heading
+ * 안에서는 그 배경이 **문장 위계를 이긴다** — 실측(1440px)에서 15px heading 안의 code 가
+ * `0.9em` 이라 13.5px 로 «작아지면서» 배경과 패딩은 그대로였다. heading 을 더 작아 보이게
+ * 만들면서 동시에 제 배경으로 시선을 먼저 가져갔다.
+ *
+ * 배경과 패딩만 걷는다. **`font-mono` 는 남는다** — identifier 라는 뜻은 글꼴이 이미
+ * 말하고 있고, 굵기는 heading 에서 상속되므로 제목의 일부로 읽힌다.
+ */
+const HEADING_CODE = "[&_code]:bg-transparent [&_code]:p-0 [&_code]:text-[0.95em]";
 
- 🔴 **이 두 열쇠를 비워 두면 «역전»이 생긴다.** 열쇠가 없는 깊이는 override 를 만나지 못해
- `baseHeadingLevel` offset 도 class 도 받지 못하고 기본 렌더로 빠져나간다 — 그러면 base 가
- 2 일 때 깊이 4 는 `<h6>` 인데 깊이 5 는 `<h5>` 로 나가, **더 깊은 Markdown 이 더 얕은 DOM
- 단계**가 된다. 작성 계약이 `##` 부터 쓰라고 지시할 뿐 저장 단계가 깊이 5 를 막지 않는다.
+/**
+ * ## 🔴 heading 이 본문 bold 에 지고 있었다
+ *
+ * 실측(1440px): Section 제목 `16px/600` · `##` **`15px/600`** · 본문 `14px/400` ·
+ * 문단 안 `**bold**` **`14px/700`**. 크기 차이가 1px 이고 굵기는 heading(600)이 본문
+ * bold(700)보다 **약했다** — 훑는 눈에 문단 속 강조가 소제목처럼 보였다.
+ *
+ * 그래서 깊이 1~3 을 **`font-bold`(700)** 로 올린다. 이제 heading 은 본문 bold 와 같은
+ * 굵기이면서 크기가 더 크고, 아래 여백 규칙까지 더해져 층이 선다.
+ *
+ * 🔴 **`uppercase` 에 기대지 않는다.** 이 화면의 heading 은 한국어라 대문자 변환이
+ * **아무 일도 하지 않는다** — 예전 4~6 층이 그 축에 기대고 있었는데, 실제로 갈린 것은
+ * 그 안의 Latin identifier 뿐이었다. 남은 축은 **크기·굵기·색**이다.
+ *
+ * 🔴 **Section 제목(16px)을 넘지 않는다.** 이 문서는 그 제목 «아래»에 있다.
+ */
+const HEADING_CLASS: Record<MarkdownDepth, string> = {
+  1: `mt-10 border-b border-border pb-1.5 text-base font-bold tracking-tight ${HEADING_CODE}`,
+  2: `mt-9 text-[0.9375rem] font-bold tracking-tight ${HEADING_CODE}`,
+  3: `mt-8 text-sm font-bold tracking-tight ${HEADING_CODE}`,
+  4: `mt-7 text-sm font-semibold tracking-tight text-muted-foreground ${HEADING_CODE}`,
+  /*
+ 🔴 **다섯째·여섯째 층만 본문보다 작아진다.** 크기 축이 바닥나서다. 작성 계약이 `##` 부터
+ 쓰라고 지시하므로 이 깊이는 실제로 거의 오지 않지만, 열쇠를 비워 두면 override 를 만나지
+ 못해 `baseHeadingLevel` offset 도 class 도 받지 못하고 **더 깊은 Markdown 이 더 얕은 DOM
+ 단계로 나가는 역전**이 생긴다(저장 단계가 깊이 5 를 막지 않는다).
   */
-  5: "mt-4 text-xs font-medium tracking-wide text-muted-foreground uppercase first:mt-0",
-  6: "mt-3 text-xs font-normal tracking-wide text-muted-foreground uppercase first:mt-0",
+  5: `mt-6 text-xs font-semibold tracking-wide text-muted-foreground ${HEADING_CODE}`,
+  6: `mt-5 text-xs font-medium tracking-wide text-muted-foreground ${HEADING_CODE}`,
 };
 
 function heading(baseHeadingLevel: number, depth: MarkdownDepth) {
@@ -181,6 +205,27 @@ function heading(baseHeadingLevel: number, depth: MarkdownDepth) {
   return function MarkdownHeading({ children }: { children?: ReactNode }) {
     return <Tag className={HEADING_CLASS[depth]}>{children}</Tag>;
   };
+}
+
+/**
+ * 이 inline code 를 «한 덩어리»로 붙들어야 하는가.
+ *
+ * 순수 함수로 떼어 둔다 — 판정 규칙을 화면 없이 시험할 수 있어야 한다.
+ * 조건은 부르는 자리(`code` override)의 주석에 있다.
+ */
+const INLINE_CODE_NOWRAP_MAX = 24;
+
+export function keepsInlineExpressionTogether(children: ReactNode): boolean {
+  const text =
+    typeof children === "string"
+      ? children
+      : Array.isArray(children) && children.every((c) => typeof c === "string")
+        ? children.join("")
+        : null;
+  if (text === null) return false;
+  if (text.includes("\n")) return false;
+  if (!text.includes(" ")) return false;
+  return text.length <= INLINE_CODE_NOWRAP_MAX;
 }
 
 export function MarkdownView({
@@ -226,9 +271,44 @@ export function MarkdownView({
  `pre` 는 `white-space: pre` 라 애초에 줄바꿈 자리가 없어 **영향을 받지 않는다** —
  코드블록은 지금처럼 제 컨테이너 안에서 가로로 스크롤한다.
  */
+    /*
+ 🔴 **균일한 `gap` 을 쓰지 않는다 — proximity 를 만들 수 없다.**
+
+ 예전에는 `gap-4` 가 «모든» 형제 사이에 16px 을 똑같이 넣었다. flex gap 은 위아래를
+ 구분하지 못하므로 heading 아래를 좁힐 방법이 아예 없었고, 실측(1440px)에서 이렇게 나왔다 —
+
+ ```
+ heading 위 48px   (mt-8 + gap-4)
+ heading 아래 16px  <- 문단과 문단 사이 16px 과 «똑같다»
+ ```
+
+ 「이전 것과 떨어진다」는 신호는 있는데 **「자기 아래 것과 묶인다」는 신호가 0** 이었다.
+
+ 지금은 **블록마다 자기 위 여백을 소유**하고, 아래 두 줄이 관계를 정한다. margin 은 flex
+ 안에서 상쇄되지 않으므로 «다음 형제의 `mt`» 하나가 곧 그 사이의 간격이다 — 그래서
+ `mb` 를 쓰지 않는다.
+
+ 🔴 **`--md-gap` 은 부르는 쪽이 밀도를 조절하는 손잡이다.** 예전에 호출부가 넘기던
+ `gap-2`·`gap-1.5` 가 하던 일을 그대로 받는다(Decision Record 처럼 좁은 카드 안의 리듬).
+ 값을 안 주면 문단 사이 20px 이다.
+    */
     <div
       className={cn(
-        "flex flex-col gap-4 text-sm leading-relaxed break-words",
+        /*
+ 🔴 **`break-keep` — 한국어는 «어절»에서 끊는다.** 기본값은 음절 사이 어디서나 끊어
+ 「정규화하고」가 «정 / 규화하고» 로 갈렸다(실측 1440px).
+
+ 🔴 **`break-words` 와 나란히 쓸 수 없다.** 둘은 서로 다른 CSS 속성인데
+ (`overflow-wrap` · `word-break`) tailwind-merge 는 **같은 그룹으로 묶어 뒤엣것만 남긴다** —
+ 실제로 `break-words` 가 조용히 사라져 긴 identifier 의 넘침 방지가 풀렸다. 그래서
+ `overflow-wrap` 은 arbitrary property 로 못 박는다.
+        */
+        "[--md-gap:1.25rem] flex flex-col text-sm leading-relaxed break-keep [overflow-wrap:break-word]",
+        "[&>*:first-child]:mt-0",
+        /* heading 은 자기 아래 것과 «묶인다» — 위 여백의 1/5 남짓만 둔다. */
+        "[&>:where(h1,h2,h3,h4,h5,h6)+*]:mt-[calc(var(--md-gap)*0.4)]",
+        /* 표·코드블록·인용은 덩어리다 — 들어갈 때처럼 «나올 때»도 문단 사이보다 넓다. */
+        "[&>:where(pre,blockquote,div,hr)+*]:mt-[calc(var(--md-gap)*1.35)]",
         className,
       )}
     >
@@ -307,26 +387,78 @@ export function MarkdownView({
           h5: heading(baseHeadingLevel, 5),
           h6: heading(baseHeadingLevel, 6),
           /*
- Markdown 의 빈 줄은 paragraph 로 나뉘고, paragraph 안의 단일 newline 은 Text node 로
- 남는다. `whitespace-pre-wrap` 으로 그 newline 도 화면에서 보존한다. remark-breaks 로
- 의미를 `<br>` 로 바꾸지 않으므로 저장된 Markdown 구조는 그대로다.
+ 🔴 **`whitespace-pre-wrap` 을 걷었다 — 원문의 줄바꿈이 화면의 줄바꿈이 아니다.**
+
+ 그것을 두면 문단 «안»의 single newline 이 강제 줄바꿈이 돼, 글쓴이가 편집기 폭에 맞춰
+ 접은 자리가 화면에서 문장을 끊는다. 두 가지가 그 선택을 뒤집었다 —
+
+ - **hard break 는 진짜 `<br/>` 다.** 뒤 공백 두 칸은 remark 가 노드로 만들므로
+   `pre-wrap` 없이도 그대로 남는다. 그것을 지키려고 필요한 값이 아니었다
+ - **`<li>` 는 이미 접고 있었다.** `pre-wrap` 은 `p` 에만 있어, 같은 원문의 같은 줄바꿈이
+   문단에서는 줄바꿈이고 목록에서는 공백이었다
+
+ 저장된 원문은 그대로다 — 바뀐 것은 그리는 방식뿐이다.
  */
+          /*
+ 🔴 **`text-sm` 을 다시 선언하지 않는다 — 그것이 행간을 죽이고 있었다.**
+
+ 위 컨테이너가 `text-sm leading-relaxed`(14px / 1.625 = 22.75px)를 주는데, 이 override 들이
+ 각자 `text-sm` 을 «다시» 선언하고 있었다. Tailwind 의 `text-sm` 은 font-size 와
+ **line-height 를 함께** 설정하므로 22.75px 가 **20px 로 덮였다**(실측). 그래서 14px
+ 한국어 장문이 1.43 행간으로 그려져 줄이 서로 붙었다.
+
+ 증거는 `pre` 였다 — 그것만 `text-sm` 을 쓰지 않아 **혼자 22.75px** 로 측정됐다.
+
+ 크기는 컨테이너에서 상속하고, 호출부가 `[&_p]:text-xs` 로 줄이면 `leading-relaxed` 가
+ «비율»이라 행간도 함께 줄어든다.
+
+ 🔴 **읽기 폭은 prose 에만 건다.** 1920px 에서 본문이 994px 로 퍼져 줄당 103자였다 —
+ 다음 줄 첫머리를 찾는 데 눈이 되돌아간다. `48rem` 은 1440px(723px)에서는 걸리지 않고
+ 1024px 이하에서는 애초에 닿지 않으므로 **좁은 화면의 본문 폭을 한 픽셀도 뺏지 않는다.**
+ 표와 코드블록은 이 상한을 받지 않는다 — 그것들은 넓은 자리가 필요하다.
+          */
           p: ({ children }) => (
-            <p className="whitespace-pre-wrap text-sm">{children}</p>
+            <p className="mt-[var(--md-gap)] max-w-[48rem]">
+              {children}
+            </p>
           ),
           ul: ({ children }) => (
-            <ul className="list-disc space-y-1.5 pl-5 text-sm marker:text-muted-foreground">{children}</ul>
+            <ul className="mt-[var(--md-gap)] max-w-[48rem] list-disc space-y-1.5 pl-5 marker:text-muted-foreground">
+              {children}
+            </ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal space-y-1.5 pl-5 text-sm marker:text-muted-foreground">{children}</ol>
+            <ol className="mt-[var(--md-gap)] max-w-[48rem] list-decimal space-y-1.5 pl-5 marker:text-muted-foreground">
+              {children}
+            </ol>
           ),
           blockquote: ({ children }) => (
-            <blockquote className="border-l-2 border-border bg-surface-muted/50 py-2 pr-3 pl-3 text-sm text-muted-foreground">
+            <blockquote className="mt-[calc(var(--md-gap)*1.35)] max-w-[48rem] border-l-2 border-border bg-surface-muted/50 py-2 pr-3 pl-3 text-muted-foreground">
               {children}
             </blockquote>
           ),
+          /*
+ 🔴 **짧은 expression 은 한 덩어리로 둔다.** inline code 는 제 규칙이 없어 본문의
+ `white-space: normal` 을 상속했고, 그래서 `baseHeadingLevel + 1` 이 제 안의 빈칸에서
+ «baseHeadingLevel + / 1» 로 갈렸다.
+
+ 조건 셋을 모두 만족할 때만 붙인다 — 나머지는 **오늘 동작 그대로**다.
+
+ - **빈칸이 있다** = expression 이다. 빈칸 없는 identifier 는 애초에 끊길 자리가 없고,
+   `nowrap` 을 붙이면 긴 것이 넘칠 길만 열린다
+ - **줄바꿈이 없다** = fenced block 이 아니다. `pre` 안의 code 는 이 자리를 지나가되
+   본문이 여러 줄이라 걸리지 않는다
+ - **24자 이하** — Geist Mono 12.6px 에서 자당 7.56px 이라 181px + 패딩 8px 이다.
+   가장 좁은 본문(390px 에서 237px)에 들어간다. 그보다 길면 `nowrap` 을 붙이지 않아
+   상속된 `overflow-wrap: break-word` 가 그대로 안전망이 된다
+          */
           code: ({ children }) => (
-            <code className="rounded-sm bg-muted/70 px-1 py-0.5 font-mono text-[0.9em]">
+            <code
+              className={cn(
+                "rounded-sm bg-muted/70 px-1 py-0.5 font-mono text-[0.9em]",
+                keepsInlineExpressionTogether(children) && "whitespace-nowrap",
+              )}
+            >
               {children}
             </code>
           ),
@@ -339,7 +471,7 @@ export function MarkdownView({
  */
             <pre
               className={cn(
-                "overflow-x-auto rounded-sm border border-border bg-muted/40 p-3 text-accent-foreground",
+                "mt-[calc(var(--md-gap)*1.35)] overflow-x-auto rounded-sm border border-border bg-muted/40 p-3 text-accent-foreground",
                 /* 언어가 없는 fenced block도 `<pre><code>`다. inline 장식은 parent에서 확실히 걷는다. */
                 "[&_code]:rounded-none [&_code]:bg-transparent [&_code]:p-0",
                 "[&_.hljs-comment]:text-muted-foreground [&_.hljs-comment]:italic",
@@ -364,7 +496,7 @@ export function MarkdownView({
           ),
           table: ({ children }) => (
             /* 🔴 표는 prose 상한을 받지 않는다 — 비교할 열이 들어갈 폭이 필요하다. */
-            <div className="overflow-x-auto">
+            <div className="mt-[calc(var(--md-gap)*1.35)] overflow-x-auto">
               <table className="w-full border-collapse text-xs">
                 {children}
               </table>
@@ -380,7 +512,9 @@ export function MarkdownView({
               {children}
             </td>
           ),
-          hr: () => <hr className="border-border" />,
+          hr: () => (
+            <hr className="mt-[calc(var(--md-gap)*1.35)] border-border" />
+          ),
         }}
       >
         {content}
