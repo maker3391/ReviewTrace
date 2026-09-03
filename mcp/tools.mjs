@@ -70,49 +70,101 @@ const category = z.enum([
  * 🔴 그리고 그 규칙은 **여기 한 줄 묶음으로만** 산다 — 11개 field 설명에 복사하는 순간
  * 위의 첫 번째 실패(형식이 목적을 덮는 것)가 그대로 되돌아온다.
  *
+ * 🔴 **세 번째 기울어짐은 형식이 아니라 «추상화 수준»이었다.** 위 두 교정이 전부 Markdown
+ * 구조에 관한 것이라, 계약을 완벽히 지키면서도 `<h4>` · `className` · DOM tag 를 주어로 삼은
+ * 「JSX debugging note」가 나올 수 있었다 — 실제로 그렇게 쌓였다(2026-09-03). 형식은 옳고
+ * 내용의 눈높이가 틀린 경우다.
+ *
+ * 🔴 **그 교정이 곧바로 반대편으로 넘어갔다.** 「identifier 는 최소한만」이 «정확도를 깎는»
+ * 쪽으로 작동해, 원인을 짚는 데 필요한 이름까지 지운 은유적인 문장이 나왔다 — 「그런 통로가
+ * 없다」·「그 자리에 적힌 값이다」. 읽는 사람이 다시 해석해야 하면 abstraction 이 아니라
+ * **vagueness** 다. 그래서 지금 계약은 둘을 함께 말한다: 구현 세부는 숨기되 **문장은 가장
+ * 직접적으로**, 원인을 정확하게 만드는 identifier 는 **지우지 않는다.**
+ *
+ * 기준은 **behavior · causality · impact** 다. source-level detail 은 근거이지 주어가 아니고,
+ * 근거를 담는 칸은 이미 따로 있다(Code Evidence). 그래서 이 규칙은 「무엇을 쓰지 마라」가
+ * 아니라 **「그것을 어디에 두어라」**로 적었다.
+ *
+ * ## 🔴 네 번째 기울어짐 — 계약이 «좋은 문서의 모델»이 아니라 «실패 목록»으로 자랐다
+ *
+ * 위 세 교정이 전부 **추가**로 처리돼, 금지 문장이 생성 지침을 압도했다. 그러면 Agent 는
+ * 위반을 피하는 쪽으로 최적화해 **가장 안전한 모양**(문단 + `##` 두어 개)에 수렴한다.
+ *
+ * 구조를 정하는 문장이 사실상 하나였는데 그 대응표에 **table 과 blockquote 가 없었다** —
+ * `table`·`blockquote` 는 계약 전문에 한 번도 등장하지 않았고 code block 은 제한으로만
+ * 등장했다. 여러 대상의 같은 속성을 비교하는 내용이 prose 로 흘러내린 것은 규칙을 어겨서가
+ * 아니라 **쓸 구조가 목록에 없어서**였다.
+ *
+ * 그리고 field 사이의 규칙이 「되풀이하지 마라」**뿐**이었다. 중복 금지만 있고 연속성이 없으면
+ * 각 field 가 **서로 겹치지 않는 독립된 미니 보고서**가 된다 — 원하던 「한 문서」의 반대다.
+ *
+ * 그래서 2026-09-03 에 **더하지 않고 재조정**했다(약 30문장 -> 20문장):
+ *
+ * - 관계 -> 구조 대응표를 **완성**했다. table·blockquote·code block·inline code 가 들어가고,
+ *   그 자리에 있던 개별 문장 넷(ordered·nested·code block 제한 등)은 표에 흡수돼 사라졌다
+ * - **field = chapter** 를 선언했다. 세 규칙(`한 번만 설명`·`FIELD_HINT`·field 책임)을 하나로 합쳤다
+ * - 🔴 **`##`/`###` 층 개수 지시를 지웠다.** 그것이 「긴 prose + heading 두 개」를 직접 만들었다
+ * - 🔴 **「판단을 바꾸지 않는 실측값은 생략」을 뒤집었다.** 그 문장이 **table 의 재료**를 지웠다 —
+ *   결론 이해에 필요한 비교는 남기고, 증명용 source dump 만 Evidence 로 보낸다
+ * - 🔴 **field 설명에서 형식 지시를 걷어냈다.** 여섯 칸이 각자 「bullet 으로」·「ordered list 로」를
+ *   지시하고 있었다. field 설명은 작성 시점에 가장 가까이 붙어 **전역 규칙을 이긴다** — 대응표를
+ *   아무리 넓혀도 그 칸들은 계속 자기 template 을 따랐다. 형식의 정본은 이제 한 곳뿐이다
+ *
+ * 🔴 **구조를 «몇 개 써라»로 바꾸지 않았다.** 그러면 장식이 늘 뿐이다. 정하는 것은 언제나 관계다.
+ *
  * 우선순위: correctness > evidence > causality > **information hierarchy** > readability > formatting.
  */
 export const NARRATIVE_MARKDOWN =
-  "Review Knowledge는 사람이 빠르게 훑는 기술 문서로 쓴다. " +
-  "판단 기준은 «Markdown을 얼마나 썼는가»가 아니라 «읽는 사람이 5초 안에 구조와 핵심 판단을 찾을 수 있는가»다. " +
-  "우선순위는 correctness > evidence > causality > information hierarchy > readability > formatting이다. " +
+  "Review Knowledge는 나중에 다시 읽어도 지식으로 쓸 수 있는 «하나의 기술 문서»다 — Issue 하나가 문서 하나이고, 각 field는 그 문서 안의 chapter다. " +
+  "빠르게 훑히는 것은 그 문서를 읽는 방식이지 목표가 아니다. 우선순위는 correctness > evidence > causality > information hierarchy > readability > formatting이다. " +
   "🔴 긴 문단 두셋으로만 끝내지 않는다(paragraph wall 금지). " +
   "한 field 안에 서로 다른 논점이 둘 이상이면 그 내용에 맞는 subheading으로 나눈다 — " +
-  "예: 직접 원인 / 구조적 문제 / 영향 범위 / 실행 경로 / 핵심 변경 / 검증 방법 / 주의 사항. " +
-  "이 예시를 template처럼 그대로 복사하지 말고 실제 내용에 맞는 heading을 고른다. " +
-  "🔴 Issue의 description(요약)만 예외다 — 뒤에 올 rootCause·failurePath·suggestion을 미리 되풀이하지 말고 짧은 요약으로 연다. " +
-  "🔴 문단은 글자 수·줄 길이·화면 폭이 아니라 semantic role로 나눈다 — «한 문단에는 하나의 핵심 역할만» 둔다. " +
-  "증상 → 판단 근거 → 판단의 한계·반전 → 실제 증거 → 영향 → 결론처럼 역할이 이어질 때, 각 단계가 독립적인 의미를 가지면 빈 줄로 가른다. " +
+  "🔴 heading은 개념 라벨이 아니라 그 자리의 원인·변경을 지목하는 문장으로 쓴다 " +
+  "— 예: «`baseHeadingLevel` 기본값이 부모 계층을 무시한다»·«누락된 prop을 검출하는 검증이 없다». " +
+  "«직접 원인»·«구조적 문제»·«영향 범위» 같은 일반 라벨을 template처럼 늘어놓지 않는다. " +
+  "🔴 무엇을 쓸지 정하기 «전에» 전달하려는 정보 사이의 관계를 먼저 판단하고, 그 관계를 가장 명확하게 드러내는 구조를 고른다 — Markdown 문법을 쓰는 것 자체가 목표가 아니다. " +
+  "독립된 semantic topic은 heading, 설명·원인·인과는 paragraph, 병렬적인 사실·조건·영향·선택지는 unordered list, 시간·실행·실패·상태 전이 순서는 ordered list, 상위 항목과 세부의 관계는 nested list, " +
+  "여러 대상의 «같은 속성» 비교는 table, 문서 전체에서 기억해야 할 핵심 판단·제약·주의는 blockquote, component·function·prop·상태·설정 key 같은 identifier는 inline code, " +
+  "실제 코드가 prose보다 짧고 명확하게 메커니즘을 보여 줄 때는 fenced code block이다. " +
+  "🔴 한 Issue에서 이 구조를 전부 쓸 필요는 없다. 내용의 관계상 그 구조가 prose보다 명확할 때만 쓰고, 문서를 보기 좋게 하려고 억지로 넣지 않는다 — 반대로 여러 종류의 정보가 있는데 전부 paragraph로만 쓰지도 않는다. " +
+  "🔴 문단은 글자 수·줄 길이·화면 폭이 아니라 semantic role로 나눈다 — 한 문단에 핵심 역할 하나. 하나의 인과가 자연스럽게 이어지면 쪼개지 말고 문단으로 두고, 사실 하나뿐인 짧은 내용은 문단 하나가 가장 좋다. " +
   "«하지만·반면·그러나·실제로·결과적으로·따라서·다만·문제는·중요한 점은» 은 논리 전환 신호일 뿐이다 — 낱말을 봤다고 줄바꿈하지 말고 실제로 역할이나 관점이 바뀔 때만 새 문단으로 간다. " +
-  "한 문단에 증상과 원인과 반론과 증거와 해결책을 전부 넣지 않는다. " +
-  "무엇으로 가를지는 관계가 정한다 — 큰 topic 변화는 heading, 같은 topic 안의 논리 전환은 문단, 병렬 항목은 bullet, 상하 관계는 nested list, 순서가 있는 과정은 ordered list다. " +
-  "🔴 heading은 `##`에서 시작한다. field 안의 큰 topic이 `##`이고 그 아래 세부가 `###`다. " +
-  "`#`은 쓰지 않는다 — 그 자리는 화면이 그리는 field 제목이 이미 차지한다. " +
-  "🔴 모든 subheading을 `###` 하나로만 쓰지 않는다. 그러면 층이 하나뿐이라 훑는 눈에 구조가 생기지 않는다 — 실제로 그렇게 쌓인 적이 있다. " +
-  "논점이 둘 이상 갈리면 `##`로 나누고, 그 안에서 다시 갈릴 때만 `###`로 내려간다. " +
-  "🔴 문단만 잘게 나누는 것으로 복잡한 내용을 해결하지 않는다. " +
-  "상위 개념과 그 세부가 있으면 nested list로 계층을 드러낸다 — 전부 flat bullet으로 늘어놓지 않는다. " +
-  "실행·실패·검증처럼 순서가 의미를 갖는 것은 ordered list로 쓰고, 각 단계는 «행동 → technical identifier → 결과»가 바로 읽히게 적고 세부는 그 아래 nested bullet으로 둔다. " +
+  "🔴 heading은 `##`에서 시작하고 그 아래 세부가 `###`다. `#`은 쓰지 않는다 — 그 자리는 화면이 그리는 field 제목이 이미 차지한다. " +
   "핵심 판단·중요한 구분에는 bold를 쓴다 — 한 section에 하나둘이면 충분하고 문장 전체를 칠하지 않는다. " +
   "🔴 bold를 heading 대신 쓰지 않는다 — 줄 하나를 통째로 `**소제목**` 으로 세우면 굵은 글자일 뿐 문서 구조가 아니라서, 목차로 잡히지 않고 훑는 눈에도 층이 생기지 않는다. topic이 갈리는 자리는 heading이고 bold는 그 안의 강조다. " +
+  "🔴 각 field는 독립된 답이 아니라 «앞 field가 세운 사실을 전제로 다음 논리 단계로 나아가는 자리»다 — 앞에서 설명한 것을 다음 field에서 처음부터 다시 설명하지 않는다. " +
+  "description은 관찰되는 현상과 왜 문제인지로 문서를 열고, rootCause는 그것을 되풀이하지 말고 technical cause와 그 cause가 현상을 만드는 이유로 바로 진행하고, " +
+  "failurePath는 원인을 prose로 다시 풀지 말고 실제 실행 순서·상태 변화·재현 과정을 보이고, suggestion은 원인을 다시 강의하지 말고 앞서 확립된 원인을 전제로 수정 방향과 필요한 검증을 적고, " +
+  "resolutionSummary와 Decision Record는 finding을 다시 요약하지 말고 실제로 무엇을 적용했고 왜 그것을 골랐고 어떻게 검증했고 어떤 trade-off·residual risk가 남았는지를 남긴다. " +
+  "🔴 이 흐름은 고정 template이 아니다 — finding의 성격상 필요 없는 단계는 생략한다. 중요한 것은 순서가 아니라 field 사이에 정보 책임이 겹치지 않는 것이다. " +
+  "처음 보는 개발자가 heading과 첫 문장만 읽고 «어떤 코드·계약이 왜 잘못됐는지» 말할 수 있어야 한다 — 해석해야 이해되면 실패다. " +
+  "🔴 결론을 이해하는 데 필요한 «비교»와 검증된 값은 문서에 남긴다 — 그 관계에 맞는 구조로 두고 Evidence로 밀어내지 않는다. " +
+  "검증 과정에서 나온 값을 전부 담지 않을 뿐이고, 판단을 뒷받침하지 않는 증명용 source detail만 Evidence의 몫이다. " +
+  "🔴 원인을 특정하는 technical identifier(component·prop·함수·설정 key·상태 이름)는 «적극적으로» 쓴다 — 그것이 원인을 가장 짧고 정확하게 지목한다. " +
+  "«특정한 맥락»·«통로»·«장치가 비어 있다»·«둘이 형제가 된다» 처럼 다시 해석해야 이해되는 추상 표현으로 바꾸지 않는다. 은유·수사·돌려 말하기 금지, 한 문장에 하나의 판단. " +
+  "🔴 숨기는 것은 identifier가 아니라 «source dump»다 — 긴 JSX 조각·className 문자열·CSS 속성값 나열·정확한 source expression은 narrative의 주인공이 아니고 그 자리는 Code Evidence다. " +
+  "둘은 다른 규칙이다: `MarkdownView`·`baseHeadingLevel`·`Section`은 쓰고, className이 박힌 JSX 한 줄은 Evidence로 보낸다. " +
   "file·function·class·method·symbol·config key·package·branch·commit·HTTP status·SQLSTATE·command 같은 technical identifier는 inline code로 표시한다. " +
-  "실제 source snippet이 근거일 때만 fenced code block을 쓴다. " +
-  "하나의 인과가 자연스럽게 이어지는 설명은 억지로 쪼개지 말고 문단으로 둔다. " +
-  "정말 사실 하나뿐인 짧은 내용은 문단 하나가 가장 좋다 — heading 하나에 한 문장 같은 빈 ceremony는 만들지 않는다. " +
-  "금지: 모든 field에 같은 heading template을 쓰는 것, field 이름을 heading으로 되풀이하는 것(UI가 이미 그린다), " +
+  "heading 하나에 한 문장 같은 빈 ceremony는 만들지 않는다. " +
+  "금지: 모든 field에 같은 heading template을 쓰는 것, 내용과 무관하게 늘 같은 소제목 묶음을 생성하는 것, field 이름을 heading으로 되풀이하는 것(UI가 이미 그린다), " +
   "모든 문장을 bullet로 바꾸는 것, 의미 없는 heading, 과도한 bold, bold 한 줄을 heading 대신 세우는 것, 장식을 위한 Markdown, " +
+  "관계와 무관하게 구색으로 넣는 table·blockquote·code block, 앞선 Issue의 좋은 문구를 다음 Issue에 그대로 복사하는 것, " +
   "글자 수 N자마다 강제로 개행하는 것, 화면 폭을 예상해 줄을 끊는 것, 문장 중간의 `<br>`, " +
   "모든 문장을 각각 문단으로 만드는 것, 접속사마다 기계적으로 문단을 나누는 것, " +
-  "heading 바로 아래 같은 문구를 되풀이하는 것, Markdown 문법 사용 자체를 목표로 삼는 것, paragraph wall, raw HTML.";
+  "heading 바로 아래 같은 문구를 되풀이하는 것, 원인 한 줄 + 수정 한 줄짜리 메모로 축소하는 것, paragraph wall, raw HTML.";
 
 /**
  * 각 field 설명에 붙는 «한 줄». 전체 규칙은 server instructions 가 갖는다.
  *
  * 🔴 field 설명은 그 칸이 무엇을 담는지가 주인공이어야 한다 — 형식 규칙을 여기 다시 적으면
  * 열두 칸에 같은 문단이 열두 번 실려 정작 목적이 묻힌다.
+ *
+ * 🔴 **그런데 「되풀이하지 마라」만 열한 번 실렸다.** 중복 금지는 field 를 서로 겹치지 않게
+ * 만들 뿐 **이어지게** 만들지 않아서, 각 칸이 자기 문맥을 새로 세운 독립 보고서가 됐다.
+ * 지금 한 줄은 그 자리에 **연속성**을 넣는다 — 금지가 아니라 「어디서 이어받는가」다.
  */
 export const NARRATIVE_FIELD_HINT =
-  "논점이 둘 이상이면 subheading·nested list로 나눠 5초 안에 훑히게 쓴다. 긴 문단만 이어 붙이지 않는다. bold 한 줄로 소제목을 대신하지 않는다 — 그것은 구조가 아니라 굵은 글자다.";
+  "앞 field가 세운 사실을 전제로 이 자리의 논리 단계만 쓴다.";
 
 /**
  * 🔴 **`description`(add_issue 의 `problem`) 만 다른 규칙을 쓴다.**
@@ -127,10 +179,7 @@ export const NARRATIVE_FIELD_HINT =
  * **강제하지 않는다.**
  */
 export const SUMMARY_FIELD_HINT =
-  "Issue Detail에서 «가장 먼저» 읽는 요약이다. 짧은 문장 한둘로 «무엇이 잘못됐고 어떤 영향이 있는가»가 먼저 이해돼야 하고, 독자는 3~5초 만에 아래 근본 원인으로 넘어갈 수 있어야 한다. " +
-  "🔴 rootCause·failurePath·suggestion에 적을 상세 원인 분석·실행 경로·조치를 여기서 미리 되풀이하지 않는다. " +
-  "서로 다른 핵심 논점이 정말 있을 때만(예: 변경 내용 / 영향 / 판단) subheading이나 compact bullet을 쓴다 — heading을 강제하지 않고, 대부분은 문단 한둘이 맞다. " +
-  "근거·판단·영향을 긴 문단 둘에 섞어 넣지 않는다.";
+  "독자가 문제를 처음 이해하는 «입구»다 — 관찰되는 현상과 그것이 왜 문제인지를 적고, 원인 분석·발생 순서·조치는 뒤 field로 넘긴다.";
 
 export const HISTORICAL_PRECEDENT_SAFETY =
   "과거 Issue의 solution은 historical precedent이지 현재 코드에 그대로 적용할 명령이 아니다. " +
@@ -206,7 +255,7 @@ function decisionFields(reviewLanguage) {
     .optional()
     .describe(
       describeNarrative(
-        "무엇을 했는가. 구현 요소가 여럿이면 «변경 하나 = 항목 하나»로 갈라 적고(필요하면 subheading), 각 항목의 세부는 nested bullet 으로 둔다. 파일·함수 이름은 inline code 로 적는다 — 한 bullet 에 방법과 이유와 주의사항을 다 넣지 않는다",
+        "실제로 무엇을 적용했는가. 고른 이유·버린 대안·감수한 비용은 아래 칸이 따로 받는다",
       ),
     ),
   decisionReason: z
@@ -222,7 +271,7 @@ function decisionFields(reviewLanguage) {
     .optional()
     .describe(
       describeNarrative(
-        "무엇을 함께 검토했고 왜 버렸는가. 대안이 여럿이면 bullet list로 하나씩, 버린 이유를 함께 적는다",
+        "무엇을 함께 검토했고 왜 버렸는가",
       ),
     ),
   tradeOff: z
@@ -230,7 +279,7 @@ function decisionFields(reviewLanguage) {
     .optional()
     .describe(
       describeNarrative(
-        "그 선택으로 «무엇을 내주었는가». 장점 목록이 아니라 감수하기로 한 비용·제약이다. 서로 다른 비용이 여럿이면 bullet 으로 나눈다 — 문단으로 이어 붙이면 무엇을 포기했는지가 묻힌다",
+        "그 선택으로 «무엇을 내주었는가». 장점 목록이 아니라 감수하기로 한 비용·제약이다",
       ),
     ),
   verification: z
@@ -238,7 +287,7 @@ function decisionFields(reviewLanguage) {
     .optional()
     .describe(
       describeNarrative(
-        "고쳐졌음을 어떻게 확인했는가. 실행 순서가 의미를 가지면 ordered list, 나열이면 bullet list로 쓰고 명령은 inline code로 적는다",
+        "고쳐졌음을 어떻게 확인했는가 — 무엇을 돌렸고 무엇이 달라졌는지",
       ),
     ),
   regressionTest: z
@@ -250,7 +299,7 @@ function decisionFields(reviewLanguage) {
     .optional()
     .describe(
       describeNarrative(
-        "그래도 남아 있는 위험. 서로 다른 위험이 여럿이면 bullet 으로 나눈다. 하나뿐이면 문단 하나로 충분하다 — 없는 위험을 만들지 않는다",
+        "그래도 남아 있는 위험 — 없는 위험을 만들지 않는다",
       ),
     ),
   };
@@ -489,7 +538,7 @@ export function registerTools(
           .optional()
           .describe(
             describeSummary(
-              "무엇이 잘못됐고 어떤 영향이 있는가 — Issue Detail 을 연 사람이 처음 읽는 요약이다. 원인 분석은 rootCause 에, 터지는 경로는 failurePath 에, 조치는 suggestion 에 넘긴다",
+              "관찰되는 현상과 그것이 왜 문제인가",
             ),
           ),
         rootCause: z
@@ -497,7 +546,7 @@ export function registerTools(
           .optional()
           .describe(
             describeNarrative(
-              "왜 그렇게 됐는가. 증상이 아니라 원인이다 — 체크리스트로 시작하지 말고 «무엇이 어떤 조건에서 이 결과를 만들었는지»부터 설명한다. 직접 원인·구조적 원인·영향 범위처럼 논점이 갈리면 그 내용에 맞는 subheading 으로 나눈다",
+              "구체적인 technical cause 와 그것이 현상을 만드는 이유",
             ),
           ),
         failurePath: z
@@ -505,7 +554,7 @@ export function registerTools(
           .optional()
           .describe(
             describeNarrative(
-              "이 문제가 실제로 터지는 경로 (보안이면 공격 경로). 단계가 이어지면 ordered list 로 «순서대로» 쓴다 — 각 단계는 실제로 무엇이 실행되는지를 적고 필요하면 nested list 로 조건을 붙인다",
+              "문제가 실제로 발생하는 순서·상태 변화·재현 과정 (보안이면 공격 경로)",
             ),
           ),
         patternKey: z
@@ -520,7 +569,7 @@ export function registerTools(
           .optional()
           .describe(
             describeNarrative(
-              "이렇게 고치라는 제안. 조치가 여럿이면 bullet list 로 나누고, 바꿀 자리(파일·함수·설정 key)는 inline code 로 짚는다",
+              "앞서 확립된 원인을 전제로 한 수정 방향과 필요한 검증",
             ),
           ),
         tags: z.array(z.string()).optional(),

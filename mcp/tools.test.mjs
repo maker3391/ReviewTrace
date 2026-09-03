@@ -354,8 +354,9 @@ describe("Review Knowledge Markdown authoring contract", () => {
   it("계약이 information hierarchy 를 우선순위와 금지로 못 박는다", () => {
     expect(NARRATIVE_MARKDOWN).toContain("information hierarchy");
     expect(NARRATIVE_MARKDOWN).toContain("paragraph wall");
-    // 판단 기준이 「얼마나 썼는가」가 아니라 「훑을 수 있는가」다.
-    expect(NARRATIVE_MARKDOWN).toContain("5초");
+    // 🔴 목표는 «스캔»이 아니라 «다시 쓸 수 있는 문서»다 — 훑히는 것은 읽는 방식일 뿐이다.
+    expect(NARRATIVE_MARKDOWN).toContain("하나의 기술 문서");
+    expect(NARRATIVE_MARKDOWN).toContain("읽는 방식이지 목표가 아니다");
     // 논점이 둘 이상이면 나눈다.
     expect(NARRATIVE_MARKDOWN).toContain("논점이 둘 이상");
   });
@@ -389,10 +390,52 @@ describe("Review Knowledge Markdown authoring contract", () => {
    * 이 시험은 계약이 **level 을 실제로 지정하는지**를 붙든다.
    */
   it("계약이 heading level 을 지정한다 — `##` 에서 시작해 `###` 로 내려간다", () => {
-    expect(NARRATIVE_MARKDOWN).toContain("`##`에서 시작한다");
+    expect(NARRATIVE_MARKDOWN).toContain("`##`에서 시작하고 그 아래 세부가 `###`다");
     expect(NARRATIVE_MARKDOWN).toContain("`#`은 쓰지 않는다");
-    // 🔴 한 층만 쓰는 것을 이름으로 금지한다 — 실제로 그렇게 쌓였기 때문이다.
-    expect(NARRATIVE_MARKDOWN).toContain("`###` 하나로만 쓰지 않는다");
+    /*
+ 🔴 **「`###` 하나만 쓰지 마라」는 지웠다.** 층 «개수»를 지시하니 Agent 가 내용과 무관하게
+ `##` 두 개를 세워 「긴 prose + heading 두 개」로 수렴했다. 층은 이제 관계가 정한다 —
+ 독립된 semantic topic 이 있으면 heading 이고, 없으면 만들지 않는다.
+    */
+    expect(NARRATIVE_MARKDOWN).not.toContain("`###` 하나로만 쓰지 않는다");
+    expect(NARRATIVE_MARKDOWN).toContain("독립된 semantic topic은 heading");
+  });
+
+  /**
+   * 🔴 **계약이 「어떻게 쓰는가」만 말하고 「무엇을 주어로 삼는가」를 말하지 않았다.**
+   *
+   * 위의 시험들은 전부 Markdown 구조에 관한 것이다. 그래서 계약을 **완벽히 지키면서도**
+   * `<h4>` · `className` · DOM tag 를 주어로 삼은 「JSX debugging note」가 나올 수 있었다 —
+   * 실제로 그렇게 쌓였다(2026-09-03). 형식은 옳고 추상화 수준이 틀린 경우다.
+   *
+   * 이 시험은 계약이 **추상화 수준**을 실제로 지정하는지를 붙든다.
+   */
+  it("계약이 narrative 의 서술 순서를 지정한다 — 현상 다음에 구체적인 technical cause 다", () => {
+    expect(NARRATIVE_MARKDOWN).toContain(
+      "technical cause와 그 cause가 현상을 만드는 이유",
+    );
+    // 🔴 숨기는 대상은 identifier 가 아니라 «source dump» 다. 둘을 갈라 말해야 한다.
+    expect(NARRATIVE_MARKDOWN).toContain("숨기는 것은 identifier가 아니라");
+    expect(NARRATIVE_MARKDOWN).toContain("그 자리는 Code Evidence다");
+  });
+
+  /**
+   * 🔴 **추상화 규칙이 곧바로 반대편으로 넘어갔다.**
+   *
+   * 「identifier 는 최소한만」이 «정확도를 깎는» 쪽으로 작동해, 원인을 짚는 데 필요한
+   * 이름까지 지운 은유적인 문장이 나왔다 — 「그런 통로가 없다」·「그 자리에 적힌 값이다」.
+   * 읽는 사람이 다시 해석해야 하면 abstraction 이 아니라 **vagueness** 다.
+   *
+   * 이 시험은 계약이 **둘을 함께** 말하는지 붙든다 — 세부는 숨기되 문장은 직접적으로.
+   */
+  it("계약이 identifier 를 적극적으로 쓰라고 말한다 — 추상적 대체 표현을 이름으로 금지한다", () => {
+    // 🔴 identifier 는 «허용» 이 아니라 «적극적으로 쓰라» 여야 한다 — 소극적 허용은 금지문을 못 이긴다.
+    expect(NARRATIVE_MARKDOWN).toContain("«적극적으로» 쓴다");
+    expect(NARRATIVE_MARKDOWN).toContain("은유·수사·돌려 말하기 금지");
+    // 🔴 실제로 나왔던 추상 표현을 이름으로 금지한다.
+    expect(NARRATIVE_MARKDOWN).toContain("«특정한 맥락»");
+    // 🔴 heading 도 원인을 지목해야 한다 — 개념 라벨을 늘어놓으면 다시 기운다.
+    expect(NARRATIVE_MARKDOWN).toContain("heading은 개념 라벨이 아니라");
   });
 
   /**
@@ -416,25 +459,52 @@ describe("Review Knowledge Markdown authoring contract", () => {
   });
 
   /**
-   * 🔴 field 마다 «그 칸에 맞는 모양»을 말한다. 같은 문장을 열두 번 복사하면
-   * rootCause 와 tradeOff 가 같은 지시를 받는다.
+   * 🔴 **field 설명은 «역할»만 말한다 — 형식은 말하지 않는다.**
+   *
+   * 예전에는 여섯 칸이 각자 형식을 지시했다(`failurePath` 는 「ordered list 로 쓴다」,
+   * `tradeOff` 는 「여럿이면 bullet」…). field 설명은 작성 시점에 가장 가까이 붙어
+   * **전역 규칙을 이긴다** — 그래서 계약의 관계->구조 대응표를 아무리 넓혀도 그 칸들은
+   * 계속 자기 template 을 따랐다. 형식의 정본은 `NARRATIVE_MARKDOWN` 한 곳뿐이다.
    */
-  it("field마다 그 내용에 맞는 작성 방식을 말한다", () => {
+  it("field 설명은 형식이 아니라 그 칸의 역할을 말한다", () => {
     const handlers = captureTools({});
     const issue = handlers.metadata.get("add_issue").inputSchema;
     const fix = handlers.metadata.get("add_fix_attempt").inputSchema;
 
-    // rootCause 는 체크리스트가 아니라 인과 설명이 먼저다.
-    expect(issue.rootCause.description).toContain("문단");
-    expect(issue.rootCause.description).toContain("증상이 아니라 원인");
-    // failurePath 는 순서가 의미를 갖는다.
-    expect(issue.failurePath.description).toContain("ordered list");
+    // rootCause 는 cause 와 그것이 작동하는 이유만 담는다.
+    expect(issue.rootCause.description).toContain("technical cause");
+    expect(issue.rootCause.description).toContain("현상을 만드는 이유");
+    // failurePath 는 순서·상태 변화·재현 과정이다 — 「무엇을」이지 「어떤 list 로」가 아니다.
+    expect(issue.failurePath.description).toContain("순서·상태 변화·재현 과정");
     // tradeOff 는 장점 목록이 아니다.
     expect(fix.tradeOff.description).toContain("장점 목록이 아니라");
     // decisionReason 과 alternativesConsidered 는 겹쳐 적지 않는다.
     expect(fix.decisionReason.description).toContain("겹쳐 적지 않는다");
-    // residualRisk 는 여럿이면 나누고, 없으면 만들지 않는다.
-    expect(fix.residualRisk.description).toContain("여럿이면 bullet");
+    // residualRisk 는 없는 위험을 만들지 않는다.
+    expect(fix.residualRisk.description).toContain("없는 위험을 만들지 않는다");
+
+    /*
+ 🔴 **형식 낱말이 field 설명에 «없어야» 한다.** 여기서 되돌아오면 대응표가 다시 무력해진다.
+ `NARRATIVE_FIELD_HINT` 는 형식어를 담지 않으므로 설명 전체를 그대로 본다.
+    */
+    for (const description of [
+      issue.failurePath.description,
+      issue.suggestion.description,
+      fix.solution.description,
+      fix.tradeOff.description,
+      fix.verification.description,
+      fix.alternatives.description,
+      fix.residualRisk.description,
+    ]) {
+      for (const format of [
+        "ordered list",
+        "bullet",
+        "subheading",
+        "inline code",
+      ]) {
+        expect(description).not.toContain(format);
+      }
+    }
     expect(fix.residualRisk.description).toContain("없는 위험을 만들지 않는다");
   });
 
@@ -489,27 +559,28 @@ describe("Review Knowledge Markdown authoring contract", () => {
     expect(problem).not.toContain(NARRATIVE_FIELD_HINT);
     expect(problem).toContain(SUMMARY_FIELD_HINT);
 
-    // 이 칸이 무엇인지 — 처음 읽는 요약이고, 넘어갈 시간이 정해져 있다.
-    expect(SUMMARY_FIELD_HINT).toContain("가장 먼저");
-    expect(SUMMARY_FIELD_HINT).toContain("3~5초");
-    // 🔴 뒤 칸의 상세를 여기서 되풀이하지 않는다.
-    expect(SUMMARY_FIELD_HINT).toContain("rootCause·failurePath·suggestion");
-    expect(SUMMARY_FIELD_HINT).toContain("미리 되풀이하지 않는다");
-    // 🔴 heading 을 «강제»하지 않는다 — 대부분은 문단 한둘이 맞다.
-    expect(SUMMARY_FIELD_HINT).toContain("정말 있을 때만");
-    expect(SUMMARY_FIELD_HINT).toContain("강제하지 않고");
-    // 🔴 긴 문단 둘에 근거·판단·영향을 섞지 않는다(직전 실패 모양).
-    expect(SUMMARY_FIELD_HINT).toContain("긴 문단 둘에 섞어 넣지 않는다");
+    /*
+ 🔴 이 칸은 «짧게 쓰는 칸»이 아니라 **문서의 입구**다. 「짧게」만 말하면 Jira 티켓의
+ 한 줄 요약으로 줄어든다 — 독자가 문제를 처음 이해하는 데 필요한 만큼은 있어야 하고,
+ 넘기는 것은 «분량»이 아니라 «원인 분석»이다.
+    */
+    expect(SUMMARY_FIELD_HINT).toContain("처음 이해하는");
+    expect(SUMMARY_FIELD_HINT).toContain("왜 문제인지");
+    expect(SUMMARY_FIELD_HINT).toContain("뒤 field로 넘긴다");
+    // 🔴 형식 지시를 넣지 않는다 — 이 칸에 heading·bullet 규칙을 적으면 요약이 다시 분석이 된다.
+    for (const forbidden of ["subheading", "bullet", "heading", "문단"]) {
+      expect(SUMMARY_FIELD_HINT).not.toContain(forbidden);
+    }
 
     /**
      * 🔴 다른 칸은 「목적이 설명의 절반 이상」으로 재지만 이 칸은 그렇게 잴 수 없다 —
      * `SUMMARY_FIELD_HINT` 자체가 형식 규칙이 아니라 **이 칸의 역할 정의**라 길다.
      * 대신 **역할 문장이 맨 앞에 오는지**를 본다.
      */
-    expect(problem.startsWith("무엇이 잘못됐고 어떤 영향이 있는가")).toBe(true);
+    expect(problem.startsWith("관찰되는 현상과 그것이 왜 문제인가")).toBe(true);
     expect(problem.indexOf(SUMMARY_FIELD_HINT)).toBeGreaterThan(0);
-    // 상세는 어느 칸으로 넘기는지까지 이름으로 말한다.
-    expect(problem).toContain("원인 분석은 rootCause 에");
+    // 상세를 어디로 넘기는지 말한다.
+    expect(problem).toContain("원인 분석·발생 순서·조치는 뒤 field로 넘긴다");
   });
 
   /**
@@ -533,10 +604,20 @@ describe("Review Knowledge Markdown authoring contract", () => {
     }
   });
 
-  /** 전체 계약도 그 예외를 한 줄로 알고 있어야 server instructions 가 갈라지지 않는다. */
-  it("전체 계약이 description 예외를 한 줄로 말한다", () => {
-    expect(NARRATIVE_MARKDOWN).toContain("Issue의 description(요약)만 예외다");
-    expect(NARRATIVE_MARKDOWN).toContain("짧은 요약으로 연다");
+  /**
+   * 🔴 **`description` 의 자리는 이제 «예외»가 아니라 chapter 흐름의 첫 칸이다.**
+   *
+   * 예전에는 「description 만 예외다」라는 독립 문장이었다. 그것은 나머지 field 를
+   * 서로 무관한 답으로 두는 전제 위에 있었다 — 지금 계약은 field 를 한 문서의 chapter 로
+   * 보고, `description` 은 그 문서를 «여는» 자리로 흐름 안에 들어가 있다.
+   */
+  it("전체 계약이 description 을 문서를 여는 chapter 로 배치한다", () => {
+    expect(NARRATIVE_MARKDOWN).toContain(
+      "description은 관찰되는 현상과 왜 문제인지로 문서를 열고",
+    );
+    // 🔴 뒤 chapter 가 앞을 되풀이하지 않는다는 것이 이 배치의 요점이다.
+    expect(NARRATIVE_MARKDOWN).toContain("그것을 되풀이하지 말고");
+    expect(NARRATIVE_MARKDOWN).not.toContain("Issue의 description(요약)만 예외다");
   });
 
   /**
@@ -549,35 +630,86 @@ describe("Review Knowledge Markdown authoring contract", () => {
   it("전체 계약이 문단을 나누는 «기준»을 semantic role 로 못 박는다", () => {
     // 무엇으로 나누는가 — 역할이다.
     expect(NARRATIVE_MARKDOWN).toContain("semantic role");
-    expect(NARRATIVE_MARKDOWN).toContain("핵심 역할만");
+    expect(NARRATIVE_MARKDOWN).toContain("한 문단에 핵심 역할 하나");
     // 🔴 무엇으로 나누지 «않는가» — 분량 기준이 아니다.
     expect(NARRATIVE_MARKDOWN).toContain("글자 수");
     expect(NARRATIVE_MARKDOWN).toContain("화면 폭");
     // 전환 신호는 신호일 뿐 규칙이 아니다.
     expect(NARRATIVE_MARKDOWN).toContain("논리 전환 신호");
     expect(NARRATIVE_MARKDOWN).toContain("실제로 역할이나 관점이 바뀔 때만");
-    // 한 문단에 전부 넣지 않는다(직전 실패 모양).
-    expect(NARRATIVE_MARKDOWN).toContain(
-      "증상과 원인과 반론과 증거와 해결책을 전부 넣지 않는다",
-    );
-    // 🔴 문단만 잘게 나누는 것으로 복잡한 내용을 대신하지 않는다.
-    expect(NARRATIVE_MARKDOWN).toContain("문단만 잘게 나누는 것");
+    // 🔴 반대 방향도 함께 — 이어지는 인과를 억지로 쪼개지 않는다.
+    expect(NARRATIVE_MARKDOWN).toContain("쪼개지 말고 문단으로 두고");
   });
 
   /**
-   * 🔴 **문단 기준만 알려주면 heading·bullet 과 경계가 흐려진다.** 무엇으로 가를지는
-   * 「관계」가 정한다는 판단표가 계약 안에 함께 있어야 문단이 만능이 되지 않는다.
+   * 🔴 **대응표에 칸이 없으면 그 구조는 «존재하지 않는다».**
+   *
+   * 예전 표는 heading·문단·bullet·nested·ordered 다섯뿐이었다. `table` 과 `blockquote` 는
+   * 계약 전문에 **한 번도 등장하지 않았고** fenced code block 은 「근거일 때만」이라는
+   * 제한으로만 등장했다. 그래서 여러 대상의 같은 속성을 비교하는 내용이 prose 로
+   * 흘러내렸다 — 규칙을 어겨서가 아니라 **쓸 구조가 목록에 없어서**다.
+   *
+   * 🔴 **표를 넓히는 것과 「많이 쓰라」는 다르다.** 아래 두 번째 묶음이 그 경계를 지킨다.
    */
-  it("전체 계약이 heading·문단·bullet·nested·ordered 의 선택 기준을 함께 말한다", () => {
+  it("전체 계약이 관계 -> 구조 대응을 «전부» 말한다", () => {
     for (const rule of [
-      "큰 topic 변화는 heading",
-      "논리 전환은 문단",
-      "병렬 항목은 bullet",
-      "상하 관계는 nested list",
-      "순서가 있는 과정은 ordered list",
+      "독립된 semantic topic은 heading",
+      "설명·원인·인과는 paragraph",
+      "병렬적인 사실·조건·영향·선택지는 unordered list",
+      "상태 전이 순서는 ordered list",
+      "상위 항목과 세부의 관계는 nested list",
+      "«같은 속성» 비교는 table",
+      "핵심 판단·제약·주의는 blockquote",
+      "identifier는 inline code",
+      "메커니즘을 보여 줄 때는 fenced code block",
     ]) {
       expect(NARRATIVE_MARKDOWN).toContain(rule);
     }
+
+    // 구조를 고르는 것은 «관계»이지 Markdown 문법을 쓰겠다는 의지가 아니다.
+    expect(NARRATIVE_MARKDOWN).toContain("관계를 먼저 판단하고");
+
+    /*
+ 🔴 **사용 «횟수»를 요구하는 규칙을 만들지 않는다.** 그러면 장식이 는다 — 실제로
+ 한 번 겪은 실패의 거울상이다. 계약은 양쪽을 함께 말해야 한다: 억지로 넣지도,
+ 전부 paragraph 로만 쓰지도 않는다.
+    */
+    expect(NARRATIVE_MARKDOWN).toContain("전부 쓸 필요는 없다");
+    expect(NARRATIVE_MARKDOWN).toContain("억지로 넣지 않는다");
+    expect(NARRATIVE_MARKDOWN).toContain("전부 paragraph로만 쓰지도 않는다");
+  });
+
+  /**
+   * 🔴 **field 를 서로 겹치지 않게 만드는 것과 «이어지게» 만드는 것은 다르다.**
+   *
+   * 예전 계약의 field 간 규칙은 「되풀이하지 마라」뿐이었다. 중복 금지만 있으면 각 field 가
+   * 자기 문맥을 새로 세운 **독립된 미니 보고서**가 된다 — 원하던 「한 문서」의 반대다.
+   */
+  it("전체 계약이 Issue 를 하나의 문서로, field 를 chapter 로 선언한다", () => {
+    expect(NARRATIVE_MARKDOWN).toContain("각 field는 그 문서 안의 chapter다");
+    expect(NARRATIVE_MARKDOWN).toContain(
+      "앞 field가 세운 사실을 전제로 다음 논리 단계로 나아가는 자리",
+    );
+    // 🔴 그러나 고정 순서가 아니다 — 필요 없는 단계는 생략한다.
+    expect(NARRATIVE_MARKDOWN).toContain("이 흐름은 고정 template이 아니다");
+    expect(NARRATIVE_MARKDOWN).toContain("필요 없는 단계는 생략한다");
+  });
+
+  /**
+   * 🔴 **「판단을 바꾸지 않는 실측값은 생략」이 table 의 재료를 지웠다.**
+   *
+   * 그 문장은 분량을 줄이려고 넣었는데, 실제로는 **결론을 이해하게 해 주는 비교**
+   * (화면별 heading 상태 · 폭별 측정)까지 잘라 냈다. 지금 계약은 반대로 말한다 —
+   * 비교는 남기고, 판단을 뒷받침하지 않는 **증명용 source dump** 만 Evidence 로 보낸다.
+   */
+  it("전체 계약이 «비교 데이터»를 Evidence 로 밀어내지 않는다", () => {
+    expect(NARRATIVE_MARKDOWN).toContain("검증된 값은 문서에 남긴다");
+    expect(NARRATIVE_MARKDOWN).toContain("Evidence로 밀어내지 않는다");
+    expect(NARRATIVE_MARKDOWN).toContain(
+      "증명용 source detail만 Evidence의 몫이다",
+    );
+    // 되돌아가지 않았는지 — 옛 문장이 남아 있으면 둘이 서로를 무효화한다.
+    expect(NARRATIVE_MARKDOWN).not.toContain("실측값·내부 단계는 생략한다");
   });
 
   /**
@@ -611,12 +743,18 @@ describe("Review Knowledge Markdown authoring contract", () => {
    * field description 은 그 칸을 채우는 «순간»에 읽힌다 — 구조를 권하는 자리 바로 옆에
    * 「bold 로 대신하지 마라」가 없으면 그 권유가 bold 로 흘러간다.
    */
-  it("narrative field hint 도 bold 한 줄 소제목을 막는다", () => {
-    expect(NARRATIVE_FIELD_HINT).toContain(
-      "bold 한 줄로 소제목을 대신하지 않는다",
-    );
-    // 원래 있던 구조 권유는 그대로다.
-    expect(NARRATIVE_FIELD_HINT).toContain("subheading·nested list");
+  it("narrative field hint 는 앞 field 로부터의 «연속성»을 말한다", () => {
+    /*
+ 🔴 **「되풀이하지 마라」만 열한 번 실려 있었다.** 중복 금지는 field 를 서로 겹치지 않게
+ 만들 뿐 이어지게 만들지 않아, 각 칸이 자기 문맥을 새로 세운 독립 보고서가 됐다.
+ 지금 한 줄은 금지가 아니라 **「어디서 이어받는가」**를 말한다.
+    */
+    expect(NARRATIVE_FIELD_HINT).toContain("앞 field가 세운 사실을 전제로");
+    expect(NARRATIVE_FIELD_HINT).toContain("이 자리의 논리 단계만");
+    // 🔴 형식 규칙을 여기 다시 적지 않는다 — 전체 규칙은 server instructions 가 한 번 말한다.
+    for (const format of ["heading", "bullet", "table", "bold", "문단"]) {
+      expect(NARRATIVE_FIELD_HINT).not.toContain(format);
+    }
 
     // 🔴 11개 field 설명에 실제로 실려 나간다.
     const handlers = captureTools({});
@@ -630,7 +768,7 @@ describe("Review Knowledge Markdown authoring contract", () => {
       fix.tradeOff.description,
       fix.residualRisk.description,
     ]) {
-      expect(description).toContain("bold 한 줄로 소제목을 대신하지 않는다");
+      expect(description).toContain("앞 field가 세운 사실을 전제로");
     }
   });
 
@@ -701,11 +839,11 @@ describe("Review Knowledge Markdown authoring contract", () => {
     const issue = handlers.metadata.get("add_issue").inputSchema;
     const fix = handlers.metadata.get("add_fix_attempt").inputSchema;
 
-    expect(issue.problem.description).toContain("원인 분석은 rootCause 에");
-    expect(issue.rootCause.description).toContain("증상이 아니라 원인");
-    expect(issue.failurePath.description).toContain("실제로 터지는 경로");
-    expect(issue.suggestion.description).toContain("이렇게 고치라는 제안");
-    expect(fix.solution.description).toContain("무엇을 했는가");
+    expect(issue.problem.description).toContain("관찰되는 현상과 그것이 왜 문제인가");
+    expect(issue.rootCause.description).toContain("technical cause");
+    expect(issue.failurePath.description).toContain("순서·상태 변화·재현 과정");
+    expect(issue.suggestion.description).toContain("앞서 확립된 원인을 전제로");
+    expect(fix.solution.description).toContain("실제로 무엇을 적용했는가");
     expect(fix.decisionReason.description).toContain("겹쳐 적지 않는다");
     expect(fix.alternatives.description).toContain("왜 버렸는가");
     expect(fix.tradeOff.description).toContain("장점 목록이 아니라");
