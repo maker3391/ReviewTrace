@@ -165,12 +165,18 @@ export async function ProjectDashboardScreen({
                     <SeverityBadge severity={issue.severity} />
                   </TableCell>
                   <TableCell className={NAME_CELL}>
-                    <span
+                    {/*
+ 🔴 **제목만 링크다**(Issue 목록과 같은 규칙). Severity·분류·위치·나이는
+ 이 줄을 설명하는 값이지 목적지가 아니다 — 줄 전체를 누르게 만들면 앞으로
+ 행 안에 다른 action 이 들어오는 순간 클릭 영역이 겹친다.
+ */}
+                    <Link
+                      href={`${issuesHref}/${issue.id}` as Route}
                       title={issue.title}
-                      className="block truncate font-medium"
+                      className="block truncate font-medium underline-offset-4 hover:underline"
                     >
                       {issue.title}
-                    </span>
+                    </Link>
                     <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
                       {label.category[issue.category]}
                     </span>
@@ -335,14 +341,20 @@ export async function ProjectDashboardScreen({
               {dashboard.recentReviews.map((review) => {
                 return (
                   <TableRow key={review.id}>
-                    <TableCell
-                      className={cn(
-                        REVIEW_COL.reviewer,
-                        "truncate font-medium",
-                      )}
-                      title={review.reviewerName}
-                    >
-                      {review.reviewerName}
+                    {/*
+ 🔴 **Review 를 알아보는 값은 «이름 칸»이다** — Review 에는 제목 Column 이
+ 없고, Review 목록 화면도 이 칸에 상세 링크를 건다
+ (`features/reviews/components/ReviewListScreen.tsx`). 두 화면에서 같은
+ 자리를 눌러 같은 곳으로 가야 사람이 규칙을 한 번만 배운다.
+ */}
+                    <TableCell className={REVIEW_COL.reviewer}>
+                      <Link
+                        href={`${reviewsHref}/${review.id}` as Route}
+                        title={review.reviewerName}
+                        className="block truncate font-medium underline-offset-4 hover:underline"
+                      >
+                        {review.reviewerName}
+                      </Link>
                     </TableCell>
                     <TableCell
                       className={cn(
@@ -504,12 +516,17 @@ export async function ProjectDashboardScreen({
               <li key={resolution.id} className="flex flex-col gap-0.5 py-2">
                 <div className="flex items-baseline gap-2">
                   <SeverityBadge severity={resolution.severity} />
-                  <span
-                    className="min-w-0 flex-1 truncate text-xs font-medium"
+                  {/*
+ 🔴 **RESOLVED 라고 다른 규칙을 만들지 않는다.** 여기서도 제목은 그 Issue
+ 상세로 간다 — 「어떻게 고쳤는가」의 전문과 History 가 그 화면에 있다.
+ */}
+                  <Link
+                    href={`${issuesHref}/${resolution.id}` as Route}
+                    className="min-w-0 flex-1 truncate text-xs font-medium underline-offset-4 hover:underline"
                     title={resolution.title}
                   >
                     {resolution.title}
-                  </span>
+                  </Link>
                   {/*
  🔴 **`shrink-0` 에 상한이 없으면 그 낱말이 줄을 밀어낸다.** Pattern Key 는
  빈칸이 없는 식별자라 90자짜리 하나가 줄 전체를 넘겼다 — 390 에서 목록이

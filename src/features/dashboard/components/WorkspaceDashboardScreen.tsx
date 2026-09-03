@@ -214,9 +214,15 @@ export async function WorkspaceDashboardScreen({
                     <SeverityBadge severity={issue.severity} />
                   </TableCell>
                   <TableCell className={NAME_CELL}>
+                    {/*
+ 🔴 **제목은 그 Issue 상세로 «바로» 간다.** 예전에는 제목을 검색어로 실어
+ Issue 목록(`?q=`)으로 보냈다 — 고른 줄이 아니라 「제목이 비슷한 것들」이
+ 나오고, 같은 제목이 둘이면 어느 것인지 사람이 다시 골라야 했다.
+ id 는 이미 이 줄이 들고 있다.
+ */}
                     <Link
                       href={
-                        `${projectSectionHref(workspaceSlug, issue.projectSlug, "issues")}?q=${encodeURIComponent(issue.title)}` as Route
+                        `${projectSectionHref(workspaceSlug, issue.projectSlug, "issues")}/${issue.id}` as Route
                       }
                       title={issue.title}
                       className="block truncate font-medium text-foreground underline-offset-4 hover:underline"
@@ -328,12 +334,25 @@ export async function WorkspaceDashboardScreen({
                     }
                   />
                   <div className="min-w-0 flex-1">
+                    {/*
+ 🔴 **누를 수 있는 것은 «그 줄을 알아보는 이름» 하나뿐이다.** 뒤따르는 저장소·
+ 건수는 설명이지 목적지가 아니고, 줄 전체를 누르게 만들면 앞으로 이 줄에 다른
+ action 이 붙는 순간 클릭 영역이 겹친다.
+
+ 🔴 **해결된 Issue 도 예외가 아니다** — RESOLVED 라고 다른 곳으로 보내지 않고
+ 그 Issue 상세로 간다. Activity 행의 `id` 가 아니라 `issueId` 를 쓴다.
+ */}
                     <p className="truncate text-xs text-foreground">
                       {entry.kind === "REVIEW" ? (
                         <>
-                          <span className="font-medium">
+                          <Link
+                            href={
+                              `${projectSectionHref(workspaceSlug, entry.projectSlug, "reviews")}/${entry.id}` as Route
+                            }
+                            className="font-medium underline-offset-4 hover:underline"
+                          >
                             {entry.reviewerName}
-                          </span>
+                          </Link>
                           <span className="text-muted-foreground">
                             {t.activity.reviewSuffix(
                               entry.repositoryFullName,
@@ -343,7 +362,15 @@ export async function WorkspaceDashboardScreen({
                         </>
                       ) : (
                         <>
-                          <span className="font-medium">{entry.title}</span>
+                          <Link
+                            href={
+                              `${projectSectionHref(workspaceSlug, entry.projectSlug, "issues")}/${entry.issueId}` as Route
+                            }
+                            title={entry.title}
+                            className="font-medium underline-offset-4 hover:underline"
+                          >
+                            {entry.title}
+                          </Link>
                           <span className="text-muted-foreground">
                             {t.activity.resolutionSuffix(
                               entry.repositoryFullName,

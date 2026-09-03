@@ -91,6 +91,11 @@ export type ActivityEntry =
   | {
       kind: "RESOLUTION";
       id: string;
+      /**
+       * 🔴 **`id` 는 Activity 행의 것이라 Issue 상세로 갈 수 없다.** 그 줄이 가리키는
+       * Issue 자신의 id 를 함께 들고 온다 — 화면이 제목에 상세 링크를 걸 때 쓴다.
+       */
+      issueId: string;
       at: Date;
       projectSlug: string;
       projectName: string;
@@ -247,6 +252,7 @@ async function findRecentActivity(
     executor
       .select({
         id: issueActivities.id,
+        issueId: reviewIssues.id,
         at: issueActivities.createdAt,
         projectSlug: projects.slug,
         projectName: projects.name,
