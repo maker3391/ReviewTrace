@@ -47,6 +47,7 @@ function boundParams(filter: IssueFilter): unknown[] {
 function filterWith(q: string): IssueFilter {
   return {
     q,
+    repositoryId: FILTER_ALL,
     severity: FILTER_ALL,
     category: FILTER_ALL,
     status: FILTER_ALL,
@@ -82,5 +83,66 @@ describe("findIssues 의 검색어 바인딩", () => {
     const params = boundParams(filterWith("RefreshToken"));
     expect(params).toContain("ws-1");
     expect(params).toContain("p-1");
+  });
+});
+
+/**
+ * 저장소 Filter 가 **조회 조건으로** 나가는가.
+ *
+ * 🔴 **UI 에서 걸러 그리는 것과 질의로 좁히는 것은 다르다.** 화면에서만 걸러도 목록은
+ * 그럴듯해 보이지만 **건수와 쪽 수는 전체 기준으로 남는다** — 여기서는 실제로 바인딩되는
+ * 파라미터를 본다.
+ *
+ * ## 되돌림 확인
+ *
+ * `issue-query.ts` 의 `repositoryId` 조건을 지우면 아래 두 시험이 실패한다.
+ */
+describe("findIssues 의 저장소 조건", () => {
+  const REPOSITORY_ID = "6f9b2c1e-6a5f-4b3d-9c21-0b7a4e5d8c31";
+
+  function filterWithRepository(repositoryId: string): IssueFilter {
+    return { ...filterWith(""), repositoryId };
+  }
+
+  it("전체 저장소면 조건을 만들지 않는다", () => {
+    expect(boundParams(filterWithRepository(FILTER_ALL))).toEqual([
+      "ws-1",
+      "p-1",
+    ]);
+  });
+
+  it("저장소를 고르면 그 값으로 좁힌다", () => {
+    expect(boundParams(filterWithRepository(REPOSITORY_ID))).toEqual([
+      "ws-1",
+      "p-1",
+      REPOSITORY_ID,
+    ]);
+  });
+
+  /**
+   * 🔴 **저장소 조건이 Tenant 조건을 «대신하지» 않는다.** 남의 Project 의 저장소 UUID 가
+   * 들어와도 `workspace_id`·`project_id` 가 함께 걸려 결과가 비어서 돌아온다 — 그 겹침이
+   * 사라지면 주소창에 UUID 하나를 적는 것만으로 다른 Tenant 의 Issue 가 나온다.
+   */
+  it("🔴 다른 Filter 와 겹쳐도 Tenant 조건이 그대로 남는다", () => {
+    const params = boundParams({
+      ...filterWithRepository(REPOSITORY_ID),
+      q: "race",
+      severity: "HIGH",
+      category: "CONCURRENCY",
+      status: "OPEN",
+    });
+
+    expect(params).toEqual([
+      "ws-1",
+      "p-1",
+      REPOSITORY_ID,
+      "HIGH",
+      "CONCURRENCY",
+      "OPEN",
+      "%race%",
+      "%race%",
+      "%race%",
+    ]);
   });
 });

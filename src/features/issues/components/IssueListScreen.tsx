@@ -2,7 +2,10 @@ import { Suspense } from "react";
 import type { Route } from "next";
 
 import { PageContainer } from "@/components/molecules/PageContainer";
-import { IssueFilterBar } from "@/features/issues/components/IssueFilterBar";
+import {
+  IssueFilterBar,
+  type IssueRepositoryOption,
+} from "@/features/issues/components/IssueFilterBar";
 import { IssueTable } from "@/features/issues/components/IssueTable";
 import { IssueTableSkeleton } from "@/features/issues/components/IssueTableSkeleton";
 import {
@@ -29,11 +32,20 @@ import { readMessages } from "@/lib/ui/appearance";
  */
 export async function IssueListScreen({
   scope,
+  repositories,
   basePath,
   searchParams,
 }: {
   /** 🔴 소속 확인을 통과한 값만 들어온다. URL 의 slug 를 그대로 넣지 않는다. */
   scope: IssueQueryScope;
+  /**
+   * Filter 가 그릴 저장소 선택지 — **이 Project 에 연결된 것만**.
+   *
+   * 🔴 이 화면이 직접 조회하지 않는다. `repositories` 표의 주인은 그 Feature 이고
+   * (스펙 6) 둘을 잇는 자리는 `app/` 의 page 다 — 여기서 그쪽 조회를 부르면
+   * Feature 끼리 서로를 알게 된다.
+   */
+  repositories: readonly IssueRepositoryOption[];
   /** 주소를 다시 만들기 위한 값. 조회 조건이 아니다. */
   basePath: Route;
   searchParams: Promise<RawSearchParams>;
@@ -53,6 +65,7 @@ export async function IssueListScreen({
       <IssueFilterBar
         basePath={basePath}
         filter={filter}
+        repositories={repositories}
         labels={{
           ...t.filter,
           severityOptions: label.severity,

@@ -60,6 +60,35 @@ export async function listRepositoryStatuses(
   return selectRepositoryStatuses(scope, executor, null, 0);
 }
 
+/** 저장소를 고르는 자리가 쓰는 최소 목록. 「어느 저장소가 있는가」까지만 답한다. */
+export interface RepositoryOption {
+  /** 🔴 내부 UUID. Filter 값도 이것이다(`issue-filter.ts`). */
+  id: string;
+  fullName: string;
+}
+
+/**
+ * Project 에 연결된 저장소 목록 — 이름만.
+ *
+ * 🔴 **`listRepositoryStatuses` 를 쓰지 않는다.** 그쪽은 Review·Issue 집계를 접어 붙이는데,
+ * 고르는 목록에는 그 숫자가 하나도 쓰이지 않는다 — Filter 를 그리려고 Issue 표를 통째로
+ * 접는 질의가 목록 화면마다 한 번씩 더 돌게 된다.
+ *
+ * 🔴 **범위는 언제나 `workspaceId` + `projectId` 다.** 이 목록이 곧 화면에 보이는 선택지라,
+ * 한쪽만 걸면 다른 Project 의 저장소 이름이 그대로 노출된다.
+ */
+export async function listRepositoryOptions(
+  scope: ProjectScope,
+  executor: DbExecutor = db(),
+): Promise<RepositoryOption[]> {
+  return executor
+    .select({ id: repositories.id, fullName: repositories.fullName })
+    .from(repositories)
+    .where(and(...scopeConditions(scope)))
+    // 목록 화면과 같은 순서다 — 표에서 본 차례와 고르는 차례가 어긋나지 않는다.
+    .orderBy(asc(repositories.name), asc(repositories.id));
+}
+
 /** GitHub picker에서 현재 Project에 이미 연결된 행만 제외하기 위한 최소 identity 조회. */
 export async function listProjectRepositoryIdentities(
   scope: ProjectScope,

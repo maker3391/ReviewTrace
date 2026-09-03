@@ -9,10 +9,14 @@ import {
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { parseOptions } from "@/lib/validation/zod-error-map";
 
+/** 실제 `repositories.id` 와 같은 모양의 값. 형식만 맞으면 조회까지 내려간다. */
+const REPOSITORY_ID = "6f9b2c1e-6a5f-4b3d-9c21-0b7a4e5d8c31";
+
 describe("parseIssueFilter", () => {
   it("비어 있으면 전체 조회로 떨어진다", () => {
     expect(parseIssueFilter({})).toEqual({
       q: "",
+      repositoryId: FILTER_ALL,
       severity: FILTER_ALL,
       category: FILTER_ALL,
       status: FILTER_ALL,
@@ -25,6 +29,7 @@ describe("parseIssueFilter", () => {
     expect(
       parseIssueFilter({
         q: " race condition ",
+        repositoryId: REPOSITORY_ID,
         severity: "HIGH",
         category: "CONCURRENCY",
         status: "OPEN",
@@ -33,6 +38,7 @@ describe("parseIssueFilter", () => {
       }),
     ).toEqual({
       q: "race condition",
+      repositoryId: REPOSITORY_ID,
       severity: "HIGH",
       category: "CONCURRENCY",
       status: "OPEN",
@@ -47,12 +53,18 @@ describe("parseIssueFilter", () => {
         severity: "SUPER_URGENT",
         category: "42",
         status: "",
+        /*
+ 🔴 **UUID 가 아닌 값은 조회로 내려보내지 않는다.** `repositories.id` 는 `uuid`
+ Column 이라 그대로 나가면 Postgres 가 `22P02` 로 거절하고 화면이 500 이 된다.
+ */
+        repositoryId: "'; drop table review_issues; --",
         page: "-7",
         // 🔴 고를 수 있는 값이 아닌 쪽 크기는 그대로 쓰지 않는다 — 상한이 뚫린다.
         pageSize: "100000",
       }),
     ).toEqual({
       q: "",
+      repositoryId: FILTER_ALL,
       severity: FILTER_ALL,
       category: FILTER_ALL,
       status: FILTER_ALL,
@@ -66,6 +78,20 @@ describe("parseIssueFilter", () => {
 
     expect(filter.severity).toBe("HIGH");
   });
+
+  /**
+   * 🔴 **범위 밖의 저장소를 「전체」로 되돌리지 않는다.**
+   *
+   * 형식이 맞는 UUID 는 그대로 통과시켜 조회까지 내려보낸다 — 그 값이 이 Project 의
+   * 것인지는 조회가 `workspace_id`·`project_id` 와 **겹쳐서** 판정한다(스펙 11).
+   * 여기서 조용히 `ALL` 로 되돌리면 남의 저장소를 물었는데 **이 Project 의 Issue 전부**가
+   * 돌아온다 — 묻지 않은 것에 답하는 쪽이 아무것도 못 찾는 쪽보다 나쁘다(스펙 13).
+   */
+  it("🔴 형식이 맞는 저장소 값은 그대로 조회로 내려간다", () => {
+    expect(parseIssueFilter({ repositoryId: REPOSITORY_ID }).repositoryId).toBe(
+      REPOSITORY_ID,
+    );
+  });
 });
 
 describe("issueFilterToQueryString", () => {
@@ -73,6 +99,7 @@ describe("issueFilterToQueryString", () => {
     expect(
       issueFilterToQueryString({
         q: "",
+        repositoryId: FILTER_ALL,
         severity: FILTER_ALL,
         category: FILTER_ALL,
         status: FILTER_ALL,
@@ -85,6 +112,7 @@ describe("issueFilterToQueryString", () => {
   it("지정된 조건만 담고 왕복해도 같은 값이 나온다", () => {
     const filter = {
       q: "n+1",
+      repositoryId: REPOSITORY_ID,
       severity: "HIGH",
       category: FILTER_ALL,
       status: "OPEN",
@@ -105,6 +133,7 @@ describe("issueFilterFormSchema", () => {
   it("🔴 Form 은 URL 과 달리 잘못된 입력을 조용히 넘기지 않는다", () => {
     const result = issueFilterFormSchema.safeParse({
       q: "x".repeat(201),
+      repositoryId: FILTER_ALL,
       severity: FILTER_ALL,
       category: FILTER_ALL,
       status: FILTER_ALL,
@@ -129,6 +158,7 @@ describe("issueFilterFormSchema", () => {
       const result = issueFilterFormSchema.safeParse(
         {
           q: "x".repeat(201),
+          repositoryId: FILTER_ALL,
           severity: FILTER_ALL,
           category: FILTER_ALL,
           status: FILTER_ALL,

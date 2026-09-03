@@ -48,6 +48,21 @@ export function buildIssueListConditions(
     eq(repositories.projectId, scope.projectId),
   ];
 
+  /*
+ 저장소 Filter.
+
+ 🔴 **이 조건 하나가 인가의 근거가 되지 않는다.** 주소창의 값이라 남의 Project·Workspace 의
+ Repository UUID 가 그대로 들어올 수 있다 — 위의 `workspace_id`·`project_id` 두 조건과
+ **겹쳐서** 걸리기 때문에 범위 밖의 값은 목록도 건수도 0 으로 끝난다(스펙 10·11).
+ 그래서 여기서 「선택지에 있는 값인가」를 다시 조회해 확인하지 않는다. 조건이 겹쳐 있으면
+ 확인 질의 한 번을 더 던지는 것과 결과가 같고, 잊어버릴 자리가 하나 줄어든다.
+
+ `review_issues.repository_id` 로 건다 — Join 이 `repositories.id` 와 같음을 이미
+ 보장하므로 값은 같고, Issue 표의 Index 를 그대로 탄다.
+ */
+  if (filter.repositoryId !== FILTER_ALL) {
+    conditions.push(eq(reviewIssues.repositoryId, filter.repositoryId));
+  }
   if (filter.severity !== FILTER_ALL) {
     conditions.push(eq(reviewIssues.severity, filter.severity));
   }

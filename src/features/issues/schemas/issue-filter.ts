@@ -17,6 +17,20 @@ import {
 export const FILTER_ALL = "ALL";
 
 /**
+ * 저장소 Filter 의 값.
+ *
+ * 🔴 **내부 UUID(`repositories.id`)다.** `owner/name` 도 GitHub 의 numeric id 도 아니다 —
+ * 이름은 GitHub 에서 바뀌고(그 순간 주소가 죽는다), numeric id 는 Workspace 마다 다른
+ * `repositories` 행을 가리켜 **한 값이 여러 Tenant 의 행에 걸린다**. Issue 가 실제로 붙들고
+ * 있는 것도 `review_issues.repository_id` 라, 조회에 그대로 얹으면 변환이 하나도 없다.
+ *
+ * 🔴 **UUID 가 아닌 값은 조회로 내려보내지 않는다.** `repositories.id` 는 `uuid` Column 이라
+ * `?repositoryId=abc` 하나가 Postgres 의 `22P02` 로 번져 화면이 500 이 된다 — 조회 Filter 는
+ * 「거부」가 아니라 「무시」가 맞는 입력이다.
+ */
+const repositoryFilterSchema = z.union([z.literal(FILTER_ALL), z.uuid()]);
+
+/**
  * Issue 목록의 Filter.
  *
  * Filter·Search·Pagination 상태는 URL Search Params 에 둔다.
@@ -28,6 +42,12 @@ export const FILTER_ALL = "ALL";
  */
 export const issueFilterSchema = z.object({
   q: z.string().trim().max(200).catch(""),
+  /*
+ 🔴 **범위 밖의 값을 넣어도 「전체」로 넓어지지 않는다.** 형식이 맞는 남의 Repository
+ UUID 는 여기서 그대로 통과하고, **조회가 Project·Workspace 조건과 겹쳐 걸어** 빈 결과로
+ 끝낸다(`issue-query.ts`). 여기서 조용히 `ALL` 로 되돌리면 묻지 않은 것에 답하게 된다.
+ */
+  repositoryId: repositoryFilterSchema.catch(FILTER_ALL),
   severity: z.enum([FILTER_ALL, ...ISSUE_SEVERITIES]).catch(FILTER_ALL),
   category: z.enum([FILTER_ALL, ...ISSUE_CATEGORIES]).catch(FILTER_ALL),
   status: z.enum([FILTER_ALL, ...ISSUE_STATUSES]).catch(FILTER_ALL),
@@ -53,6 +73,7 @@ export type IssueFilter = z.infer<typeof issueFilterSchema>;
 export const issueFilterFormSchema = z.object({
   // 🔴 오류 «문구» 는 여기 없다 — 규칙만 있고 말은 사전이 갖는다(`lib/validation/zod-error-map.ts`).
   q: z.string().trim().max(200),
+  repositoryId: repositoryFilterSchema,
   severity: z.enum([FILTER_ALL, ...ISSUE_SEVERITIES]),
   category: z.enum([FILTER_ALL, ...ISSUE_CATEGORIES]),
   status: z.enum([FILTER_ALL, ...ISSUE_STATUSES]),
@@ -66,6 +87,7 @@ export type { RawSearchParams };
 export function parseIssueFilter(raw: RawSearchParams): IssueFilter {
   return issueFilterSchema.parse({
     q: firstValue(raw.q),
+    repositoryId: firstValue(raw.repositoryId),
     severity: firstValue(raw.severity),
     category: firstValue(raw.category),
     status: firstValue(raw.status),
@@ -84,6 +106,9 @@ export function issueFilterToQueryString(filter: IssueFilter): string {
 
   if (filter.q !== "") {
     params.set("q", filter.q);
+  }
+  if (filter.repositoryId !== FILTER_ALL) {
+    params.set("repositoryId", filter.repositoryId);
   }
   if (filter.severity !== FILTER_ALL) {
     params.set("severity", filter.severity);

@@ -424,9 +424,11 @@ export const ko = {
     filter: {
       search: "검색",
       searchPlaceholder: "제목 · 파일 · 패턴",
+      repository: "저장소",
       severity: "심각도",
       category: "분류",
       status: "상태",
+      allRepository: "전체 저장소",
       allSeverity: "전체 심각도",
       allCategory: "전체 분류",
       allStatus: "전체 상태",

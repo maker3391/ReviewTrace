@@ -45,10 +45,25 @@ function toOptions<Value extends string>(
   ];
 }
 
+/**
+ * 고를 수 있는 저장소 하나.
+ *
+ * 🔴 **`repositories` Feature 의 타입을 가져오지 않는다.** 이 Component 가 아는 것은
+ * 「id 와 보이는 이름」뿐이고, 그 이상을 알면 Issue 화면이 저장소 조회의 모양에 묶인다.
+ * 목록을 «만드는» 것은 그 표의 주인이고(`listRepositoryOptions`), 조립은 `app/` 이 한다.
+ */
+export interface IssueRepositoryOption {
+  id: string;
+  /** 화면에 그대로 그린다 — 표기 규칙은 표·상세와 같은 `repositories.full_name` 이다. */
+  fullName: string;
+}
+
 /** 이 화면이 그리는 낱말. 🔴 사전 전체를 넘기지 않는다. */
 export interface IssueFilterLabels {
   search: string;
   searchPlaceholder: string;
+  repository: string;
+  allRepository: string;
   severity: string;
   category: string;
   status: string;
@@ -74,13 +89,24 @@ export interface IssueFilterLabels {
 export function IssueFilterBar({
   basePath,
   filter,
+  repositories,
   labels,
 }: {
   /** 이 목록이 사는 Workspace 경로(`/w/{slug}/issues`). Filter 는 주소만 바꾸고 Workspace 를 넘지 않는다. */
   basePath: Route;
   filter: IssueFilter;
+  /** 🔴 **이 Project 에 연결된 저장소만** 들어온다. Workspace 전체도, GitHub 전체도 아니다. */
+  repositories: readonly IssueRepositoryOption[];
   labels: IssueFilterLabels;
 }) {
+  const repositoryOptions: FilterOption[] = [
+    { value: FILTER_ALL, label: labels.allRepository },
+    ...repositories.map((repository) => ({
+      value: repository.id,
+      label: repository.fullName,
+    })),
+  ];
+
   const severityOptions = toOptions(
     ISSUE_SEVERITIES,
     labels.allSeverity,
@@ -109,6 +135,7 @@ export function IssueFilterBar({
   } = useLocalizedForm<IssueFilterForm>(issueFilterFormSchema, {
     values: {
       q: filter.q,
+      repositoryId: filter.repositoryId,
       severity: filter.severity,
       category: filter.category,
       status: filter.status,
@@ -154,6 +181,38 @@ export function IssueFilterBar({
           </span>
         )}
       </div>
+
+      {/*
+ 🔴 **저장소가 몇 개든 «늘» 그린다.** 심각도·분류·상태가 그 Project 에 실제로 쓰인 값이
+ 몇 가지든 늘 서 있는 것과 같은 규칙이다 — Filter 줄의 모양이 데이터에 따라 달라지면
+ 같은 Workspace 의 Project 를 오갈 때마다 도구가 있었다 없었다 한다.
+
+ 🔴 **「선택지가 하나뿐이면 숨긴다」는 더 나쁘다.** 그 조건은 고른 값에 따라 참·거짓이
+ 뒤집혀, 저장소로 좁혔다가 초기화하는 순간 방금 쓰던 칸이 눈앞에서 사라진다. 주소로
+ 들어온 범위 밖의 값을 되돌릴 자리도 함께 없어진다.
+
+ 한 쪽뿐일 때 이동 도구를 접는 `organisms/TablePagination.tsx` 와는 다른 자리다 —
+ 그쪽은 «결과»를 넘기는 도구라 넘길 곳이 없으면 누를 것도 없지만, 이쪽은 조건을 «세우는»
+ 도구라 지금 무엇으로 좁혀져 있는지가 늘 보여야 한다.
+ */}
+      <Controller
+        control={control}
+        name="repositoryId"
+        render={({ field }) => (
+          <FilterSelectField
+            label={labels.repository}
+            value={field.value}
+            onValueChange={field.onChange}
+            options={repositoryOptions}
+            /*
+ `owner/repository` 는 심각도·상태보다 길다 — 좁은 화면에서는 한 줄을 통째로 쓰고
+ 넓은 화면에서만 옆에 선다. 🔴 다른 Filter 의 폭을 줄여 자리를 만들지 않는다.
+ 넘치는 이름은 Trigger 가 한 줄로 잘라 그린다(`ui/select.tsx`).
+ */
+            className="w-full sm:w-56"
+          />
+        )}
+      />
 
       <Controller
         control={control}
@@ -209,6 +268,7 @@ export function IssueFilterBar({
         onClick={() => {
           const cleared = {
             q: "",
+            repositoryId: FILTER_ALL,
             severity: FILTER_ALL,
             category: FILTER_ALL,
             status: FILTER_ALL,

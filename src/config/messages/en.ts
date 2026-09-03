@@ -293,9 +293,11 @@ export const en: Messages = {
     filter: {
       search: "Search",
       searchPlaceholder: "Title · file · pattern",
+      repository: "Repository",
       severity: "Severity",
       category: "Category",
       status: "Status",
+      allRepository: "All repositories",
       allSeverity: "All severities",
       allCategory: "All categories",
       allStatus: "All statuses",
