@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PageTitle } from "@/components/atoms/PageTitle";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { TablePagination } from "@/components/organisms/TablePagination";
@@ -54,6 +55,7 @@ export async function ProjectListScreen({
 
   return (
     <PageContainer width="wide">
+      <PageTitle>{messages.metaTitle.projects}</PageTitle>
       {/*
  🔴 **제목은 지우고 Action 만 남긴다.** 사이드바에서 「프로젝트」를 눌러 들어온
  화면이라 같은 낱말을 한 번 더 찍을 이유가 없다 — 그러나 이 줄 자체는 남는다.

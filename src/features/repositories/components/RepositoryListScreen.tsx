@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { ExternalLink, FolderGit2 } from "lucide-react";
 
+import { PageTitle } from "@/components/atoms/PageTitle";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { Timestamp } from "@/components/atoms/Timestamp";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
@@ -106,6 +107,7 @@ export async function RepositoryListScreen({
 
   return (
     <PageContainer width="wide">
+      <PageTitle>{messages.metaTitle.repositories}</PageTitle>
       {/* 🔴 사이드바가 「저장소」라고 말한 자리에 「저장소」를 한 번 더 적지 않는다. */}
       <Section variant="raised" bleed>
         {state === "GITHUB_DISCONNECTED" ? (

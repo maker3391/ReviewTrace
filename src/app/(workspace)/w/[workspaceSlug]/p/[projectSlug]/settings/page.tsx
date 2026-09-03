@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { PageTitle } from "@/components/atoms/PageTitle";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { Section } from "@/components/molecules/Section";
 import { ProjectSettingsPanel } from "@/features/projects/components/ProjectSettingsPanel";
@@ -27,7 +28,8 @@ export default async function ProjectSettingsPage({
     workspaceSlug,
     projectSlug,
   );
-  const t = (await readMessages()).projectSettings;
+  const messages = await readMessages();
+  const t = messages.projectSettings;
 
   const impact = await findProjectDeletionImpact({
     workspaceId: workspace.workspaceId,
@@ -36,6 +38,7 @@ export default async function ProjectSettingsPage({
 
   return (
     <PageContainer className="gap-8">
+      <PageTitle>{messages.metaTitle.projectSettings}</PageTitle>
       {/*
  🔴 **「프로젝트 설정」을 다시 적지 않는다.** 상단 Breadcrumb 이 Workspace / Project
  를 말하고 사이드바가 「설정」을 칠하고 있다 — 아래 Section 머리글이 Project 이름이라

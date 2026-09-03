@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { PageTitle } from "@/components/atoms/PageTitle";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import {
@@ -52,6 +53,7 @@ export default async function WorkspaceMembersPage({
 
   return (
     <PageContainer className="gap-8">
+      <PageTitle>{messages.metaTitle.members}</PageTitle>
       {/*
  🔴 **맨 위에 「멤버」를 다시 적지 않는다.** 사이드바에서 그 낱말을 눌러 들어온
  화면이다 — 제목이 없어야 첫 표가 곧바로 선다.

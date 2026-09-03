@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { PageTitle } from "@/components/atoms/PageTitle";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { Section } from "@/components/molecules/Section";
 import { AgentCredentialPanel } from "@/features/agent-credentials/components/AgentCredentialPanel";
@@ -92,6 +93,7 @@ export default async function WorkspaceSettingsPage({
 
   return (
     <PageContainer className="gap-8">
+      <PageTitle>{messages.metaTitle.settings}</PageTitle>
       {/*
  🔴 **맨 위에 「설정」을 다시 적지 않는다.** 사이드바가 이미 그 낱말이고, 아래
  Section 머리글(워크스페이스 · Agent 연결 · Agent 연동 · 계정)이 화면의 구조다.

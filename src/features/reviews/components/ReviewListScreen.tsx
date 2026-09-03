@@ -12,6 +12,7 @@ import {
 import { ListChecks } from "lucide-react";
 import { Timestamp } from "@/components/atoms/Timestamp";
 
+import { PageTitle } from "@/components/atoms/PageTitle";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
 import { TablePagination } from "@/components/organisms/TablePagination";
@@ -68,6 +69,7 @@ export async function ReviewListScreen({
 
   return (
     <PageContainer width="wide">
+      <PageTitle>{messages.metaTitle.reviews}</PageTitle>
       <Section variant="raised" bleed>
         {reviews.length === 0 ? (
           <SectionEmpty

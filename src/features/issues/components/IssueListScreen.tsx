@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Route } from "next";
 
+import { PageTitle } from "@/components/atoms/PageTitle";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import {
   IssueFilterBar,
@@ -57,6 +58,7 @@ export async function IssueListScreen({
 
   return (
     <PageContainer width="wide">
+      <PageTitle>{messages.metaTitle.issues}</PageTitle>
       {/*
  🔴 **제목을 다시 적지 않는다.** 사이드바에서 「이슈」를 눌러 들어온 화면이라
  맨 위의 「이슈」는 정보를 하나도 더하지 않는다 — 그 자리를 비우면 Filter 줄이
