@@ -521,7 +521,14 @@ export async function ProjectDashboardScreen({
  */}
                   <Link
                     href={`${issuesHref}/${resolution.id}` as Route}
-                    className="min-w-0 flex-1 truncate text-xs font-medium underline-offset-4 hover:underline"
+                    /*
+ 🔴 `leading-5` 가 «장식»이 아니다. `truncate` 는 `overflow: hidden` 이라 상자가
+ 딱 line-height 만큼인데, `underline-offset-4` 는 밑줄을 baseline 에서 4px 아래에
+ 그린다 — `text-xs`(12/16)면 그 밑줄이 상자 밖이라 **잘려서 보이지 않는다**.
+ 20px 로 키우면 같은 offset 이 상자 안에 들어온다(Workspace 의 「확인이 필요한
+ 이슈」가 이미 20px 라 보이던 것과 같은 이유다).
+ */
+                    className="min-w-0 flex-1 truncate text-xs leading-5 font-medium underline-offset-4 hover:underline"
                     title={resolution.title}
                   >
                     {resolution.title}
