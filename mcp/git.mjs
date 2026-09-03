@@ -12,10 +12,20 @@ const execFileAsync = promisify(execFile);
  * reviewer 가 실제로 `GIT_DIR` 을 다른 저장소로 돌려 재현했다.
  *
  * 이 파일의 질문은 전부 **「`cwd` 의 저장소에서」**이므로 그 변수들을 걷어낸다.
+ *
+ * 🔴 **이름을 대문자로 올려 비교한다.** Windows 의 환경 변수 이름은 대소문자를 구분하지
+ * 않아 `git_dir` 로 넣어도 git 은 `GIT_DIR` 로 받는데, `startsWith("GIT_")` 는 그것을
+ * 걸러 내지 못한다 — reviewer 가 소문자로 우회를 재현했다.
  */
-const GIT_ENV = Object.fromEntries(
-  Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
-);
+export function withoutGitEnv(env) {
+  return Object.fromEntries(
+    Object.entries(env).filter(
+      ([key]) => !key.toUpperCase().startsWith("GIT_"),
+    ),
+  );
+}
+
+const GIT_ENV = withoutGitEnv(process.env);
 
 const run = (file, args, options = {}) =>
   execFileAsync(file, args, { ...options, env: options.env ?? GIT_ENV });

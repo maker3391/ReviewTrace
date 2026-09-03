@@ -11,7 +11,38 @@ import {
   readChangedFiles,
   readRepositoryContext,
   repositoryFromFullName,
+  withoutGitEnv,
 } from "./git.mjs";
+
+/**
+ * 🔴 **환경 격리는 «프로세스가 시작될 때» 결정된다.**
+ *
+ * 아래의 `GIT_DIR` 실행 시험은 module import 가 끝난 뒤에 변수를 세우므로, import 시점의
+ * snapshot 이 애초에 그 키를 갖지 않았다 — **필터 규칙 자체를 검증하지 못한다.**
+ * 그래서 규칙을 순수 함수로 꺼내 여기서 직접 본다.
+ *
+ * 🔴 **Windows 의 환경 변수 이름은 대소문자를 구분하지 않는다.** `git_dir` 로 넣어도 git 은
+ * `GIT_DIR` 로 받는데, 대소문자를 구분해 거르면 그대로 통과한다 — reviewer 가 재현했다.
+ */
+describe("withoutGitEnv", () => {
+  it("🔴 대소문자와 무관하게 GIT_ 변수를 걷어낸다", () => {
+    const kept = withoutGitEnv({
+      GIT_DIR: "a",
+      git_dir: "b",
+      Git_Work_Tree: "c",
+      GIT_INDEX_FILE: "d",
+      PATH: "keep",
+      GITHUB_TOKEN: "keep",
+      GITOPS: "keep",
+    });
+
+    expect(Object.keys(kept).sort()).toEqual([
+      "GITHUB_TOKEN",
+      "GITOPS",
+      "PATH",
+    ]);
+  });
+});
 
 const run = promisify(execFile);
 
