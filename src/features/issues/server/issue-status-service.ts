@@ -66,9 +66,43 @@ export async function updateIssueStatus(
   const { scope, issueId, update } = input;
   const workspaceId = scope.workspaceId;
   const resolving = update.status === "RESOLVED";
-  const now = new Date();
 
   return executor.transaction(async (tx) => {
+    /**
+     * 🔴 **행을 «먼저» 잠근다 — 시각을 그 뒤에 만들기 위해서다.**
+     *
+     * `resolvedAt` 은 「이 문제가 해결된 시각」이다. 예전에는 그 값을 `executor`
+     * 를 부르기도 «전»에 만들어 두었고, 그래서 connection pool 대기와 행 잠금
+     * 대기만큼 낡은 채 저장됐다 — 실제 잠금을 400ms 붙들고 재 보니 저장된 값이
+     * 부르기 직전의 시각 그대로였다(`issue-status.integration.test.ts`).
+     *
+     * 그러면 나중에 commit 된 `RESOLVED` 의 `resolvedAt` 이 **그 직전에 일어난
+     * `REOPENED` 보다 이른** 조합이 나온다 — Issue 는 「해결됨」인데 해결 시각이
+     * 마지막 재개보다 앞선다.
+     *
+     * 🔴 **`clock_timestamp()` 를 `SET` 절에 넣는 것으로 대신하지 않는다.**
+     * 새 tuple 은 outer plan 이 «먼저» 만들고, 최신 tuple 을 잠근 뒤 다시 만드는
+     * 것은 concurrent update 로 `TM_Updated` 가 났을 때뿐이다(`nodeModifyTable.c`
+     * 의 EPQ 경로). 「잠근 뒤에 평가된다」는 일반적인 보증이 아니다.
+     *
+     * 🔴 **범위 조건을 여기서도 «그대로» 건다.** 이 SELECT 는 시각을 위한 것이지
+     * 인가를 위한 것이 아니다 — 아래 UPDATE 의 조건은 하나도 덜어 내지 않는다.
+     */
+    const locked = await tx
+      .select({ id: reviewIssues.id })
+      .from(reviewIssues)
+      .where(and(eq(reviewIssues.id, issueId), issueInScope(scope)))
+      .for("update")
+      .limit(1);
+
+    if (locked.length === 0) {
+      // 없는 Issue 와 범위 밖의 Issue 를 구분해 알려주지 않는다.
+      throw new AppError("RESOURCE_NOT_FOUND");
+    }
+
+    /** 🔴 잠근 뒤의 «한» 시각. Issue 와 Activity 가 같은 값을 쓴다. */
+    const now = new Date();
+
     /**
      * 🔴 범위 조건을 UPDATE 자체에 건다.
      *
@@ -105,6 +139,14 @@ export async function updateIssueStatus(
         workspaceId,
         reviewIssueId: updated.id,
         type: ACTIVITY_TYPE_BY_STATUS[update.status],
+        /**
+         * 🔴 **`now()` 기본값에 맡기지 않는다.** PostgreSQL 의 `now()` 는
+         * **transaction 시작 시각**이라 잠금을 얻은 순서가 아니라 `BEGIN` 순서를
+         * 남긴다. 두 전이가 겹치면 마지막에 commit 된 쪽이 더 이른 시각을 갖고,
+         * `createdAt` 만으로 정렬하는 History 의 «마지막 줄»이 실제 상태와
+         * 반대로 보인다. 잠근 뒤의 같은 시각을 명시해 그 창을 닫는다.
+         */
+        createdAt: now,
         actorType: update.actor?.type ?? "AGENT",
         actorName: update.actor?.name ?? input.fallbackActorName,
         description: update.resolutionSummary,

@@ -57,10 +57,31 @@ const RESOLVE = {
  * 그대로 붙잡아 두었다가, 어떤 문장이 만들어졌는지 밖에서 들여다본다.
  */
 function fakeExecutor(updatedRows: readonly unknown[]) {
-  const captured: { where?: SQL } = {};
+  const captured: { where?: SQL; lockWhere?: SQL } = {};
   const insertedActivities: Record<string, unknown>[] = [];
 
   const tx = {
+    /**
+     * 🔴 시각을 만들기 «전»에 도는 행 잠금 SELECT.
+     *
+     * 범위 밖이면 여기서 이미 0행이라 UPDATE 까지 가지 않는다 — 그래서 돌려주는
+     * 행 수를 `updatedRows` 와 맞춰 둔다.
+     */
+    select: () => ({
+      from: () => ({
+        where: (condition: SQL) => {
+          captured.lockWhere = condition;
+          return {
+            for: () => ({
+              limit: () =>
+                Promise.resolve(
+                  updatedRows.length > 0 ? [{ id: ISSUE }] : [],
+                ),
+            }),
+          };
+        },
+      }),
+    }),
     update: () => ({
       set: () => ({
         where: (condition: SQL) => {
@@ -115,6 +136,21 @@ describe("updateIssueStatus — 어느 범위 안에서 움직이는가", () => 
 
     // 🔴 겹쳐서 건다: `review_issues` 에서 한 번, `repositories` 에서 또 한 번.
     expect(query.params.filter((value) => value === WORKSPACE)).toHaveLength(2);
+
+    /*
+      🔴 **잠금 SELECT 에도 «같은» 범위 조건이 실린다.**
+
+      그 SELECT 는 시각을 잠금 뒤에 만들기 위한 것이지 인가를 위한 것이 아니다.
+      그래도 조건을 덜어 내면 남의 Project 의 Issue 행을 잠그게 되고, 그것만으로
+      「그 ID 가 존재한다」가 잠금 대기 시간으로 새어 나간다.
+    */
+    const lockQuery = rendered(captured.lockWhere);
+    expect(lockQuery.sql).toContain("project_id");
+    expect(lockQuery.params).toContain(PROJECT);
+    expect(lockQuery.params).toContain(ISSUE);
+    expect(
+      lockQuery.params.filter((value) => value === WORKSPACE),
+    ).toHaveLength(2);
   });
 
   it("🔴 Agent 요청은 Project 로 좁히지 «않는다» — 그러면 계약이 깨진다", async () => {
