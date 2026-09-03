@@ -230,6 +230,7 @@ describe("⑪ HTTP Status 는 오류 의미를 따른다", () => {
       WORKSPACE_HAS_MEMBERS: 409,
       ACCOUNT_NOT_FOUND: 404,
       ACCOUNT_LAST_OWNER: 409,
+      ACCOUNT_WORKSPACES_CHANGED: 409,
       WORKSPACE_SLUG_RELEASE_FAILED: 409,
     };
 

@@ -1126,6 +1126,8 @@ export const ko = {
       "다른 멤버가 있는 Workspace는 삭제할 수 없습니다. 먼저 멤버를 내보내세요.",
 
     ACCOUNT_NOT_FOUND: "계정을 찾을 수 없습니다.",
+    ACCOUNT_WORKSPACES_CHANGED:
+      "삭제를 준비하는 사이에 워크스페이스가 새로 만들어졌습니다. 다시 시도해 주세요.",
     ACCOUNT_LAST_OWNER:
       "다른 멤버가 있는 워크스페이스의 마지막 OWNER입니다. 다른 멤버를 OWNER로 올린 뒤 다시 시도해 주세요.",
     WORKSPACE_SLUG_RELEASE_FAILED:

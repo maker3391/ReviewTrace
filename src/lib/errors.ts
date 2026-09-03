@@ -155,6 +155,14 @@ const REASON_CODE = {
   ACCOUNT_NOT_FOUND: "NOT_FOUND",
   /** 계정을 지우려는데 다른 멤버가 있는 Workspace 의 마지막 OWNER 다. */
   ACCOUNT_LAST_OWNER: "CONFLICT",
+  /**
+   * 잠근 뒤에 보니 그 사람 앞으로 Workspace 가 늘어 있었다.
+   *
+   * 🔴 **늘어난 것을 그 자리에서 잠그지 않는다.** 그것은 `users -> workspaces` 순서가
+   * 되어 전역 잠금 순서(`@/db`)를 깨고 초대 수락 경로와 고리를 닫는다. 다시 시도하면
+   * 이번에는 그 Workspace 도 목록에 들어온 채로 판정한다.
+   */
+  ACCOUNT_WORKSPACES_CHANGED: "CONFLICT",
   /** 계정 삭제 중 Workspace 주소를 비우지 못했다 — 다시 시도하면 된다. */
   WORKSPACE_SLUG_RELEASE_FAILED: "CONFLICT",
 } as const satisfies Record<string, ErrorCode>;

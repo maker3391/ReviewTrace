@@ -6,11 +6,16 @@ import { Client } from "pg";
 import { db, type Database } from "@/db";
 import * as schema from "@/db/schema";
 import { loadIntegrationDbEnv } from "@/db/testing/integration-env";
+import { AppError, isAppError } from "@/lib/errors";
 import {
   acceptInvitation,
   createInvitation,
 } from "@/features/invitations/server/invitation-service";
 import { deleteAccount } from "@/features/users/server/account-deletion-service";
+import {
+  changeMemberRole,
+  createWorkspace,
+} from "@/features/workspaces/server/workspace-service";
 import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
 
 const { users, workspaceInvitations, workspaceMembers, workspaces } = schema;
@@ -554,8 +559,7 @@ describe.skipIf(!enabled)("전역 잠금 순서 — 실제 연결 여럿", () =>
     expect(isDeadlock(deletionError)).toBe(false);
     expect(isDeadlock(acceptanceResult)).toBe(false);
 
-    // 둘 다 «성공»했다 — 어느 하나가 조용히 오류로 끝난 것이 아니다.
-    expect(deletionError).toBeNull();
+    // 수락은 «성공»했다 — 조용히 오류로 끝난 것이 아니다.
     const teamSlug = await db()
       .select({ slug: workspaces.slug })
       .from(workspaces)
@@ -565,20 +569,47 @@ describe.skipIf(!enabled)("전역 잠금 순서 — 실제 연결 여럿", () =>
     // 🔴 수락이 계정 삭제를 기다리지 않았다는 것까지 본다(잠금 순서의 결과다).
     expect(acceptedBeforeRelease).toBe(true);
 
-    // 계정과 Personal Workspace 는 사라지고, 남의 Workspace 는 그대로다.
+    /*
+      🔴 **삭제는 여기서 «성공하지 않는다» — 그리고 그것이 옳다.**
+
+      삭제는 잠그기 «전»에 읽은 목록으로 「마지막 OWNER 인가」를 판정한다. 그 사이에
+      수락이 끝나 새 소속이 생겼으므로 그 목록은 낡았다. 낡은 목록으로 지우면 방금
+      들어간 Workspace 가 판정에서 통째로 빠진다 — 그 Workspace 에서 내가 유일한
+      OWNER 가 되어 있어도 모른 채 지나간다(OWNER 0명이 남는다).
+
+      🔴 그래서 `ACCOUNT_WORKSPACES_CHANGED` 로 멈춘다. **이것은 deadlock 이 아니다** —
+      위에서 그것을 따로 확인했다. 다시 시도하면 그때는 그 Workspace 도 목록에 들어온
+      채로 잠기고 정상적으로 판정된다.
+
+      🔴 **예전에는 여기서 `deletionError` 가 `null` 이길 기대했다.** 그때는 삭제가
+      낡은 목록으로 그대로 통과했다는 뜻이었다.
+    */
+    expect(isAppError(deletionError)).toBe(true);
+    expect((deletionError as AppError).reason).toBe(
+      "ACCOUNT_WORKSPACES_CHANGED",
+    );
+
+    // 🔴 반쪽 삭제가 없다 — 같은 Transaction 이라 전부 되돌아갔다.
     const survivors = await db()
       .select({ id: users.id })
       .from(users)
       .where(eq(users.id, me.id));
-    expect(survivors).toHaveLength(0);
+    expect(survivors).toHaveLength(1);
+
+    const personalSurvivors = await db()
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(eq(workspaces.id, personalId));
+    expect(personalSurvivors).toHaveLength(1);
     expect(teamSlug).toHaveLength(1);
 
-    // 내 이메일이 적힌 초대 행은 남지 않는다.
-    const leftovers = await db()
-      .select({ id: workspaceInvitations.id })
+    // 🔴 초대는 수락으로 «소진»됐다 — 삭제가 되돌아가도 그 사실은 남는다.
+    const consumed = await db()
+      .select({ acceptedAt: workspaceInvitations.acceptedAt })
       .from(workspaceInvitations)
       .where(eq(workspaceInvitations.email, me.email));
-    expect(leftovers).toHaveLength(0);
+    expect(consumed).toHaveLength(1);
+    expect(consumed[0]?.acceptedAt).not.toBeNull();
   }, 60_000);
 
   /**
@@ -705,6 +736,244 @@ describe.skipIf(!enabled)("전역 잠금 순서 — 실제 연결 여럿", () =>
       );
     expect(live).toHaveLength(0);
   }, 60_000);
+
+  /**
+   * 🔴 **잠그기 «전»에 읽은 Workspace 목록은 낡을 수 있다.**
+   *
+   * `deleteAccount` 는 0 단계에서 아무것도 잠그지 않고 목록을 읽는다. 그 사이에 같은
+   * 사람이 새 Workspace 를 만들어 commit 하면 그것은 `mine` 에도 `liveIds` 에도 없다 —
+   * 그대로 `users` 를 지우면 그 Workspace 의 OWNER 소속만 CASCADE 로 사라져
+   * **멤버 0명의 열 수 없는 행**이 남는다.
+   *
+   * ## 어떻게 재는가
+   *
+   * ```
+   * blocker   삭제가 «가장 먼저» 잠글 Workspace 행을 미리 쥔다 (시간을 못 박는 도구)
+   * deleter   계정 삭제 — 목록을 «이미 읽은 뒤» Workspace 잠금 앞에서 멈춘다
+   * creator   그 멈춘 사이에 새 Workspace 를 만들어 commit 한다
+   * ```
+   *
+   * 🔴 **고정 대기로 순서를 믿지 않는다.** deleter 가 실제로 `workspaces ... for update`
+   * 에서 막힌 것을 Database 에 직접 물어 확인한 뒤에야 creator 를 들여보낸다.
+   *
+   * 🔴 **되돌림 확인**: `deleteAccount` 의 2-1 단계(잠근 뒤 재조회)를 지우면 이 시험이
+   * 실제로 실패한다 — 삭제가 성공해 버리고 새 Workspace 의 멤버가 0명이 된다.
+   */
+  it("🔴 삭제를 준비하는 사이에 만들어진 Workspace 를 멤버 0명으로 남기지 않는다", async () => {
+    const me = await signUp("삭제하는 사람");
+
+    const personalId = await ensurePersonalWorkspace(
+      {
+        userId: me.id,
+        displayName: "삭제하는 사람",
+        slugSource: unique("dl-"),
+      },
+      db(),
+    );
+    created.workspaceIds.push(personalId);
+
+    const blocker = await connect("blocker");
+    const deleter = await connect("deleter");
+    const creator = await connect("creator");
+
+    let deletionError: unknown = null;
+    let lateWorkspaceId: string | null = null;
+
+    try {
+      // blocker — 삭제가 «가장 먼저» 잡을 그 행을 미리 쥔다.
+      await blocker.client.query("begin");
+      await blocker.client.query(
+        'select "id" from "workspaces" where "id" = $1 for update',
+        [personalId],
+      );
+
+      // deleter — 목록을 이미 읽은 채 Workspace 잠금 앞에서 멈춘다.
+      const deletion = deleteAccount({ userId: me.id }, deleter.db).then(
+        () => null,
+        (error: unknown) => error,
+      );
+
+      const stopped = await untilLockWait(
+        deleter,
+        [blocker],
+        "계정 삭제가 Workspace 잠금 앞에서 멈춘 상태",
+      );
+      expect(stopped.query).toMatch(/"workspaces"[\s\S]*for update/i);
+
+      /*
+        🔴 **바로 이 창이 결함이다.** 삭제는 목록을 이미 읽었고, 이 Workspace 는 그
+        목록에 없다. creator 는 아무 잠금에도 걸리지 않고 그대로 commit 된다.
+      */
+      const late = await createWorkspace(
+        { name: unique("dl-"), createdBy: me.id },
+        creator.db,
+      );
+      lateWorkspaceId = late.workspaceId;
+      created.workspaceIds.push(late.workspaceId);
+
+      // blocker 를 놓는다 — 삭제가 이어서 판정한다.
+      await blocker.client.query("rollback");
+
+      deletionError = await deletion;
+    } finally {
+      await disconnect(blocker, deleter, creator);
+    }
+
+    // 🔴 낡은 목록으로 지우지 않고 «중단»한다.
+    expect(isAppError(deletionError)).toBe(true);
+    expect((deletionError as AppError).reason).toBe(
+      "ACCOUNT_WORKSPACES_CHANGED",
+    );
+
+    // 계정은 살아 있다 — 같은 Transaction 이라 반쪽 삭제가 없다.
+    const survivor = await db()
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, me.id));
+    expect(survivor).toHaveLength(1);
+
+    // 🔴 새 Workspace 의 OWNER 소속이 그대로다. 멤버 0명의 고아가 아니다.
+    const members = await db()
+      .select({ userId: workspaceMembers.userId })
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.workspaceId, lateWorkspaceId as string));
+    expect(members).toEqual([{ userId: me.id }]);
+  }, 60_000);
+
+
+  /**
+   * 🔴 **independent reviewer 가 낸 3단 반례** — 좁은 가드가 왜 부족했는지.
+   *
+   * 한때 가드는 「늘어난 Workspace 에 나 말고 다른 멤버가 있으면 진행한다」였다.
+   * reviewer 가 그것을 통과하면서 **OWNER 가 0명인 Workspace** 를 만드는 경로를 냈다:
+   *
+   * ```
+   * 1. 창 안에서 내가 W 의 MEMBER 초대를 수락한다        -> W 가 appeared 다
+   * 2. W 의 OWNER A 가 나를 OWNER 로 «올린다»            -> 승격에는 마지막 OWNER 검사가 없다
+   * 3. A 가 자신을 MEMBER 로 «내린다»                    -> 내가 다른 OWNER 라 허용된다
+   * 4. 「나 말고 멤버가 있는가」는 A 때문에 통과한다
+   * 5. 그런데 W 는 mine 에 없어 planAccountDeletion 이 보지 못한다
+   * 6. 나를 지우면 W 에 OWNER 가 0명이 된다
+   * ```
+   *
+   * OWNER 가 없는 Workspace 는 초대도 설정 변경도 자격 발급도 못 하고 화면에서 되돌릴
+   * 방법이 없다 — 접근 불가 고아보다 나쁘다.
+   *
+   * 🔴 **이 시험은 그 반례를 «그대로» 재현한다.** 넓은 abort 는 1번에서 이미 멈추므로
+   * 2·3 번까지 실제로 돌려 놓고도 삭제가 통과하지 않아야 한다.
+   *
+   * 🔴 **되돌림 확인**: 가드를 좁은 판(appeared 중 다른 멤버가 없는 것만 중단)으로
+   * 되돌리면 이 시험이 실제로 실패한다 — 삭제가 통과하고 W 의 OWNER 가 0명이 된다.
+   */
+  it("🔴 창 안에서 «수락 -> OWNER 승격 -> 기존 OWNER 강등» 이 일어나도 마지막 OWNER 를 지우지 않는다", async () => {
+    const me = await signUp("삭제하는 사람");
+    const host = await signUp("초대하는 사람");
+
+    const personalId = await ensurePersonalWorkspace(
+      {
+        userId: me.id,
+        displayName: "삭제하는 사람",
+        slugSource: unique("dl-"),
+      },
+      db(),
+    );
+    created.workspaceIds.push(personalId);
+
+    // 남의 Workspace. 처음에는 host 가 유일한 OWNER 다.
+    const teamId = await makeWorkspace(host.id, "Last Owner Team");
+    const invitation = await createInvitation(
+      { workspaceId: teamId, email: me.email, invitedBy: host.id },
+      db(),
+    );
+
+    const blocker = await connect("blocker");
+    const deleter = await connect("deleter");
+    const mutator = await connect("mutator");
+
+    let deletionError: unknown = null;
+
+    try {
+      // blocker — 삭제가 «가장 먼저» 잡을 그 행을 미리 쥔다.
+      await blocker.client.query("begin");
+      await blocker.client.query(
+        'select "id" from "workspaces" where "id" = $1 for update',
+        [personalId],
+      );
+
+      // deleter — 목록을 이미 읽은 채 Workspace 잠금 앞에서 멈춘다.
+      const deletion = deleteAccount({ userId: me.id }, deleter.db).then(
+        () => null,
+        (error: unknown) => error,
+      );
+
+      const stopped = await untilLockWait(
+        deleter,
+        [blocker],
+        "계정 삭제가 Workspace 잠금 앞에서 멈춘 상태",
+      );
+      expect(stopped.query).toMatch(/"workspaces"[\s\S]*for update/i);
+
+      /*
+        🔴 **여기가 반례의 세 걸음이다.** 전부 삭제가 멈춘 «사이»에 commit 된다.
+        어느 것도 deleter 의 잠금(개인 Workspace 행)과 겹치지 않으므로 기다리지 않는다.
+      */
+      await acceptInvitation(
+        { token: invitation.token, userId: me.id },
+        mutator.db,
+      );
+      await changeMemberRole(
+        { workspaceId: teamId, userId: me.id, role: "OWNER" },
+        mutator.db,
+      );
+      await changeMemberRole(
+        { workspaceId: teamId, userId: host.id, role: "MEMBER" },
+        mutator.db,
+      );
+
+      // 이 시점의 team 은 「나 = 유일 OWNER · host = MEMBER」다.
+      const beforeRelease = await db()
+        .select({ userId: workspaceMembers.userId, role: workspaceMembers.role })
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.workspaceId, teamId));
+      expect(
+        beforeRelease.filter((row) => row.role === "OWNER"),
+      ).toEqual([{ userId: me.id, role: "OWNER" }]);
+
+      await blocker.client.query("rollback");
+      deletionError = await deletion;
+    } finally {
+      await disconnect(blocker, deleter, mutator);
+    }
+
+    /*
+      🔴 **이것이 이 시험의 «주장»이라 맨 앞에 둔다.**
+
+      가드를 좁은 판으로 되돌리면 여기서 먼저 빨개져, 실패 메시지가 「OWNER 가
+      0명이 됐다」를 그대로 보여 준다 — 무엇이 무너졌는지가 assertion 하나로 읽힌다.
+    */
+    const owners = await db()
+      .select({ userId: workspaceMembers.userId })
+      .from(workspaceMembers)
+      .where(
+        sql`${workspaceMembers.workspaceId} = ${teamId}
+              and ${workspaceMembers.role} = 'OWNER'`,
+      );
+    expect(owners).toEqual([{ userId: me.id }]);
+
+    // 🔴 낡은 목록으로 판정하지 않고 멈춘다.
+    expect(isAppError(deletionError)).toBe(true);
+    expect((deletionError as AppError).reason).toBe(
+      "ACCOUNT_WORKSPACES_CHANGED",
+    );
+
+    // 계정도 그대로다 — 반쪽 삭제가 없다.
+    const survivors = await db()
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, me.id));
+    expect(survivors).toHaveLength(1);
+  }, 60_000);
+
 
   /** 🔴 이 파일이 만든 것이 하나도 남지 않았음을 **조회로** 확인한다. */
   it("🔴 시험이 만든 행이 남지 않는다", async () => {

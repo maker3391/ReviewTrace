@@ -504,6 +504,57 @@ export async function deleteAccount(
       throw new AppError("ACCOUNT_NOT_FOUND");
     }
 
+    /**
+     * 2-1. 🔴 **잠근 뒤에 목록을 다시 읽어 «늘지 않았는지» 확인한다.**
+     *
+     * 0 단계의 조회는 아무것도 잠그지 않으므로, 그 사이에 같은 사람이 새 Workspace 를
+     * 만들어 commit 하면 그것은 `mine` 에도 `liveIds` 에도 없다. 그대로 진행하면
+     * `users` 를 지울 때 그 Workspace 의 OWNER 소속만 CASCADE 로 사라져
+     * **멤버 0명의 열 수 없는 행**이 남는다.
+     *
+     * 재조회가 여기서 «유효»한 이유는 FK 다 — `workspace_members.user_id` 와
+     * `workspaces.created_by` 는 둘 다 `users` 를 가리키므로 그 INSERT 는 `users` 행에
+     * `FOR KEY SHARE` 를 요구하고, 이것은 바로 위에서 잡은 `FOR UPDATE` 와 충돌한다.
+     * 즉 **이 시점 이후로는 그 사람 앞으로 새 Workspace 가 commit 될 수 없어** 여기서
+     * 읽은 목록이 Transaction 끝까지 안정적이다.
+     *
+     * 🔴 **늘어난 것을 그 자리에서 잠그는 선택은 하지 않는다.** `users -> workspaces` 는
+     * 전역 잠금 순서(`@/db`)를 거스르고 초대 수락과 고리를 닫아 `40P01` 을 되살린다.
+     * 같은 Transaction 안이므로 중단이 곧 전체 롤백이고 반쪽 삭제가 생기지 않는다.
+     */
+    const known = new Set(mine.map((row) => row.workspaceId));
+    const appeared = (await readMyWorkspaces(input.userId, tx))
+      .map((row) => row.workspaceId)
+      .filter((workspaceId) => !known.has(workspaceId));
+
+    /**
+     * 🔴 **개수가 아니라 «집합»을 본다.** 그 사이에 하나가 빠지고 하나가 늘면 길이는
+     * 그대로다 — 늘어난 «id» 가 있는지를 묻는다.
+     *
+     * 🔴 **늘어난 것이 「나 혼자인 Workspace」인지 가려 내지 않는다.** 한때 그렇게
+     * 좁혔다가 독립 reviewer 가 반례를 냈다:
+     *
+     * ```
+     * 1. 창 안에서 내가 W 의 MEMBER 초대를 수락한다          -> W 가 appeared 다
+     * 2. W 의 OWNER A 가 나를 OWNER 로 «올린다»              -> 승격에는 마지막 OWNER 검사가 없다
+     * 3. A 가 자신을 MEMBER 로 «내린다»                      -> 내가 다른 OWNER 라 허용된다
+     * 4. W 는 「나 = 유일 OWNER · A = MEMBER」가 된다
+     * 5. 「나 말고 멤버가 있는가」는 A 때문에 통과한다
+     * 6. 그런데 W 는 `mine` 에 없어 planAccountDeletion 이 보지 못한다
+     * 7. 나를 지우면 W 에 **OWNER 가 0명**이 된다
+     * ```
+     *
+     * OWNER 가 없는 Workspace 는 초대도 설정 변경도 자격 발급도 못 하고 화면에서
+     * 되돌릴 방법이 없다 — 고아 Workspace 보다 나쁘다.
+     *
+     * 🔴 **그래서 「무엇이 늘었는지」를 따지지 않는다.** 판정 재료가 낡았다는 사실 자체가
+     * 결론이다. 다시 시도하면 그때는 그 Workspace 도 `mine` 에 들어와 잠기고, 마지막
+     * OWNER 판정을 정상적으로 받는다.
+     */
+    if (appeared.length > 0) {
+      throw new AppError("ACCOUNT_WORKSPACES_CHANGED");
+    }
+
     // 3. workspace_members — 판정에 쓰는 사실은 전부 «잠근 뒤»의 값이다.
     const plan: AccountDeletionPlan = planAccountDeletion(
       await lockedMembershipFacts(input.userId, mine, liveIds, tx),

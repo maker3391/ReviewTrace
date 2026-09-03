@@ -58,6 +58,22 @@ const staleList = (role: "OWNER" | "MEMBER") =>
 /** 잠근 Workspace 행. */
 const lockedWorkspaces = () => selects([{ id: WORKSPACE }]);
 
+/**
+ * 잠근 뒤에 «다시» 읽은 내 소속 목록 — 목록이 늘지 않았는지 확인하는 조회다(2-1 단계).
+ *
+ * 🔴 이 조회가 빠지면 잠그기 전에 만들어진 Workspace 를 놓쳐 멤버 0명의 행이 남는다.
+ */
+const recheckedList = () =>
+  selects([
+    {
+      workspaceId: WORKSPACE,
+      slug: "acme",
+      name: "Acme",
+      personalOwnerId: OTHER,
+      role: "OWNER" as const,
+    },
+  ]);
+
 /** 잠근 뒤에 다시 읽은 소속 행 전부 — 내 것과 남의 것이 함께 온다. */
 const lockedMembers = (mine: "OWNER" | "MEMBER", theirs: "OWNER" | "MEMBER") =>
   selects([
@@ -95,6 +111,8 @@ describe("deleteAccount — 마지막 OWNER 판정", () => {
       staleList("MEMBER"),
       lockedWorkspaces(),
       account(),
+      // 2-1. 잠근 뒤 재조회 — 늘지 않았다.
+      recheckedList(),
       // 잠그고 보니 내가 OWNER 이고 남은 OWNER 는 없다.
       lockedMembers("OWNER", "MEMBER"),
     ]);
@@ -118,6 +136,8 @@ describe("deleteAccount — 마지막 OWNER 판정", () => {
       staleList("OWNER"),
       lockedWorkspaces(),
       account(),
+      // 2-1. 잠근 뒤 재조회 — 늘지 않았다.
+      recheckedList(),
       // 잠그고 보니 나는 MEMBER 다. 남은 OWNER 가 없어도 내가 막을 이유가 없다.
       lockedMembers("MEMBER", "MEMBER"),
       // 남는 Workspace 라 지우는 것은 초대·인증 Token·계정뿐이다.
@@ -142,6 +162,8 @@ describe("deleteAccount — 마지막 OWNER 판정", () => {
       staleList("OWNER"),
       lockedWorkspaces(),
       account(),
+      // 2-1. 잠근 뒤 재조회 — 늘지 않았다.
+      recheckedList(),
       // 내 행이 없다.
       selects([{ workspaceId: WORKSPACE, userId: OTHER, role: "OWNER" }]),
       deletes(),
@@ -235,6 +257,25 @@ describe("deleteAccount — 잠그는 순서", () => {
         "lock-user",
         '"users"."id"',
       ),
+      // 2-1. 잠근 뒤 재조회 — 🔴 `for` 를 부르지 않는다(아무것도 잠그지 않는다).
+      {
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              orderBy: () =>
+                Promise.resolve([
+                  {
+                    workspaceId: WORKSPACE,
+                    slug: "acme",
+                    name: "Acme",
+                    personalOwnerId: OTHER,
+                    role: "OWNER" as const,
+                  },
+                ]),
+            }),
+          }),
+        }),
+      },
       lockingSelect(
         [
           { workspaceId: WORKSPACE, userId: USER, role: "MEMBER" as const },

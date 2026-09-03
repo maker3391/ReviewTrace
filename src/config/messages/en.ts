@@ -825,6 +825,8 @@ export const en: Messages = {
       "A workspace with other members cannot be deleted. Remove the members first.",
 
     ACCOUNT_NOT_FOUND: "Account not found.",
+    ACCOUNT_WORKSPACES_CHANGED:
+      "A Workspace was created while the deletion was being prepared. Try again.",
     ACCOUNT_LAST_OWNER:
       "You are the last OWNER of a Workspace that still has other members. Promote another member to OWNER and try again.",
     WORKSPACE_SLUG_RELEASE_FAILED:
