@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ConfirmDialog } from "@/components/molecules/ConfirmDialog";
+import { MetaDot } from "@/components/molecules/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { deleteWorkspaceAction } from "@/features/workspaces/actions/workspace-actions";
@@ -101,7 +102,11 @@ export function DeleteWorkspacePanel({
  */}
       <dl className="grid grid-cols-[7rem_1fr] gap-x-6 gap-y-2 text-xs">
         <dt className="text-muted-foreground">{labels.losses}</dt>
-        <dd className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+        {/*
+ 🔴 **inline 흐름이다.** flex 로 두면 구분점이 독립 항목이 되어 좁은 화면에서 줄 끝이나
+ 다음 줄 첫머리에 홀로 남는다 — `MetaDot` 이 앞 조각에 붙어 그것을 막는다.
+ */}
+        <dd className="leading-5">
           <Loss label={labels.statProjects} value={losses.projects} />
           <Divider />
           <Loss label={labels.statRepositories} value={losses.repositories} />
@@ -167,17 +172,19 @@ export function DeleteWorkspacePanel({
 
 function Loss({ label, value }: { label: string; value: number }) {
   return (
-    <span className="flex items-baseline gap-1.5">
+    <span className="inline-flex items-baseline gap-1.5">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-medium tabular-nums">{value}</span>
     </span>
   );
 }
 
+/**
+ * 잃는 것들을 나누는 가운뎃점.
+ *
+ * 🔴 지역 구현을 두지 않는다 — 좁은 화면에서 구분점이 줄 끝·첫머리에 홀로 남지
+ * 않게 하는 규칙이 `MetaDot` 한 곳에 있다(`components/molecules/PageHeader.tsx`).
+ */
 function Divider() {
-  return (
-    <span aria-hidden className="text-border">
-      ·
-    </span>
-  );
+  return <MetaDot />;
 }

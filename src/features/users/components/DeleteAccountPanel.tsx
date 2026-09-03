@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { ConfirmDialog } from "@/components/molecules/ConfirmDialog";
+import { MetaDot } from "@/components/molecules/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LOGIN_PATH } from "@/config/routes";
@@ -142,7 +143,8 @@ export function DeleteAccountPanel({
         {deleted.length > 0 && (
           <>
             <dt className="text-muted-foreground">{labels.losses}</dt>
-            <dd className="flex flex-wrap items-baseline gap-2.5">
+            {/* 🔴 inline 흐름 — 구분점이 줄 끝·첫머리에 홀로 남지 않게 한다. */}
+            <dd className="leading-5">
               <Loss label={labels.statProjects} value={losses.projects} />
               <Divider />
               <Loss label={labels.statIssues} value={losses.reviewIssues} />
@@ -203,17 +205,19 @@ export function DeleteAccountPanel({
 
 function Loss({ label, value }: { label: string; value: number }) {
   return (
-    <span className="flex items-baseline gap-1.5">
+    <span className="inline-flex items-baseline gap-1.5">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-medium tabular-nums">{value}</span>
     </span>
   );
 }
 
+/**
+ * 잃는 것들을 나누는 가운뎃점.
+ *
+ * 🔴 지역 구현을 두지 않는다 — 좁은 화면에서 구분점이 줄 끝·첫머리에 홀로 남지
+ * 않게 하는 규칙이 `MetaDot` 한 곳에 있다(`components/molecules/PageHeader.tsx`).
+ */
 function Divider() {
-  return (
-    <span aria-hidden className="text-border">
-      ·
-    </span>
-  );
+  return <MetaDot />;
 }

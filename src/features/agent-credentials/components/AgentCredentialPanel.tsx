@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Timestamp } from "@/components/atoms/Timestamp";
 import { ConfirmDialog } from "@/components/molecules/ConfirmDialog";
+import { MetaDot } from "@/components/molecules/PageHeader";
 import {
   Dialog,
   DialogContent,
@@ -192,17 +193,13 @@ export function AgentCredentialPanel({
                 ? labels.readWrite
                 : labels.readOnly}
             </span>
-            <span aria-hidden className="mx-1.5 text-border">
-              ·
-            </span>
+            <MetaDot />
             <span>
               {credential.reviewLanguage === "ko"
                 ? labels.korean
                 : labels.english}
             </span>
-            <span aria-hidden className="mx-1.5 text-border">
-              ·
-            </span>
+            <MetaDot />
             <span className="font-mono">{credential.keyPrefix}</span>
           </p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -214,9 +211,7 @@ export function AgentCredentialPanel({
                 <Timestamp value={credential.lastUsedAt} variant="compact" />
               )}
             </span>
-            <span aria-hidden className="mx-1.5 text-border">
-              ·
-            </span>
+            <MetaDot />
             <span>
               {labels.expires}{" "}
               {credential.expiresAt === null

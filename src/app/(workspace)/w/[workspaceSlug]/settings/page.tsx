@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { PageTitle } from "@/components/atoms/PageTitle";
 import { PageContainer } from "@/components/molecules/PageContainer";
+import { MetaDot } from "@/components/molecules/PageHeader";
 import { Section } from "@/components/molecules/Section";
 import { AgentCredentialPanel } from "@/features/agent-credentials/components/AgentCredentialPanel";
 import { AgentIntegrationPanel } from "@/features/agent-credentials/components/AgentIntegrationPanel";
@@ -130,17 +131,20 @@ export default async function WorkspaceSettingsPage({
 . 그래서 Section 을 없애고 Workspace 기본 정보의 한 행으로 내렸다.
  */}
           <dt className="text-xs text-muted-foreground">{t.scale}</dt>
-          <dd className="flex items-center gap-2.5 text-xs">
-            <span className="flex items-baseline gap-1.5">
+          {/*
+ 🔴 **inline 흐름이다.** 구분점을 flex 의 독립 항목으로 두면 좁은 화면에서 줄 끝이나
+ 다음 줄 첫머리에 홀로 남는다 — 같은 화면의 삭제 패널들이 이미 `MetaDot` 으로 그것을
+ 막고 있어, 이 한 줄만 다른 규칙을 쓸 이유가 없다.
+ */}
+          <dd className="text-xs leading-5">
+            <span className="inline-flex items-baseline gap-1.5">
               <span className="text-muted-foreground">{t.statProjects}</span>
               <span className="font-medium tabular-nums">
                 {projects.length}
               </span>
             </span>
-            <span aria-hidden className="text-border">
-              ·
-            </span>
-            <span className="flex items-baseline gap-1.5">
+            <MetaDot />
+            <span className="inline-flex items-baseline gap-1.5">
               <span className="text-muted-foreground">{t.statMembers}</span>
               <span className="font-medium tabular-nums">{members.length}</span>
             </span>

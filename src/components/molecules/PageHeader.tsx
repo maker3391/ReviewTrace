@@ -71,7 +71,7 @@ export function PageHeader({
  끊으므로 넉넉한 폭에서는 지금과 똑같이 그려진다.
  */}
         {meta !== undefined && (
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs wrap-anywhere text-muted-foreground">
+          <p className="mt-1.5 text-xs leading-5 wrap-anywhere text-muted-foreground">
             {meta}
           </p>
         )}
@@ -84,11 +84,37 @@ export function PageHeader({
   );
 }
 
-/** 머리글 안의 사실들을 나누는 가운뎃점. 문자열을 손으로 이어 붙이지 않는다. */
+/**
+ * 머리글 안의 사실들을 나누는 가운뎃점. 문자열을 손으로 이어 붙이지 않는다.
+ *
+ * ## 🔴 앞 조각에 «붙어» 있고 뒤에서만 끊긴다
+ *
+ * 예전에는 이 점이 `flex` 컨테이너의 **독립 항목**이었다. flex 는 항목 사이 어디서나
+ * 접히므로 390px 에서 이런 것이 나왔다 —
+ *
+ * ```
+ * GitHub · develop ·        <- 점이 줄 끝에 남거나
+ * GitHub                    <- 다음 줄 첫머리에 홀로 선다
+ * ```
+ *
+ * 그래서 머리글의 meta 줄을 **inline 흐름**으로 되돌리고, 이 점 앞에 **줄바꿈하지 않는
+ * 공백**(NBSP)을 둔다. 앞 낱말과 점 사이에는 끊길 자리가 아예 없고, 끊길 수 있는 것은
+ * 점 «뒤»의 보통 공백 하나뿐이다 — 그래서 점은 **혼자 남지도, 줄 첫머리에 서지도**
+ * 못한다.
+ *
+ * 🔴 **`whitespace-nowrap` 으로 묶지 않는다.** 그러면 Pattern Key 처럼 빈칸 없는 긴
+ * 식별자가 줄어들지 못해 머리글이 화면 밖으로 나간다 — 위 `wrap-anywhere` 주석이 적어
+ * 둔 실측이 그 자리다.
+ *
+ * 🔴 **`aria-hidden` 이다.** 읽어 주는 기계에는 이 점이 들리지 않아야 한다.
+ */
 export function MetaDot() {
   return (
-    <span aria-hidden className="text-border">
-      ·
-    </span>
+    <>
+      {"\u00A0"}
+      <span aria-hidden className="mx-0.5 text-border">
+        ·
+      </span>{" "}
+    </>
   );
 }

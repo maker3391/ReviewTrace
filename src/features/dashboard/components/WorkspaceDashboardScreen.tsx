@@ -4,6 +4,7 @@ import { AlertTriangle, Boxes, ListChecks, Repeat2 } from "lucide-react";
 
 import { SeverityBadge } from "@/components/atoms/SeverityBadge";
 import { Timestamp } from "@/components/atoms/Timestamp";
+import { MetaDot } from "@/components/molecules/PageHeader";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Section, SectionEmpty } from "@/components/molecules/Section";
@@ -421,16 +422,11 @@ export async function WorkspaceDashboardScreen({
  그 빈칸이라, 구분점이 «다음 줄 첫머리에 홀로» 서는 일이 생기지 않는다.
  잘라 내지 않고 접는 이유는 여기 담긴 것이 전부 판단에 쓰이는 값이기 때문이다.
  */}
-                      <p className="col-start-1 row-start-2 mt-0.5 text-[11px] leading-4 text-muted-foreground max-sm:col-span-2">
+                      <p className="col-start-1 row-start-2 mt-0.5 text-[11px] leading-4 wrap-anywhere text-muted-foreground max-sm:col-span-2">
                         {meta.map((part, index) => (
                           <span key={index}>
-                            <span className="whitespace-nowrap">
-                              {part}
-                              {index < meta.length - 1 && (
-                                <span aria-hidden> ·</span>
-                              )}
-                            </span>
-                            {index < meta.length - 1 && " "}
+                            {part}
+                            {index < meta.length - 1 && <MetaDot />}
                           </span>
                         ))}
                       </p>

@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { MetaDot } from "@/components/molecules/PageHeader";
 import { PageContainer } from "@/components/molecules/PageContainer";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { projectSectionHref } from "@/config/navigation";
@@ -560,18 +561,19 @@ export async function ProjectDashboardScreen({
  접히는 자리가 그 빈칸이라 구분점이 다음 줄 첫머리에 홀로 서지 않고, 복사한 문자열에도
  「가 · 나」로 나간다 — margin 으로 벌리면 화면에만 있고 글자에는 붙어 나간다.
  */}
-                <p className="truncate text-[11px] leading-4 text-muted-foreground">
+                {/*
+ 🔴 **`truncate` 를 쓰지 않는다.** 그것은 `white-space: nowrap` 을 포함해
+ `wrap-anywhere` 를 덮는다 — 빈칸 없는 저장소 이름이 끊기지 못하고, 조상 `Section` 의
+ `overflow-hidden` 이 넘친 부분을 «잘라 낸다»(실측: 390px 에서 111px, 76자 이름이면 494px).
+ 접어서 두 줄이 되는 편이 값이 사라지는 것보다 낫다.
+ */}
+                <p className="text-[11px] leading-4 wrap-anywhere text-muted-foreground">
                   {[resolution.repositoryFullName, resolution.patternKey]
                     .filter((part): part is string => part !== null)
                     .map((part, index, parts) => (
                       <span key={part}>
-                        <span className="font-mono whitespace-nowrap">
-                          {part}
-                          {index < parts.length - 1 && (
-                            <span aria-hidden> ·</span>
-                          )}
-                        </span>
-                        {index < parts.length - 1 && " "}
+                        <span className="font-mono">{part}</span>
+                        {index < parts.length - 1 && <MetaDot />}
                       </span>
                     ))}
                 </p>
