@@ -31,6 +31,7 @@ import {
   REVIEW_TABLE,
 } from "@/features/reviews/components/review-table-columns";
 import { formatAgeInDays } from "@/lib/format/date";
+import { markdownToPlainText } from "@/lib/markdown/plain-text";
 import { readLocale, readMessages } from "@/lib/ui/appearance";
 import { cn } from "@/lib/utils";
 
@@ -533,8 +534,16 @@ export async function ProjectDashboardScreen({
                     />
                   </span>
                 </div>
+                {/*
+ 🔴 **여기는 문서가 아니라 목록 한 줄이다.** 서술 field 는 Markdown 원문으로 저장되는데
+ (`resolutionSummary`) 그것을 그대로 그리면 `##` · `**` · 백틱이 두 줄 중 절반을 차지한다.
+ 표기만 걷어낸 평문으로 바꿔 그린다 — 저장된 원문은 그대로 두고, 상세 화면의
+ `MarkdownView` 가 그것을 문서 구조로 그린다(`lib/markdown/plain-text.ts`).
+
+ 자르는 일은 여전히 `line-clamp-2` 가 한다 — 서버에서 미리 자르지 않는다.
+ */}
                 <p className="line-clamp-2 text-[11px] text-muted-foreground">
-                  {resolution.resolutionSummary}
+                  {markdownToPlainText(resolution.resolutionSummary)}
                 </p>
               </li>
             ))}
