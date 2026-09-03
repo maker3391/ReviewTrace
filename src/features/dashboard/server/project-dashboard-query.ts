@@ -98,7 +98,6 @@ export interface RecentResolution {
   title: string;
   severity: IssueSeverity;
   patternKey: string | null;
-  resolutionSummary: string;
   resolvedAt: Date;
 }
 
@@ -186,7 +185,6 @@ export async function findProjectDashboard(
         title: reviewIssues.title,
         severity: reviewIssues.severity,
         patternKey: reviewIssues.patternKey,
-        resolutionSummary: sql<string>`${reviewIssues.resolutionSummary}`,
         resolvedAt: sql<Date>`${reviewIssues.resolvedAt}`,
       })
       .from(reviewIssues)

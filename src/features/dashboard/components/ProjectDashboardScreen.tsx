@@ -31,7 +31,6 @@ import {
   REVIEW_TABLE,
 } from "@/features/reviews/components/review-table-columns";
 import { formatAgeInDays } from "@/lib/format/date";
-import { markdownToPlainText } from "@/lib/markdown/plain-text";
 import { readLocale, readMessages } from "@/lib/ui/appearance";
 import { cn } from "@/lib/utils";
 
@@ -513,7 +512,7 @@ export async function ProjectDashboardScreen({
         ) : (
           <ul className="divide-y divide-border/60 px-5">
             {dashboard.recentResolutions.map((resolution) => (
-              <li key={resolution.id} className="flex flex-col gap-0.5 py-2">
+              <li key={resolution.id} className="flex flex-col gap-1 py-2.5">
                 <div className="flex items-baseline gap-2">
                   <SeverityBadge severity={resolution.severity} />
                   {/*
@@ -527,21 +526,7 @@ export async function ProjectDashboardScreen({
                   >
                     {resolution.title}
                   </Link>
-                  {/*
- 🔴 **`shrink-0` 에 상한이 없으면 그 낱말이 줄을 밀어낸다.** Pattern Key 는
- 빈칸이 없는 식별자라 90자짜리 하나가 줄 전체를 넘겼다 — 390 에서 목록이
- **335px**, 768 에서 **165px** 가로로 넘쳤고 그 행만 높이가 72px(다른 행은
- 56px)이 됐다. 좁은 폭에서는 접고, 그 위에서는 제 폭 안에서 자른다:
- 이 줄에서 «행을 알아보는 값»은 제목이지 Pattern Key 가 아니다.
- */}
-                  {resolution.patternKey !== null && (
-                    <span
-                      className="hidden max-w-[12rem] shrink-0 truncate font-mono text-[11px] text-muted-foreground sm:block"
-                      title={resolution.patternKey}
-                    >
-                      {resolution.patternKey}
-                    </span>
-                  )}
+                  {/* 🔴 시각은 이 줄의 오른쪽 끝이다 — 행마다 같은 자리에 있어야 훑힌다. */}
                   <span className="w-20 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
                     <Timestamp
                       value={resolution.resolvedAt}
@@ -552,16 +537,18 @@ export async function ProjectDashboardScreen({
                   </span>
                 </div>
                 {/*
- 🔴 **여기는 문서가 아니라 목록 한 줄이다.** 서술 field 는 Markdown 원문으로 저장되는데
- (`resolutionSummary`) 그것을 그대로 그리면 `##` · `**` · 백틱이 두 줄 중 절반을 차지한다.
- 표기만 걷어낸 평문으로 바꿔 그린다 — 저장된 원문은 그대로 두고, 상세 화면의
- `MarkdownView` 가 그것을 문서 구조로 그린다(`lib/markdown/plain-text.ts`).
+ 🔴 **Pattern Key 는 제목 «밑»에 둔다.** 같은 줄에 두면 빈칸 없는 식별자가 제목과
+ 가로를 다투다 90자짜리 하나가 줄을 통째로 밀어냈다(390 에서 목록이 335px 넘쳤다).
+ 제 줄을 주면 좁은 폭에서도 접히지 않고, 그 자리를 숨길 이유도 사라진다.
 
- 자르는 일은 여전히 `line-clamp-2` 가 한다 — 서버에서 미리 자르지 않는다.
+ 🔴 **여기에 해결 요약을 그리지 않는다.** 이 목록의 일은 「무슨 Issue 가 최근
+ 해결됐는지 빠르게 훑고 상세로 가는 것」이다 — 서술은 Issue 상세의 몫이다.
  */}
-                <p className="line-clamp-2 text-[11px] text-muted-foreground">
-                  {markdownToPlainText(resolution.resolutionSummary)}
-                </p>
+                {resolution.patternKey !== null && (
+                  <span className="truncate font-mono text-[11px] text-muted-foreground">
+                    {resolution.patternKey}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
