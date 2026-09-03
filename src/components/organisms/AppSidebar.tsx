@@ -79,6 +79,20 @@ import { cn } from "@/lib/utils";
  * 3. **펼칠 때는 순서가 뒤집힌다** — 폭이 먼저 열리고(200ms) 자리가 생긴 뒤 글자가 뜬다
  * (`delay-150`). 좁은 폭에 글자가 먼저 나타나 뭉개지는 일이 없다
  *
+ * 🔴 **사이드바 안의 글자는 «하나의» 규칙만 쓴다**(`labelFadeClass`). 메뉴 이름과
+ * Project 머리글이 그 함수를 함께 쓰므로, 둘이 언제 뜨고 사라지는지가 갈리지 않는다.
+ *
+ * 🔴 **전환이 걸린 노드를 접힘 여부로 갈아 끼우지 않는다.** 예전에는 `NavLink` 가
+ * 접혔을 때만 Tooltip 으로 감싸서 React 가 `<a>` 를 통째로 다시 mount 했다 —
+ * 갓 태어난 노드에는 직전 상태가 없어 **opacity 전환이 시작조차 못 했고**, 글자가
+ * 폭이 열리기도 전에 곧바로 떠서 잘린 채 보였다. 실측으로 잡았다(펼치기 11ms 에
+ * opacity 0 -> 1, 그때 사이드바 폭은 아직 88px). 지금은 Tooltip 을 **늘 두고**
+ * 펼쳤을 때 열림만 잠근다.
+ *
+ * 🔴 **«자리»와 «글자»는 다른 시간표를 쓴다.** 자리(폭·높이·padding)는 200ms 에
+ * 지연 없이, 글자는 위 규칙대로 움직인다. Project 머리글에 지연을 얹었더니
+ * 폭이 다 열린 «뒤»에 그 칸이 밀고 들어와 아래 메뉴가 45px 내려앉았다.
+ *
  * Icon 은 두 상태에서 **왼쪽 끝에서 같은 거리**에 있다(`nav px-2` + `item px-2`).
  * 그래서 접히고 펼쳐질 때 Icon 이 좌우로 튀지 않는다.
  *
@@ -243,18 +257,21 @@ export function AppSidebar({
             className={cn(
               // 🔴 좁은 폭에서는 자리 자체를 두지 않는다 — 아이콘만 남는 폭이다.
               "max-md:hidden",
-              "overflow-hidden px-2 transition-[max-height,opacity,padding] duration-200 ease-out motion-reduce:transition-none",
-              collapsed
-                ? "max-h-0 py-0 opacity-0"
-                : "max-h-16 pb-1.5 pt-0.5 opacity-100 delay-100",
+              // 🔴 «자리»는 사이드바 폭과 같은 시간표다 — 200ms, 지연 없음.
+              // 지연을 주면 폭이 다 열린 뒤에 이 칸이 밀고 들어와 아래 메뉴가 늦게 내려앉는다.
+              "overflow-hidden px-2 transition-[max-height,padding] duration-200 ease-out motion-reduce:transition-none",
+              collapsed ? "max-h-0 py-0" : "max-h-16 pb-1.5 pt-0.5",
             )}
           >
-            <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-              {labels.projectHeading}
-            </p>
-            <p className="truncate text-[15px] font-semibold tracking-tight text-sidebar-foreground">
-              {currentProject.name}
-            </p>
+            {/* 🔴 «글자»는 메뉴 이름과 같은 규칙으로 사라지고 나타난다. */}
+            <div className={labelFadeClass(collapsed)}>
+              <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                {labels.projectHeading}
+              </p>
+              <p className="truncate text-[15px] font-semibold tracking-tight text-sidebar-foreground">
+                {currentProject.name}
+              </p>
+            </div>
           </div>
           <ul className="flex flex-col gap-0.5">
             {PROJECT_ITEMS.map((item) => (
@@ -352,6 +369,9 @@ function NavLink({
   const active = exact
     ? pathname === href
     : pathname === href || pathname.startsWith(`${href}/`);
+  // 🔴 Tooltip 은 «늘» 제어 상태다. `open` 을 주었다 말았다 하면 Radix 가
+  // 「uncontrolled -> controlled」 경고를 낸다.
+  const [tipRequested, setTipRequested] = useState(false);
 
   const link = (
     <Link
@@ -385,17 +405,31 @@ function NavLink({
     </Link>
   );
 
+  // 🔴 접힘 여부로 «감싸는 요소»를 갈아 끼우지 않는다. Tooltip 을 붙였다 뗐다 하면
+  // React 가 이 `<a>` 를 통째로 다시 mount 해 안쪽 글자의 opacity 전환이 시작조차
+  // 못 한다 — 갓 태어난 노드에는 비교할 직전 상태가 없다. 구조는 그대로 두고
+  // 펼쳤을 때 **열림만** 잠근다.
   return (
     <li>
-      {collapsed ? (
-        <Tooltip>
-          <TooltipTrigger asChild>{link}</TooltipTrigger>
-          <TooltipContent side="right">{label}</TooltipContent>
-        </Tooltip>
-      ) : (
-        link
-      )}
+      <Tooltip open={collapsed && tipRequested} onOpenChange={setTipRequested}>
+        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipContent side="right">{label}</TooltipContent>
+      </Tooltip>
     </li>
+  );
+}
+
+/**
+ * 접힘·펼침에서 **글자**가 사라지고 나타나는 방식. 🔴 **정본은 여기 하나다** —
+ * 메뉴 이름(`NavLabel`)과 Project 머리글이 같이 쓴다.
+ *
+ * - 접을 때: 지연 없이 100ms 에 사라진다. 폭(200ms)이 줄기 전에 이미 없다
+ * - 펼칠 때: 150ms 기다렸다가 150ms 에 걸쳐 뜬다. 폭이 거의 다 열린 뒤다
+ */
+function labelFadeClass(collapsed: boolean) {
+  return cn(
+    "transition-opacity ease-out motion-reduce:transition-none",
+    collapsed ? "opacity-0 duration-100" : "opacity-100 duration-150 delay-150",
   );
 }
 
@@ -405,7 +439,7 @@ function NavLink({
  * 🔴 **폭을 애니메이션하지 않는다.** `whitespace-nowrap` 으로 폭을 고정해 두고 사이드바의
  * `overflow-hidden` 이 자른다 — 낱말이 접히거나 줄바꿈되는 순간이 없다.
  *
- * 🔴 **순서가 핵심이다.**
+ * 🔴 **순서가 핵심이다.** 시간표는 `labelFadeClass` 한 곳에 있다.
  * - 접을 때: 글자가 **먼저** 사라진다(100ms, 지연 없음). 폭은 200ms 에 걸쳐 줄어든다
  * - 펼칠 때: 폭이 **먼저** 열리고, 자리가 생긴 뒤 글자가 뜬다(`delay-150`)
  *
@@ -422,13 +456,12 @@ function NavLabel({
   return (
     <span
       className={cn(
-        "min-w-0 flex-1 truncate whitespace-nowrap text-left transition-opacity ease-out motion-reduce:transition-none",
+        "min-w-0 flex-1 truncate whitespace-nowrap text-left",
+        labelFadeClass(collapsed),
         // 🔴 좁은 폭에서는 고른 상태와 무관하게 사라진다. DOM 에서 지우지는 않는다 —
         // 링크의 이름이 사라지면 스크린 리더가 어디로 가는 링크인지 읽을 수 없다.
         "max-md:pointer-events-none max-md:opacity-0",
-        collapsed
-          ? "pointer-events-none opacity-0 duration-100"
-          : "opacity-100 duration-150 delay-150",
+        collapsed && "pointer-events-none",
       )}
     >
       {children}
