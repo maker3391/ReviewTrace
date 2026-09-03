@@ -218,9 +218,10 @@ export const en: Messages = {
     activity: {
       title: "Recent Activity",
       empty: "No activity yet",
-      reviewSuffix: (repository: string, issueCount: number) =>
-        ` reviewed ${repository} · ${issueCount} issues`,
-      resolutionSuffix: (repository: string) => ` resolved · ${repository}`,
+      review: "Reviewed",
+      resolved: "Resolved",
+      issueCount: (count: number) =>
+        count === 1 ? "1 issue" : `${count} issues`,
     },
   },
 

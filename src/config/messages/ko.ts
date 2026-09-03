@@ -348,10 +348,18 @@ export const ko = {
     activity: {
       title: "최근 활동",
       empty: "활동이 없습니다",
-      /** 행위자 이름은 굵게 따로 그린다 — 여기 담기는 것은 그 뒤에 붙는 말이다. */
-      reviewSuffix: (repository: string, issueCount: number) =>
-        `가 ${repository} 검토 · 이슈 ${issueCount}건`,
-      resolutionSuffix: (repository: string) => ` 해결 · ${repository}`,
+      /**
+       * 🔴 **조사를 붙여 문장을 만들지 않는다.** 예전에는 「{행위자}«가» {저장소} 검토 ·
+       * 이슈 N건」이 한 줄이었다 — 주체·저장소·행위·결과 넷이 같은 줄에서 가로를 다투고,
+       * 긴 이름 하나가 나머지를 통째로 잘라 냈다. Dashboard 는 훑는 화면이라 필요한 것은
+       * 문장이 아니라 **줄마다 같은 자리에 놓인 metadata** 다.
+       *
+       * 그래서 낱말만 남기고 조립은 화면이 계층으로 한다 —
+       * 주체(1단) · 저장소·행위·결과(2단) · 프로젝트·시각(3단).
+       */
+      review: "검토",
+      resolved: "해결",
+      issueCount: (count: number) => `이슈 ${count}건`,
     },
   },
 
