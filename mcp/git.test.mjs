@@ -553,6 +553,52 @@ describe("classifyEvidenceSource", { timeout: 30_000 }, () => {
     }
   });
 
+  /**
+   * 🔴 **줄 범위를 보냈으면 «그 줄»이 근거다.**
+   *
+   * 조각이 파일 어딘가에 있다는 사실만으로 `COMMITTED` 를 붙이면, 서버는 그 줄만 읽어
+   * 대조하므로 같은 근거가 `MISMATCH` 로 남는다 — 화면은 그것을 「Agent 가 없는 코드를
+   * 적었다」로 그린다. client 가 보증한 것을 server 가 뒤집는 구조를 만들지 않는다.
+   */
+  it("🔴 조각이 지정한 줄이 아닌 다른 줄에 있으면 COMMITTED 로 판정하지 않는다", async () => {
+    const directory = await createRepository();
+    try {
+      await writeFile(
+        join(directory, "source.txt"),
+        'import { thing } from "./thing";\nconst unrelated = 1;\nconst target = compute();\n',
+        "utf8",
+      );
+      await run("git", ["-C", directory, "add", "source.txt"]);
+      await run("git", [
+        "-C",
+        directory,
+        "-c",
+        "user.name=ReviewTrace",
+        "-c",
+        "user.email=reviewtrace@example.test",
+        "commit",
+        "-m",
+        "multiline",
+      ]);
+      const head = (
+        await run("git", ["-C", directory, "rev-parse", "HEAD"])
+      ).stdout.trim();
+
+      // 조각은 3행에 있는데 1행이라고 적었다. 서버는 1행만 읽어 대조한다.
+      await expect(
+        classifyEvidenceSource(directory, {
+          commitSha: head,
+          filePath: "source.txt",
+          startLine: 1,
+          endLine: 1,
+          snapshot: "const target = compute();",
+        }),
+      ).resolves.toBeNull();
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it("로컬에 없는 commit 은 판정하지 않는다 — 다른 저장소의 근거를 건드리지 않는다", async () => {
     const directory = await createRepository();
     try {

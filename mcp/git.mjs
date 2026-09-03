@@ -411,14 +411,29 @@ export async function classifyEvidenceSource(cwd, evidence) {
     return null;
   }
 
-  const inWorkingTree = await readWorkingTreeFile(cwd, evidence.filePath);
-  if (inWorkingTree === null) return null;
-  return containsSnapshot(inWorkingTree, wanted, evidence)
+  /**
+   * 🔴 **index 와 작업 파일을 «따로» 본다.**
+   *
+   * 예전에는 둘을 한 문자열로 이어 붙여 넘겼다. 그것은 파일 전체 `includes` 로만
+   * 성립하는 모양이라, 줄 범위를 그대로 적용하면 앞쪽 판본의 길이만큼 뒤쪽 판본의
+   * 줄 번호가 밀려 어느 쪽으로도 맞지 않는다. 각각을 «그 자체로 온전한 파일»로 본다.
+   */
+  const candidates = await readUncommittedFiles(cwd, evidence.filePath);
+  if (candidates.length === 0) return null;
+  return candidates.some((text) => containsSnapshot(text, wanted, evidence))
     ? "WORKING_TREE"
     : null;
 }
 
-/** 줄 범위가 있으면 그 줄과 같은지, 없으면 파일 안에 들어 있는지 — 서버와 같은 질문이다. */
+/**
+ * 줄 범위가 있으면 그 줄과 같은지, 없으면 파일 안에 들어 있는지 — 서버와 같은 질문이다.
+ *
+ * 🔴 **줄 범위가 있으면 거기서 판정이 끝난다. 파일 전체 `includes` 로 흘러내리지 않는다.**
+ * 흘러내리면 조각이 «다른 줄»에 있다는 이유로 `COMMITTED` 가 붙는데, 서버
+ * (`decideVerification`)는 그 줄만 읽어 `found === wanted` 로 대조하므로 같은 근거가
+ * `MISMATCH` 로 남는다 — 화면은 그것을 「Agent 가 없는 코드를 적었다」로 그린다.
+ * **client 가 보증한 것을 server 가 뒤집는 구조를 만들지 않는다.**
+ */
 function containsSnapshot(fileText, wanted, evidence) {
   const normalized = normalizeCode(fileText);
   if (
@@ -429,7 +444,7 @@ function containsSnapshot(fileText, wanted, evidence) {
     const slice = normalizeCode(
       lines.slice(evidence.startLine - 1, evidence.endLine).join("\n"),
     );
-    if (slice === wanted) return true;
+    return slice === wanted;
   }
   return normalized.includes(wanted);
 }
@@ -457,7 +472,14 @@ async function readFileAtCommit(cwd, commitSha, filePath) {
   }
 }
 
-async function readWorkingTreeFile(cwd, filePath) {
+/**
+ * 아직 커밋되지 않은 판본들. index 에 올라간 것과 디스크의 것을 **각각** 돌려준다.
+ *
+ * 🔴 **이어 붙이지 않는다.** 줄 번호는 «한 파일 안»에서만 뜻을 가지므로, 두 판본을
+ * 합치면 뒤쪽 판본의 줄 번호가 앞쪽 길이만큼 밀려 어느 쪽으로도 맞지 않는다.
+ */
+async function readUncommittedFiles(cwd, filePath) {
+  const texts = [];
   // 🔴 저장소 밖을 읽지 않는다 — git 이 아는 경로만 본다.
   try {
     const { stdout } = await run("git", ["show", `:0:${filePath}`], {
@@ -466,12 +488,14 @@ async function readWorkingTreeFile(cwd, filePath) {
       maxBuffer: MAX_FILE_BYTES,
     });
     // index 에 올라간 내용이 있으면 그것도 「아직 커밋 전」이다.
-    const staged = stdout;
-    const onDisk = await readOnDisk(cwd, filePath);
-    return onDisk === null ? staged : `${staged}\n${onDisk}`;
+    texts.push(stdout);
   } catch {
-    return readOnDisk(cwd, filePath);
+    // index 에 없는 파일이다. 디스크의 것만 본다.
   }
+
+  const onDisk = await readOnDisk(cwd, filePath);
+  if (onDisk !== null) texts.push(onDisk);
+  return texts;
 }
 
 async function readOnDisk(cwd, filePath) {
