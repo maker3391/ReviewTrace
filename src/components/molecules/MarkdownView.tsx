@@ -59,17 +59,27 @@ import { cn } from "@/lib/utils";
  *
  * ## 무엇을 하는가
  *
- * 문서 순서대로 훑으며 각 heading 을 **직전 단계보다 한 칸 넘게 내려가지 않도록**
- * 끌어올린다. `min(원래 단계, 직전 + 1)` 하나가 규칙의 전부다.
+ * 두 가지를 한다.
+ *
+ * 1. **문서의 첫 heading 을 그 문서의 최상위로 잡는다.** 원문이 `#` 으로 시작하든
+ *    `##` 으로 시작하든 그것이 그 문서의 1층이다. 이후 heading 은 그 차이만큼 함께 옮긴다.
+ * 2. 그렇게 옮긴 뒤 각 heading 을 **직전 단계보다 한 칸 넘게 내려가지 않도록** 끌어올린다.
  *
  * ```
- * ##  ####      ->  h3  h4      (h3 h5 였다)
- * ##  ###  ##   ->  h3  h4  h3  (건너뛰지 않으므로 그대로다)
+ * #   ###           ->  h2  h3      (base=1)
+ * ##  ###           ->  h2  h3      («시작 깊이»가 달라도 결과가 같다)
+ * ##  ##   ###      ->  h2  h2  h3  (형제는 형제로 남는다)
+ * ##  ####          ->  h2  h3      (건너뛴 칸을 메운다)
  * ```
  *
- * 🔴 **여기서 세는 것은 «Markdown 깊이»이지 DOM 단계가 아니다.** 그래서 시작값이 1 로
- * 고정이고 `baseHeadingLevel` 과 무관하다 — 문서가 어디에 놓이든 그 안의 층 간격은
- * 같아야 하고, 어느 단계에서 시작하는지는 `headingTag` 가 «뒤에» 한꺼번에 더한다.
+ * 🔴 **1번이 없으면 계약이 지시하는 `##` 시작 문서가 «모든» base 에서 한 칸을 건너뛴다.**
+ * `##` 이 Markdown 깊이 2 로 남아 tag 가 `base + 2` 가 되는데, 그 문서를 감싼 heading 은
+ * `base` 다 — 그 사이의 `base + 1` 이 빈 채로 나간다. 실측으로 `base=1`~`4` 전부에서
+ * 그랬다. 원문을 고쳐 쌓인 문서를 다시 쓰게 하는 대신 **그리는 쪽에서 맞춘다.**
+ *
+ * 🔴 **여기서 세는 것은 «Markdown 깊이»이지 DOM 단계가 아니다.** 그래서 `baseHeadingLevel`
+ * 을 알 필요가 없다 — 문서가 어디에 놓이든 그 안의 층 간격은 같아야 하고, 어느 단계에서
+ * 시작하는지는 `headingTag` 가 «뒤에» 한꺼번에 더한다.
  *
  * 🔴 **새 의존성을 들이지 않았다.** hast 는 `children` 을 가진 평범한 객체라
  * 재귀 한 번이면 된다 — `unist-util-visit` 을 direct 로 올릴 이유가 없다.
@@ -77,6 +87,8 @@ import { cn } from "@/lib/utils";
 function rehypeNoHeadingSkip() {
   return (tree: unknown) => {
     let previous = 1;
+    /** 문서가 «실제로» 시작한 Markdown 깊이 - 1. 첫 heading 을 만날 때 정해진다. */
+    let offset: number | null = null;
 
     const walk = (node: unknown): void => {
       if (typeof node !== "object" || node === null) return;
@@ -89,7 +101,11 @@ function rehypeNoHeadingSkip() {
       if (element.type === "element" && element.tagName !== undefined) {
         const match = /^h([1-6])$/.exec(element.tagName);
         if (match?.[1] !== undefined) {
-          const level = Math.min(Number(match[1]), previous + 1);
+          const written = Number(match[1]);
+          offset ??= written - 1;
+          // 첫 heading 보다 «얕게» 쓴 것은 최상위로 본다 — 음수 층은 없다.
+          const relative = Math.max(1, written - offset);
+          const level = Math.min(relative, previous + 1);
           element.tagName = `h${level}`;
           previous = level;
         }

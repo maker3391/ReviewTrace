@@ -389,10 +389,16 @@ describe("Review Knowledge Markdown authoring contract", () => {
    * 층이 생기지 않았다.
    *
    * 이 시험은 계약이 **level 을 실제로 지정하는지**를 붙든다.
+   *
+   * 🔴 **시작 깊이는 `##` 에서 `#` 으로 옮겼다.** 옛 문구는 고정 offset 시절의 보정이었다 —
+   * 「`#` 자리는 화면 제목이 차지한다」는 이유가 `baseHeadingLevel` 도입으로 사라졌는데
+   * 문구만 남아, 계약대로 쓴 문서가 부모 heading 과의 사이에서 한 층을 건너뛰었다.
+   * 이제 계약은 **field 안의 상대 깊이**만 말하고 DOM 단계는 renderer 가 정한다.
    */
-  it("계약이 heading level 을 지정한다 — `##` 에서 시작해 `###` 로 내려간다", () => {
-    expect(NARRATIVE_MARKDOWN).toContain("`##`에서 시작하고 그 아래 세부가 `###`다");
-    expect(NARRATIVE_MARKDOWN).toContain("`#`은 쓰지 않는다");
+  it("계약이 heading level 을 지정한다 — `#` 에서 시작해 `##` 로 내려간다", () => {
+    expect(NARRATIVE_MARKDOWN).toContain("`#`에서 시작하고 그 아래 세부가 `##`다");
+    // 🔴 「`#`은 쓰지 않는다」가 되살아나면 그 문서가 다시 한 층을 건너뛴다.
+    expect(NARRATIVE_MARKDOWN).not.toContain("`#`은 쓰지 않는다");
     /*
  🔴 **「`###` 하나만 쓰지 마라」는 지웠다.** 층 «개수»를 지시하니 Agent 가 내용과 무관하게
  `##` 두 개를 세워 「긴 prose + heading 두 개」로 수렴했다. 층은 이제 관계가 정한다 —

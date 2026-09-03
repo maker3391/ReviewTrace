@@ -311,17 +311,24 @@ describe.skipIf(!enabled)("MCP Markdown 구조 전체 round-trip", () => {
       );
 
       /**
-       * 🔴 heading 단계는 **부르는 쪽이 밝힌 자리**에서 시작한다.
+       * 🔴 heading 단계는 **부르는 쪽이 밝힌 자리 바로 아래**에서 시작한다.
        *
-       * 예전에는 Markdown 깊이가 DOM 단계에 고정 대응했다(`h1`->`h2`, `h2`->`h3`).
-       * 지금은 `baseHeadingLevel` 아래로 내려가므로, 위에서 `1`(페이지 제목 `<h1>` 바로
-       * 아래)을 넘긴 이 문서의 `##` 은 `<h3>` 이다 — 값이 달라지면 결과도 함께 움직인다.
+       * 예전에는 Markdown 깊이가 DOM 단계에 고정 대응했고(`h1`->`h2`, `h2`->`h3`), 그
+       * 뒤에는 `baseHeadingLevel` 에 Markdown 깊이를 그대로 더했다 — 그래서 계약대로
+       * `##` 로 시작한 이 문서가 `<h3>` 으로 나와 부모(`<h1>`)와의 사이에 `<h2>` 가
+       * 비었다. 지금은 **문서의 첫 heading 이 그 문서의 최상위**라 `1` 을 넘긴 여기서
+       * `<h2>` 다.
        *
-       * 본문이 화면 제목과 같은 급이 되면 안 된다는 판단은 그대로다. 그래서 `<h2>` 가
+       * 본문이 화면 제목과 «같은 급»이 되면 안 된다는 판단은 그대로다 — 그래서 `<h1>` 이
        * 나오지 않는지도 함께 본다.
        */
-      expect(markup).toMatch(/<h3[ >]/);
-      expect(markup).not.toMatch(/<h2[ >]/);
+      expect(markup).toMatch(/<h2[ >]/);
+      expect(markup).not.toMatch(/<h1[ >]/);
+      /*
+ 🔴 **`rootCause` 의 `##` 둘은 «형제»다.** 시작 깊이를 옮기면서 형제까지 한 칸씩 내려가면
+ 안 된다 — 그러면 나란한 두 논점이 상하 관계로 읽힌다.
+      */
+      expect((markup.match(/<h2[ >]/g) ?? []).length).toBe(2);
       // bold.
       expect(markup).toMatch(/<strong[ >]/);
       // nested list — ul 안에 ul 이 있다.

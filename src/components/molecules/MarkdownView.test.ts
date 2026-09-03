@@ -263,11 +263,51 @@ describe("MarkdownView knowledge content", () => {
       }),
     );
 
+    // 문서가 `##` 으로 시작해도 그것이 그 문서의 1층이다 — base=1 이면 `<h2>`.
+    expect(markup).toContain("<h2");
+    // 🔴 `<h4>` 가 나오면 h2 -> h4 로 한 층을 건너뛴 것이다.
+    expect(markup).not.toContain("<h4");
     expect(markup).toContain("<h3");
-    // 🔴 `<h5>` 가 나오면 h3 -> h5 로 한 층을 건너뛴 것이다.
-    expect(markup).not.toContain("<h5");
-    expect(markup).toContain("<h4");
     expect(markup).toContain("건너뛴 층");
+  });
+
+  /**
+   * 🔴 **작성 계약이 지시하는 `##` 시작 문서가 한 층을 건너뛰고 있었다.**
+   *
+   * `##` 이 Markdown 깊이 2 로 남아 tag 가 `base + 2` 였는데, 그 문서를 감싼 heading 은
+   * `base` 다 — 그 사이의 `base + 1` 이 빈 채로 나갔다. 실측으로 `base=1`~`4` 전부에서
+   * 그랬다. **문서의 첫 heading 이 그 문서의 최상위**라고 보면 시작 깊이가 무엇이든 같다.
+   */
+  it("🔴 `#` 으로 시작하든 `##` 으로 시작하든 같은 계층을 그린다", () => {
+    const tags = (markup: string) =>
+      (markup.match(/<h[1-6][ >]/g) ?? []).map((tag) => tag.slice(1, 3));
+    const render = (content: string, base: 1 | 2 | 3 | 4) =>
+      tags(
+        renderToStaticMarkup(
+          createElement(MarkdownView, {
+            content,
+            emptyLabel: "Empty",
+            baseHeadingLevel: base,
+          }),
+        ),
+      );
+    const body = (start: string) =>
+      `${start} 첫 topic\n\n본문\n\n${start} 둘째 topic\n\n본문\n\n${start}# 세부\n\n본문`;
+
+    for (const base of [1, 2, 3, 4] as const) {
+      const fromH1 = render(body("#"), base);
+      const fromH2 = render(body("##"), base);
+
+      expect(fromH2, `base=${base}`).toEqual(fromH1);
+      // 🔴 첫 heading 은 «부모 바로 아래»다. 그 사이가 비면 낭독기가 층을 잃는다.
+      expect(fromH2[0], `base=${base}`).toBe(`h${base + 1}`);
+      // 형제는 형제로 남고, 그 아래만 한 칸 내려간다.
+      expect(fromH2, `base=${base}`).toEqual([
+        `h${base + 1}`,
+        `h${base + 1}`,
+        `h${Math.min(base + 2, 6)}`,
+      ]);
+    }
   });
 
   it("단계를 건너뛰지 않는 문서는 그대로 그린다", () => {
@@ -279,9 +319,11 @@ describe("MarkdownView knowledge content", () => {
       }),
     );
 
+    expect(markup).toContain("<h2");
     expect(markup).toContain("<h3");
     expect(markup).toContain("<h4");
-    expect(markup).toContain("<h5");
+    // 🔴 세 층뿐이다 — 시작 깊이를 그대로 두면 여기 `<h5>` 가 섞인다.
+    expect(markup).not.toContain("<h5");
   });
 
   /**
@@ -441,12 +483,12 @@ describe("baseHeadingLevel 의 런타임 경계", () => {
   it("🔴 값을 빠뜨린 런타임 호출이 h6 로 무너지지 않는다", () => {
     /*
  🔴 **「`h6` 이 아니다」로는 계약이 지켜지지 않는다.** 그것은 고쳐진 증상 하나를 배제할 뿐이라
- fallback 을 `2` 로 바꾼 판(`<h4>`)도 통과한다. 계약은 「범위 밖이면 `1`」이므로 `##`(Markdown
- 깊이 2)은 **정확히 `<h3>`** 이어야 한다 — 값을 그대로 못 박는다.
+ fallback 을 `2` 로 바꾼 판(`<h3>`)도 통과한다. 계약은 「범위 밖이면 `1`」이고 문서의 첫
+ heading 은 부모 바로 아래이므로 **정확히 `<h2>`** 여야 한다 — 값을 그대로 못 박는다.
     */
-    expect(headingOf(renderWith({}))).toBe("h3");
+    expect(headingOf(renderWith({}))).toBe("h2");
     for (const bad of [undefined, null, 0, 9, 1.5, "2", NaN, -1, "", true]) {
-      expect(headingOf(renderWith({ baseHeadingLevel: bad }))).toBe("h3");
+      expect(headingOf(renderWith({ baseHeadingLevel: bad }))).toBe("h2");
     }
     // 그리고 그 값은 «명시적으로 1 을 준 것»과 같아야 한다.
     expect(headingOf(renderWith({}))).toBe(
@@ -455,11 +497,11 @@ describe("baseHeadingLevel 의 런타임 경계", () => {
   });
 
   it("유효한 값은 기존 계산을 그대로 따른다", () => {
-    // `##` 은 Markdown 깊이 2 다 — tag 는 base + 2 다.
-    expect(headingOf(renderWith({ baseHeadingLevel: 1 }))).toBe("h3");
-    expect(headingOf(renderWith({ baseHeadingLevel: 2 }))).toBe("h4");
-    expect(headingOf(renderWith({ baseHeadingLevel: 3 }))).toBe("h5");
-    expect(headingOf(renderWith({ baseHeadingLevel: 4 }))).toBe("h6");
+    // 🔴 문서의 첫 heading 은 «무엇으로 시작했든» 부모 바로 아래다 — tag 는 base + 1 이다.
+    expect(headingOf(renderWith({ baseHeadingLevel: 1 }))).toBe("h2");
+    expect(headingOf(renderWith({ baseHeadingLevel: 2 }))).toBe("h3");
+    expect(headingOf(renderWith({ baseHeadingLevel: 3 }))).toBe("h4");
+    expect(headingOf(renderWith({ baseHeadingLevel: 4 }))).toBe("h5");
   });
 
   it("🔴 fallback 이 생겨도 TypeScript 계약은 required 그대로다", () => {
@@ -502,9 +544,9 @@ describe("integration 시험이 지나는 타입 경계", () => {
   });
 
   it("helper 가 렌더링 문맥을 밝힌 채로 그린다", () => {
-    // `baseHeadingLevel: 1` — 페이지 제목 `<h1>` 바로 아래. `##` 은 `<h3>` 이다.
-    expect(renderMarkdownViewMarkup("## 제목\n\n본문")).toMatch(/<h3[ >]/);
-    expect(renderMarkdownViewMarkup("## 제목\n\n본문")).not.toMatch(/<h2[ >]/);
+    // `baseHeadingLevel: 1` — 페이지 제목 `<h1>` 바로 아래. 첫 heading 은 `<h2>` 다.
+    expect(renderMarkdownViewMarkup("## 제목\n\n본문")).toMatch(/<h2[ >]/);
+    expect(renderMarkdownViewMarkup("## 제목\n\n본문")).not.toMatch(/<h1[ >]/);
   });
 });
 
