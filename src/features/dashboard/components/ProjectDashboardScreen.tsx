@@ -551,11 +551,30 @@ export async function ProjectDashboardScreen({
  🔴 **여기에 해결 요약을 그리지 않는다.** 이 목록의 일은 「무슨 Issue 가 최근
  해결됐는지 빠르게 훑고 상세로 가는 것」이다 — 서술은 Issue 상세의 몫이다.
  */}
-                {resolution.patternKey !== null && (
-                  <span className="truncate font-mono text-[11px] text-muted-foreground">
-                    {resolution.patternKey}
-                  </span>
-                )}
+                {/*
+ 🔴 **저장소와 패턴은 «같은 맥락 줄»이다.** 한 Project 에 저장소가 여럿 붙을 수 있어
+ 「어느 저장소의 Issue 였나」가 이 행을 알아보는 값이다. Project 이름은 넣지 않는다 —
+ 이 화면 자체가 그 Project 다.
+
+ 🔴 **가운뎃점은 앞 조각과 «한 덩어리»로 묶고 빈칸만 밖에 둔다**(최근 활동과 같은 방식).
+ 접히는 자리가 그 빈칸이라 구분점이 다음 줄 첫머리에 홀로 서지 않고, 복사한 문자열에도
+ 「가 · 나」로 나간다 — margin 으로 벌리면 화면에만 있고 글자에는 붙어 나간다.
+ */}
+                <p className="truncate text-[11px] leading-4 text-muted-foreground">
+                  {[resolution.repositoryFullName, resolution.patternKey]
+                    .filter((part): part is string => part !== null)
+                    .map((part, index, parts) => (
+                      <span key={part}>
+                        <span className="font-mono whitespace-nowrap">
+                          {part}
+                          {index < parts.length - 1 && (
+                            <span aria-hidden> ·</span>
+                          )}
+                        </span>
+                        {index < parts.length - 1 && " "}
+                      </span>
+                    ))}
+                </p>
               </li>
             ))}
           </ul>

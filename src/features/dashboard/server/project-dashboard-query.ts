@@ -98,6 +98,8 @@ export interface RecentResolution {
   title: string;
   severity: IssueSeverity;
   patternKey: string | null;
+  /** 🔴 한 Project 에 저장소가 여럯일 수 있다 — 어느 저장소의 Issue 였는지가 맥락이다. */
+  repositoryFullName: string;
   resolvedAt: Date;
 }
 
@@ -185,6 +187,7 @@ export async function findProjectDashboard(
         title: reviewIssues.title,
         severity: reviewIssues.severity,
         patternKey: reviewIssues.patternKey,
+        repositoryFullName: repositories.fullName,
         resolvedAt: sql<Date>`${reviewIssues.resolvedAt}`,
       })
       .from(reviewIssues)
