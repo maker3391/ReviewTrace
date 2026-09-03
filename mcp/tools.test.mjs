@@ -379,6 +379,23 @@ describe("Review Knowledge Markdown authoring contract", () => {
   });
 
   /**
+   * 🔴 **heading level 을 말하지 않으면 Agent 는 한 층만 쓴다.**
+   *
+   * 계약은 「큰 topic 변화는 heading」이라고만 말했지 `##` 인지 `###` 인지 정하지
+   * 않았다. 그 결과 저장된 38행 전수 조회에서 **`##` 가 0건**이고 쓰인 heading 은
+   * `###` 하나뿐이었다 — 화면의 heading 계단은 두 칸인데 데이터가 한 칸만 쓰니
+   * 층이 생기지 않았다.
+   *
+   * 이 시험은 계약이 **level 을 실제로 지정하는지**를 붙든다.
+   */
+  it("계약이 heading level 을 지정한다 — `##` 에서 시작해 `###` 로 내려간다", () => {
+    expect(NARRATIVE_MARKDOWN).toContain("`##`에서 시작한다");
+    expect(NARRATIVE_MARKDOWN).toContain("`#`은 쓰지 않는다");
+    // 🔴 한 층만 쓰는 것을 이름으로 금지한다 — 실제로 그렇게 쌓였기 때문이다.
+    expect(NARRATIVE_MARKDOWN).toContain("`###` 하나로만 쓰지 않는다");
+  });
+
+  /**
    * 🔴 **형식 규칙이 field 의 «목적»을 덮지 않는다.**
    *
    * 예전에는 이 문단 전체가 narrative field 마다 통째로 붙었다 — 목적은 여섯 글자인데
