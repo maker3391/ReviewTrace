@@ -254,6 +254,8 @@ export function IssueStatusControl({
               <MarkdownContent
                 content={currentResolutionSummary ?? ""}
                 emptyLabel={labels.emptyResolutionSummary}
+                /* 🔴 이 패널을 감싼 `Section` 의 제목이 `<h2>` 다. */
+                baseHeadingLevel={2}
                 className="gap-2 [&_p]:text-xs"
               />
             </div>

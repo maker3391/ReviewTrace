@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Markdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
@@ -43,10 +44,150 @@ import { cn } from "@/lib/utils";
  * 🔴 **이것은 `rehype-raw` 와 다르다.** 붙는 것은 `<span class="hljs-…">` 뿐이고 본문의
  * raw HTML 은 여전히 «만들어지지 않는다» — 위 보증은 그대로다.
  */
+/**
+ * 렌더된 heading 이 «단계를 건너뛰지» 않게 맞춘다.
+ *
+ * ## 🔴 왜 필요한가
+ *
+ * 이 파일은 Markdown 깊이를 DOM 단계에 **고정 대응**시킨다 — `#`~`####` 가
+ * `<h2>`~`<h5>` 다. 그런데 글쓴이가 단계를 건너뛰면(`##` 다음에 곧바로 `####`)
+ * DOM 도 그대로 건너뛴다: `<h3>` 뒤에 `<h5>` 가 온다. 그것은 axe 의
+ * `heading-order` 위반이고, 화면 낭독기가 「빠진 층이 있다」로 읽는다.
+ *
+ * 🔴 **글쓴이를 탓해 고칠 문제가 아니다.** 저장된 원문은 그대로 두고(그것이 정본이다)
+ * 그리는 쪽에서 층만 메운다.
+ *
+ * ## 무엇을 하는가
+ *
+ * 문서 순서대로 훑으며 각 heading 을 **직전 단계보다 한 칸 넘게 내려가지 않도록**
+ * 끌어올린다. `min(원래 단계, 직전 + 1)` 하나가 규칙의 전부다.
+ *
+ * ```
+ * ##  ####      ->  h3  h4      (h3 h5 였다)
+ * ##  ###  ##   ->  h3  h4  h3  (건너뛰지 않으므로 그대로다)
+ * ```
+ *
+ * 🔴 **여기서 세는 것은 «Markdown 깊이»이지 DOM 단계가 아니다.** 그래서 시작값이 1 로
+ * 고정이고 `baseHeadingLevel` 과 무관하다 — 문서가 어디에 놓이든 그 안의 층 간격은
+ * 같아야 하고, 어느 단계에서 시작하는지는 `headingTag` 가 «뒤에» 한꺼번에 더한다.
+ *
+ * 🔴 **새 의존성을 들이지 않았다.** hast 는 `children` 을 가진 평범한 객체라
+ * 재귀 한 번이면 된다 — `unist-util-visit` 을 direct 로 올릴 이유가 없다.
+ */
+function rehypeNoHeadingSkip() {
+  return (tree: unknown) => {
+    let previous = 1;
+
+    const walk = (node: unknown): void => {
+      if (typeof node !== "object" || node === null) return;
+      const element = node as {
+        type?: string;
+        tagName?: string;
+        children?: unknown[];
+      };
+
+      if (element.type === "element" && element.tagName !== undefined) {
+        const match = /^h([1-6])$/.exec(element.tagName);
+        if (match?.[1] !== undefined) {
+          const level = Math.min(Number(match[1]), previous + 1);
+          element.tagName = `h${level}`;
+          previous = level;
+        }
+      }
+
+      for (const child of element.children ?? []) walk(child);
+    };
+
+    walk(tree);
+  };
+}
+
+/**
+ * 이 문서의 heading 이 «어느 DOM 단계에서 시작하는가».
+ *
+ * ## 🔴 왜 고정 대응이면 안 되는가
+ *
+ * 같은 `MarkdownView` 가 두 자리에 놓인다.
+ *
+ * | 부르는 곳 | 바로 위 heading | `#` 이 되어야 하는 것 |
+ * |---|---|---|
+ * | `KnowledgePageView` | 페이지 제목 `<h1>` | `<h2>` |
+ * | `Section` 안(Issue·Review 상세) | section 제목 `<h2>` | `<h3>` |
+ *
+ * 고정 대응(`#` -> 언제나 `<h2>`)이면 뒤쪽에서 **문서의 첫 heading 이 자기를 담은
+ * section 제목과 «같은 단계»**가 된다. 화면은 층이 있는 것처럼 보이는데 낭독기에는
+ * 형제로 읽힌다 — 눈에 보이지 않아 더 오래 남는 종류의 결함이다.
+ *
+ * ## 무엇을 받는가
+ *
+ * **자기를 감싼 가장 가까운 heading 의 DOM 단계**다. 문서가 낼 첫 단계가 아니다 —
+ * 부르는 쪽은 「내 위에 무엇이 있는가」만 알면 되고, 그 아래를 어떻게 쓸지는 이 파일이 정한다.
+ *
+ * 🔴 **선택이 아니라 «필수»다.** 한때 기본값 `1` 을 두었는데, 그 값은 「모른다」가 아니라
+ * 「페이지 제목 바로 아래다」라는 구체적인 주장이라서, 빠뜨린 호출이 침묵하는 대신 **틀린
+ * 문맥을 선언한 호출**이 됐다. 그리고 그 어긋남은 화면에 드러나지 않는다 — 크기와 여백은
+ * 아래 `HEADING_CLASS` 가 정하므로 틀린 단계도 정상으로 보인다.
+ *
+ * 실제로 `IssueStatusControl` 의 해결 요약이 `Section`(제목이 `<h2>`) 안에서 값을 넘기지
+ * 않아 기본값 `1` 로 그려지고 있었다. 필수로 바꾸자 `tsc` 가 그 자리를 짚었다.
+ */
+const HEADING_TAGS = ["h2", "h3", "h4", "h5", "h6"] as const;
+
+type HeadingTag = (typeof HEADING_TAGS)[number];
+
+/**
+ * `baseHeadingLevel` 아래로 `depth` 만큼 내려간 tag.
+ *
+ * 🔴 **`<h6>` 에서 멈춘다.** HTML 에 그 아래가 없다. 겹쳐서 멈추는 것은 층이 하나
+ * 줄어드는 것뿐이라 **건너뛰기가 되지 않는다** — 깊이가 얕아지는 쪽은 안전하다.
+ */
+function headingTag(baseHeadingLevel: number, depth: number): HeadingTag {
+  const level = Math.min(baseHeadingLevel + depth, 6);
+  return HEADING_TAGS[level - 2] ?? "h6";
+}
+
+/**
+ * heading 의 «생김새»는 Markdown 깊이가 정하고, «단계»는 놓인 자리가 정한다.
+ *
+ * 🔴 **둘을 섞지 않는다.** 같은 `###` 은 어디에 놓이든 같은 크기여야 하고
+ * (한 문서 안의 층 간격은 그 문서의 것이다), DOM 단계만 바깥 문맥을 따라 내려간다.
+ */
+type MarkdownDepth = 1 | 2 | 3 | 4 | 5 | 6;
+
+const HEADING_CLASS: Record<MarkdownDepth, string> = {
+  1: "mt-8 border-b border-border pb-1.5 text-base font-semibold tracking-tight first:mt-0",
+  2: "mt-8 text-[0.9375rem] font-semibold tracking-tight first:mt-0",
+  3: "mt-6 text-sm font-semibold tracking-tight first:mt-0",
+  /*
+ 🔴 네 번째 층은 «크기»로 더 내려갈 자리가 없다 — 본문이 이미 14px 이다.
+ 그래서 크기 대신 **대문자·자간·흐린 색**으로 가른다. 이 앱의 다른 하위 라벨과
+ 같은 문법이라 새 장치를 만드는 것이 아니다.
+  */
+  4: "mt-5 text-xs font-semibold tracking-wide text-muted-foreground uppercase first:mt-0",
+  /*
+ 🔴 **다섯째·여섯째 층은 «굵기와 위 여백»으로만 가른다.** 크기 축은 넷째에서 이미 바닥이다.
+
+ 🔴 **이 두 열쇠를 비워 두면 «역전»이 생긴다.** 열쇠가 없는 깊이는 override 를 만나지 못해
+ `baseHeadingLevel` offset 도 class 도 받지 못하고 기본 렌더로 빠져나간다 — 그러면 base 가
+ 2 일 때 깊이 4 는 `<h6>` 인데 깊이 5 는 `<h5>` 로 나가, **더 깊은 Markdown 이 더 얕은 DOM
+ 단계**가 된다. 작성 계약이 `##` 부터 쓰라고 지시할 뿐 저장 단계가 깊이 5 를 막지 않는다.
+  */
+  5: "mt-4 text-xs font-medium tracking-wide text-muted-foreground uppercase first:mt-0",
+  6: "mt-3 text-xs font-normal tracking-wide text-muted-foreground uppercase first:mt-0",
+};
+
+function heading(baseHeadingLevel: number, depth: MarkdownDepth) {
+  const Tag = headingTag(baseHeadingLevel, depth);
+  return function MarkdownHeading({ children }: { children?: ReactNode }) {
+    return <Tag className={HEADING_CLASS[depth]}>{children}</Tag>;
+  };
+}
+
 export function MarkdownView({
   content,
   emptyLabel,
   className,
+  baseHeadingLevel,
 }: {
   content: string;
   /**
@@ -58,6 +199,15 @@ export function MarkdownView({
    */
   emptyLabel: string;
   className?: string;
+  /**
+   * 이 문서를 감싼 «가장 가까운 heading» 의 DOM 단계.
+   *
+   * 페이지 제목 바로 아래면 `1`, `Section`(제목이 `<h2>`) 안이면 `2` 다.
+   * 문서의 heading 은 그 아래에서 시작한다 — 위 `headingTag` 참고.
+   *
+   * 🔴 **선택 prop 이 아니다.** 빠뜨림을 붙드는 것이 `tsc` 하나뿐이라 그렇다 — 위 참고.
+   */
+  baseHeadingLevel: 1 | 2 | 3 | 4;
 }) {
   if (content.trim() === "") {
     return <p className="text-xs text-muted-foreground">{emptyLabel}</p>;
@@ -89,7 +239,8 @@ export function MarkdownView({
  언어를 적지 않은 블록은 강조하지 않는다 — 로그·표·의사코드를 아무 언어로
  칠하면 없는 문법이 있는 것처럼 읽힌다.
  */
-        rehypePlugins={[rehypeHighlight]}
+        /* 🔴 순서가 뜻을 갖는다 — 층을 메운 «뒤»에 코드 강조를 얹는다. */
+        rehypePlugins={[rehypeNoHeadingSkip, rehypeHighlight]}
         components={{
           /*
  🔴 **heading 이 본문보다 «작으면» 안 된다 — 그것이 이 화면의 실제 결함이었다.**
@@ -144,31 +295,17 @@ export function MarkdownView({
  (`MarkdownView.test.ts`·`DecisionRecord.test.ts`) — class 를 붙이면 그 assertion 이 깨진다.
  bold 를 누르는 대신 heading 을 올려 푼 이유가 이것이기도 하다.
  */
-          h1: ({ children }) => (
-            <h2 className="mt-8 border-b border-border pb-1.5 text-base font-semibold tracking-tight first:mt-0">
-              {children}
-            </h2>
-          ),
-          h2: ({ children }) => (
-            <h3 className="mt-8 text-[0.9375rem] font-semibold tracking-tight first:mt-0">
-              {children}
-            </h3>
-          ),
-          h3: ({ children }) => (
-            <h4 className="mt-6 text-sm font-semibold tracking-tight first:mt-0">
-              {children}
-            </h4>
-          ),
           /*
- 🔴 네 번째 층은 «크기»로 더 내려갈 자리가 없다 — 본문이 이미 14px 이다.
- 그래서 크기 대신 **대문자·자간·흐린 색**으로 가른다. 이 앱의 다른 하위 라벨과
- 같은 문법이라 새 장치를 만드는 것이 아니다.
+ 🔴 **tag 는 놓인 자리가, 생김새는 Markdown 깊이가 정한다**(위 `heading`).
+ 여기 열쇠(`h1`~`h4`)는 **Markdown 깊이**다 — `rehypeNoHeadingSkip` 이 층을 메운 뒤의
+ 값이고, 실제로 나가는 tag 는 거기에 `baseHeadingLevel` 을 더한 것이다.
  */
-          h4: ({ children }) => (
-            <h5 className="mt-5 text-xs font-semibold tracking-wide text-muted-foreground uppercase first:mt-0">
-              {children}
-            </h5>
-          ),
+          h1: heading(baseHeadingLevel, 1),
+          h2: heading(baseHeadingLevel, 2),
+          h3: heading(baseHeadingLevel, 3),
+          h4: heading(baseHeadingLevel, 4),
+          h5: heading(baseHeadingLevel, 5),
+          h6: heading(baseHeadingLevel, 6),
           /*
  Markdown 의 빈 줄은 paragraph 로 나뉘고, paragraph 안의 단일 newline 은 Text node 로
  남는다. `whitespace-pre-wrap` 으로 그 newline 도 화면에서 보존한다. remark-breaks 로
@@ -226,6 +363,7 @@ export function MarkdownView({
             </a>
           ),
           table: ({ children }) => (
+            /* 🔴 표는 prose 상한을 받지 않는다 — 비교할 열이 들어갈 폭이 필요하다. */
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-xs">
                 {children}

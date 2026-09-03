@@ -9,7 +9,7 @@ describe("MarkdownContent", () => {
     const legacy =
       "첫 번째 문장은 증상을 설명하며 충분한 길이를 갖는다. 두 번째 문장은 근본 원인이 왜 생겼는지 설명하며 다음 판단에 필요한 맥락을 제공한다. 세 번째 문장은 실제 실패 경로와 사람이 확인해야 할 결과를 구체적으로 설명한다.";
     const markup = renderToStaticMarkup(
-      createElement(MarkdownContent, { content: legacy, emptyLabel: "Empty" }),
+      createElement(MarkdownContent, { content: legacy, emptyLabel: "Empty", baseHeadingLevel: 1 }),
     );
 
     expect(markup).toContain(legacy);
@@ -22,6 +22,7 @@ describe("MarkdownContent", () => {
       createElement(MarkdownContent, {
         content: markdown,
         emptyLabel: "Empty",
+        baseHeadingLevel: 1,
       }),
     );
 

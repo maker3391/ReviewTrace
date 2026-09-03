@@ -510,7 +510,15 @@ export function MarkdownEditor({
               {labels.previewEmpty}
             </p>
           ) : (
-            <MarkdownView content={value} emptyLabel={labels.previewEmpty} />
+            <MarkdownView
+              content={value}
+              emptyLabel={labels.previewEmpty}
+              /*
+ 🔴 최종 문서가 Wiki 상세(페이지 제목 `<h1>` 아래)에서 그려지므로 미리보기도 그 자리를
+ 흉내낸다. 미리보기 패널 자신의 제목을 기준으로 삼으면 저장한 뒤와 다르게 보인다.
+              */
+              baseHeadingLevel={1}
+            />
           )}
         </div>
       )}

@@ -85,7 +85,12 @@ export async function KnowledgePageView({
         </div>
       </header>
 
-      <MarkdownView content={page.content} emptyLabel={t.emptyBody} />
+      <MarkdownView
+        content={page.content}
+        emptyLabel={t.emptyBody}
+        /* 🔴 바로 위가 이 화면의 페이지 제목 `<h1>` 이다. */
+        baseHeadingLevel={1}
+      />
 
       <Link
         href={basePath}

@@ -45,9 +45,15 @@ export function DecisionRecord({
       aria-label={labels.decision}
       className="mt-3 rounded-md border border-border/70 bg-surface-muted/25 px-3 py-3"
     >
-      <h4 className="text-[11px] font-semibold tracking-tight text-foreground">
+      {/*
+ 🔴 **`<h3>` 이지 `<h4>` 가 아니다.** 이 블록을 감싼 가장 가까운 heading 은 History
+ `Section` 의 제목(`<h2>`)이고, 그 사이에 heading 이 하나도 없다 — `<h4>` 로 두면
+ 한 층이 비어 낭독기가 「빠진 층」으로 읽는다. 크기는 class 가 정하므로 tag 를
+ 내려도 **화면은 한 픽셀도 달라지지 않는다.**
+ */}
+      <h3 className="text-[11px] font-semibold tracking-tight text-foreground">
         {labels.decision}
-      </h4>
+      </h3>
 
       {primary.length > 0 && (
         <dl className="mt-2 divide-y divide-border/60 border-y border-border/60">
@@ -60,6 +66,7 @@ export function DecisionRecord({
                 <MarkdownContent
                   content={entry.value}
                   emptyLabel="—"
+                  baseHeadingLevel={3}
                   className="gap-2 [&_p]:text-[13px]"
                 />
               </dd>
@@ -90,6 +97,7 @@ export function DecisionRecord({
                 <MarkdownContent
                   content={entry.value}
                   emptyLabel="—"
+                  baseHeadingLevel={3}
                   className="gap-1.5 text-muted-foreground [&_p]:text-xs"
                 />
               </dd>

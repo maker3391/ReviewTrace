@@ -140,7 +140,12 @@ export async function ReviewDetailScreen({
  🔴 Issue 상세와 «같은» 렌더러를 쓴다(`components/molecules/MarkdownView`). 두 화면이
  서로 다른 Markdown 규칙을 갖지 않게 한다.
  */}
-          <MarkdownView content={review.summary} emptyLabel="—" />
+          <MarkdownView
+            content={review.summary}
+            emptyLabel="—"
+            /* 🔴 `Section` 제목이 `<h2>` 다 — 본문 heading 은 그 아래에서 시작한다. */
+            baseHeadingLevel={2}
+          />
         </Section>
       )}
 

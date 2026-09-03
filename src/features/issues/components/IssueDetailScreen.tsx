@@ -173,19 +173,31 @@ export async function IssueDetailScreen({
         <div className="flex min-w-0 flex-col gap-5">
           {issue.description !== null && (
             <Section title={t.description} variant="raised" tone="narrative">
-              <MarkdownContent content={issue.description} emptyLabel="—" />
+              <MarkdownContent
+                content={issue.description}
+                emptyLabel="—"
+                baseHeadingLevel={2}
+              />
             </Section>
           )}
 
           {issue.rootCause !== null && (
             <Section title={t.rootCause} variant="raised" tone="narrative">
-              <MarkdownContent content={issue.rootCause} emptyLabel="—" />
+              <MarkdownContent
+                content={issue.rootCause}
+                emptyLabel="—"
+                baseHeadingLevel={2}
+              />
             </Section>
           )}
 
           {issue.failurePath !== null && (
             <Section title={t.failurePath} variant="raised" tone="narrative">
-              <MarkdownContent content={issue.failurePath} emptyLabel="—" />
+              <MarkdownContent
+                content={issue.failurePath}
+                emptyLabel="—"
+                baseHeadingLevel={2}
+              />
             </Section>
           )}
 
@@ -195,7 +207,11 @@ export async function IssueDetailScreen({
  */}
           {issue.suggestion !== null && (
             <Section title={t.suggestion} variant="raised" tone="narrative">
-              <MarkdownContent content={issue.suggestion} emptyLabel="—" />
+              <MarkdownContent
+                content={issue.suggestion}
+                emptyLabel="—"
+                baseHeadingLevel={2}
+              />
             </Section>
           )}
 
@@ -209,6 +225,7 @@ export async function IssueDetailScreen({
                 <MarkdownContent
                   content={issue.resolutionSummary}
                   emptyLabel="—"
+                  baseHeadingLevel={2}
                 />
               </div>
             </Section>
@@ -503,6 +520,7 @@ function ActivityRow({
             content={activity.description}
             emptyLabel="—"
             className="mt-1 gap-2 text-muted-foreground [&_p]:text-xs"
+            baseHeadingLevel={2}
           />
         )}
         <DecisionRecord activity={activity} labels={labels} />

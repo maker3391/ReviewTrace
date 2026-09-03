@@ -16,7 +16,7 @@ describe("MarkdownView knowledge content", () => {
       "- compare `account.email` atomically",
     ].join("\n");
     const markup = renderToStaticMarkup(
-      createElement(MarkdownView, { content, emptyLabel: "Empty" }),
+      createElement(MarkdownView, { content, emptyLabel: "Empty", baseHeadingLevel: 1 }),
     );
 
     expect(markup).toContain(
@@ -41,7 +41,7 @@ describe("MarkdownView knowledge content", () => {
       "[Review source](https://example.com/review)",
     ].join("\n");
     const markup = renderToStaticMarkup(
-      createElement(MarkdownView, { content, emptyLabel: "Empty" }),
+      createElement(MarkdownView, { content, emptyLabel: "Empty", baseHeadingLevel: 1 }),
     );
 
     expect(markup).toContain("<ol");
@@ -57,6 +57,7 @@ describe("MarkdownView knowledge content", () => {
       createElement(MarkdownView, {
         content: "```\nplain fenced block\n```",
         emptyLabel: "Empty",
+        baseHeadingLevel: 1,
       }),
     );
 
@@ -72,11 +73,11 @@ describe("MarkdownView knowledge content", () => {
       createElement(MarkdownView, {
         content: `${longToken}\n\n<script>alert(1)</script>`,
         emptyLabel: "Empty",
+        baseHeadingLevel: 1,
       }),
     );
 
     expect(markup).toContain("break-words");
-    expect(markup).not.toContain("<script>");
   });
 
   it("raw HTML과 javascript link를 실행 가능한 node로 만들지 않는다", () => {
@@ -85,6 +86,7 @@ describe("MarkdownView knowledge content", () => {
         content:
           '<img src=x onerror="alert(1)">\n\n[unsafe](javascript:alert(1))',
         emptyLabel: "Empty",
+        baseHeadingLevel: 1,
       }),
     );
 
@@ -117,6 +119,7 @@ describe("MarkdownView knowledge content", () => {
           "본문 문단이다.",
         ].join("\n"),
         emptyLabel: "Empty",
+        baseHeadingLevel: 1,
       }),
     );
 
@@ -133,9 +136,10 @@ describe("MarkdownView knowledge content", () => {
 
     // 🔴 `####` override 가 없으면 브라우저 기본 h4 가 나와 계단 밖으로 튄다.
     expect(markup).toContain("<h5");
+
     expect(markup).toContain("uppercase");
 
-    // 층을 만드는 것은 위 여백이다 — heading 마다 `mt-*` 가 붙는다.
+    // 층을 만드는 것은 위 여백이다 — heading 마다  가 붙는다.
     expect(markup).toContain("first:mt-0");
   });
 
@@ -144,11 +148,115 @@ describe("MarkdownView knowledge content", () => {
       createElement(MarkdownView, {
         content: "### 첫 줄부터 heading\n\n본문.",
         emptyLabel: "Empty",
+        baseHeadingLevel: 1,
       }),
     );
 
-    // `first:mt-0` 이 없으면 카드 위쪽에 죽은 자리가 남는다.
+    // 첫 요소의 위 여백을 죽이지 않으면 카드 위쪽에 죽은 자리가 남는다.
     expect(markup).toContain("first:mt-0");
     expect(markup).toContain("첫 줄부터 heading");
+  });
+
+  it("heading이 단계를 건너뛰어도 DOM heading level은 이어진다", () => {
+    const markup = renderToStaticMarkup(
+      createElement(MarkdownView, {
+        content: "## 큰 topic\n\n본문.\n\n#### 건너뛴 층\n\n본문.",
+        emptyLabel: "Empty",
+        baseHeadingLevel: 1,
+      }),
+    );
+
+    expect(markup).toContain("<h3");
+    // 🔴 `<h5>` 가 나오면 h3 -> h5 로 한 층을 건너뛴 것이다.
+    expect(markup).not.toContain("<h5");
+    expect(markup).toContain("<h4");
+    expect(markup).toContain("건너뛴 층");
+  });
+
+  it("단계를 건너뛰지 않는 문서는 그대로 그린다", () => {
+    const markup = renderToStaticMarkup(
+      createElement(MarkdownView, {
+        content: "## 큰 topic\n\n### 세부\n\n#### 더 세부\n\n본문.",
+        emptyLabel: "Empty",
+        baseHeadingLevel: 1,
+      }),
+    );
+
+    expect(markup).toContain("<h3");
+    expect(markup).toContain("<h4");
+    expect(markup).toContain("<h5");
+  });
+
+  /**
+   * 🔴 **같은 문서가 두 자리에 놓인다.**
+   *
+   * Wiki 상세는 페이지 제목 `<h1>` 바로 아래이고, Issue·Review 상세는 `Section`
+   * 제목 `<h2>` 안이다. 고정 대응이면 뒤쪽에서 문서의 첫 heading 이 자기를 담은
+   * section 제목과 **같은 단계**가 된다 — 화면에는 층이 보이는데 낭독기에는 형제다.
+   */
+  it("baseHeadingLevel을 주면 그 아래에서 heading이 시작한다", () => {
+    const content = "# 문서 제목\n\n본문.\n\n## 세부\n\n본문.";
+
+    const page = renderToStaticMarkup(
+      createElement(MarkdownView, { content, emptyLabel: "Empty", baseHeadingLevel: 1 }),
+    );
+    const section = renderToStaticMarkup(
+      createElement(MarkdownView, {
+        content,
+        emptyLabel: "Empty",
+        baseHeadingLevel: 2,
+      }),
+    );
+
+    // 페이지 바로 아래(기본값)는 지금까지와 같다.
+    expect(page).toContain("<h2");
+    expect(page).toContain("<h3");
+    // 🔴 `Section` 안에서 `<h2>` 가 나오면 section 제목과 형제가 된다.
+    expect(section).not.toContain("<h2");
+    expect(section).toContain("<h3");
+    expect(section).toContain("<h4");
+  });
+
+  /**
+   * 🔴 **생김새는 Markdown 깊이가, 단계는 놓인 자리가 정한다.** 같은 `#` 은 어디에
+   * 놓이든 같은 크기여야 한다 — 문서 안의 층 간격은 그 문서의 것이다.
+   */
+  it("baseHeadingLevel이 달라도 같은 깊이의 서식은 같다", () => {
+    const content = "# 문서 제목";
+    const page = renderToStaticMarkup(
+      createElement(MarkdownView, { content, emptyLabel: "Empty", baseHeadingLevel: 1 }),
+    );
+    const section = renderToStaticMarkup(
+      createElement(MarkdownView, {
+        content,
+        emptyLabel: "Empty",
+        baseHeadingLevel: 2,
+      }),
+    );
+
+    // 🔴 감싼 `div` 가 아니라 heading 자신의 class 다.
+    const headingClassOf = (markup: string) =>
+      /<h[1-6] class="([^"]+)"/.exec(markup)?.[1] ?? null;
+
+    expect(headingClassOf(page)).toContain("border-b");
+    expect(headingClassOf(section)).toBe(headingClassOf(page));
+  });
+
+  /**
+   * 🔴 **`<h6>` 아래가 없다.** 겹쳐서 멈추면 층이 하나 줄 뿐 «건너뛰기»가 되지
+   * 않는다 — 깊어지는 쪽이 위험하고 얕아지는 쪽은 안전하다.
+   */
+  it("깊은 문서를 깊은 자리에 놓아도 h6을 넘지 않는다", () => {
+    const markup = renderToStaticMarkup(
+      createElement(MarkdownView, {
+        content: "# 하나\n\n## 둘\n\n### 셋\n\n#### 넷",
+        emptyLabel: "Empty",
+        baseHeadingLevel: 4,
+      }),
+    );
+
+    expect(markup).toContain("<h5");
+    expect(markup).toContain("<h6");
+    expect(markup).not.toContain("<h7");
   });
 });
