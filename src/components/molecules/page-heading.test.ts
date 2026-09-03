@@ -24,6 +24,13 @@ import { describe, expect, it } from "vitest";
  *
  * 🔴 **목록을 손으로 적지 않는다.** `src` 를 훑어 `<PageContainer` 를 쓰는 파일을 모으므로,
  * 새 화면을 만들면서 제목을 빠뜨리면 그 화면이 **자동으로** 이 시험에 걸린다.
+ *
+ * ## 🔴 이것은 «문법 수준» 보증이다
+ *
+ * 파일 안에 제목을 내는 JSX element 가 정확히 하나 «적혀 있다»까지만 본다. 조건부
+ * 렌더(`{cond && <PageTitle/>}`)나 그 파일 안의 다른(렌더되지 않는) 컴포넌트에 들어 있는
+ * 것도 하나로 센다 — **「화면이 실제로 heading 을 낸다」는 보증이 아니다.**
+ * 그 자리는 브라우저로 조립된 outline 을 읽어 메운다.
  */
 function tsxFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -60,41 +67,60 @@ const countProviders = (source: string) =>
   jsxElementNames(source).filter((name) => PROVIDERS.includes(name)).length;
 
 /**
- * 제목을 «자기가 부르는 컴포넌트»에 맡긴 화면 → 그 컴포넌트.
+ * 제목을 «자기가 부르는 컴포넌트»에 맡긴 화면.
  *
- * 🔴 **예외를 그냥 건너뛰지 않는다.** 맡긴 쪽이 실제로 제목을 내는지 그 파일을 열어 센다 —
- * 그러지 않으면 delegate 가 제목을 잃어도 아무도 모른다.
+ * 🔴 **예외를 그냥 건너뛰지 않는다.** 두 가지를 함께 본다 —
+ * 부모가 그 컴포넌트를 **실제로 한 번 렌더하는지**, 그리고 그 컴포넌트가 **제목을 내는지**.
+ * 앞엣것이 없으면 부모에서 호출을 지워도 시험이 초록이다(reviewer 가 재현했다).
  *
  * 🔴 **자라게 두지 마라.** 한 칸이 늘 때마다 「그 화면에 제목이 있는가」를 이 시험이 아니라
  * 사람이 확인해야 한다.
  */
-const DELEGATES_TITLE: Record<string, string> = {
-  "KnowledgePageFormScreen.tsx":
-    "src/features/knowledge/components/KnowledgePageForm.tsx",
+const DELEGATES_TITLE: Record<string, { element: string; path: string }> = {
+  "KnowledgePageFormScreen.tsx": {
+    element: "KnowledgePageForm",
+    path: "src/features/knowledge/components/KnowledgePageForm.tsx",
+  },
 };
+
+/**
+ * 지금 `<PageContainer>` 로 세운 화면 수.
+ *
+ * 🔴 **아래로 내려가면 실패한다.** 어떤 화면이 `PageContainer` 를 잃으면 이 집합에서
+ * 조용히 빠져 검사 대상이 아니게 되는데, 그것은 「통과」가 아니라 「안 본 것」이다.
+ * 화면이 늘어 이 값이 낡으면 **의도적으로** 올려라.
+ */
+const KNOWN_SCREEN_COUNT = 15;
 
 describe("page 의 문서 최상위 heading", () => {
   const screens = tsxFiles("src")
     .map((path) => ({ path, source: readFileSync(path, "utf8") }))
     .filter(({ source }) => jsxElementNames(source).includes("PageContainer"));
 
-  it("훑을 화면을 실제로 찾았다", () => {
-    // 🔴 0건이면 아래 시험이 «아무것도 검사하지 않은 채» 초록이 된다.
-    expect(screens.length).toBeGreaterThanOrEqual(10);
+  it("훑을 화면이 줄지 않았다", () => {
+    expect(screens.length).toBeGreaterThanOrEqual(KNOWN_SCREEN_COUNT);
   });
 
   it("🔴 PageContainer 로 세운 화면은 페이지 제목을 «정확히 하나» 낸다", () => {
-    const wrong = screens
-      .map(({ path, source }) => {
-        const delegate = Object.entries(DELEGATES_TITLE).find(([name]) =>
-          path.endsWith(name),
-        );
-        const target = delegate
-          ? readFileSync(delegate[1], "utf8")
-          : source;
-        return { path, count: countProviders(target) };
-      })
-      .filter(({ count }) => count !== 1);
+    type Wrong = { path: string; count?: number; calls?: number; provided?: number };
+    const wrong = screens.flatMap<Wrong>(({ path, source }) => {
+      const delegate = Object.entries(DELEGATES_TITLE).find(([name]) =>
+        path.endsWith(name),
+      )?.[1];
+      if (delegate === undefined) {
+        const count = countProviders(source);
+        return count === 1 ? [] : [{ path, count }];
+      }
+
+      // 맡겼다면 «맡긴 사실»과 «맡은 쪽이 내는지»를 둘 다 본다.
+      const calls = jsxElementNames(source).filter(
+        (name) => name === delegate.element,
+      ).length;
+      const provided = countProviders(readFileSync(delegate.path, "utf8"));
+      return calls === 1 && provided === 1
+        ? []
+        : [{ path, calls, provided }];
+    });
 
     expect(wrong).toEqual([]);
   });
