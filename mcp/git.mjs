@@ -1,7 +1,24 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-const run = promisify(execFile);
+const execFileAsync = promisify(execFile);
+
+/**
+ * 🔴 **주변 환경의 `GIT_*` 를 물려받지 않는다.**
+ *
+ * `git` 은 `GIT_DIR`·`GIT_WORK_TREE`·`GIT_INDEX_FILE`·`GIT_OBJECT_DIRECTORY` 가 있으면
+ * **`cwd` 를 무시하고 그쪽을 본다.** 그러면 「이 저장소에 이 commit 이 있는가」를 묻는
+ * 자리가 조용히 다른 저장소를 가리켜, 남의 저장소 commit 으로 이쪽 파일을 판정하게 된다 —
+ * reviewer 가 실제로 `GIT_DIR` 을 다른 저장소로 돌려 재현했다.
+ *
+ * 이 파일의 질문은 전부 **「`cwd` 의 저장소에서」**이므로 그 변수들을 걷어낸다.
+ */
+const GIT_ENV = Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+);
+
+const run = (file, args, options = {}) =>
+  execFileAsync(file, args, { ...options, env: options.env ?? GIT_ENV });
 
 /**
  * 지금 작업 중인 Git Repository 를 스스로 알아낸다(스펙 7).
@@ -407,23 +424,23 @@ export async function classifyEvidenceSource(cwd, evidence) {
     return "COMMITTED";
   }
   /**
-   * 🔴 **`readFileAtCommit` 의 `null` 은 두 가지 다른 사실이다.**
+   * 🔴 **`WORKING_TREE` 로 가는 문은 «바탕이 맞을 때만» 열린다.**
    *
-   * - commit 자체를 읽지 못했다 — 다른 저장소의 SHA 이거나 없는 SHA 다
-   * - commit 은 유효한데 **그 안에 그 경로가 없다** — 그 시점엔 없던 «새 파일»이다
+   * 그 상태는 서버의 원본 대조를 생략시키므로, 여는 조건이 「그럴듯한가」가 아니라
+   * 「그것 말고 다른 해석이 없는가」여야 한다. 작업 tree 는 정의상 `HEAD` 위에 얹혀
+   * 있으니, 받은 값이 지금의 `HEAD` 가 아니면 「그 commit 에는 없고 지금 있다」를
+   * 이 함수가 판정할 근거가 없다.
    *
-   * 둘을 같이 두면 새 파일을 만들며 고친 작업의 근거가 index·디스크를 보지도 못하고
-   * 돌아가, `sourceState` 없이 나가 서버 기본값 `COMMITTED` 로 저장된다. 그 뒤
-   * `verifyCodeEvidence` 가 GitHub 에서 그 경로를 찾지 못해 `UNAVAILABLE` 로 닫으므로,
-   * 화면이 「아직 커밋 전」 대신 「확인할 수 없음」을 그린다.
+   * 🔴 **이 확인을 `atCommit === null` 일 때로 한정하지 않는다.** 한때 그랬는데,
+   * **파일은 옛 commit 에도 있고 그 «조각»만 없는 경우**에 확인이 통째로 건너뛰어져
+   * 오래된 ref 하나로 이미 커밋된 근거가 검증에서 면제됐다 — reviewer 가 재현했다.
+   * 그 갈래가 훨씬 흔하다: 파일을 고치는 일이 파일을 만드는 일보다 많다.
    *
-   * 🔴 **commit 을 읽지 못한 쪽의 `null` 은 그대로 둔다.** 다른 저장소의 근거를 건드리지
-   * 않는 보증이 거기 있다.
-   *
-   * 🔴 **「commit 이 있다」가 아니라 「그것이 지금의 바탕이다」를 묻는다.** 오래된 ref 를
-   * 받아 주면 이미 커밋된 파일까지 `WORKING_TREE` 가 되어 서버 대조를 건너뛴다.
+   * 여기서 돌아가는 것은 손해가 아니다 — `sourceState` 없이 나가면 서버 기본값
+   * `COMMITTED` 로 저장돼 **정상적으로 GitHub 대조를 받는다.** 잃는 것은 「아직 커밋 전」
+   * 표시뿐이고, 다른 저장소의 근거를 건드리지 않는 보증이 그 자리에 남는다.
    */
-  if (atCommit === null && !(await isWorkingTreeBase(cwd, evidence.commitSha))) {
+  if (!(await isWorkingTreeBase(cwd, evidence.commitSha))) {
     return null;
   }
 

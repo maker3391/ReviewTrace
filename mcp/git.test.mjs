@@ -621,6 +621,127 @@ describe("classifyEvidenceSource", { timeout: 30_000 }, () => {
   });
 
   /**
+   * 🔴 **파일이 옛 commit 에도 «있는» 경우가 더 흔하다.**
+   *
+   * 한때 바탕 확인을 「그 commit 에서 파일을 못 읽었을 때」로만 걸었다. 그러면 파일은
+   * 있고 **조각만 없는** 경우 — 즉 파일을 고치는 흔한 작업 — 에 확인이 통째로 건너뛰어져
+   * 오래된 ref 하나로 이미 커밋된 근거가 검증에서 면제됐다. reviewer 가 재현했다.
+   */
+  it("🔴 옛 commit 에 파일이 있어도 오래된 ref 로는 판정하지 않는다", async () => {
+    const directory = await createRepository();
+    try {
+      const commit = async (message) =>
+        run("git", [
+          "-C", directory,
+          "-c", "user.name=ReviewTrace",
+          "-c", "user.email=reviewtrace@example.test",
+          "commit", "-m", message,
+        ]);
+
+      // `source.txt` 는 첫 commit 부터 «있다». 여기에 줄을 더해 커밋한다.
+      const before = (await run("git", ["-C", directory, "rev-parse", "HEAD"])).stdout.trim();
+      await writeFile(
+        join(directory, "source.txt"),
+        "committed BEFORE\nadded later line\n",
+        "utf8",
+      );
+      await run("git", ["-C", directory, "add", "source.txt"]);
+      await commit("append line");
+
+      const evidence = {
+        filePath: "source.txt",
+        startLine: 2,
+        endLine: 2,
+        snapshot: "added later line",
+      };
+
+      // 파일은 그 시절에도 있었지만 이 «줄» 은 없었다 — 그래도 판정하지 않는다.
+      for (const stale of [before, before.slice(0, 7), "HEAD~1"]) {
+        await expect(
+          classifyEvidenceSource(directory, { ...evidence, commitSha: stale }),
+          stale,
+        ).resolves.toBeNull();
+      }
+
+      // 지금의 바탕으로 물으면 커밋된 것은 COMMITTED 다.
+      await expect(
+        classifyEvidenceSource(directory, { ...evidence, commitSha: "HEAD" }),
+      ).resolves.toBe("COMMITTED");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  /**
+   * 🔴 **주변 환경의 `GIT_*` 가 저장소 경계를 바꾼다.**
+   *
+   * `git` 은 `GIT_DIR` 이 있으면 `cwd` 를 무시하고 그쪽을 본다. 그러면 남의 저장소
+   * commit 으로 이쪽 파일을 판정하게 된다 — reviewer 가 실제로 재현했다.
+   */
+  it("🔴 GIT_DIR 이 다른 저장소를 가리켜도 cwd 의 저장소로 판정한다", async () => {
+    const mine = await createRepository();
+    const other = await createRepository();
+    const saved = process.env.GIT_DIR;
+    try {
+      /*
+ 🔴 **두 저장소를 실제로 갈라 놓는다.** `createRepository` 는 같은 내용·같은 작성자로
+ 커밋하므로 그대로 두면 **초기 commit 의 OID 가 같아** 이 시험이 아무것도 재지 못한다.
+      */
+      await writeFile(join(other, "only-here.txt"), "다른 저장소\n", "utf8");
+      await run("git", ["-C", other, "add", "only-here.txt"]);
+      await run("git", [
+        "-C", other,
+        "-c", "user.name=Other",
+        "-c", "user.email=other@example.test",
+        "commit", "-m", "other repo only",
+      ]);
+
+      const otherHead = (
+        await run("git", ["-C", other, "rev-parse", "HEAD"])
+      ).stdout.trim();
+      const mineHeadBefore = (
+        await run("git", ["-C", mine, "rev-parse", "HEAD"])
+      ).stdout.trim();
+      expect(otherHead).not.toBe(mineHeadBefore);
+
+      await writeFile(join(mine, "created.txt"), "brand new line\n", "utf8");
+
+      process.env.GIT_DIR = join(other, ".git");
+
+      // 남의 저장소 HEAD 다 — 내 저장소의 바탕이 아니므로 판정하지 않는다.
+      await expect(
+        classifyEvidenceSource(mine, {
+          commitSha: otherHead,
+          filePath: "created.txt",
+          startLine: 1,
+          endLine: 1,
+          snapshot: "brand new line",
+        }),
+      ).resolves.toBeNull();
+
+      /*
+ 🔴 **`mineHeadBefore` 를 «GIT_DIR 를 걸기 전»에 구해 둔 것이 요점이다.** 이 시험의
+ `run` 은 ambient 환경을 그대로 물려받으므로, GIT_DIR 이 걸린 뒤에는 `git -C mine` 조차
+ `other` 의 HEAD 를 돌려준다 — `-C` 는 cwd 만 바꾸고 GIT_DIR 이 그것을 덮는다.
+      */
+      await expect(
+        classifyEvidenceSource(mine, {
+          commitSha: mineHeadBefore,
+          filePath: "created.txt",
+          startLine: 1,
+          endLine: 1,
+          snapshot: "brand new line",
+        }),
+      ).resolves.toBe("WORKING_TREE");
+    } finally {
+      if (saved === undefined) delete process.env.GIT_DIR;
+      else process.env.GIT_DIR = saved;
+      await rm(mine, { recursive: true, force: true });
+      await rm(other, { recursive: true, force: true });
+    }
+  });
+
+  /**
    * 🔴 **commit 을 읽지 못한 것까지 「커밋 전」으로 밀면 보증이 사라진다.**
    *
    * 다른 저장소의 SHA 를 적어 보내면 그 근거는 이 저장소가 판정할 대상이 아니다.
