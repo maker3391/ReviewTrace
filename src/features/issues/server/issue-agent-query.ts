@@ -3,6 +3,7 @@ import "server-only";
 import { and, asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
 
 import { db, type DbExecutor } from "@/db";
+import { ACTIVITY_TIMELINE_ORDER } from "@/features/issues/server/issue-activity-ordinal";
 import { issueInScope } from "@/features/issues/server/issue-scope";
 import {
   issueActivities,
@@ -286,7 +287,8 @@ async function findActivities(
         eq(issueActivities.workspaceId, workspaceId),
       ),
     )
-    .orderBy(asc(issueActivities.createdAt));
+    // 🔴 오래된 것부터다. 정렬의 정본은 `ordinal` 이다(`issue-activity-ordinal.ts`).
+    .orderBy(...ACTIVITY_TIMELINE_ORDER);
 
   // 🔴 Activity 마다 왕복하지 않는다 — 한 번에 읽어 메모리에서 묶는다.
   const evidenceRows = await executor

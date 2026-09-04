@@ -44,24 +44,46 @@ const ACTIVITY = {
 };
 
 /**
- * `select … where … limit` 과 `insert … returning` 만 흉내 내는 최소 Fake.
+ * `select … where … for … limit` 과 `insert … returning` 만 흉내 내는 최소 Fake.
  *
  * 🔴 **조건절을 «평가»하지 않는다.** 그것은 PostgreSQL 의 일이다. 여기서는 조건절을
  * 그대로 붙잡아 두었다가, 어떤 문장이 만들어졌는지 밖에서 들여다본다.
+ *
+ * 🔴 **`select` 가 두 번 온다.** 첫 번째가 Issue 를 잠그며 찾고, 두 번째가 그 Issue 의
+ * 마지막 순번을 센다(`issue-activity-ordinal.ts`). 조건절을 붙잡는 것은 **첫 번째**뿐이다.
  */
-function fakeExecutor(foundRows: readonly unknown[]) {
+function fakeExecutor(
+  foundRows: readonly unknown[],
+  highestOrdinal: number | null = null,
+) {
   const captured: { where?: SQL } = {};
   const inserted: Record<string, unknown>[] = [];
+  let selects = 0;
 
   const tx = {
-    select: () => ({
-      from: () => ({
-        where: (condition: SQL) => {
-          captured.where = condition;
-          return { limit: () => Promise.resolve(foundRows) };
-        },
-      }),
-    }),
+    select: () => {
+      selects += 1;
+      const nth = selects;
+      return {
+        from: () => ({
+          where: (condition: SQL) => {
+            if (nth === 1) {
+              captured.where = condition;
+            }
+            const settled = Promise.resolve(
+              nth === 1 ? foundRows : [{ highest: highestOrdinal }],
+            );
+            const node = {
+              /** 잠금은 Fake 가 흉내 낼 수 없다 — 붙었다는 사실만 통과시킨다. */
+              for: () => node,
+              limit: () => settled,
+              then: settled.then.bind(settled),
+            };
+            return node;
+          },
+        }),
+      };
+    },
     insert: () => ({
       values: (values: Record<string, unknown>) => {
         inserted.push(values);

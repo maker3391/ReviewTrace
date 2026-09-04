@@ -248,10 +248,14 @@ describe.skipIf(!enabled)("issue_activities.ordinal 의 DB 계약", () => {
   /**
    * 🔴 **부여 규칙의 정본은 여기다.**
    *
-   * 한 payload 에 같은 `source + externalId` 가 둘 실리면 batch INSERT 한 문장이
-   * **같은 Issue 에 두 행**을 넣는다(`review-ingest-service.ts`). 그때 행마다
-   * `MAX(ordinal) + 1` 을 계산하면 두 행이 **같은 값**을 얻는다 — 한 문장 안에서는
-   * 서로의 INSERT 가 아직 보이지 않기 때문이다.
+   * batch INSERT 한 문장이 **같은 Issue 에 두 행**을 넣으면, 행마다 계산한
+   * `MAX(ordinal) + 1` 이 **같은 값**이 된다 — 한 문장 안에서는 서로의 INSERT 가 아직
+   * 보이지 않기 때문이다. 아래 두 시험이 그 차이를 Database 로 직접 보인다.
+   *
+   * 🔴 **지금 제품 경로가 그 모양을 만들지는 않는다.** `review-ingest-service` 는
+   * `prepareIssues` 가 `source + externalId` 로 접어 둔 목록을 넘겨서 Issue 마다 한 번뿐이고,
+   * 실제 payload 로 확인했다(`features/issues/server/issue-activity-ordinal.integration.test.ts`).
+   * 여기서 세우는 것은 **「같은 Issue 가 입력 목록에 거듭 나온다면」이라는 조건**의 계약이다.
    */
   it("🔴 MAX + 1 은 한 문장 안의 중복을 막지 못한다", async () => {
     await inRollback(async (tx) => {

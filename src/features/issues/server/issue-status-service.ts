@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db, type DbExecutor } from "@/db";
 import { issueActivities, reviewIssues } from "@/db/schema";
 import { insertCodeEvidence } from "@/features/issues/server/code-evidence-service";
+import { nextActivityOrdinal } from "@/features/issues/server/issue-activity-ordinal";
 import {
   issueInScope,
   type IssueScope,
@@ -132,6 +133,14 @@ export async function updateIssueStatus(
       throw new AppError("RESOURCE_NOT_FOUND");
     }
 
+    /**
+     * 🔴 위에서 **이미 잠근** Issue 행이라 그 사이에 순번이 늘지 않는다.
+     * 잠금을 여기서 다시 잡지 않는 것을 인자로 밝힌다.
+     */
+    const ordinal = await nextActivityOrdinal(tx, updated.id, {
+      alreadyLocked: true,
+    });
+
     // 같은 Transaction 이다 — 상태만 바뀌고 History 가 없는 순간을 만들지 않는다.
     const activityRows = await tx
       .insert(issueActivities)
@@ -139,6 +148,8 @@ export async function updateIssueStatus(
         workspaceId,
         reviewIssueId: updated.id,
         type: ACTIVITY_TYPE_BY_STATUS[update.status],
+        /** 🔴 순서의 정본. 아래 `createdAt` 은 «보여 주는 시각»이고 역할이 다르다. */
+        ordinal,
         /**
          * 🔴 **`now()` 기본값에 맡기지 않는다.** PostgreSQL 의 `now()` 는
          * **transaction 시작 시각**이라 잠금을 얻은 순서가 아니라 `BEGIN` 순서를

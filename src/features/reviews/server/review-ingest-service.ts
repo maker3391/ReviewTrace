@@ -16,6 +16,11 @@ import type {
   ReviewIssueInput,
 } from "@/features/reviews/schemas/review-ingest";
 import { insertCodeEvidence } from "@/features/issues/server/code-evidence-service";
+import {
+  assignActivityOrdinals,
+  lockIssuesForActivity,
+  nextActivityOrdinals,
+} from "@/features/issues/server/issue-activity-ordinal";
 import { findProjectBySlug } from "@/features/projects/server/project-service";
 import { connectGithubRepositoryByFullName } from "@/features/repositories/server/repository-connect-service";
 import { resolveRepositoryContext } from "@/features/repositories/server/repository-context-service";
@@ -402,22 +407,62 @@ async function insertSessionIssues(
       }
     }
 
-    // 6. Tag 조회 / 생성 -> IssueTag Batch INSERT.
+    /**
+     * 6. 🔴 **다룰 Issue 를 여기서 «먼저» 잠근다 — Tag 를 붙이기 전이다.**
+     *
+     * `linkTags` 가 넣는 `issue_tags` 는 `review_issues` 를 참조하므로 FK 검사가 그 행에
+     * **`FOR KEY SHARE`** 를 건다. 그 잠금은 서로 **호환**돼서 두 Transaction 이 나란히
+     * 얻는다 — 그 상태에서 둘 다 `FOR UPDATE` 로 «승격»하려 하면 서로를 기다려 고리가
+     * 닫힌다(lock upgrade deadlock). 문장에 `for update` 를 적지 않아도 잠금은 걸린다는
+     * 것이 `@/db` 의 전역 잠금 순서가 적어 둔 그대로다.
+     *
+     * 그래서 **가장 강한 잠금을 «맨 앞»에서 한 번에** 잡는다. 그 뒤의 FK 잠금은 이미 우리
+     * 것이라 승격이 일어나지 않는다.
+     *
+     * 🔴 **이미 있던 Issue 만 잠근다.** `created` 는 이번 Transaction 이 방금 INSERT 한
+     * 행이라 다른 Transaction 에 보이지 않는다 — 경쟁 상대가 없고 순번은 언제나 `1` 이다.
+     *
+     * 🔴 **한 문장에서 `id` 오름차순으로 잠근다.** 여러 Issue 를 서로 다른 순서로 잠그면
+     * 고리가 닫힌다 — 실제로 `40P01` 을 재현했다.
+     */
+    const knownIssueIds = resolved
+      .filter((entry) => entry.alreadyKnown)
+      .map((entry) => entry.id);
+    await lockIssuesForActivity(tx, knownIssueIds);
+
+    // 7. Tag 조회 / 생성 -> IssueTag Batch INSERT.
     await linkTags(tx, workspaceId, resolved);
 
-    // 7. Activity Batch INSERT.
+    // 8. Activity Batch INSERT.
     // 새로 안 것은 DETECTED, 다시 만난 것은 REVIEWED_AGAIN 이다 —
     // 「이번 Review 도 이 문제를 봤다」가 History 에 남아야 반복 여부를 셀 수 있다.
+    /**
+     * 🔴 **행마다 「지금 최대값 + 1」을 계산하지 않는다.** 한 문장 안에서는 서로의 INSERT 가
+     * 보이지 않아, 같은 Issue 가 두 번 실리면 두 행이 같은 값을 얻는다. 그래서 최대값에
+     * **문장 안의 등장 순서**를 더한다(`assignActivityOrdinals`).
+     *
+     * 🔴 **지금 그 가지에 닿는 경로는 없다.** 같은 `source + externalId` 를 두 번 보내도
+     * `prepareIssues` 가 두 번째를 버려서 `resolved` 에는 한 번만 남는다 — 실제 payload 로
+     * 확인했다. 이 계산은 그 dedup 이 사라졌을 때를 위한 것이지 지금 일어나는 일이 아니다.
+     */
+    const nextOrdinals = await nextActivityOrdinals(tx, knownIssueIds);
+    const ordinals = assignActivityOrdinals(
+      resolved.map((entry) => entry.id),
+      nextOrdinals,
+    );
+
     const activityIds = new Map<string, string>();
     const activityRows = await tx
       .insert(issueActivities)
       .values(
-        resolved.map((entry) => ({
+        resolved.map((entry, index) => ({
           workspaceId,
           reviewIssueId: entry.id,
           type: entry.alreadyKnown
             ? ("REVIEWED_AGAIN" as const)
             : ("DETECTED" as const),
+          /** 🔴 순서의 정본. `created_at` 은 이 batch 의 모든 행이 «같은 값»을 받는다. */
+          ordinal: ordinals[index] ?? 1,
           actorType: context.reviewerType,
           actorName: context.reviewerName,
           description: context.summary,

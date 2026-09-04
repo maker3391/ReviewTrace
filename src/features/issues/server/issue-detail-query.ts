@@ -12,6 +12,7 @@ import {
   reviewSessions,
   tags,
 } from "@/db/schema";
+import { ACTIVITY_TIMELINE_ORDER } from "@/features/issues/server/issue-activity-ordinal";
 import {
   OPEN_ISSUE_STATUSES,
   type CodeEvidenceKind,
@@ -189,8 +190,12 @@ export async function findIssueDetail(
           eq(issueActivities.workspaceId, scope.workspaceId),
         ),
       )
-      // 🔴 오래된 것부터다. History 는 「어떻게 여기까지 왔는가」라 시간순으로 읽힌다.
-      .orderBy(asc(issueActivities.createdAt)),
+      /**
+       * 🔴 오래된 것부터다. History 는 「어떻게 여기까지 왔는가」라 순서대로 읽힌다.
+       * 정렬의 정본은 `ordinal` 이다 — `createdAt` 은 **보여 주는 시각**이라 한 Transaction
+       * 안에서 만들어진 행들이 같은 값을 갖는다(`issue-activity-ordinal.ts`).
+       */
+      .orderBy(...ACTIVITY_TIMELINE_ORDER),
 
     executor
       .select({ name: tags.name })

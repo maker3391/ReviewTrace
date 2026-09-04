@@ -59,6 +59,8 @@ const RESOLVE = {
 function fakeExecutor(updatedRows: readonly unknown[]) {
   const captured: { where?: SQL; lockWhere?: SQL } = {};
   const insertedActivities: Record<string, unknown>[] = [];
+  /** 🔴 잠금 SELECT 와 순번 SELECT 를 구분하려고 센다. */
+  let selects = 0;
 
   const tx = {
     /**
@@ -67,21 +69,33 @@ function fakeExecutor(updatedRows: readonly unknown[]) {
      * 범위 밖이면 여기서 이미 0행이라 UPDATE 까지 가지 않는다 — 그래서 돌려주는
      * 행 수를 `updatedRows` 와 맞춰 둔다.
      */
-    select: () => ({
-      from: () => ({
-        where: (condition: SQL) => {
-          captured.lockWhere = condition;
-          return {
-            for: () => ({
-              limit: () =>
-                Promise.resolve(
-                  updatedRows.length > 0 ? [{ id: ISSUE }] : [],
-                ),
-            }),
-          };
-        },
-      }),
-    }),
+    select: () => {
+      selects += 1;
+      const nth = selects;
+      return {
+        from: () => ({
+          where: (condition: SQL) => {
+            // 🔴 붙잡는 것은 «잠금» SELECT 뿐이다. 두 번째는 순번을 세는 조회다.
+            if (nth === 1) {
+              captured.lockWhere = condition;
+            }
+            const settled = Promise.resolve(
+              nth === 1
+                ? updatedRows.length > 0
+                  ? [{ id: ISSUE }]
+                  : []
+                : [{ highest: null }],
+            );
+            const node = {
+              for: () => node,
+              limit: () => settled,
+              then: settled.then.bind(settled),
+            };
+            return node;
+          },
+        }),
+      };
+    },
     update: () => ({
       set: () => ({
         where: (condition: SQL) => {

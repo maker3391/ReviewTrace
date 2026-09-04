@@ -63,6 +63,12 @@ export type Database = NodePgDatabase<typeof schema>;
  * `removeMember` · `changeMemberRole` · `deleteWorkspace` · `deleteAccount`.
  * 다른 표에서 여러 행을 잡을 때도 같다 — `lockMyWorkspaces` 는 `order by id` 를 쓴다.
  *
+ * 🔴 **`review_issues` 도 같은 규칙 아래 있다.** Activity 의 순번은 「지금 최대값 + 1」이라
+ * 그 Issue 행을 잠근 뒤에 정해야 하는데(`issue-activity-ordinal.ts`), Review 수집은 한
+ * Transaction 이 **여러 Issue** 를 건드린다. 그래서 `lockIssuesForActivity` 가 `in (…)`
+ * **한 문장에 `order by id`** 를 적는다 — Agent 가 보낸 payload 순서가 잠금 순서가 되면,
+ * 두 Review 가 같은 Issue 두 개를 반대 순서로 만나는 순간 고리가 닫힌다.
+ *
  * 🔴 **새 경로를 만들 때 이 순서를 확인해라.** 잠금은 문장에 적혀 있지 않은 것까지 걸리고,
  * 어긋난 순서는 시험이 아니라 운영에서 터진다.
  */

@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db, type DbExecutor } from "@/db";
 import { issueActivities, reviewIssues } from "@/db/schema";
 import { insertCodeEvidence } from "@/features/issues/server/code-evidence-service";
+import { nextActivityOrdinal } from "@/features/issues/server/issue-activity-ordinal";
 import type { IssueActivityInput } from "@/features/issues/schemas/issue-activity";
 import {
   issueInScope,
@@ -57,7 +58,11 @@ export async function addIssueActivity(
 ): Promise<CreatedIssueActivity> {
   // 🔴 행위와 그 근거는 함께 남거나 함께 남지 않는다 — 반쪽 History 를 만들지 않는다.
   return executor.transaction(async (tx) => {
+    // 🔴 이 조회가 Issue 행을 «잠그면서» 읽는다 — 아래 순번이 그 잠금 안에서 정해진다.
     const issue = await findIssueInScope(tx, input.scope, input.issueId);
+    const ordinal = await nextActivityOrdinal(tx, issue.id, {
+      alreadyLocked: true,
+    });
 
     const rows = await tx
       .insert(issueActivities)
@@ -66,6 +71,8 @@ export async function addIssueActivity(
         workspaceId: issue.workspaceId,
         reviewIssueId: issue.id,
         type: input.activity.type,
+        /** 🔴 순서의 정본. `createdAt` 은 «보여 주는 시각»이라 역할이 다르다. */
+        ordinal,
         actorType: input.activity.actor.type,
         actorName: input.activity.actor.name,
         description: input.activity.description,
@@ -124,6 +131,12 @@ export async function findIssueInScope(
     })
     .from(reviewIssues)
     .where(and(eq(reviewIssues.id, issueId), issueInScope(scope)))
+    /**
+     * 🔴 **잠그면서 읽는다.** 이 조회의 유일한 쓰임이 「이 Issue 에 Activity 를 한 줄
+     * 붙인다」이고, 그 순번은 잠그지 않으면 읽는 순간 낡는다
+     * (`issue-activity-ordinal.ts`). 행 하나이므로 잠금 순서 문제는 생기지 않는다.
+     */
+    .for("update")
     .limit(1);
 
   const issue = rows[0];
