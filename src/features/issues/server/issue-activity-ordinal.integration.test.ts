@@ -537,19 +537,35 @@ describe.skipIf(!enabled)("Activity 순번 — 실제 동시 쓰기", () => {
         [issueId],
       );
 
+      /**
+       * 🔴 **거절까지 «만들자마자» 받아 낸다.** `.finally()` 는 결과를 그대로 흘려보내서,
+       * 아래 배리어를 기다리는 동안 이 Promise 에는 거절 handler 가 없다 — 그 창에서
+       * 실패하면 **unhandled rejection** 이 되어 시험이 전부 통과해도 vitest 가 실행을
+       * 실패시킨다(`member-removal-lock-order.integration.test.ts` 가 실제로 그랬다).
+       */
       let settled = false;
+      let failure: unknown = null;
       const pending = addIssueActivity(
         { scope: { workspaceId }, issueId, activity: ACTIVITY },
         waiter.db,
-      ).finally(() => {
-        settled = true;
-      });
+      ).then(
+        (value) => {
+          settled = true;
+          return value;
+        },
+        (error: unknown) => {
+          settled = true;
+          failure = error;
+          return null;
+        },
+      );
 
       await untilBlockedBy(waiter.pid, holder.pid);
       expect(settled).toBe(false);
 
       await holder.client.query("commit");
       await expect(pending).resolves.toBeDefined();
+      expect(failure).toBeNull();
       expect(await ordinalsOf(issueId)).toEqual([1]);
     } finally {
       await disconnect(holder, waiter);
