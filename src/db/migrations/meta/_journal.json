@@ -106,6 +106,13 @@
       "when": 1788332198122,
       "tag": "0014_wise_major_mapleleaf",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1788489607822,
+      "tag": "0015_curly_exiles",
+      "breakpoints": true
     }
   ]
 }

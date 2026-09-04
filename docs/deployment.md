@@ -179,6 +179,36 @@ Vercel 은 push 에 자동 배포하므로, **Migration 을 먼저 눌러 두는
 🔴 **순서가 어긋나도 견디게 쓴다.** 더하는 변경(새 Column·표)을 먼저 배포하고, 지우는 변경은
 옛 코드가 완전히 빠진 뒤에 적용한다 — `0002` → `0003` 을 나눈 것이 그 예다.
 
+### 🔴 Column 을 더할 때는 commit 을 «둘로» 나눈다
+
+「더하는 변경이니 먼저 배포해도 된다」가 **Drizzle Schema 에는 통하지 않는다.**
+`db.insert(table).values(...)` 는 값을 주지 않은 Column 까지 **전부 나열한다** — 그래서
+`schema/*.ts` 에 Column 을 더한 코드가 Migration 보다 먼저 배포되면, 그 표에 쓰는 모든
+요청이 `42703 column ... does not exist` 로 죽는다.
+
+🔴 **추측이 아니다.** `0015`(`issue_activities.ordinal`) 를 넣을 때 Column 이 없는 `0014`
+모양의 Database 에 새 코드를 물려 통합시험을 돌렸고, Activity 를 쓰는 시험 20여 건이
+실제로 `42703` 으로 실패했다. `SELECT` 는 우리 코드가 Column 을 일일이 적어서 무사하지만
+`INSERT` 는 그렇지 않다.
+
+그래서 Column 추가는 **한 commit 이 아니라 세 걸음**이다.
+
+```
+1) migration 산출물만 담은 commit 을 main 에 push
+     -> Vercel 이 배포한다. 애플리케이션 코드가 그대로라 아무것도 깨지지 않는다
+2) 사람이 migrate-production 을 누른다
+     -> Column 이 실제로 생긴다
+3) schema/*.ts 변경과 그것을 쓰는 코드를 push
+```
+
+🔴 **1번을 건너뛸 수 없다.** `migrate-production.yml` 은 `main` 에서만 돌아서,
+Migration 파일이 이미 `main` 에 있어야 적용할 것을 찾는다 — 「Migration 을 먼저 누른다」는
+위 3단계 순서는 **파일이 이미 올라가 있는 경우**의 이야기다.
+
+새 Column 을 **`NOT NULL` 로 잠그지 않는다.** 1번과 3번 사이에 들어오는 행은 그 칸을 비운
+채 저장되고, `NOT NULL` 이면 그 창에서 모든 쓰기가 실패한다. 좁히는 것은 채우는 코드가
+배포되고 남은 `NULL` 을 정리한 뒤다.
+
 🔴 **`0006` 을 아직 적용하지 않은 Database 는 그냥 통과하지 못한다.** 아래
 「0006 복구 절차」를 먼저 읽어라 — 살아 있는 초대가 중복된 배포에서 `23505` 로 멈춘다.
 
