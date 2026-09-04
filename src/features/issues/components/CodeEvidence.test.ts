@@ -280,7 +280,7 @@ describe("CodeEvidenceBlock", () => {
     });
     const markup = renderToStaticMarkup(tree);
 
-    expect(markup).toContain("bg-destructive/[0.08]");
+    expect(markup).toContain("bg-diff-deletion");
     expect(markup).toContain("bg-diff-addition");
     expect(markup).toContain("−");
     expect(markup).toContain("+");
@@ -322,7 +322,7 @@ describe("CodeEvidenceBlock", () => {
     expect(markup).toContain("src/FormattedDiff.tsx:103");
     expect(markup).toContain("#L103");
     expect(markup).not.toContain("<span>104</span>");
-    expect(markup).toContain("bg-destructive/[0.08]");
+    expect(markup).toContain("bg-diff-deletion");
     expect(markup).toContain("bg-diff-addition");
   });
 
@@ -421,7 +421,7 @@ describe("CodeEvidenceBlock", () => {
     expect(paired).toContain(
       '<span aria-hidden="true" class="font-mono">+</span>After fix',
     );
-    expect(paired).toContain("bg-destructive/10 text-destructive");
+    expect(paired).toContain("bg-diff-deletion text-diff-deletion-foreground");
     expect(paired).toContain("bg-diff-addition text-diff-addition-foreground");
 
     const standalone = renderToStaticMarkup(
@@ -441,7 +441,7 @@ describe("CodeEvidenceBlock", () => {
     // 🔴 없는 비교 결과를 만들어 내지 않는다.
     expect(standalone).toContain("Before fix");
     expect(standalone).not.toContain('class="font-mono">−');
-    expect(standalone).not.toContain("bg-destructive/10 text-destructive");
+    expect(standalone).not.toContain("bg-diff-deletion text-diff-deletion-foreground");
     expect(standalone).not.toContain('data-change-kind="deletion"');
     expect(standalone).toContain("bg-primary/10 text-primary");
   });
@@ -471,5 +471,173 @@ describe("CodeEvidenceBlock", () => {
     expect(markup).toContain("Show all 80 lines");
     expect(markup).toContain("value1");
     expect(markup).toContain("value80");
+  });
+});
+
+/**
+ * 🔴 **삭제와 추가는 «같은 지위»의 두 상태다.**
+ *
+ * 한때 추가만 전용 토큰(`--diff-addition`)을 갖고 삭제는 `destructive` 를 **8% 알파**로
+ * 빌려 썼다. 실측(브라우저 computed style)에서 추가 띠는 불투명한 배경인데 삭제 띠는
+ * `alpha 0.08` 이라, 「수정 전 줄이 빨갛게 보이지 않는다」가 됐다.
+ *
+ * 더 나쁜 것은 **뜻이 섞인 것**이다 — 그 색은 `MISMATCH`(검증 실패)와 같은 토큰이라,
+ * 「diff 색은 검증 결과가 아니다」라는 이 화면의 계약이 색에서는 지켜지지 않았다.
+ *
+ * 🔴 **이 시험은 «색이 예쁜가»를 보지 않는다.** 세 가지만 본다 —
+ * ① 삭제가 diff 전용 토큰을 쓰는가 ② 그것이 검증 색과 다른 토큰인가
+ * ③ 기계가 읽는 표식(`data-change-kind` · `−`/`+`)이 색과 «함께» 붙는가.
+ */
+describe("Code Evidence diff semantics", () => {
+  const pair = async (before: string, after: string) =>
+    renderToStaticMarkup(
+      await EvidenceList({
+        evidence: [
+          evidence({
+            id: "d-before",
+            kind: "BEFORE",
+            filePath: "src/Diff.ts",
+            snapshot: before,
+          }),
+          evidence({
+            id: "d-after",
+            kind: "AFTER",
+            filePath: "src/Diff.ts",
+            snapshot: after,
+          }),
+        ],
+        repositoryFullName: "acme/reviewtrace",
+        labels,
+      }),
+    );
+
+  /** 그 줄이 실제로 어떤 표식·색을 받았는지 한 줄씩 읽는다. */
+  function gutterRows(markup: string) {
+    return [
+      ...markup.matchAll(
+        /<li class="([^"]*)" data-change-kind="([^"]*)">(.*?)<\/li>/gu,
+      ),
+    ].map((match) => {
+      const cls = match[1] ?? "";
+      const body = match[3] ?? "";
+      return {
+        kind: match[2] ?? "",
+        mark: /<span>(.*?)<\/span>/u.exec(body)?.[1] ?? "",
+        deletion: cls.includes("bg-diff-deletion"),
+        addition: cls.includes("bg-diff-addition"),
+      };
+    });
+  }
+
+  it("🔴 한 줄 수정 — 수정 전은 삭제, 수정 후는 추가로 표시된다", async () => {
+    const markup = await pair(
+      "const value = oldValue;",
+      "const value = newValue;",
+    );
+    const rows = gutterRows(markup);
+
+    const deletions = rows.filter((r) => r.kind === "deletion");
+    const additions = rows.filter((r) => r.kind === "addition");
+    expect(deletions).toHaveLength(1);
+    expect(additions).toHaveLength(1);
+
+    // 색·표식·의미가 «함께» 붙는다 — 셋 중 하나만 있으면 반쪽이다.
+    expect(deletions[0]?.deletion).toBe(true);
+    expect(deletions[0]?.addition).toBe(false);
+    expect(deletions[0]?.mark).toBe("−");
+    expect(additions[0]?.addition).toBe(true);
+    expect(additions[0]?.deletion).toBe(false);
+    expect(additions[0]?.mark).toBe("+");
+  });
+
+  it("🔴 삭제 색이 검증(MISMATCH) 색과 같은 토큰이 아니다", async () => {
+    const markup = await pair(
+      "const value = oldValue;",
+      "const value = newValue;",
+    );
+
+    // diff 는 자기 토큰을 쓴다.
+    expect(markup).toContain("bg-diff-deletion");
+    expect(markup).toContain("bg-diff-addition");
+    /*
+ 🔴 `destructive` 는 이 화면에서 **검증 실패**의 색이다. diff 가 그것을 빌려 쓰면
+ 「빨간 줄」이 「원본과 다르다」로 읽힌다 — 둘은 애초에 다른 질문에 대한 답이다.
+    */
+    expect(markup).not.toContain("bg-destructive");
+  });
+
+  it("순수 삭제와 순수 추가를 각각 그 방향으로만 표시한다", async () => {
+    const removed = gutterRows(await pair("keep();\ngone();", "keep();"));
+    expect(removed.filter((r) => r.kind === "deletion")).toHaveLength(1);
+    expect(removed.filter((r) => r.kind === "addition")).toHaveLength(0);
+
+    const added = gutterRows(await pair("keep();", "keep();\nfresh();"));
+    expect(added.filter((r) => r.kind === "addition")).toHaveLength(1);
+    expect(added.filter((r) => r.kind === "deletion")).toHaveLength(0);
+  });
+
+  it("여러 줄 수정에서도 바뀌지 않은 줄은 중립으로 남는다", async () => {
+    const rows = gutterRows(
+      await pair(
+        "head();\nconst a = 1;\nconst b = 2;\ntail();",
+        "head();\nconst a = 9;\nconst b = 8;\ntail();",
+      ),
+    );
+
+    expect(rows.filter((r) => r.kind === "deletion")).toHaveLength(2);
+    expect(rows.filter((r) => r.kind === "addition")).toHaveLength(2);
+    // 🔴 앞뒤 문맥은 색을 얻지 않는다 — 안 바뀐 것을 바뀐 것처럼 그리지 않는다.
+    const unchanged = rows.filter((r) => r.kind === "unchanged");
+    expect(unchanged.length).toBeGreaterThanOrEqual(4);
+    expect(unchanged.every((r) => !r.deletion && !r.addition)).toBe(true);
+    expect(unchanged.every((r) => r.mark === "")).toBe(true);
+  });
+
+  it("🔴 짝이 없는 근거에는 삭제 색을 만들어 내지 않는다", async () => {
+    const markup = renderToStaticMarkup(
+      await EvidenceList({
+        evidence: [
+          evidence({
+            id: "lonely",
+            kind: "BEFORE",
+            filePath: "src/Lonely.ts",
+            snapshot: "const value = oldValue;",
+          }),
+        ],
+        repositoryFullName: "acme/reviewtrace",
+        labels,
+      }),
+    );
+
+    expect(markup).not.toContain("bg-diff-deletion");
+    expect(markup).not.toContain('data-change-kind="deletion"');
+  });
+
+  it("TSX 도 syntax highlighting 과 삭제 색을 함께 갖는다", async () => {
+    const markup = renderToStaticMarkup(
+      await EvidenceList({
+        evidence: [
+          evidence({
+            id: "tsx-before",
+            kind: "BEFORE",
+            filePath: "src/Widget.tsx",
+            snapshot: "const label = <Button>Old</Button>;",
+          }),
+          evidence({
+            id: "tsx-after",
+            kind: "AFTER",
+            filePath: "src/Widget.tsx",
+            snapshot: "const label = <Button>New</Button>;",
+          }),
+        ],
+        repositoryFullName: "acme/reviewtrace",
+        labels,
+      }),
+    );
+
+    // 🔴 강조 class 가 diff 색을 덮지 않는다 — 둘은 다른 요소에 붙는다.
+    expect(markup).toContain("hljs-");
+    expect(markup).toContain("bg-diff-deletion");
+    expect(markup).toContain('data-change-kind="deletion"');
   });
 });

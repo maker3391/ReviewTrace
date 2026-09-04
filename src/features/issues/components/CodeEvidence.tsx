@@ -189,6 +189,12 @@ export interface EvidenceLabels {
  🔴 **red/green 은 검증이 아니다.** diff 계열 색은 «짝이 있어 줄을 견줄 수 있었을 때»만
  나온다(`hasLineComparison`) — 그래야 초록이 `VERIFIED`, 빨강이 `MISMATCH` 로 읽히지 않는다.
  짝이 없는 근거는 알약도 코드도 diff 색을 쓰지 않아 「왜 얘만 색이 없지」가 답을 갖는다.
+
+ 🔴 **그래서 diff 는 «자기 토큰»을 쓴다** — `--diff-deletion` · `--diff-addition`.
+ 한때 삭제만 `destructive` 를 낮은 알파로 빌려 썼는데, 그것은 두 가지를 한꺼번에 깼다.
+ 하나는 **무게**다 — 추가는 불투명한 배경, 삭제는 8% 물빛이라 실측에서 삭제가 거의
+ 보이지 않았다. 다른 하나는 **뜻**이다 — 그 색이 `MISMATCH` 와 같은 토큰이라, 「diff 색은
+ 검증 결과가 아니다」라는 이 주석의 계약이 정작 색에서는 지켜지지 않았다.
 */
 const VERIFICATION_TEXT_CLASS: Record<EvidenceVerification, string> = {
   UNVERIFIED: "text-muted-foreground",
@@ -244,7 +250,7 @@ function roleClass(
     return "bg-primary/10 text-primary";
   }
   return kind === "BEFORE"
-    ? "bg-destructive/10 text-destructive"
+    ? "bg-diff-deletion text-diff-deletion-foreground"
     : "bg-diff-addition text-diff-addition-foreground";
 }
 
@@ -540,7 +546,7 @@ function CodeViewport({
                 "grid h-5 grid-cols-[0.75rem_1fr] gap-1 px-2 tabular-nums",
                 line.changed &&
                   (changeKind === "BEFORE"
-                    ? "bg-destructive/[0.08] text-destructive"
+                    ? "bg-diff-deletion text-diff-deletion-foreground"
                     : "bg-diff-addition text-diff-addition-foreground"),
               )}
               data-change-kind={
@@ -569,7 +575,7 @@ function CodeViewport({
                 className={cn(
                   "pointer-events-none absolute inset-x-0 h-5",
                   changeKind === "BEFORE"
-                    ? "bg-destructive/[0.08]"
+                    ? "bg-diff-deletion"
                     : "bg-diff-addition",
                 )}
                 style={{ top: `${0.75 + index * 1.25}rem` }}
