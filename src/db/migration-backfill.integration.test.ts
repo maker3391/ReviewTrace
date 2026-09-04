@@ -45,10 +45,21 @@ import { ensurePersonalWorkspace } from "@/lib/workspace/personal-workspace";
  * 🔴 **`ALTER TABLE` 과 `CREATE INDEX` 는 다시 돌릴 수 없다**(이미 있다). `0015` 에서는
  * 데이터 문장인 `UPDATE` 만 고르고, `0016` 은 세 문장이 모두 재실행 가능하라 전부 돌린다.
  *
- * 🔴 **데이터를 남기지 않는다.** 모든 시험이 자기 Transaction 안에서 돌고 끝에서 되돌린다.
- * migration 문장이 표 전체를 대상으로 삼지만, 두 문장 다 **`ordinal IS NULL` 인 행을 가진
- * Issue** 로 범위가 좁혀지고 그런 행은 이 Transaction 이 방금 만든 것뿐이다 — 다른 시험이
- * 만드는 `NULL` 은 각자의 Transaction 안이라 서로 보이지 않는다.
+ * # 🔴 이 시험이 «고정하지 못하는» 것
+ *
+ * 여기서 도는 것은 한 Transaction 안의 **데이터 변환**뿐이다. `0016` 의 첫 문장
+ * (`SELECT … FOR UPDATE … ORDER BY id`)을 통째로 지워도 **모든 시험이 그대로 통과한다** —
+ * 최종 데이터만 보기 때문이다. 잠금 계약을 재려면 commit 된 fixture 와 연결 여럿이 필요하고,
+ * 그것은 `features/issues/server/issue-activity-ordinal.integration.test.ts` 가 애플리케이션
+ * 경로에 대해 하는 일이다. 🔴 **migration 문장의 잠금은 어느 시험도 지키지 않는다.**
+ *
+ * # 🔴 데이터를 남기지 않는다 — 다만 범위는 «조건부»다
+ *
+ * 모든 시험이 자기 Transaction 안에서 돌고 끝에서 되돌린다. migration 문장은 표 **전체**를
+ * 훑되 `ordinal IS NULL` 인 행을 가진 Issue 로 좁혀지는데, **그런 행이 이 Transaction 이 만든
+ * 것뿐이라는 보장은 없다** — 갓 만든 CI Database 에서는 참이지만, 재사용하는 Database 에
+ * 그런 행이 남아 있으면 그것까지 대상이 된다. 되돌아가는 Transaction 이라 **밖에 남는 변화는
+ * 없지만**, 단언이 다른 행에 흔들릴 수는 있다.
  */
 const enabled = process.env.DB_INTEGRATION === "true";
 

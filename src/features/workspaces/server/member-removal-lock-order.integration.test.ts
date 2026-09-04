@@ -542,7 +542,10 @@ describe.skipIf(!enabled)(
 
       const result = await captured;
       expect(result.status).toBe("rejected");
-      expect(settle(Promise.resolve(7))).resolves.toEqual({
+
+      // 🔴 `.resolves` 는 «기다려야» 단언이 된다 — 지금 vitest 는 알아서 기다려 주지만
+      // 경고를 내고 다음 major 에서는 실패한다. 성공 쪽도 값까지 확인한다.
+      await expect(settle(Promise.resolve(7))).resolves.toEqual({
         status: "fulfilled",
         value: 7,
       });
