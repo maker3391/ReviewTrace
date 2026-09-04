@@ -576,3 +576,47 @@ describe("중첩 블록 안의 첫 문단", () => {
     expect(nested).toContain("<p class=\"mt-[var(--md-gap)]");
   });
 });
+
+/**
+ * 🔴 **`nowrap` 을 붙인 조각은 «넘칠 수 없어야» 한다.**
+ *
+ * 짧은 expression 이 제 안의 빈칸에서 갈리지 않게 `whitespace-nowrap` 을 붙이는데,
+ * 그것만으로는 부모보다 넓어질 때 그대로 밖으로 흘러 조상의 `overflow-hidden` 이
+ * 잘라 낸다 — 실측으로 128px 열에서 200px 짜리가 **102px 넘쳤다.**
+ *
+ * 길이 어림(24자)이 그것을 막아 줄 것으로 보았는데 두 전제가 틀렸다 — 가장 좁은 본문은
+ * mobile 이 아니라 두 단으로 갈린 상세의 안쪽 열이고(128px), CJK 는 자당 두 배다.
+ * 그래서 어림을 고치는 대신 **상자를 부모 안에 가둔다.**
+ */
+describe("inline code 의 넘침 방지", () => {
+  const render = (content: string) =>
+    renderToStaticMarkup(
+      createElement(MarkdownView, {
+        content,
+        emptyLabel: "—",
+        baseHeadingLevel: 1,
+      }),
+    );
+
+  it("🔴 한 덩어리로 두는 조각은 부모 폭에 갇힌다", () => {
+    // 빈칸이 있고 한 줄이며 24자 이하 — `keepsInlineExpressionTogether` 가 참인 입력.
+    const markup = render("본문 `baseHeadingLevel + 1` 이다.");
+    const code = /<code class="([^"]*)"/u.exec(markup)?.[1] ?? "";
+
+    expect(code).toContain("whitespace-nowrap");
+    // 상자를 부모 안으로 가두고, 모자라면 그 조각만 자기 안에서 넘긴다.
+    expect(code).toContain("max-w-full");
+    expect(code).toContain("overflow-x-auto");
+    // `inline-block` 이라야 폭 제한이 걸린다 — inline 은 max-width 를 무시한다.
+    expect(code).toContain("inline-block");
+  });
+
+  it("한 덩어리로 두지 않는 조각은 오늘 그대로다", () => {
+    // 빈칸이 없는 identifier — 붙이지 않는다(붙이면 긴 것이 넘칠 길만 열린다).
+    const markup = render("본문 `baseHeadingLevel` 이다.");
+    const code = /<code class="([^"]*)"/u.exec(markup)?.[1] ?? "";
+
+    expect(code).not.toContain("whitespace-nowrap");
+    expect(code).not.toContain("overflow-x-auto");
+  });
+});

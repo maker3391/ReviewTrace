@@ -495,15 +495,31 @@ export function MarkdownView({
    `nowrap` 을 붙이면 긴 것이 넘칠 길만 열린다
  - **줄바꿈이 없다** = fenced block 이 아니다. `pre` 안의 code 는 이 자리를 지나가되
    본문이 여러 줄이라 걸리지 않는다
- - **24자 이하** — Geist Mono 12.6px 에서 자당 7.56px 이라 181px + 패딩 8px 이다.
-   가장 좁은 본문(390px 에서 237px)에 들어간다. 그보다 길면 `nowrap` 을 붙이지 않아
+ - **24자 이하** — 길이로 거르는 어림이다. 그보다 길면 `nowrap` 을 붙이지 않아
    상속된 `overflow-wrap: break-word` 가 그대로 안전망이 된다
+
+ ## 🔴 길이만으로는 «넘치지 않음»을 보증하지 못한다
+
+ 이 어림은 한때 「자당 7.56px × 24자 = 181px 이니 가장 좁은 본문(390px 에서 237px)에
+ 들어간다」로 적혀 있었다. 둘 다 틀렸다.
+
+ - **가장 좁은 본문은 mobile 이 아니다.** Issue 상세가 두 단으로 갈리는 폭에서 Decision
+   Record 의 안쪽 열은 **128px** 까지 좁아진다 — 실측이다
+ - **CJK 는 자당 두 배다.** `고친다 → 확인한다 → 커밋한다` 는 17자인데 **200px** 다
+
+ 그래서 어림을 더 정교하게 만드는 대신 **넘칠 수 없게** 만든다. 상자를 부모 안으로
+ 가두고(`max-w-full`), 그래도 모자라면 그 조각만 «자기 안에서» 넘기게 둔다
+ (`overflow-x-auto`). 한 글자도 잃지 않고, 부모를 밀지도 않는다.
+
+ 🔴 **`nowrap` 을 걷어내지 않았다.** 그러면 `baseHeadingLevel + 1` 이 다시 빈칸에서
+ 갈린다 — 이 규칙이 애초에 그것을 막으려고 있다.
           */
           code: ({ children }) => (
             <code
               className={cn(
                 "rounded-sm bg-muted/70 px-1 py-0.5 font-mono text-[0.9em]",
-                keepsInlineExpressionTogether(children) && "whitespace-nowrap",
+                keepsInlineExpressionTogether(children) &&
+                  "inline-block max-w-full overflow-x-auto align-bottom whitespace-nowrap",
               )}
             >
               {children}
