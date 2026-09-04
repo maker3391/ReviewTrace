@@ -4,6 +4,7 @@ import {
   DEFAULT_PAGE_SIZE,
   listPageHref,
   MAX_PAGE,
+  PAGE_SIZE_OPTIONS,
   pageWindow,
   paginate,
   parsePageRequest,
@@ -93,6 +94,109 @@ describe("totalPageCount", () => {
     [101, 25, 5],
   ])("%i건을 %i개씩 보면 %i쪽이다", (total, pageSize, expected) => {
     expect(totalPageCount(total, pageSize)).toBe(expected);
+  });
+});
+
+/**
+ * 🔴 **기본 쪽 크기의 «값 자체»를 못박는다.**
+ *
+ * 다른 시험들은 전부 `DEFAULT_PAGE_SIZE` 를 import 해서 쓴다 — 그래서 그 상수를 20 으로
+ * 바꿔도 **전부 초록으로 남는다.** 「23건이 한 쪽에 다 나온다」가 정상인지 결함인지는
+ * 그 값 하나로 갈리므로, 여기서는 숫자를 **글자 그대로** 적는다.
+ *
+ * ```
+ * pageSize 25 -> 23·24·25건은 «한 쪽»   26·49·50건은 두 쪽   51건은 세 쪽
+ * pageSize 20 -> 23건부터 두 쪽이 된다   41건부터 세 쪽       <- 되돌리면 여기가 빨개진다
+ * ```
+ *
+ * 🔴 **경계는 기본값에 맞춘다.** `pageSize` 가 25 인데 19·20·21 로 재면 셋 다 「한 쪽」이라
+ * **아무 경계도 넘지 않는다** — 그런 표는 초록이어도 아무것도 지키지 못한다. 실제로 갈리는
+ * 자리는 `24 | 25 | 26`(1쪽↔2쪽)과 `49 | 50 | 51`(2쪽↔3쪽)이다.
+ */
+describe("기본 쪽 크기의 경계", () => {
+  it("🔴 기본 쪽 크기는 25 다", () => {
+    expect(DEFAULT_PAGE_SIZE).toBe(25);
+  });
+
+  it("고를 수 있는 크기는 25·50·100 뿐이다", () => {
+    expect(PAGE_SIZE_OPTIONS).toEqual([25, 50, 100]);
+  });
+
+  /** 총 건수만큼의 행을 흉내 내어 실제 `limit`/`offset` 으로 잘라 준다. */
+  function sourceOf(total: number) {
+    const all = Array.from({ length: total }, (_, index) => index + 1);
+    return {
+      count: async () => total,
+      rows: async (limit: number, offset: number) =>
+        all.slice(offset, offset + limit),
+    };
+  }
+
+  it.each([
+    // 🔴 보고된 그 자리다. 기본값이 25 라면 23건이 한 쪽에 다 나오는 것이 «정상»이다.
+    [23, 1, 23],
+    [24, 1, 24],
+    [25, 1, 25],
+    [26, 2, 25],
+    [49, 2, 25],
+    [50, 2, 25],
+    [51, 3, 25],
+  ])("%i건은 %i쪽이고 첫 쪽에 %i건이 담긴다", async (
+    total,
+    pages,
+    firstCount,
+  ) => {
+    expect(totalPageCount(total, DEFAULT_PAGE_SIZE)).toBe(pages);
+
+    const first = await paginate(
+      { page: 1, pageSize: DEFAULT_PAGE_SIZE },
+      sourceOf(total),
+    );
+    expect(first.total).toBe(total);
+    expect(first.items).toHaveLength(firstCount);
+
+    /*
+ 두 번째 쪽을 «요청»했을 때.
+
+ 🔴 한 쪽뿐이면 빈 표가 아니라 **첫 쪽으로 끌려온다**(`paginate`) — 그래서 23~25건에서는
+ 첫 쪽과 같은 것이 다시 나오는 것이 정상이다. 두 쪽 이상이면 남은 것과 한 쪽 분량 중
+ **작은 쪽**이 담긴다 — 51건처럼 세 쪽이면 두 번째 쪽도 가득 찬다.
+ */
+    const second = await paginate(
+      { page: 2, pageSize: DEFAULT_PAGE_SIZE },
+      sourceOf(total),
+    );
+    expect(second.page).toBe(pages === 1 ? 1 : 2);
+    expect(second.items).toHaveLength(
+      pages === 1
+        ? total
+        : Math.min(DEFAULT_PAGE_SIZE, total - DEFAULT_PAGE_SIZE),
+    );
+  });
+
+  /**
+   * 🔴 쪽이 갈려도 «같은 행이 두 쪽에 나오거나 빠지지» 않는다.
+   *
+   * 마지막 쪽까지 전부 걸어야 뜻이 있다 — 앞 두 쪽만 보면 51건처럼 세 쪽인 경우의
+   * 마지막 한 건이 검사 밖에 남는다.
+   */
+  it.each([26, 49, 50, 51])("%i건을 끝까지 넘겨도 겹치거나 빠지지 않는다", async (
+    total,
+  ) => {
+    const pages = totalPageCount(total, DEFAULT_PAGE_SIZE);
+    const seen: number[] = [];
+
+    for (let page = 1; page <= pages; page += 1) {
+      const result = await paginate(
+        { page, pageSize: DEFAULT_PAGE_SIZE },
+        sourceOf(total),
+      );
+      expect(result.page).toBe(page);
+      seen.push(...result.items);
+    }
+
+    expect(seen).toHaveLength(total);
+    expect(new Set(seen).size).toBe(total);
   });
 });
 
