@@ -282,6 +282,32 @@ function isDeadlock(error: unknown): boolean {
   return false;
 }
 
+/**
+ * 🔴 **만들자마자 결과를 붙잡는다.** 경쟁을 재려면 요청을 «먼저 띄워 두고» 배리어를 기다린
+ * 뒤에 결과를 모아야 하는데, 그동안 그 Promise 에는 handler 가 하나도 없다. 그 창에서
+ * 거절되면 Node 는 **unhandled rejection** 으로 본다.
+ *
+ * ## 그것이 실제로 CI 를 빨갛게 만들었다
+ *
+ * 시험은 **1027건이 전부 통과**했는데 `Errors 1 error` 로 job 이 실패했다. 새어 나온 것은
+ * 「내보내기 × Workspace 삭제」에서 `deleteWorkspace` 가 던진 `WORKSPACE_HAS_MEMBERS` 였고,
+ * 그것은 **정상 결과**다 — 내보내기가 아직 commit 되지 않았으면 삭제는 거절되는 것이 맞다.
+ * 문제는 그 거절이 `Promise.allSettled` 가 붙기 «전»에 일어났다는 것뿐이다.
+ *
+ * 🔴 **`allSettled` 는 늦다.** 그것은 이미 만들어진 Promise 에 «나중에» handler 를 붙인다 —
+ * 사이에 `await` 가 하나라도 있으면 창이 열린다(실제로 두 개 있었다: 배리어 대기와 잠금
+ * 해제 왕복). 그래서 결과 수집을 `allSettled` 가 아니라 **이 함수**로 옮겼다.
+ */
+function settle<T>(promise: Promise<T>): Promise<PromiseSettledResult<T>> {
+  return promise.then(
+    (value): PromiseSettledResult<T> => ({ status: "fulfilled", value }),
+    (reason: unknown): PromiseSettledResult<T> => ({
+      status: "rejected",
+      reason,
+    }),
+  );
+}
+
 /** 🔴 실패해도 «교착만 아니면» 된다 — 상대가 먼저 끝내 대상이 사라지는 것은 정상이다. */
 function expectNoDeadlock(
   results: readonly PromiseSettledResult<unknown>[],
@@ -343,22 +369,26 @@ describe.skipIf(!enabled)(
       try {
         await holdMemberRow(holder, workspaceId, otherOwnerId);
 
-        const changing = changeMemberRole(
-          { workspaceId, userId: targetId, role: "MEMBER" },
-          changer.db,
+        const changing = settle(
+          changeMemberRole(
+            { workspaceId, userId: targetId, role: "MEMBER" },
+            changer.db,
+          ),
         );
         await awaitBlocked(changer, [holder]);
 
-        const removing = removeMember(
-          { workspaceId, actorUserId: actorId, targetUserId: targetId },
-          remover.db,
+        const removing = settle(
+          removeMember(
+            { workspaceId, actorUserId: actorId, targetUserId: targetId },
+            remover.db,
+          ),
         );
         // 🔴 배리어가 「누구 때문에」까지 본다 — 고치기 전이든 후든 막는 쪽은 C 다.
         await awaitBlocked(remover, [holder, changer]);
 
         await holder.client.query("rollback");
 
-        const results = await Promise.allSettled([changing, removing]);
+        const results = await Promise.all([changing, removing]);
         expectNoDeadlock(results);
 
         // 둘 다 끝까지 갔다 — 대상은 더 이상 멤버가 아니다.
@@ -404,15 +434,16 @@ describe.skipIf(!enabled)(
       try {
         await holdMemberRow(holder, workspaceId, targetId);
 
-        const deleting = deleteWorkspace(
-          { workspaceId, userId: actorId },
-          deleter.db,
+        const deleting = settle(
+          deleteWorkspace({ workspaceId, userId: actorId }, deleter.db),
         );
         await awaitBlocked(deleter, [holder]);
 
-        const removing = removeMember(
-          { workspaceId, actorUserId: actorId, targetUserId: targetId },
-          remover.db,
+        const removing = settle(
+          removeMember(
+            { workspaceId, actorUserId: actorId, targetUserId: targetId },
+            remover.db,
+          ),
         );
         await awaitBlocked(remover, [holder, deleter]);
 
@@ -422,7 +453,7 @@ describe.skipIf(!enabled)(
          * 🔴 **둘 다 성공하기를 기대하지 않는다.** 삭제가 먼저 끝나면 내보낼 Workspace 가
          * 사라져 `WORKSPACE_NOT_FOUND` 다 — 그것은 정상이고, 재는 것은 «교착이 없는가» 다.
          */
-        expectNoDeadlock(await Promise.allSettled([deleting, removing]));
+        expectNoDeadlock(await Promise.all([deleting, removing]));
       } finally {
         await disconnect(holder, deleter, remover);
       }
@@ -454,26 +485,67 @@ describe.skipIf(!enabled)(
         // 🔴 셋째 OWNER 를 쥐어 두 요청을 «같은 자리»에서 멈춰 세운다.
         await holdMemberRow(holder, workspaceId, thirdId);
 
-        const demotingSecond = changeMemberRole(
-          { workspaceId, userId: secondId, role: "MEMBER" },
-          left.db,
+        const demotingSecond = settle(
+          changeMemberRole(
+            { workspaceId, userId: secondId, role: "MEMBER" },
+            left.db,
+          ),
         );
         await awaitBlocked(left, [holder]);
 
-        const demotingFirst = changeMemberRole(
-          { workspaceId, userId: firstId, role: "MEMBER" },
-          right.db,
+        const demotingFirst = settle(
+          changeMemberRole(
+            { workspaceId, userId: firstId, role: "MEMBER" },
+            right.db,
+          ),
         );
         await awaitBlocked(right, [holder, left]);
 
         await holder.client.query("rollback");
 
         expectNoDeadlock(
-          await Promise.allSettled([demotingSecond, demotingFirst]),
+          await Promise.all([demotingSecond, demotingFirst]),
         );
       } finally {
         await disconnect(holder, left, right);
       }
+    });
+
+    /**
+     * 🔴 **`settle` 이 «만들자마자» 거절까지 받아 낸다.**
+     *
+     * 위 세 시험은 요청을 먼저 띄우고 배리어를 기다린 뒤에야 결과를 모은다. 그 사이에
+     * 거절되면 handler 가 없어 **unhandled rejection** 이 되고, 시험이 전부 통과해도
+     * vitest 는 `Errors 1` 로 job 을 실패시킨다 — 실제로 CI 에서 한 번 그렇게 됐다.
+     *
+     * 🔴 **여기서 일부러 새는 쪽을 재현하지 않는다.** 그러면 vitest 가 그 실행 전체를
+     * 빨갛게 만들어, 시험이 자기 실행을 망가뜨린다. 「나중에 붙이면 샌다」는 별도로
+     * 결정론적으로 확인했고(`unhandledRejection` 이 실제로 발생), 여기서는 **`settle` 이
+     * 그 창을 만들지 않는 쪽**만 고정한다.
+     *
+     * ## 되돌림 확인
+     *
+     * `settle` 을 그냥 통과시키거나(`(p) => p`) 성공만 받게 되돌리면 **이 시험이 던진다** —
+     * 거절이 결과 객체가 되지 못하고 그대로 올라온다.
+     */
+    it("🔴 `settle` 은 거절을 결과로 바꾼다 — 늦게 모아도 새지 않는다", async () => {
+      const rejecting = new Promise<number>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("늦게 거절"));
+        }, 5);
+      });
+
+      const captured = settle(rejecting);
+
+      // 🔴 거절이 «먼저» 일어나도록 충분히 기다린 뒤에 결과를 본다.
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      const result = await captured;
+      expect(result.status).toBe("rejected");
+      expect(settle(Promise.resolve(7))).resolves.toEqual({
+        status: "fulfilled",
+        value: 7,
+      });
     });
 
     /**
