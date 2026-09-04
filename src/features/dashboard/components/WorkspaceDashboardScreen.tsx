@@ -256,7 +256,22 @@ export async function WorkspaceDashboardScreen({
         )}
       </Section>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      {/*
+ 🔴 **두 단으로 갈리는 자리를 `lg`(1024) 가 아니라 `xl`(1280) 로 둔다.**
+
+ `lg` 에서 갈리면 각 단이 **341px** 인데, 한 단으로 서는 900px 창에서는 **579px** 다 —
+ 창을 넓혔는데 섹션이 좁아진다. 그 폭에서 `AUTHENTICATED_ACTOR_SPOOFING` 같은
+ Pattern Key 가 실제로 잘려 나갔다(실측 5건).
+
+ ```
+ 창    1280  1152  1024 | 900
+ 섹션   461   405   341 | 579
+                    ^^^ 여기만 아래보다 좁다
+ ```
+
+ `xl` 에서 각 단은 470px 로, 가장 긴 Pattern Key 도 잘리지 않는다.
+      */}
+      <div className="grid gap-5 xl:grid-cols-2">
         <Section title={t.patterns.title} variant="raised" bleed>
           {dashboard.frequentPatterns.length === 0 ? (
             <SectionEmpty
@@ -271,8 +286,21 @@ export async function WorkspaceDashboardScreen({
                   className="flex items-center gap-3 px-5 py-2.5"
                 >
                   <div className="min-w-0 flex-1">
+                    {/*
+ 🔴 **Pattern Key 는 이 행의 «정체»다 — 좁다고 잘라 내면 행이 무엇인지 사라진다.**
+
+ 실측: 390px 에서 이 칸은 163px 인데 `AUTHENTICATED_ACTOR_SPOOFING` 같은 이름은
+ 200px 을 넘어 **39~75px 가 잘려 나갔다.** 오른쪽의 숫자는 `shrink-0` 이라 자리를
+ 내주지 않으므로, 좁아지는 것은 늘 이쪽이다.
+
+ 🔴 **`truncate` 를 통째로 걷어내지 않는다.** 넓은 화면에서는 한 줄 밀도가 이 목록의
+ 값이고, 거기서는 잘릴 일도 없다 — `sm` 부터는 오늘 그대로다.
+
+ 좁은 폭에서만 접는다. Pattern Key 는 `_` 로 이어진 식별자라 어디서 끊겨도 읽히고,
+ 아래 분류·오른쪽 숫자는 그대로 있어 행의 높이만 한 줄 늘어난다.
+                    */}
                     <p
-                      className="truncate font-mono text-xs font-medium text-foreground"
+                      className="font-mono text-xs font-medium wrap-anywhere text-foreground sm:truncate"
                       title={pattern.patternKey}
                     >
                       {pattern.patternKey}
