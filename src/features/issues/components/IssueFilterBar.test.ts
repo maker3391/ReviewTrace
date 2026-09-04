@@ -55,24 +55,40 @@ const labels = {
   reset: "초기화",
 } as const;
 
-function render(): string {
+function render(
+  overrides: {
+    repositories?: { id: string; fullName: string }[];
+    repositoryId?: string;
+  } = {},
+): string {
   return renderToStaticMarkup(
     createElement(IssueFilterBar, {
       basePath: "/w/acme/p/smil/issues" as never,
       filter: {
         q: "",
-        repositoryId: "ALL",
+        repositoryId: overrides.repositoryId ?? "ALL",
         severity: "ALL",
         category: "ALL",
         status: "ALL",
         page: 1,
         pageSize: 25,
       } as never,
-      repositories: [{ id: "repo-1", fullName: "acme/smil-be" }],
+      repositories: overrides.repositories ?? [
+        { id: "repo-1", fullName: "acme/smil-be" },
+      ],
       labels,
     }),
   );
 }
+
+/**
+ * 🔴 **선택된 값이 «길 때»가 이 배치의 시험대다.**
+ *
+ * `w-fit` 은 내용만큼 넓어지므로, 고른 저장소 이름이 길면 묶음이 부모를 밀어 화면이
+ * 가로로 스크롤할 수 있다. 폭을 잡는 것은 두 겹이다 — 묶음의 `max-w-full` 과 Trigger
+ * 자신의 고정 폭(`sm:w-56`) + `line-clamp-1`.
+ */
+const LONG_REPOSITORY = `acme/${"very-long-repository-name-".repeat(4)}end`;
 
 describe("IssueFilterBar toolbar layout", () => {
   it("검색부터 초기화까지를 «한 덩어리»로 감싸 그 묶음만 가운데 세운다", () => {
@@ -101,6 +117,14 @@ describe("IssueFilterBar toolbar layout", () => {
     expect(groupClass).toContain("items-end");
     // 도구 사이 간격은 form 이 아니라 이 묶음이 갖는다 — 옮기면서 잃지 않았다.
     expect(groupClass).toContain("gap-3");
+    /*
+ 🔴 **있어야 할 것만 보면 «무효로 만드는 것»을 놓친다.** `w-full` 은 `w-fit` 을 덮어
+ 묶음이 늘 부모 폭이 되게 하고, `mx-0` 는 `mx-auto` 를 지운다 — 둘 중 하나만 들어와도
+ 가운데 배치가 조용히 꺼지는데 위의 `toContain` 들은 그대로 통과한다.
+    */
+    const tokens = groupClass.split(" ");
+    expect(tokens).not.toContain("w-full");
+    expect(tokens.some((token) => /^mx-\d/.test(token))).toBe(false);
 
     // 그 묶음이 form 의 유일한 자식이다 — 도구 중 일부만 가운데로 가지 않는다.
     expect(markup.endsWith("</div></form>")).toBe(true);
@@ -173,9 +197,52 @@ describe("IssueFilterBar toolbar layout", () => {
 
     // 검색은 «지금 유효한지»를 늘 말한다 — 오류가 없을 때도 `false` 로 서 있다.
     expect(markup).toContain('aria-invalid="false"');
-    // 조회는 «지금 도는 중인지»를 말한다. 정지 상태에서도 속성 자체는 남는다.
-    expect(markup).toMatch(/aria-busy="(true|false)"/);
+    /*
+ 🔴 **`true|false` 를 허용하면 «늘 도는 중»도 통과한다.** 갓 그린 화면은 아직 아무것도
+ 조회하지 않았으므로 정확히 `false` 다 — 그러지 않으면 낭독기가 계속 「바쁨」을 읽는다.
+    */
+    expect(markup).toContain('aria-busy="false"');
+    expect(markup).not.toContain('aria-busy="true"');
     // 저장소 Select 는 이름표를 갖는다 — 그러지 않으면 「콤보 상자」로만 읽힌다.
     expect(markup).toContain(`aria-label="${labels.repository}"`);
+  });
+});
+
+/**
+ * 🔴 **긴 이름이 묶음을 밀지 못하게 하는 것은 «두 겹»이다.**
+ *
+ * 묶음의 `max-w-full` 이 부모를 상한으로 삼고, 저장소 Trigger 자신이 `sm:w-56` 으로
+ * 서서 넓은 화면에서도 자라지 않으며, 넘치는 글자는 `line-clamp-1` 로 그 안에서 잘린다.
+ *
+ * 🔴 **여기서 «고른 이름»을 그려 확인할 수는 없다.** Radix Select 는 정적 렌더에서
+ * 선택된 값의 글자를 내지 않는다(hydration 뒤에 채운다) — 그래서 이 시험이 붙드는 것은
+ * **폭을 잡는 장치가 제자리에 있는가**까지다. 실제로 밀리는지는 브라우저로 잰다.
+ */
+describe("긴 저장소 이름을 담을 자리", () => {
+  it("폭을 잡는 세 장치가 함께 서 있다", () => {
+    const markup = render({
+      repositories: [{ id: "repo-long", fullName: LONG_REPOSITORY }],
+      repositoryId: "repo-long",
+    });
+
+    const groupClass =
+      /^<form [^>]*>\s*<div class="([^"]*)">/.exec(markup)?.[1] ?? "";
+    expect(groupClass).toContain("max-w-full");
+    expect(markup).toContain("sm:w-56");
+    expect(markup).toContain("line-clamp-1");
+  });
+
+  it("저장소 목록이 길어져도 다른 Filter 의 폭 규칙은 그대로다", () => {
+    const markup = render({
+      repositories: [
+        { id: "repo-long", fullName: LONG_REPOSITORY },
+        { id: "repo-2", fullName: "acme/second" },
+      ],
+    });
+
+    // 심각도·분류·상태·검색은 데이터와 무관하게 같은 폭이다.
+    for (const width of ["sm:w-64", "sm:w-56", "sm:w-52", "sm:w-40"]) {
+      expect(markup, width).toContain(width);
+    }
   });
 });

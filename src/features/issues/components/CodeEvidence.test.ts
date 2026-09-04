@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -550,6 +551,41 @@ describe("Code Evidence diff semantics", () => {
     expect(additions[0]?.mark).toBe("+");
   });
 
+  /**
+   * 🔴 **색을 내는 자리가 «셋»이다 — 하나만 살아 있어도 markup 전체 검색은 통과한다.**
+   *
+   * 역할 알약 · 줄번호 gutter · 코드 위의 띠. 어느 하나가 색을 잃으면 화면에서 반쪽만
+   * 칠해지는데, `markup.toContain("bg-diff-deletion")` 은 나머지 둘이 공급해 초록이다.
+   * 그래서 **각각을 따로 골라** 확인한다.
+   */
+  it("🔴 알약·gutter·코드 띠 세 자리가 «각각» 삭제 색을 갖는다", async () => {
+    const markup = await pair(
+      "const value = oldValue;",
+      "const value = newValue;",
+    );
+
+    // 알약 — 역할(Before fix)을 담은 조각.
+    const badge = markup.slice(0, markup.indexOf("Before fix"));
+    expect(badge).toContain("bg-diff-deletion text-diff-deletion-foreground");
+
+    // gutter — `data-change-kind="deletion"` 을 단 `<li>` 자신의 class.
+    const gutter = /<li class="([^"]*)" data-change-kind="deletion">/u.exec(markup);
+    expect(gutter).not.toBeNull();
+    expect(gutter?.[1]).toContain("bg-diff-deletion");
+
+    /*
+ 코드 띠 — `pre` 안에 절대 배치로 깔리는 `span`. 🔴 이것이 없으면 코드 줄 자체는
+ 색이 없고 왼쪽 번호만 빨개진다.
+    */
+    const stripes = [
+      ...markup.matchAll(
+        /<span aria-hidden="true" class="(pointer-events-none absolute[^"]*)"/gu,
+      ),
+    ].map((match) => match[1] ?? "");
+    expect(stripes.some((cls) => cls.includes("bg-diff-deletion"))).toBe(true);
+    expect(stripes.some((cls) => cls.includes("bg-diff-addition"))).toBe(true);
+  });
+
   it("🔴 삭제 색이 검증(MISMATCH) 색과 같은 토큰이 아니다", async () => {
     const markup = await pair(
       "const value = oldValue;",
@@ -639,5 +675,65 @@ describe("Code Evidence diff semantics", () => {
     expect(markup).toContain("hljs-");
     expect(markup).toContain("bg-diff-deletion");
     expect(markup).toContain('data-change-kind="deletion"');
+  });
+});
+
+/**
+ * 🔴 **class 이름이 맞아도 «그 이름이 가리키는 색»이 되돌아갈 수 있다.**
+ *
+ * 이 결함의 실제 원인은 삭제가 `destructive` 를 **알파 8%** 로 빌려 쓴 것이었다.
+ * component 시험은 class 문자열만 보므로, 토큰 정의가 다시 낮은 알파나 `destructive`
+ * alias 로 바뀌어도 전부 초록이다 — 그래서 **정의 자체**를 여기서 붙든다.
+ *
+ * 🔴 **이것은 「보이는가」를 재지 못한다.** jsdom 은 CSS 변수를 계산하지 않는다 —
+ * 실제 대비는 브라우저 computed style 로 잰다(light·dark 양쪽).
+ */
+describe("diff 색 토큰의 정의", () => {
+  const css = readFileSync("src/app/globals.css", "utf8");
+
+  it("삭제와 추가가 각각 «자기» 토큰을 갖는다", () => {
+    for (const token of [
+      "--color-diff-deletion:",
+      "--color-diff-deletion-foreground:",
+      "--color-diff-addition:",
+      "--color-diff-addition-foreground:",
+    ]) {
+      expect(css, token).toContain(token);
+    }
+  });
+
+  it("🔴 light·dark 양쪽에 정의되고 알파를 쓰지 않는다", () => {
+    const values = [...css.matchAll(/--diff-(deletion|addition)(-foreground)?:\s*([^;]+);/gu)];
+    // light 4개 + dark 4개.
+    expect(values).toHaveLength(8);
+
+    for (const match of values) {
+      const value = (match[3] ?? "").trim();
+      // 🔴 `oklch(L C H)` 형태다 — 슬래시가 있으면 알파를 섞은 것이고, 그때 한쪽이 묻힌다.
+      expect(value, value).toMatch(/^oklch\(/u);
+      expect(value, value).not.toContain("/");
+      // 🔴 다른 토큰을 가리키지 않는다 — `destructive` 를 빌려 쓰던 것이 이 결함이었다.
+      expect(value, value).not.toContain("var(");
+    }
+  });
+
+  it("🔴 삭제와 추가의 밝기가 서로 가깝다", () => {
+    /** `--diff-<name>: oklch(L …)` 의 L 만 모은다. light·dark 두 개가 나온다. */
+    const lightness = (name: string) =>
+      css
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith(`--diff-${name}: oklch(`))
+        .map((line) => Number(line.split("oklch(")[1]?.split(" ")[0]));
+
+    const deletion = lightness("deletion");
+    const addition = lightness("addition");
+    expect(deletion).toHaveLength(2);
+    expect(addition).toHaveLength(2);
+
+    // 같은 지위의 두 상태다 — 한쪽만 어두우면 그쪽이 먼저 눈에서 사라진다.
+    deletion.forEach((value, index) => {
+      expect(Math.abs(value - (addition[index] ?? 0))).toBeLessThanOrEqual(0.05);
+    });
   });
 });
