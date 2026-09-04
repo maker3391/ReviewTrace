@@ -302,4 +302,47 @@ describe.skipIf(!enabled)("Issue 목록의 쪽 나누기 (실제 PostgreSQL)", (
       expect(result.items).toHaveLength(41);
     });
   });
+
+  /**
+   * 🔴 **정렬의 «1차» 기준은 `firstDetectedAt` 내림차순이다 — 최근에 발견된 것이 먼저다.**
+   *
+   * 위의 tie-breaker 시험은 시각을 전부 같게 두어서 `id` 내림차순만 증명한다. 그것만으로는
+   * **1차 기준이 뒤집혀도 초록**이라, 시각이 서로 «다른» 경우를 따로 본다.
+   *
+   * ## 되돌림 확인
+   *
+   * `issue-query.ts` 의 `desc(firstDetectedAt)` 를 `asc(...)` 로 되돌리면 이 시험이
+   * 실패한다 — 가장 오래된 것이 첫 줄에 온다.
+   */
+  it("🔴 발견 시각이 다르면 최근 것이 먼저 온다", async () => {
+    await inRollback(async (tx) => {
+      const fixture = await seed(tx);
+
+      // 하루씩 벌려 세 건. 시각이 다르므로 `id` 는 정렬에 끼어들지 않는다.
+      const days = ["2026-09-01", "2026-09-02", "2026-09-03"];
+      for (const day of days) {
+        await tx.insert(reviewIssues).values({
+          workspaceId: fixture.workspaceId,
+          repositoryId: fixture.repositoryId,
+          reviewSessionId: fixture.reviewSessionId,
+          title: day,
+          severity: "HIGH" as const,
+          category: "CONCURRENCY" as const,
+          firstDetectedAt: new Date(`${day}T00:00:00Z`),
+        });
+      }
+
+      const result = await findIssues(
+        { workspaceId: fixture.workspaceId, projectId: fixture.projectId },
+        filterFor(fixture.repositoryId, 1),
+        tx,
+      );
+
+      expect(result.items.map((issue) => issue.title)).toEqual([
+        "2026-09-03",
+        "2026-09-02",
+        "2026-09-01",
+      ]);
+    });
+  });
 });
