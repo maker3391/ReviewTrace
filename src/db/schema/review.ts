@@ -335,6 +335,35 @@ export const issueActivities = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+
+    /**
+     * 그 Issue 안에서 이 행위가 **몇 번째인가**. 1 부터 센다.
+     *
+     * ## 🔴 `created_at` 은 순서를 말하지 못한다
+     *
+     * `defaultNow()` 는 PostgreSQL `now()` 이고 그것은 **transaction 시작 시각**이다.
+     * 한 transaction 이 같은 Issue 에 Activity 를 둘 넣으면 **50ms 를 쉬어도 같은 값**을
+     * 받는다(실측: `distinct_times = 1 / rows = 2`). 그러면 `ORDER BY created_at` 은
+     * 두 행의 상대 순서를 정하지 못하고, 같은 화면을 두 번 열 때 순서가 달라질 수 있다.
+     *
+     * 🔴 **`id` 를 tiebreaker 로 쓰지 않는다.** `defaultRandom()` UUID 라 결정론은 얻지만
+     * 그것은 **틀린 순서를 «안정적으로» 보여 주는 것**일 뿐이다.
+     *
+     * ## 역할을 섞지 않는다
+     *
+     * - `ordinal` — **순서**의 정본. 질의는 이것으로 정렬한다
+     * - `created_at` — 사람에게 **보여 주는 시각**. 표시는 계속 이것을 쓴다
+     *
+     * ## 🔴 아직 `NULL` 을 허용한다 — 배포 순서 때문이다
+     *
+     * 이 Column 을 더하는 Migration 이 운영에 적용되는 시점과 그것을 «채우는» 코드가
+     * 배포되는 시점 사이에는 창이 있다(Vercel 은 push 에 자동 배포하고 Migration 은 사람이
+     * 누른다). 그 사이에 들어오는 행은 이 칸을 비운 채 저장된다 — `NOT NULL` 로 잠그면
+     * 그 창에서 **모든 Activity INSERT 가 실패**한다.
+     *
+     * 채우는 코드가 배포되고 남은 `NULL` 이 정리된 뒤에 `NOT NULL` 로 좁힌다.
+     */
+    ordinal: integer("ordinal"),
   },
   (table) => [
     // Issue 상세의 History 타임라인.
@@ -342,6 +371,25 @@ export const issueActivities = pgTable(
       table.reviewIssueId,
       table.createdAt,
     ),
+    /**
+     * 🔴 **같은 Issue 안에서 순번이 겹치지 않는다 — 그것을 Database 가 보증한다.**
+     *
+     * 순번을 애플리케이션이 「지금 최대값 + 1」로 계산하는 한, 두 transaction 이 같은
+     * 최대값을 읽는 창이 반드시 있다. 그 경쟁을 막는 것은 코드가 아니라 이 unique 다 —
+     * 진 쪽이 조용히 같은 번호를 쓰는 대신 **실패**한다.
+     *
+     * 🔴 **`WHERE ordinal IS NOT NULL` 이 「NULL 을 허용하려고」 붙은 것이 아니다.**
+     * PostgreSQL 의 unique 는 기본이 `NULLS DISTINCT` 라, 절이 없어도 비어 있는 행
+     * 여럿은 서로 다른 값으로 취급돼 걸리지 않는다 — 절을 뺀 index 로 시험을 돌려
+     * 확인했고 **한 건도 빨개지지 않았다.**
+     *
+     * 붙인 이유는 다른 것이다. 이 unique 가 말하는 계약은 「순번이 있는 행끼리 겹치지
+     * 않는다」이고, 계약이 미치지 않는 행을 index 안에 두지 않으려는 것이다 — 위 Column
+     * 주석의 창에서 들어온 행이 그렇다.
+     */
+    uniqueIndex("issue_activities_issue_ordinal_unique")
+      .on(table.reviewIssueId, table.ordinal)
+      .where(sql`${table.ordinal} is not null`),
     /**
      * 「이 문제를 몇 번 다시 만났는가」 전용.
      *
